@@ -109,6 +109,7 @@ def separate_header(hls_code, top=None):
     func_decl = False
     sig_str = "#ifndef KERNEL_H\n"
     sig_str += "#define KERNEL_H\n\n"
+    sig_str += "#include <ap_int.h>\n\n"
     args = []
     for line in hls_code.split("\n"):
         if line.startswith(f"void {top}"):

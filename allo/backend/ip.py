@@ -16,17 +16,21 @@ allo2c_type = {
     "int16": "int16_t",
     "int32": "int",
     "int64": "int64_t",
+    "int128": "Int128",
     # bitwidth larger than 64 is not supported by numpy+pybind11
     "uint1": "bool",
     "uint8": "uint8_t",
     "uint16": "uint16_t",
     "uint32": "unsigned int",
     "uint64": "uint64_t",
+    "uint128": "Int128",
 }
 
 c2allo_type = {v: k for k, v in allo2c_type.items()}
 c2allo_type["int32_t"] = "int32"
 c2allo_type["uint32_t"] = "uint32"
+c2allo_type["ap_int<128>"] = "int128"
+c2allo_type["ap_uint<128>"] = "uint128"
 
 
 class IPModule:
@@ -46,12 +50,12 @@ class IPModule:
             include_paths = []
         self.include_paths = include_paths + [self.abs_path]
         if link_hls:
-            if os.system("which vivado_hls >> /dev/null") == 0:
+            if os.system("which vivado_hls >> /dev/null 2>&1") == 0:
                 self.include_paths.append(
                     "/".join(os.popen("which vivado_hls").read().split("/")[:-2])
                     + "/include"
                 )
-            elif os.system("which vitis_hls >> /dev/null") == 0:
+            elif os.system("which vitis_hls >> /dev/null 2>&1") == 0:
                 self.include_paths.append(
                     "/".join(os.popen("which vitis_hls").read().split("/")[:-2])
                     + "/include"
@@ -83,6 +87,9 @@ class IPModule:
             out_str += f'#include "{header}"\n'
         # Add source headers
         out_str += "\nnamespace py = pybind11;\n\n"
+        # Add customized data types
+        out_str += "struct Int128 { char f0, f1, f2, f3, f4, f5, f6, f7,\n"
+        out_str += "                     f8, f9, f10, f11, f12, f13, f14, f15; };\n\n"
         # Generate function interface
         out_str += f"void {self.lib_name}(\n"
         for i, (arg_type, _) in enumerate(self.args):
@@ -100,20 +107,40 @@ class IPModule:
             if len(arg_shape) > 2:
                 raise RuntimeError("Only support 1D and 2D arrays for now")
             resolved_type = allo2c_type.get(arg_type)
-            out_str += f"  {resolved_type} *p_arg{i} = ({resolved_type} *)buf{i}.ptr;\n"
+            out_str += f"  {resolved_type} *p_arg{i} = static_cast<{resolved_type} *>(buf{i}.ptr);\n"
             if len(arg_shape) == 1:
                 in_ptrs.append(f"p_arg{i}")
             else:
                 out_str += f"  {resolved_type} (*p_arg{i}_2d)[{arg_shape[-1]}] = "
                 out_str += f"reinterpret_cast<{resolved_type} (*)[{arg_shape[-1]}]>(p_arg{i});\n"
                 in_ptrs.append(f"p_arg{i}_2d")
+            # cast data if bitwidth larger than 64
+            if arg_type in ["int128", "uint128"]:
+                out_str += f"  ap_int<128>* pp_arg{i} = new ap_int<128>[buf{i}.size];\n"
+                out_str += f"  for (int i = 0; i < buf{i}.size; ++i) {{\n"
+                out_str += f"    pp_arg{i}[i] = 0;\n"
+                for byte in range(16):
+                    out_str += f"    pp_arg{i}[i].range({byte*8}, {(byte+1)*8-1}) = p_arg{i}[i].f{byte};\n"
+                out_str += "  }\n"
+                in_ptrs[-1] = f"pp_arg{i}"
         # function call
         out_str += "\n"
         out_str += f"  {self.top}({', '.join(in_ptrs)});\n"
+        # Copy back data if bitwidth larger than 64
+        if arg_type in ["int128", "uint128"]:
+            for i, (arg_type, arg_shape) in enumerate(self.args):
+                out_str += f"  for (int i = 0; i < buf{i}.size; ++i) {{\n"
+                for byte in range(16):
+                    out_str += f"    p_arg{i}[i].f{byte} = pp_arg{i}[i].range({byte*8}, {(byte+1)*8-1});\n"
+                out_str += "  }\n"
         # Return
         out_str += "}\n\n"
         # Add pybind11 wrapper
         out_str += f"\nPYBIND11_MODULE({self.lib_name}, m) {{\n"
+        out_str += f"  PYBIND11_NUMPY_DTYPE(Int128, f0, f1, f2, f3, f4, f5, f6, f7,\n"
+        out_str += (
+            f"                               f8, f9, f10, f11, f12, f13, f14, f15);\n"
+        )
         out_str += f'  m.def("{self.top}", &{self.lib_name}, "{self.top} wrapper");\n'
         out_str += "}\n"
         with open(self.c_wrapper_file, "w", encoding="utf-8") as f:
