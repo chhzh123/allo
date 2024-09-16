@@ -328,7 +328,7 @@ initialize and write the intermediate buffer back to output tensor.</p>
           %3 = affine.load %alloc_0[%arg4] : memref&lt;1024xf32&gt;
           %4 = arith.addf %3, %2 : f32
           affine.store %4, %alloc_0[%arg4] : memref&lt;1024xf32&gt;
-        } {loop_name = &quot;j&quot;, pipeline_ii = 1 : i32}
+        } {loop_name = &quot;j&quot;, pipeline_ii = 1 : ui32}
       } {loop_name = &quot;k&quot;, op_name = &quot;S_k_0&quot;, reduction}
       affine.for %arg3 = 0 to 1024 {
         %0 = affine.load %alloc_0[%arg3] : memref&lt;1024xf32&gt;
@@ -464,7 +464,7 @@ with II=1.</p>
 <p class="admonition-title">Note</p>
 <p>The results are also printed to a file named <code class="docutils literal notranslate"><span class="pre">report.json</span></code> for further analysis.</p>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.282 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.269 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-gallery-tutorial-02-vhls-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../_downloads/861a23b0676093686f50a5f922fc6363/tutorial_02_vhls.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">tutorial_02_vhls.ipynb</span></code></a></p>
