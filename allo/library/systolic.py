@@ -27,9 +27,7 @@ from .._mlir.dialects.affine import AffineExpr
 import re
 
 
-def PE_kernel[
-    TyA, TyB, TyC, K: int32, Mt: int32, Nt: int32
-](
+def PE_kernel[TyA, TyB, TyC, K: int32, Mt: int32, Nt: int32](
     A_in: "TyA[K]",
     B_in: "TyB[K]",
     A_out: "TyA[K]",
@@ -49,9 +47,7 @@ def PE_kernel[
     C[i, j] = v
 
 
-def PE_kernel_packed_int4xint8[
-    K: int32, Mt: int32, Nt: int32
-](
+def PE_kernel_packed_int4xint8[K: int32, Mt: int32, Nt: int32](
     A_in: "int8[K]",  # not bit-packed
     B_in: "int8[K]",  # bit-packed, each element is 4 bits
     A_out: "int8[K]",
@@ -88,9 +84,7 @@ def PE_kernel_packed_int4xint8[
     C[i, j] = v
 
 
-def PE_kernel_packed_int8xint8[
-    K: int32, Mt: int32, Nt: int32
-](
+def PE_kernel_packed_int8xint8[K: int32, Mt: int32, Nt: int32](
     A_in: "int8[K]",  # not bit-packed
     B_in: "int16[K]",  # bit-packed, each element is 8 bits
     A_out: "int8[K]",
@@ -128,9 +122,9 @@ def PE_kernel_packed_int8xint8[
     C[i, j] = v
 
 
-def systolic_tile[
-    TyA, TyB, TyC, K: int32, Mt: int32, Nt: int32
-](A: "TyA[Mt, K]", B: "TyB[K, Nt]", C: "TyC[Mt, Nt]"):
+def systolic_tile[TyA, TyB, TyC, K: int32, Mt: int32, Nt: int32](
+    A: "TyA[Mt, K]", B: "TyB[K, Nt]", C: "TyC[Mt, Nt]"
+):
     A_fifo: TyA[Mt, Nt + 1, K]
     B_fifo: TyB[Nt, Mt + 1, K]
     A_drain: TyA[Mt]
@@ -159,9 +153,30 @@ def systolic_tile[
             B_drain[n] = B_fifo[n, Mt, k]
 
 
-def systolic[
-    TyA, TyB, TyC, M: int32, K: int32, N: int32, Mt: int32, Nt: int32
-](A: "TyA[M, K]", B: "TyB[K, N]", C: "TyC[M, N]"):
+def load_A_tile[TyA, M: int32, K: int32, Mt: int32](
+    A: "TyA[M, K]", local_A: "TyA[Mt, K]", mi: index
+):
+    for ak, ai in dsl.grid(K, Mt, name="load_A_tile"):
+        local_A[ai, ak] = A[mi * Mt + ai, ak]
+
+
+def load_B_tile[TyB, K: int32, N: int32, Nt: int32](
+    B: "TyB[K, N]", local_B: "TyB[K, Nt]", ni: index
+):
+    for bk, bj in dsl.grid(K, Nt, name="load_B_tile"):
+        local_B[bk, bj] = B[bk, ni * Nt + bj]
+
+
+def store_C_tile[TyC, Mt: int32, Nt: int32](
+    local_C: "TyC[Mt, Nt]", C: "TyC[M, N]", mi: index, ni: index
+):
+    for sj, si in dsl.grid(Nt, Mt, name="store_C_tile"):
+        C[mi * Mt + si, ni * Nt + sj] = local_C[si, sj]
+
+
+def systolic[TyA, TyB, TyC, M: int32, K: int32, N: int32, Mt: int32, Nt: int32](
+    A: "TyA[M, K]", B: "TyB[K, N]", C: "TyC[M, N]"
+):
     local_A: TyA[Mt, K]
     local_B: TyB[K, Nt]
     local_C: TyC[Mt, Nt]
@@ -170,23 +185,15 @@ def systolic[
     for mi, ni in dsl.grid(M // Mt, N // Nt, name="outer_tile"):
         # reversed traversal, better for cascading systolic arrays with FIFOs
         # corresponds to the order of the previous `store_C_tile` output
-        for ak, ai in dsl.grid(K, Mt, name="load_A_tile"):
-            # reuse along the ni dimension
-            if ni == 0:
-                local_A[ai, ak] = A[mi * Mt + ai, ak]
-        for bk, bj in dsl.grid(K, Nt, name="load_B_tile"):
-            # reuse along the mi dimension
-            # since the inner access order is different from the outer one,
-            # we cannot cache as a line buffer
-            local_B[bk, bj] = B[bk, ni * Nt + bj]
+        load_A_tile[TyA, M, K, Mt](A, local_A, mi)
+        load_B_tile[TyB, K, N, Nt](B, local_B, ni)
         systolic_tile[TyA, TyB, TyC, K, Mt, Nt](
             local_A,
             local_B,
             local_C,
         )
         # reversed traversal, better for cascading systolic arrays with FIFOs
-        for sj, si in dsl.grid(Nt, Mt, name="store_C_tile"):
-            C[mi * Mt + si, ni * Nt + sj] = local_C[si, sj]
+        store_C_tile[TyC, Mt, Nt](local_C, C, mi, ni)
 
 
 def packed_systolic[
@@ -245,7 +252,9 @@ def packed_int8xint8_systolic[
     Mt: int32,
     Nt: int32,
     P: int32,  # packing factor
-](A: "Int(8 * P)[M // P, K]", B: "Int(8 * P)[K, N // P]", C: "Int(8 * P)[M // P, N]"):
+](
+    A: "Int(8 * P)[M // P, K]", B: "Int(8 * P)[K, N // P]", C: "Int(8 * P)[M // P, N]"
+):
     local_A: int8[Mt, K]
     local_B: int16[K, Nt // 2]
     local_C: int32[Mt, Nt // 2]
@@ -304,17 +313,17 @@ def schedule_systolic(s):
     s.partition(s.local_C, dim=0)  # required, otherwise it will fail dataflow checking
     s.partition(s.local_A, dim=1)
     s.partition(s.local_B, dim=2)
-    load_A_loop = s.get_loops(s.top_func_name)["outer_tile"]["ai"]
+    load_A_loop = s.get_loops("load_A_tile")["load_A_tile"]["ai"]
     if str(load_A_loop.loop.attributes["upperBoundMap"]) == "affine_map<() -> (1)>":
-        load_A_loop = s.get_loops(s.top_func_name)["outer_tile"]["ak"]
+        load_A_loop = s.get_loops("load_A_tile")["load_A_tile"]["ak"]
     s.pipeline(load_A_loop)
-    load_B_loop = s.get_loops(s.top_func_name)["outer_tile"]["bj"]
+    load_B_loop = s.get_loops("load_B_tile")["load_B_tile"]["bj"]
     if str(load_B_loop.loop.attributes["upperBoundMap"]) == "affine_map<() -> (1)>":
-        load_B_loop = s.get_loops(s.top_func_name)["outer_tile"]["bk"]
+        load_B_loop = s.get_loops("load_B_tile")["load_B_tile"]["bk"]
     s.pipeline(load_B_loop)
-    store_C_loop = s.get_loops(s.top_func_name)["outer_tile"]["si"]
+    store_C_loop = s.get_loops("store_C_tile")["store_C_tile"]["si"]
     if str(store_C_loop.loop.attributes["upperBoundMap"]) == "affine_map<() -> (1)>":
-        store_C_loop = s.get_loops(s.top_func_name)["outer_tile"]["sj"]
+        store_C_loop = s.get_loops("store_C_tile")["store_C_tile"]["sj"]
     s.pipeline(store_C_loop)
     tile_loop = s.get_loops(s.top_func_name)["outer_tile"]["ni"]
     s.dataflow(tile_loop)
