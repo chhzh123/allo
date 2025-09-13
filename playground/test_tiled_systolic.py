@@ -8,12 +8,12 @@ def test_linear():
 
     # L, D = 512, 768
     # M0, M1 = 16, 16
-    L, D = 8, 8
-    M0, M1 = 2, 2
-    # L, D = 64, 64
+    # L, D = 8, 8
+    # M0, M1 = 2, 2
+    # L, D = 512, 512
     # M0, M1 = 16, 16
-    # L, D = 1024, 1024
-    # M0, M1 = 16, 16
+    L, D = 1024, 1024
+    M0, M1 = 16, 16
     W_A = np.random.randint(-4, 4, size=(D, D)).astype(np.int8)
     allo_C = np.zeros((L, D), dtype=np.int8)
 
@@ -34,10 +34,16 @@ def test_linear():
     s.dataflow("top")
     hls_mod = s.build(
         target="vitis_hls",
-        mode="hw_emu",
-        project=f"single_{L}x{D}_tile_{M0}x{M1}_fixed.prj",
+        mode="hw",
+        project=f"single_{L}x{D}_tile_{M0}x{M1}_csyn_pipeline.prj",
     )
     hls_mod(X, W_A, allo_C)
+    # hls_mod = s.build(
+    #     target="vitis_hls",
+    #     mode="csyn",
+    #     project=f"single_{L}x{D}_tile_{M0}x{M1}_csyn_pipeline.prj",
+    # )
+    # hls_mod()
     np_C = X @ W_A
     np.testing.assert_allclose(allo_C, np_C, atol=1e-3)
     print("Passed!")
