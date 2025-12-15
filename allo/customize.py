@@ -1240,7 +1240,32 @@ class Schedule:
                 func_args=self.func_args,
                 wrap_io=wrap_io,
             )
-        raise NotImplementedError(f"Target {target} is not supported")
+        # Try to load an extensible backend from the backend folder
+        import importlib
+
+        try:
+            backend_module = importlib.import_module(f".backend.{target}", package="allo")
+        except ImportError as e:
+            raise NotImplementedError(
+                f"Target '{target}' is not supported. "
+                f"To add a custom backend, create 'allo/backend/{target}.py' "
+                f"with a 'build' function."
+            ) from e
+        if not hasattr(backend_module, "build"):
+            raise NotImplementedError(
+                f"Backend module 'allo/backend/{target}.py' does not have a 'build' function. "
+                f"Please define a 'build(module, top_func_name, ext_libs, mode, project, configs, func_args, wrap_io)' function."
+            )
+        return backend_module.build(
+            module=self.module,
+            top_func_name=self.top_func_name,
+            ext_libs=self.ext_libs,
+            mode=mode,
+            project=project,
+            configs=configs,
+            func_args=self.func_args,
+            wrap_io=wrap_io,
+        )
 
 
 def customize(
