@@ -197,17 +197,33 @@ class ASTTransformer(ASTBuilder):
     ):
         if len(shape) == 0:
             return dtype.build()
+
+        # Resolve symbolic shape values from global_vars
+        resolved_shape = []
+        for s in shape:
+            if s == Ellipsis:
+                resolved_shape.append(ShapedType.get_dynamic_size())
+            elif isinstance(s, int):
+                resolved_shape.append(s)
+            else:
+                # Try to resolve symbolic value from context
+                if hasattr(s, '__name__') and s.__name__ in ctx.global_vars:
+                    resolved_value = ctx.global_vars[s.__name__]
+                    if isinstance(resolved_value, int):
+                        resolved_shape.append(resolved_value)
+                    else:
+                        raise TypeError(f"Shape parameter {s.__name__} must resolve to an integer, got {type(resolved_value)}")
+                else:
+                    raise TypeError(f"Shape parameter must be an integer or resolvable symbol, got {type(s)}: {s}")
+
         if not ctx.enable_tensor:
-            shape = [
-                ShapedType.get_dynamic_size() if s == Ellipsis else s for s in shape
-            ]
             mem_space_attr = None
             if memory_space is not None and memory_space > 0:
                 mem_space_attr = IntegerAttr.get(
                     IntegerType.get_signless(32), memory_space
                 )
-            return MemRefType.get(shape, dtype.build(), layout, mem_space_attr)
-        return RankedTensorType.get(shape, dtype.build())
+            return MemRefType.get(resolved_shape, dtype.build(), layout, mem_space_attr)
+        return RankedTensorType.get(resolved_shape, dtype.build())
 
     @staticmethod
     def build_array(
