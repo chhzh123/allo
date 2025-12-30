@@ -13,10 +13,11 @@ from ._mlir.ir import (
     UnitAttr,
     StringAttr,
     FunctionType,
+    TypeAttr,
     MemRefType,
     Type,
 )
-from ._mlir.dialects import func as func_d, allo as allo_d
+from ._mlir.dialects import func as func_d, allo as allo_d, memref as memref_d
 from ._mlir.passmanager import PassManager as mlir_pass_manager
 from .customize import customize as _customize, Schedule
 from .utils import parse_kernel_name, construct_kernel_name
@@ -55,7 +56,9 @@ def move_stream_to_interface(
     stream_info = {}
     if with_extra_info:
         extra_stream_info = {}
-    funcs = get_all_df_kernels(s)
+    # For hierarchical dataflow, only process top-level kernels
+    # Region-internal kernels will be processed separately within their region
+    funcs = get_all_df_kernels(s, include_nested=False)
     new_func_args = s.func_args.copy()
     if with_stream_type:
         stream_types_dict: dict[str, Type] = {}
@@ -294,7 +297,8 @@ def _build_top(s, stream_info, target="vitis_hls", get_parameter_list: bool = Fa
     remove_unused_func_ops(s, stream_info.keys())
 
     # create argument mapping
-    funcs = get_all_df_kernels(s)
+    # For hierarchical dataflow, only include top-level kernels (exclude region-internal kernels)
+    funcs = get_all_df_kernels(s, include_nested=False)
     input_types = []
     input_signed = ""
     arg_mapping = {}
@@ -417,6 +421,194 @@ def region():
     return actual_decorator
 
 
+def _build_hierarchical_regions(s, target="vitis_hls"):
+    """
+    Build dataflow orchestration for hierarchical region functions.
+    Each region function should call its internal kernels with proper stream connections.
+    Also updates the calling sites to pass proper arguments.
+    """
+    # Group kernels by their parent region
+    region_kernels = {}
+    all_kernels = get_all_df_kernels(s, include_nested=True)
+
+    for kernel in all_kernels:
+        if "df.parent_region" in kernel.attributes:
+            parent_id = kernel.attributes["df.parent_region"].value
+            if parent_id not in region_kernels:
+                region_kernels[parent_id] = []
+            region_kernels[parent_id].append(kernel)
+
+    # Store region signatures for later use when updating call sites
+    region_signatures = {}
+
+    # For each region, build its dataflow body
+    for region_id, kernels in region_kernels.items():
+        # Find the region function (e.g., comm_0, comm_1)
+        # We need to identify region functions - they are the ones that are NOT kernels
+        # and match the naming pattern
+        region_func = None
+        for op in s.module.body.operations:
+            if isinstance(op, func_d.FuncOp):
+                func_name = op.attributes["sym_name"].value
+                # Region functions have the pattern: name_id (e.g., comm_0, comm_1)
+                # and don't have df.kernel attribute
+                if "df.kernel" not in op.attributes and func_name.endswith(f"_{region_id}"):
+                    region_func = op
+                    break
+
+        if region_func is None:
+            continue
+
+        # Collect all memref arguments from internal kernels
+        # and rebuild the region function signature
+        kernel_args = []
+        arg_types = []
+        for kernel in kernels:
+            for arg in kernel.arguments:
+                # Only add memref arguments (not streams)
+                if "!allo.stream" not in str(arg.type):
+                    arg_types.append(arg.type)
+                    kernel_args.append(arg)
+
+        # Store signature for this region
+        region_func_name = region_func.attributes["sym_name"].value
+        region_signatures[region_func_name] = arg_types
+
+        # Rebuild the region function with proper signature
+        with s.module.context, Location.unknown():
+            # Create new function with correct signature
+            func_name = region_func.attributes["sym_name"].value
+            new_func_type = FunctionType.get(arg_types, [])
+
+            # Create a new function to replace the old one
+            new_region_func = func_d.FuncOp(
+                name=func_name,
+                type=new_func_type,
+                ip=InsertionPoint(region_func.operation)
+            )
+            new_region_func.add_entry_block()
+
+            # Copy attributes except function_type, and update itypes/otypes
+            for attr_name, attr_value in region_func.attributes.items():
+                if attr_name not in ["function_type", "sym_name", "itypes", "otypes"]:
+                    new_region_func.attributes[attr_name] = attr_value
+
+            # Set correct itypes and otypes based on new signature
+            # Each memref argument gets '_' for itypes (input type signedness)
+            # Region functions have no outputs, so otypes is empty
+            new_region_func.attributes["itypes"] = StringAttr.get("_" * len(arg_types))
+            new_region_func.attributes["otypes"] = StringAttr.get("")
+
+            # Erase old function and use new one
+            region_func.operation.erase()
+            region_func = new_region_func
+            new_block = region_func.entry_block
+
+        # Process streams for this region's kernels
+        region_stream_info = {}
+        for kernel in kernels:
+            kernel_name = kernel.attributes["sym_name"].value
+            region_stream_info[kernel_name] = []
+
+            # Find stream operations in this kernel
+            for op in kernel.entry_block.operations:
+                if isinstance(op, allo_d.StreamConstructOp):
+                    stream_name = op.attributes["name"].value
+                    # Determine direction based on get/put operations
+                    for use in op.result.uses:
+                        if isinstance(use.owner, allo_d.StreamGetOp):
+                            direction = "in"
+                        elif isinstance(use.owner, allo_d.StreamPutOp):
+                            direction = "out"
+                        else:
+                            continue
+                        # Avoid duplicates
+                        if (stream_name, direction) not in region_stream_info[kernel_name]:
+                            region_stream_info[kernel_name].append((stream_name, direction))
+
+        with s.module.context, Location.unknown(), InsertionPoint(new_block):
+            # Create stream construct operations
+            stream_map = {}
+            for kernel_name, streams in region_stream_info.items():
+                for stream_name, _ in streams:
+                    if stream_name not in stream_map:
+                        # Get stream type from one of the kernels
+                        for kernel in kernels:
+                            for op in kernel.entry_block.operations:
+                                if isinstance(op, allo_d.StreamConstructOp) and op.attributes["name"].value == stream_name:
+                                    new_stream_op = allo_d.StreamConstructOp(op.result.type)
+                                    new_stream_op.attributes["name"] = op.attributes["name"]
+                                    stream_map[stream_name] = new_stream_op
+                                    break
+                            if stream_name in stream_map:
+                                break
+
+            # Call each kernel with only the region's memref arguments
+            # Streams are not passed as arguments - kernels access them from parent scope
+            arg_idx = 0
+            for kernel in kernels:
+                kernel_name = kernel.attributes["sym_name"].value
+                call_args = []
+                # Add only memref arguments from region function
+                for arg in kernel.arguments:
+                    if "!allo.stream" not in str(arg.type):
+                        call_args.append(new_block.arguments[arg_idx])
+                        arg_idx += 1
+
+                func_d.CallOp(
+                    [],
+                    FlatSymbolRefAttr.get(kernel_name),
+                    call_args
+                )
+
+            # Add return
+            func_d.ReturnOp([])
+
+        # Mark as dataflow
+        with s.module.context:
+            region_func.attributes["dataflow"] = UnitAttr.get()
+
+    # Now update all call sites to region functions
+    # Find all functions that call region functions and update their calls
+    for op in s.module.body.operations:
+        if isinstance(op, func_d.FuncOp):
+            # Look for CallOp operations in this function
+            if not hasattr(op, 'entry_block') or op.entry_block is None:
+                continue
+
+            ops_to_replace = []
+            for block_op in op.entry_block.operations:
+                if isinstance(block_op, func_d.CallOp):
+                    callee_name = block_op.attributes["callee"].value
+                    # Check if this is calling a region function
+                    if callee_name in region_signatures:
+                        ops_to_replace.append((block_op, callee_name))
+
+            # Update call sites
+            for old_call_op, callee_name in ops_to_replace:
+                arg_types = region_signatures[callee_name]
+
+                with s.module.context, Location.unknown():
+                    # Allocate memref buffers before the call
+                    allocated_args = []
+                    for arg_type in arg_types:
+                        # Insert allocation before the call
+                        with InsertionPoint(old_call_op.operation):
+                            alloc_op = memref_d.AllocOp(arg_type, [], [])
+                            allocated_args.append(alloc_op.result)
+
+                    # Create new call with arguments
+                    with InsertionPoint(old_call_op.operation):
+                        func_d.CallOp(
+                            [],
+                            FlatSymbolRefAttr.get(callee_name),
+                            allocated_args
+                        )
+
+                    # Erase old call
+                    old_call_op.operation.erase()
+
+
 def df_primitive_default(s):
     df_pipeline(s.module, rewind=True)
 
@@ -424,6 +616,10 @@ def df_primitive_default(s):
 def customize(func, enable_tensor=False, opt_default=False):
     global_vars = get_global_vars(func)
     s = _customize(func, global_vars=global_vars, enable_tensor=enable_tensor)
+
+    # Process hierarchical regions: build dataflow for region functions
+    _build_hierarchical_regions(s, enable_tensor)
+
     stream_info = move_stream_to_interface(s)
     s = _build_top(s, stream_info, enable_tensor)
 

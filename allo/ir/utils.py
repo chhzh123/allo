@@ -125,10 +125,13 @@ def get_func_id_from_param_types(param_types):
     return None
 
 
-def get_all_df_kernels(s):
+def get_all_df_kernels(s, include_nested=True):
     funcs = []
     for func in s.module.body.operations:
         if isinstance(func, func_d.FuncOp) and "df.kernel" in func.attributes:
+            # For hierarchical dataflow, optionally exclude region-internal kernels
+            if not include_nested and "df.parent_region" in func.attributes:
+                continue
             funcs.append(func)
     return funcs
 

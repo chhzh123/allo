@@ -145,6 +145,9 @@ def separate_header(hls_code, top=None):
             break
         elif func_decl:
             arg_type = line.strip()
+            # Skip empty lines (happens with functions that have no parameters)
+            if not arg_type:
+                continue
             _, var = arg_type.rsplit(" ", 1)
             comma = "," if var[-1] == "," else ""
             ele_type = arg_type.split("[")[0].split(" ")[0].strip()

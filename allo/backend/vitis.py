@@ -307,13 +307,15 @@ def codegen_host(top, module):
     )
     out_str += "\n\n"
     assert len(outputs) <= 1, "Only support one output for now"
-    if len(outputs) == 0:
-        out_buf = "source_in" + str(len(inputs) - 1)
-    else:
-        out_buf = "source_out" + str(len(outputs) - 1)
-        # raise RuntimeError("TODO: output is not the last argument")
-    out_str += format_str(
-        f"""    // Write the output data to file
+    # Only write output file if there are inputs or outputs
+    if len(inputs) > 0 or len(outputs) > 0:
+        if len(outputs) == 0:
+            out_buf = "source_in" + str(len(inputs) - 1)
+        else:
+            out_buf = "source_out" + str(len(outputs) - 1)
+            # raise RuntimeError("TODO: output is not the last argument")
+        out_str += format_str(
+            f"""    // Write the output data to file
     std::ofstream ofile;
     ofile.open("output.data", std::ios::binary);
     if (!ofile) {{
@@ -323,9 +325,9 @@ def codegen_host(top, module):
     ofile.write(reinterpret_cast<const char*>({out_buf}.data()), {buffer_bytes[-1]});
     ofile.close();
     """,
-        strip=False,
-        indent=0,
-    )
+            strip=False,
+            indent=0,
+        )
     out_str += format_str("return EXIT_SUCCESS;", strip=False)
     out_str += "}\n"
     return out_str
@@ -358,6 +360,10 @@ def postprocess_hls_code(hls_code, top=None, pragma=True):
                     out_str += f"  #pragma HLS interface m_axi port={arg} offset=slave bundle=gmem{i}\n"
         elif func_decl:
             if pragma:
+                # Skip empty lines (happens with functions that have no parameters)
+                if not line.strip():
+                    out_str += line + "\n"
+                    continue
                 dtype, var = line.strip().rsplit(" ", 1)
                 comma = "," if var[-1] == "," else ""
                 if "[" in var:  # array

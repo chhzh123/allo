@@ -773,6 +773,14 @@ class TypeInferer(ASTVisitor):
         with ctx.block_scope_guard():
             # Input types
             for arg in node.args.args:
+                # Skip type checking for region parameters (they are just constants)
+                if arg.annotation is None:
+                    # For hierarchical dataflow regions, parameters without annotations
+                    # are treated as constants and should be in global_vars
+                    if arg.arg in ctx.global_vars:
+                        # This is a region parameter, skip it
+                        continue
+                    raise RuntimeError(f"Argument '{arg.arg}' in function '{node.name}' has no type annotation")
                 arg.dtype, arg.shape, arg.spec = TypeInferer.visit_type_hint(
                     ctx, arg.annotation
                 )
@@ -1162,7 +1170,12 @@ class TypeInferer(ASTVisitor):
         else:
             # Visit arguments in the top-level
             visit_stmts(ctx, node.args)
-            src, starting_line_no = inspect.getsourcelines(func)
+            # Handle hierarchical dataflow regions: if the function has .mappings attribute,
+            # it's a region and we need to use the original unwrapped function
+            src_func = func
+            if hasattr(func, "mappings") and hasattr(func, "__wrapped__"):
+                src_func = func.__wrapped__
+            src, starting_line_no = inspect.getsourcelines(src_func)
             src = [textwrap.fill(line, tabsize=4, width=9999) for line in src]
             src = textwrap.dedent("\n".join(src))
             tree = parse_ast(
@@ -1170,6 +1183,19 @@ class TypeInferer(ASTVisitor):
             )
             # Create a new context to avoid name collision
             func_ctx = ctx.copy()
+            # If the function has .mappings attribute, it's a region and its parameters
+            # should be treated as constants
+            if hasattr(func, "mappings"):
+                # Get the function definition to extract parameter names
+                func_def = tree.body[0] if tree.body and isinstance(tree.body[0], ast.FunctionDef) else None
+                if func_def:
+                    # Map parameter names to call argument values
+                    for param, arg in zip(func_def.args.args, node.args):
+                        # Resolve the argument value
+                        arg_val = ASTResolver.resolve(arg, ctx.global_vars)
+                        if arg_val is not None:
+                            # Add parameter as a constant in the region's context
+                            func_ctx.global_vars[param.arg] = arg_val
             stmts = visit_stmts(func_ctx, tree.body)
             # Attach type-inferenced tree to the top-level AST
             node.tree = tree

@@ -1847,6 +1847,8 @@ class ASTTransformer(ASTBuilder):
                                 ctx.global_vars,
                             )
                             orig_name = node.name
+                            # For hierarchical dataflow regions, incorporate func_id into kernel name
+                            base_name = orig_name if ctx.func_id is None else f"{orig_name}_{ctx.func_id}"
                             if orig_name not in ctx.func_tag2instance:
                                 ctx.func_tag2instance[orig_name] = {}
                             for dim in np.ndindex(*mapping):
@@ -1871,11 +1873,14 @@ class ASTTransformer(ASTBuilder):
                                     new_ctx.global_vars.update(
                                         {"df.p" + str(axis): val}
                                     )
-                                node.name = construct_kernel_name(orig_name, dim)
+                                node.name = construct_kernel_name(base_name, dim)
                                 func_op = ASTTransformer.build_FunctionDef(
                                     new_ctx, node
                                 )
                                 func_op.attributes["df.kernel"] = UnitAttr.get()
+                                # Mark kernels that belong to a hierarchical region
+                                if ctx.func_id is not None:
+                                    func_op.attributes["df.parent_region"] = StringAttr.get(f"{ctx.func_id}")
                                 if not ctx.unroll:
                                     func_op.attributes["tag"] = StringAttr.get(
                                         f"{orig_name}_{str(predicate_tag)}"
@@ -1903,6 +1908,10 @@ class ASTTransformer(ASTBuilder):
         input_types = []
         input_typehints = []
         for i, arg in enumerate(node.args.args):
+            # Skip region parameters (they don't have dtype/shape attributes)
+            if not hasattr(arg, 'dtype'):
+                # This is a region parameter (constant), skip it
+                continue
             if (
                 len(ctx.call_args) > 0
                 and isinstance(ctx.call_args[i].type, MemRefType)
@@ -2855,14 +2864,44 @@ class ASTTransformer(ASTBuilder):
             ASTTransformer.get_mlir_op_result(ctx, stmt)
             for stmt in build_stmts(ctx, node.args)
         ]
+        # Handle hierarchical dataflow regions: assign unique func_id based on parameters
+        if hasattr(func, "mappings") and ctx.func_id is None:
+            # Get the constant parameter values for this region call
+            param_values = tuple(ASTResolver.resolve(arg, ctx.global_vars) for arg in node.args)
+            # Use func_name2id to track different instantiations
+            func_dict = ctx.func_name2id.setdefault(obj_name, {})
+            func_id = None
+            for key, value in func_dict.items():
+                if value == param_values:
+                    func_id = key
+                    break
+            if func_id is None:
+                # For regions, always use a numeric ID (starting from 0)
+                func_id = len(func_dict)
+                func_dict[func_id] = param_values
+            ctx.func_id = func_id
         func_name = obj_name if ctx.func_id is None else f"{obj_name}_{ctx.func_id}"
         if func_name not in ctx.global_vars or not isinstance(
             ctx.global_vars[func_name], func_d.FuncOp
         ):  # function not built yet
             # Create a new context to avoid name collision
+            # NOTE: func_id is inherited by func_ctx via copy()
             func_ctx = ctx.copy()
             func_ctx.call_args = new_args
             func_ctx.set_ip(ctx.top_func)
+            # Handle hierarchical dataflow regions: if the function has .mappings attribute,
+            # add region parameters to the context as constants
+            if hasattr(func, "mappings") and hasattr(node, "tree"):
+                # Get the function definition to extract parameter names
+                func_def = node.tree.body[0] if node.tree.body and isinstance(node.tree.body[0], ast.FunctionDef) else None
+                if func_def:
+                    # Map parameter names to call argument values
+                    for param, arg in zip(func_def.args.args, node.args):
+                        # Resolve the argument value
+                        arg_val = ASTResolver.resolve(arg, ctx.global_vars)
+                        if arg_val is not None:
+                            # Add parameter as a constant in the region's context
+                            func_ctx.global_vars[param.arg] = arg_val
             stmts = build_stmts(func_ctx, node.tree.body)
             func_ctx.pop_ip()
             func_ctx.call_args = []
@@ -2882,10 +2921,12 @@ class ASTTransformer(ASTBuilder):
             stmts = [ctx.global_vars[func_name]]
 
         # Build call function in the top-level
+        # For hierarchical dataflow regions, don't pass region parameters as arguments
+        call_args = [] if hasattr(func, "mappings") else new_args
         call_op = func_d.CallOp(
             stmts[-1].type.results,
             FlatSymbolRefAttr.get(func_name),
-            new_args,
+            call_args,
             ip=ctx.get_ip(),
         )
         ctx.func_id = original_func_id
