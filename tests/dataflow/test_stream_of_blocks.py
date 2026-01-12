@@ -50,6 +50,7 @@ def test_2d_blocks():
     # Test with HLS backend
     if hls.is_available("vitis_hls"):
         with tempfile.TemporaryDirectory() as tmpdir:
+            B = np.zeros((M * NUM_BLOCKS, N), dtype=np.int16)
             mod = df.build(
                 test_stream_2d_blocks,
                 target="vitis_hls",
