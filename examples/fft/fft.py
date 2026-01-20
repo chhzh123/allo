@@ -150,7 +150,8 @@ def test_fft(N=8):
 
     # Build and run the FFT
     top = get_fft_top(N)
-    sim_mod = df.build(top, target="simulator")
+    sim_mod = df.build(top, target="vitis_hls", mode="sw_emu", project="fft")
+    # sim_mod = df.build(top, target="simulator")
 
     print("Running simulator...")
     sim_mod(inp_real, inp_imag, out_real, out_imag)
