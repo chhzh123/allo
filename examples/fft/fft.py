@@ -4,28 +4,19 @@
 # HP-FFT: High-Performance FFT Implementation using Allo Dataflow
 # Based on the HP-FFT paper architecture using Cooley-Tukey radix-2 DIT algorithm
 
-# This implementation uses a multi-stage pipelined dataflow architecture where:
-# - Each stage contains N/2 butterfly units computing in parallel
-# - Stages are connected via stream interfaces (FIFOs)
-# - Data is reordered using bit-reversal permutation
-
-# This version is parameterized for power-of-2 FFT sizes
-
 import os
 from math import log2, cos, sin, pi
-from pathlib import Path
-import tempfile
-import importlib.util
 
 import allo
-from allo.ir.types import float32, int32, Stream
+from allo.ir.types import float32, int32, Stream, ConstExpr
 import allo.dataflow as df
 import allo.backend.hls as hls
 import numpy as np
 
 
-def bit_reverse(x: int, bits: int) -> int:
-    """Reverse the bits of x for bit-reversal permutation."""
+def bit_reverse(x, bits):
+    """Reverse the bits of x for bit-reversal permutation.
+    Called at Python level during meta expansion."""
     result = 0
     for i in range(bits):
         if x & (1 << i):
@@ -33,183 +24,142 @@ def bit_reverse(x: int, bits: int) -> int:
     return result
 
 
-def compute_twiddle(k: int, N: int) -> tuple:
-    """Compute twiddle factor W_N^k = exp(-2*pi*j*k/N)."""
-    angle = -2.0 * pi * k / N
-    return (cos(angle), sin(angle))
+def get_upper_idx(stage, butterfly):
+    """Get upper index for butterfly at given stage."""
+    span = 1 << stage
+    group_size = span << 1
+    group = butterfly // span
+    pos_in_group = butterfly % span
+    return group * group_size + pos_in_group
 
 
-def generate_fft_module(N: int, output_path: str = None):
+def get_lower_idx(stage, butterfly):
+    """Get lower index for butterfly at given stage."""
+    return get_upper_idx(stage, butterfly) + (1 << stage)
+
+
+def get_tw_real(stage, butterfly, N):
+    """Compute real part of twiddle factor."""
+    span = 1 << stage
+    group_size = span << 1
+    pos_in_group = butterfly % span
+    tw_idx = pos_in_group * (N // group_size)
+    angle = -2.0 * pi * tw_idx / N
+    return cos(angle)
+
+
+def get_tw_imag(stage, butterfly, N):
+    """Compute imaginary part of twiddle factor."""
+    span = 1 << stage
+    group_size = span << 1
+    pos_in_group = butterfly % span
+    tw_idx = pos_in_group * (N // group_size)
+    angle = -2.0 * pi * tw_idx / N
+    return sin(angle)
+
+
+def get_fft_top(N):
     """
-    Generate an N-point FFT module as a Python source file.
+    Generate an N-point FFT dataflow region.
 
     N must be a power of 2.
 
-    Returns the path to the generated file.
+    Architecture:
+    - log2(N) stages of butterfly computations
+    - Each stage has N/2 butterfly units
+    - Streams connect stages for pipelined execution
+    - Bit-reversal permutation at input
     """
     assert N > 0 and (N & (N - 1)) == 0, "N must be a power of 2"
 
     LOG2_N = int(log2(N))
     HALF_N = N // 2
 
-    # Pre-compute bit-reversal indices
-    bit_rev_indices = [bit_reverse(i, LOG2_N) for i in range(N)]
+    @df.region()
+    def top(
+        inp_real: float32[N],
+        inp_imag: float32[N],
+        out_real: float32[N],
+        out_imag: float32[N],
+    ):
+        # Streams between stages [stage, point_index]
+        stage_real: Stream[float32, 4][LOG2_N + 1, N]
+        stage_imag: Stream[float32, 4][LOG2_N + 1, N]
 
-    # Pre-compute butterfly indices for each stage
-    butterfly_indices = []
-    for s in range(LOG2_N):
-        span = 1 << s
-        group_size = span << 1
-        stage_butterflies = []
-        for b in range(HALF_N):
-            group = b // span
-            pos_in_group = b % span
-            upper_idx = group * group_size + pos_in_group
-            lower_idx = upper_idx + span
-            tw_idx = pos_in_group * (N // group_size)
-            tw = compute_twiddle(tw_idx, N)
-            stage_butterflies.append((upper_idx, lower_idx, tw[0], tw[1]))
-        butterfly_indices.append(stage_butterflies)
+        @df.kernel(mapping=[N], args=[inp_real, inp_imag])
+        def input_loader(local_inp_real: float32[N], local_inp_imag: float32[N]):
+            """Load input with bit-reversal permutation."""
+            idx = df.get_pid()
+            # meta_for unrolls, idx takes values 0..N-1
+            # bit_reverse(i, LOG2_N) is called at Python level
+            with allo.meta_for(N) as i:
+                with allo.meta_if(idx == i):
+                    val_real: float32 = local_inp_real[i]
+                    val_imag: float32 = local_inp_imag[i]
+                    # bit_reverse call in stream index - evaluated at Python level
+                    stage_real[0, bit_reverse(i, LOG2_N)].put(val_real)
+                    stage_imag[0, bit_reverse(i, LOG2_N)].put(val_imag)
 
-    # Generate the module code
-    code_lines = [
-        "# Auto-generated HP-FFT module",
-        f"# N = {N}, LOG2_N = {LOG2_N}",
-        "",
-        "import allo",
-        "from allo.ir.types import float32, Stream",
-        "import allo.dataflow as df",
-        "",
-        "",
-        "@df.region()",
-        "def top(",
-        f"    inp_real: float32[{N}],",
-        f"    inp_imag: float32[{N}],",
-        f"    out_real: float32[{N}],",
-        f"    out_imag: float32[{N}],",
-        "):",
-    ]
+        @df.kernel(mapping=[LOG2_N, HALF_N])
+        def butterfly():
+            """Butterfly computation kernel."""
+            s, b = df.get_pid()
 
-    # Add stream declarations
-    for i in range(LOG2_N + 1):
-        code_lines.append(f"    s{i}_real: Stream[float32, 4][{N}]")
-        code_lines.append(f"    s{i}_imag: Stream[float32, 4][{N}]")
-    code_lines.append("")
+            with allo.meta_for(LOG2_N) as stage:
+                with allo.meta_if(s == stage):
+                    with allo.meta_for(HALF_N) as bf:
+                        with allo.meta_if(b == bf):
+                            # Use ConstExpr for compile-time computed values
+                            upper: ConstExpr[int32] = get_upper_idx(stage, bf)
+                            lower: ConstExpr[int32] = get_lower_idx(stage, bf)
+                            tw_r: ConstExpr[float32] = get_tw_real(stage, bf, N)
+                            tw_i: ConstExpr[float32] = get_tw_imag(stage, bf, N)
 
-    # Add input_loader kernel
-    code_lines.extend(
-        [
-            "    @df.kernel(mapping=[1], args=[inp_real, inp_imag])",
-            f"    def input_loader(local_inp_real: float32[{N}], local_inp_imag: float32[{N}]):",
-            "        # Load input with bit-reversal permutation",
-        ]
-    )
-    for idx in range(N):
-        rev_idx = bit_rev_indices[idx]
-        code_lines.append(f"        s0_real[{idx}].put(local_inp_real[{rev_idx}])")
-        code_lines.append(f"        s0_imag[{idx}].put(local_inp_imag[{rev_idx}])")
-    code_lines.append("")
+                            # Read from current stage
+                            a_real: float32 = stage_real[stage, upper].get()
+                            a_imag: float32 = stage_imag[stage, upper].get()
+                            b_real: float32 = stage_real[stage, lower].get()
+                            b_imag: float32 = stage_imag[stage, lower].get()
 
-    # Add stage kernels
-    for s in range(LOG2_N):
-        code_lines.extend(
-            [
-                f"    @df.kernel(mapping=[{HALF_N}])",
-                f"    def stage{s}():",
-                "        b = df.get_pid()",
-            ]
-        )
-        for b, (upper_idx, lower_idx, tw_real, tw_imag) in enumerate(
-            butterfly_indices[s]
-        ):
-            code_lines.extend(
-                [
-                    f"        with allo.meta_if(b == {b}):",
-                    f"            a_real: float32 = s{s}_real[{upper_idx}].get()",
-                    f"            a_imag: float32 = s{s}_imag[{upper_idx}].get()",
-                    f"            b_real: float32 = s{s}_real[{lower_idx}].get()",
-                    f"            b_imag: float32 = s{s}_imag[{lower_idx}].get()",
-                    f"            bw_real: float32 = b_real * {tw_real:.16f} - b_imag * {tw_imag:.16f}",
-                    f"            bw_imag: float32 = b_real * {tw_imag:.16f} + b_imag * {tw_real:.16f}",
-                    f"            s{s+1}_real[{upper_idx}].put(a_real + bw_real)",
-                    f"            s{s+1}_imag[{upper_idx}].put(a_imag + bw_imag)",
-                    f"            s{s+1}_real[{lower_idx}].put(a_real - bw_real)",
-                    f"            s{s+1}_imag[{lower_idx}].put(a_imag - bw_imag)",
-                ]
-            )
-        code_lines.append("")
+                            # Complex multiply: bw = b * twiddle
+                            bw_real: float32 = b_real * tw_r - b_imag * tw_i
+                            bw_imag: float32 = b_real * tw_i + b_imag * tw_r
 
-    # Add output_store kernel
-    code_lines.extend(
-        [
-            "    @df.kernel(mapping=[1], args=[out_real, out_imag])",
-            f"    def output_store(local_out_real: float32[{N}], local_out_imag: float32[{N}]):",
-            "        # Store output from the final stage",
-        ]
-    )
-    for idx in range(N):
-        code_lines.append(
-            f"        local_out_real[{idx}] = s{LOG2_N}_real[{idx}].get()"
-        )
-        code_lines.append(
-            f"        local_out_imag[{idx}] = s{LOG2_N}_imag[{idx}].get()"
-        )
+                            # Butterfly: write to next stage
+                            stage_real[stage + 1, upper].put(a_real + bw_real)
+                            stage_imag[stage + 1, upper].put(a_imag + bw_imag)
+                            stage_real[stage + 1, lower].put(a_real - bw_real)
+                            stage_imag[stage + 1, lower].put(a_imag - bw_imag)
 
-    code = "\n".join(code_lines)
-    print(code)
+        @df.kernel(mapping=[N], args=[out_real, out_imag])
+        def output_store(local_out_real: float32[N], local_out_imag: float32[N]):
+            """Store output from the final stage."""
+            idx = df.get_pid()
+            with allo.meta_for(N) as i:
+                with allo.meta_if(idx == i):
+                    local_out_real[i] = stage_real[LOG2_N, i].get()
+                    local_out_imag[i] = stage_imag[LOG2_N, i].get()
 
-    # Write to file
-    if output_path is None:
-        # Use a temp directory
-        temp_dir = Path(tempfile.gettempdir()) / "allo_fft"
-        temp_dir.mkdir(exist_ok=True)
-        output_path = temp_dir / f"fft_{N}.py"
-    else:
-        output_path = Path(output_path)
-
-    with open(output_path, "w") as f:
-        f.write(code)
-
-    return str(output_path)
+    return top
 
 
-def load_fft_module(module_path: str):
-    """Load a generated FFT module and return the 'top' function."""
-    spec = importlib.util.spec_from_file_location("fft_module", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.top
-
-
-def get_fft_top(N: int):
-    """
-    Get an N-point FFT dataflow region.
-
-    This generates the FFT module code to a file and loads it.
-    """
-    module_path = generate_fft_module(N)
-    return load_fft_module(module_path)
-
-
-def test_fft(N: int = 8):
+def test_fft(N=8):
     """Test the FFT implementation against NumPy reference."""
     LOG2_N = int(log2(N))
 
     # Generate test input
     np.random.seed(42)
     inp_real = np.random.rand(N).astype(np.float32)
-    inp_imag = np.zeros(N, dtype=np.float32)  # Real input
+    inp_imag = np.zeros(N, dtype=np.float32)
 
     # Output arrays
     out_real = np.zeros(N, dtype=np.float32)
     out_imag = np.zeros(N, dtype=np.float32)
 
-    print(f"Generating {N}-point FFT module ({LOG2_N} stages)...")
+    print(f"Building {N}-point FFT ({LOG2_N} stages)...")
 
     # Build and run the FFT
     top = get_fft_top(N)
-
-    print("Building simulator...")
     sim_mod = df.build(top, target="simulator")
 
     print("Running simulator...")
@@ -264,7 +214,7 @@ if __name__ == "__main__":
         N = int(sys.argv[1])
 
     # Set number of threads based on FFT size
-    num_threads = N
+    num_threads = max(64, N * 2)
     os.environ["OMP_NUM_THREADS"] = str(num_threads)
 
     test_fft(N)
