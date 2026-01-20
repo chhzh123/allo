@@ -90,55 +90,45 @@ def get_fft_top(N):
         def input_loader(local_inp_real: float32[N], local_inp_imag: float32[N]):
             """Load input with bit-reversal permutation."""
             idx = df.get_pid()
-            # meta_for unrolls, idx takes values 0..N-1
-            # bit_reverse(i, LOG2_N) is called at Python level
-            with allo.meta_for(N) as i:
-                with allo.meta_if(idx == i):
-                    val_real: float32 = local_inp_real[i]
-                    val_imag: float32 = local_inp_imag[i]
-                    # bit_reverse call in stream index - evaluated at Python level
-                    stage_real[0, bit_reverse(i, LOG2_N)].put(val_real)
-                    stage_imag[0, bit_reverse(i, LOG2_N)].put(val_imag)
+            val_real: float32 = local_inp_real[idx]
+            val_imag: float32 = local_inp_imag[idx]
+            # bit_reverse is called with compile-time constant idx
+            stage_real[0, bit_reverse(idx, LOG2_N)].put(val_real)
+            stage_imag[0, bit_reverse(idx, LOG2_N)].put(val_imag)
 
         @df.kernel(mapping=[LOG2_N, HALF_N])
         def butterfly():
             """Butterfly computation kernel."""
             s, b = df.get_pid()
 
-            with allo.meta_for(LOG2_N) as stage:
-                with allo.meta_if(s == stage):
-                    with allo.meta_for(HALF_N) as bf:
-                        with allo.meta_if(b == bf):
-                            # Use ConstExpr for compile-time computed values
-                            upper: ConstExpr[int32] = get_upper_idx(stage, bf)
-                            lower: ConstExpr[int32] = get_lower_idx(stage, bf)
-                            tw_r: ConstExpr[float32] = get_tw_real(stage, bf, N)
-                            tw_i: ConstExpr[float32] = get_tw_imag(stage, bf, N)
+            # s and b are compile-time constants from get_pid()
+            upper: ConstExpr[int32] = get_upper_idx(s, b)
+            lower: ConstExpr[int32] = get_lower_idx(s, b)
+            tw_r: ConstExpr[float32] = get_tw_real(s, b, N)
+            tw_i: ConstExpr[float32] = get_tw_imag(s, b, N)
 
-                            # Read from current stage
-                            a_real: float32 = stage_real[stage, upper].get()
-                            a_imag: float32 = stage_imag[stage, upper].get()
-                            b_real: float32 = stage_real[stage, lower].get()
-                            b_imag: float32 = stage_imag[stage, lower].get()
+            # Read from current stage
+            a_real: float32 = stage_real[s, upper].get()
+            a_imag: float32 = stage_imag[s, upper].get()
+            b_real: float32 = stage_real[s, lower].get()
+            b_imag: float32 = stage_imag[s, lower].get()
 
-                            # Complex multiply: bw = b * twiddle
-                            bw_real: float32 = b_real * tw_r - b_imag * tw_i
-                            bw_imag: float32 = b_real * tw_i + b_imag * tw_r
+            # Complex multiply: bw = b * twiddle
+            bw_real: float32 = b_real * tw_r - b_imag * tw_i
+            bw_imag: float32 = b_real * tw_i + b_imag * tw_r
 
-                            # Butterfly: write to next stage
-                            stage_real[stage + 1, upper].put(a_real + bw_real)
-                            stage_imag[stage + 1, upper].put(a_imag + bw_imag)
-                            stage_real[stage + 1, lower].put(a_real - bw_real)
-                            stage_imag[stage + 1, lower].put(a_imag - bw_imag)
+            # Butterfly: write to next stage
+            stage_real[s + 1, upper].put(a_real + bw_real)
+            stage_imag[s + 1, upper].put(a_imag + bw_imag)
+            stage_real[s + 1, lower].put(a_real - bw_real)
+            stage_imag[s + 1, lower].put(a_imag - bw_imag)
 
         @df.kernel(mapping=[N], args=[out_real, out_imag])
         def output_store(local_out_real: float32[N], local_out_imag: float32[N]):
             """Store output from the final stage."""
             idx = df.get_pid()
-            with allo.meta_for(N) as i:
-                with allo.meta_if(idx == i):
-                    local_out_real[i] = stage_real[LOG2_N, i].get()
-                    local_out_imag[i] = stage_imag[LOG2_N, i].get()
+            local_out_real[idx] = stage_real[LOG2_N, idx].get()
+            local_out_imag[idx] = stage_imag[LOG2_N, idx].get()
 
     return top
 
