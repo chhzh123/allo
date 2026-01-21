@@ -15,7 +15,7 @@ import os
 from math import log2, cos, sin, pi
 
 import allo
-from allo.ir.types import float32, int32, Stream
+from allo.ir.types import float32, int32, Stream, ConstExpr
 import allo.dataflow as df
 import allo.backend.hls as hls
 import numpy as np
@@ -117,44 +117,77 @@ def top(
     def butterfly_stage():
         """
         Butterfly computation with partial unrolling.
-        - Outer loop: NUM_CHUNKS sequential iterations
-        - Inner loop: UF parallel butterflies (unrolled)
+        Buffers all N elements, then computes all HALF_N butterflies.
+        Inner loop processes UF butterflies in parallel (unrolled).
+
+        Key optimization: Compute butterfly indices using arithmetic instead of
+        table lookups. This allows HLS to analyze the access pattern statically
+        and achieve II=1 by proving no WAW conflicts exist.
         """
         s = df.get_pid()
 
-        # Load precomputed data for this stage
+        # Stage-dependent constants computed at compile time
+        # span = 2^s (butterfly distance), group_size = 2^(s+1)
+        span: ConstExpr[int32] = 1 << s
+        group_size: ConstExpr[int32] = span << 1
+
+        # Load precomputed twiddle factors for this stage
         tw_r: float32[HALF_N] = np_tw_real[s]
         tw_i: float32[HALF_N] = np_tw_imag[s]
-        upper: int32[HALF_N] = np_upper[s]
-        lower: int32[HALF_N] = np_lower[s]
 
-        # Process NUM_CHUNKS transfers
+        # Local buffers for full N elements (input and output separate)
+        in_r: float32[N]
+        in_i: float32[N]
+        out_r: float32[N]
+        out_i: float32[N]
+
+        # Read all chunks into input buffer
         for chunk_id in range(NUM_CHUNKS):
-            # Get CHUNK elements from stream
-            in_r: float32[CHUNK] = stage_real[s].get()
-            in_i: float32[CHUNK] = stage_imag[s].get()
-            out_r: float32[CHUNK] = 0
-            out_i: float32[CHUNK] = 0
+            tmp_r: float32[CHUNK] = stage_real[s].get()
+            tmp_i: float32[CHUNK] = stage_imag[s].get()
+            for u in range(CHUNK):
+                idx: int32 = chunk_id * CHUNK + u
+                in_r[idx] = tmp_r[u]
+                in_i[idx] = tmp_i[u]
 
+        # Compute all HALF_N butterflies
+        # Process NUM_CHUNKS groups of UF butterflies
+        for chunk_id in range(NUM_CHUNKS):
             # UF butterflies in parallel (this loop will be unrolled)
             for u in range(UF):
                 b: int32 = chunk_id * UF + u  # Global butterfly index
-                u_idx: int32 = upper[b] % CHUNK  # Local index within chunk
-                l_idx: int32 = lower[b] % CHUNK
+
+                # Compute indices directly (no table lookup)
+                # For butterfly b at stage s:
+                #   group = b >> s (since span = 2^s)
+                #   pos = b & (span - 1) (mask for lower s bits)
+                #   u_idx = group * group_size + pos
+                #   l_idx = u_idx + span
+                group: int32 = b >> s
+                pos: int32 = b & (span - 1)
+                u_idx: int32 = group * group_size + pos
+                l_idx: int32 = u_idx + span
 
                 # Complex multiply: bw = in[l] * twiddle
                 bwr: float32 = in_r[l_idx] * tw_r[b] - in_i[l_idx] * tw_i[b]
                 bwi: float32 = in_r[l_idx] * tw_i[b] + in_i[l_idx] * tw_r[b]
 
-                # Butterfly output
+                # Butterfly output (write to separate output buffer)
                 out_r[u_idx] = in_r[u_idx] + bwr
                 out_i[u_idx] = in_i[u_idx] + bwi
                 out_r[l_idx] = in_r[u_idx] - bwr
                 out_i[l_idx] = in_i[u_idx] - bwi
 
-            # Put CHUNK elements to next stage
-            stage_real[s + 1].put(out_r)
-            stage_imag[s + 1].put(out_i)
+        # Write all chunks to output stream
+        for chunk_id in range(NUM_CHUNKS):
+            buf_r: float32[CHUNK]
+            buf_i: float32[CHUNK]
+            for u in range(CHUNK):
+                idx: int32 = chunk_id * CHUNK + u
+                buf_r[u] = out_r[idx]
+                buf_i[u] = out_i[idx]
+            stage_real[s + 1].put(buf_r)
+            stage_imag[s + 1].put(buf_i)
 
     @df.kernel(mapping=[1], args=[out_real, out_imag])
     def output_store(local_out_real: float32[N], local_out_imag: float32[N]):
@@ -185,7 +218,31 @@ def test_fft():
     print(f"  CHUNK={CHUNK} elements per transfer")
     print(f"  NUM_CHUNKS={NUM_CHUNKS} sequential iterations per stage")
 
-    sim_mod = df.build(top, target="simulator")
+    # Customize to add array partitioning for II=1
+    # Partition in_r, in_i, out_r, out_i with cyclic factor=CHUNK to allow
+    # parallel memory access in the inner loops
+    s = df.customize(top)
+
+    # Partition arrays in each butterfly stage kernel
+    # The arrays are local to butterfly_stage, so we use the kernel name prefix
+    for stage in range(LOG2_N):
+        kernel_name = f"butterfly_stage_{stage}"
+        # Partition input and output buffers with cyclic factor=CHUNK
+        # This allows CHUNK parallel accesses per cycle
+        s.partition(f"{kernel_name}:in_r", dim=0, factor=CHUNK)
+        s.partition(f"{kernel_name}:in_i", dim=0, factor=CHUNK)
+        s.partition(f"{kernel_name}:out_r", dim=0, factor=CHUNK)
+        s.partition(f"{kernel_name}:out_i", dim=0, factor=CHUNK)
+
+    # Build using the customized schedule with partitioning
+    # Use s.build() for pre-customized schedules, not df.build()
+    # sim_mod = LLVMOMPModule(s.module, s.top_func_name)  # For simulator
+    sim_mod = s.build(
+        target="vitis_hls",
+        mode="hw_emu",
+        project=f"fft_{N}_uf{UF}.prj",
+        configs={"num_output_args": 2},
+    )
 
     print("Running simulator...")
     sim_mod(inp_real, inp_imag, out_real, out_imag)
