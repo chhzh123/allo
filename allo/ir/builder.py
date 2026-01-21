@@ -1017,8 +1017,25 @@ class ASTTransformer(ASTBuilder):
             conversion_enabled = idx is None
         elif hasattr(value, "np_values"):
             # - np array -> constant tensor
+            # Check if this is a subscript of a global numpy array - need to re-evaluate
+            # the slice using current context's global_vars (important for get_pid() cases
+            # where the AST node is shared across kernel instances)
+            np_values = value.np_values
+            if isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name):
+                array_name = value.value.id
+                if array_name in ctx.global_vars and isinstance(
+                    ctx.global_vars[array_name], np.ndarray
+                ):
+                    # Re-evaluate the slice with current context's global_vars
+                    np_array = ctx.global_vars[array_name]
+                    slice_expr = compile(ast.Expression(value.slice), "", "eval")
+                    # pylint: disable=eval-used
+                    slice_val = eval(slice_expr, ctx.global_vars)
+                    np_values = np_array[slice_val]
+                    if not isinstance(np_values, np.ndarray):
+                        np_values = np.array([np_values], dtype=np_array.dtype)
             rhs = ASTTransformer.build_constant_tensor(
-                ctx, target, value.np_values, dtype=target.dtype, shape=target.shape
+                ctx, target, np_values, dtype=target.dtype, shape=target.shape
             )
         else:
             # - other
