@@ -495,6 +495,19 @@ def main():
 
     del os.environ["OMP_NUM_THREADS"]
 
+    mod = df.build(
+        top,
+        target="vitis_hls",
+        mode="hw_emu",
+        project="fft_256_uf2.prj",
+        configs={"num_output_args": 2},
+    )
+    inp_real = np.random.rand(N).astype(np.float32)
+    inp_imag = np.zeros(N, dtype=np.float32)
+    out_real = np.zeros(N, dtype=np.float32)
+    out_imag = np.zeros(N, dtype=np.float32)
+    mod(inp_real, inp_imag, out_real, out_imag)
+
 
 if __name__ == "__main__":
     main()
