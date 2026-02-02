@@ -131,14 +131,21 @@ def create_fft(N: int, UF: int):
         @df.kernel(mapping=[1], args=[inp_real, inp_imag])
         def input_loader(local_inp_real: float32[N], local_inp_imag: float32[N]):
             bit_rev: int32[N] = np_bit_rev
+            buf_in_r: float32[N]
+            buf_in_i: float32[N]
+            # 1. Sequential load to enable burst
+            for i in range(N):
+                buf_in_r[i] = local_inp_real[i]
+                buf_in_i[i] = local_inp_imag[i]
+            # 2. Bit-reversal shuffle from local buffer
             for c in range(NUM_CHUNKS):
                 buf_r: float32[CHUNK]
                 buf_i: float32[CHUNK]
                 for u in range(CHUNK):
                     src: int32 = c * CHUNK + u
                     rev: int32 = bit_rev[src]
-                    buf_r[u] = local_inp_real[rev]
-                    buf_i[u] = local_inp_imag[rev]
+                    buf_r[u] = buf_in_r[rev]
+                    buf_i[u] = buf_in_i[rev]
                 intra_s_r[0].put(buf_r)
                 intra_s_i[0].put(buf_i)
 
@@ -311,8 +318,16 @@ def main():
     if args.sim_only:
         return
 
-    mod = df.build(
-        top,
+    s = df.customize(top)
+    if UF > 1:
+        # Partition internal buffers in input_loader
+        chunk_size = UF * 2
+        for buffer in ["buf_in_r", "buf_in_i"]:
+            s.partition(
+                f"input_loader_0:{buffer}", dim=0, partition_type=2, factor=chunk_size
+            )
+
+    mod = s.build(
         target="vitis_hls",
         mode="hw_emu",
         project=f"fft_{N}_uf{UF}.prj",
@@ -320,8 +335,6 @@ def main():
         wrap_io=False,
     )
     test_fft(mod, N, UF)
-
-    del os.environ["OMP_NUM_THREADS"]
 
 
 if __name__ == "__main__":
