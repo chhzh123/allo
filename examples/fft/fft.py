@@ -2,20 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-HP-FFT: High-Performance Streaming FFT (Merged Stages Version)
+HP-FFT: High-Performance Streaming FFT (Generalized Version)
 
-256-point FFT with UF=2, using stream arrays to merge stages 2-7.
+256-point FFT with configurable unroll factor (UF=1, 2, 4).
+Uses stream arrays and dynamic indexing to avoid code duplication.
+
+Architecture:
+- Intra-chunk stages: butterflies where span < CHUNK (true streaming)
+- Cross-chunk stages: butterflies where span >= CHUNK (3-phase pattern)
+
+The number of intra-chunk vs cross-chunk stages depends on UF:
+- UF=1: CHUNK=2, 1 intra-chunk stage (stage 0), 7 cross-chunk stages (1-7)
+- UF=2: CHUNK=4, 2 intra-chunk stages (0-1), 6 cross-chunk stages (2-7)
+- UF=4: CHUNK=8, 3 intra-chunk stages (0-2), 5 cross-chunk stages (3-7)
 """
 
 import os
-import sys
 import argparse
 from math import log2, cos, sin, pi
 
 import allo
 from allo.ir.types import float32, int32, Stream
 import allo.dataflow as df
-import allo.backend.hls as hls
 import numpy as np
 
 
@@ -29,13 +37,16 @@ def bit_reverse(x, bits):
 
 def create_fft(N: int, UF: int):
     """Create FFT dataflow for N-point FFT with given unroll factor."""
-    if UF != 2:
-        raise ValueError(f"Only UF=2 is currently supported. Got UF={UF}")
+    if UF not in [1, 2, 4]:
+        raise ValueError(f"UF must be 1, 2, or 4. Got UF={UF}")
 
     LOG2_N = int(log2(N))
     HALF_N = N // 2
-    CHUNK = UF * 2  # 4 elements per chunk for UF=2
-    NUM_CHUNKS = N // CHUNK  # 64 chunks for N=256
+    CHUNK = UF * 2
+    NUM_CHUNKS = N // CHUNK
+    LOG2_CHUNK = int(log2(CHUNK))  # Number of intra-chunk stages
+    NUM_INTRA = LOG2_CHUNK  # stages 0 to LOG2_CHUNK-1
+    NUM_CROSS = LOG2_N - LOG2_CHUNK  # stages LOG2_CHUNK to LOG2_N-1
 
     np_bit_rev = np.array([bit_reverse(i, LOG2_N) for i in range(N)], dtype=np.int32)
 
@@ -49,26 +60,34 @@ def create_fft(N: int, UF: int):
             tw_i[k] = sin(angle)
         return tw_r, tw_i
 
-    tw0_r, tw0_i = make_twiddles(0)  # span=1
-    tw1_r, tw1_i = make_twiddles(1)  # span=2
+    # Concatenate twiddles for all intra-chunk stages (0 to LOG2_CHUNK-1)
+    # Maximum 3 stages for UF=4: stages 0, 1, 2
+    intra_tw_r = np.concatenate([make_twiddles(s)[0] for s in range(LOG2_CHUNK)])
+    intra_tw_i = np.concatenate([make_twiddles(s)[1] for s in range(LOG2_CHUNK)])
+    # Offsets for intra-chunk twiddles: 0, 1, 3 (for stages 0, 1, 2)
+    np_intra_offsets = np.array(
+        [sum(1 << s for s in range(k)) for k in range(LOG2_CHUNK)], dtype=np.int32
+    )
+    np_intra_spans = np.array([1 << s for s in range(LOG2_CHUNK)], dtype=np.int32)
 
-    # Concatenate all twiddles for stages 2-7 into one array
-    # Stage 2: span=4, offset=0
-    # Stage 3: span=8, offset=4
-    # Stage 4: span=16, offset=12
-    # Stage 5: span=32, offset=28
-    # Stage 6: span=64, offset=60
-    # Stage 7: span=128, offset=124
-    all_tw_r = np.concatenate([make_twiddles(s)[0] for s in range(2, 8)])
-    all_tw_i = np.concatenate([make_twiddles(s)[1] for s in range(2, 8)])
-
-    # Precompute offsets: offset[k] = sum of spans from stage 2 to stage (2+k-1)
-    # For pid=0 (stage 2): offset=0
-    # For pid=1 (stage 3): offset=4
-    # For pid=2 (stage 4): offset=4+8=12
-    # etc.
-    np_offsets = np.array([0, 4, 12, 28, 60, 124], dtype=np.int32)
-    np_spans = np.array([4, 8, 16, 32, 64, 128], dtype=np.int32)
+    # Concatenate twiddles for all cross-chunk stages (LOG2_CHUNK to LOG2_N-1)
+    cross_tw_r = np.concatenate(
+        [make_twiddles(s)[0] for s in range(LOG2_CHUNK, LOG2_N)]
+    )
+    cross_tw_i = np.concatenate(
+        [make_twiddles(s)[1] for s in range(LOG2_CHUNK, LOG2_N)]
+    )
+    # Offsets for cross-chunk twiddles
+    np_cross_offsets = np.array(
+        [
+            sum(1 << s for s in range(LOG2_CHUNK, LOG2_CHUNK + k))
+            for k in range(NUM_CROSS)
+        ],
+        dtype=np.int32,
+    )
+    np_cross_spans = np.array(
+        [1 << s for s in range(LOG2_CHUNK, LOG2_N)], dtype=np.int32
+    )
 
     @df.region()
     def top(
@@ -77,17 +96,17 @@ def create_fft(N: int, UF: int):
         out_real: float32[N],
         out_imag: float32[N],
     ):
-        # Stream arrays for cross-chunk stages (indices 0-6 for s2-s8)
-        # s_r[0]/s_i[0] = input to stage 2 (from stage 1)
-        # s_r[6]/s_i[6] = output of stage 7 (to output_store)
-        s_r: Stream[float32[CHUNK], 4][7]
-        s_i: Stream[float32[CHUNK], 4][7]
+        # Stream arrays for intra-chunk stages (indices 0 to NUM_INTRA)
+        # intra_s[0] = input from loader
+        # intra_s[NUM_INTRA] = output to cross-chunk stages
+        intra_s_r: Stream[float32[CHUNK], 4][NUM_INTRA + 1]
+        intra_s_i: Stream[float32[CHUNK], 4][NUM_INTRA + 1]
 
-        # Streams for intra-chunk stages
-        s0_r: Stream[float32[CHUNK], 4]
-        s0_i: Stream[float32[CHUNK], 4]
-        s1_r: Stream[float32[CHUNK], 4]
-        s1_i: Stream[float32[CHUNK], 4]
+        # Stream arrays for cross-chunk stages (indices 0 to NUM_CROSS)
+        # cross_s[0] = input from intra-chunk stages
+        # cross_s[NUM_CROSS] = output to output_store
+        cross_s_r: Stream[float32[CHUNK], 4][NUM_CROSS + 1]
+        cross_s_i: Stream[float32[CHUNK], 4][NUM_CROSS + 1]
 
         # Input loader with bit-reversal
         @df.kernel(mapping=[1], args=[inp_real, inp_imag])
@@ -101,71 +120,72 @@ def create_fft(N: int, UF: int):
                     rev: int32 = bit_rev[src]
                     buf_r[u] = local_inp_real[rev]
                     buf_i[u] = local_inp_imag[rev]
-                s0_r.put(buf_r)
-                s0_i.put(buf_i)
-
-        # Stage 0: span=1, butterflies (0,1) and (2,3) within chunk
-        @df.kernel(mapping=[1])
-        def stage0():
-            tw_r: float32[1] = tw0_r
-            tw_i: float32[1] = tw0_i
-            for c in range(NUM_CHUNKS):
-                ir: float32[CHUNK] = s0_r.get()
-                ii: float32[CHUNK] = s0_i.get()
-                or_out: float32[CHUNK]
-                oi_out: float32[CHUNK]
-                for u in range(UF):
-                    u_idx: int32 = u * 2
-                    l_idx: int32 = u_idx + 1
-                    wr: float32 = tw_r[0]
-                    wi: float32 = tw_i[0]
-                    bwr: float32 = ir[l_idx] * wr - ii[l_idx] * wi
-                    bwi: float32 = ir[l_idx] * wi + ii[l_idx] * wr
-                    or_out[u_idx] = ir[u_idx] + bwr
-                    oi_out[u_idx] = ii[u_idx] + bwi
-                    or_out[l_idx] = ir[u_idx] - bwr
-                    oi_out[l_idx] = ii[u_idx] - bwi
-                s1_r.put(or_out)
-                s1_i.put(oi_out)
-
-        # Stage 1: span=2, butterflies (0,2) and (1,3) within chunk
-        @df.kernel(mapping=[1])
-        def stage1():
-            tw_r: float32[2] = tw1_r
-            tw_i: float32[2] = tw1_i
-            for c in range(NUM_CHUNKS):
-                ir: float32[CHUNK] = s1_r.get()
-                ii: float32[CHUNK] = s1_i.get()
-                or_out: float32[CHUNK]
-                oi_out: float32[CHUNK]
-                for u in range(UF):
-                    u_idx: int32 = u
-                    l_idx: int32 = u + UF
-                    wr: float32 = tw_r[u]
-                    wi: float32 = tw_i[u]
-                    bwr: float32 = ir[l_idx] * wr - ii[l_idx] * wi
-                    bwi: float32 = ir[l_idx] * wi + ii[l_idx] * wr
-                    or_out[u_idx] = ir[u_idx] + bwr
-                    oi_out[u_idx] = ii[u_idx] + bwi
-                    or_out[l_idx] = ir[u_idx] - bwr
-                    oi_out[l_idx] = ii[u_idx] - bwi
-                # Output to first stream array element (input to stage 2)
-                s_r[0].put(or_out)
-                s_i[0].put(oi_out)
+                intra_s_r[0].put(buf_r)
+                intra_s_i[0].put(buf_i)
 
         # =================================================================
-        # STAGES 2-7: Merged into one kernel using stream arrays
+        # INTRA-CHUNK STAGES: True streaming, butterflies within chunk
         #
-        # Each of the 6 instances reads from s_r[pid]/s_i[pid]
-        # and writes to s_r[pid+1]/s_i[pid+1]
+        # For stage s: span = 2^s, butterflies pair elements at distance span
         # =================================================================
-        @df.kernel(mapping=[6])
+        @df.kernel(mapping=[NUM_INTRA])
+        def intra_chunk_stage():
+            pid = df.get_pid()
+            all_twiddles_r: float32[CHUNK - 1] = intra_tw_r
+            all_twiddles_i: float32[CHUNK - 1] = intra_tw_i
+            offsets: int32[NUM_INTRA] = np_intra_offsets
+            spans: int32[NUM_INTRA] = np_intra_spans
+
+            span: int32 = spans[pid]
+            tw_offset: int32 = offsets[pid]
+
+            for c in range(NUM_CHUNKS):
+                ir: float32[CHUNK] = intra_s_r[pid].get()
+                ii: float32[CHUNK] = intra_s_i[pid].get()
+                or_out: float32[CHUNK]
+                oi_out: float32[CHUNK]
+
+                # Number of butterfly groups in this stage
+                # For stage 0: groups = CHUNK/2, each group has 1 butterfly
+                # For stage 1: groups = CHUNK/4, each group has 2 butterflies
+                # Generally: num_groups = CHUNK / (2 * span)
+                for g in range(CHUNK // (span * 2)):
+                    for k in range(span):
+                        u_idx: int32 = g * (span * 2) + k
+                        l_idx: int32 = u_idx + span
+                        wr: float32 = all_twiddles_r[tw_offset + k]
+                        wi: float32 = all_twiddles_i[tw_offset + k]
+                        bwr: float32 = ir[l_idx] * wr - ii[l_idx] * wi
+                        bwi: float32 = ir[l_idx] * wi + ii[l_idx] * wr
+                        or_out[u_idx] = ir[u_idx] + bwr
+                        oi_out[u_idx] = ii[u_idx] + bwi
+                        or_out[l_idx] = ir[u_idx] - bwr
+                        oi_out[l_idx] = ii[u_idx] - bwi
+
+                intra_s_r[pid + 1].put(or_out)
+                intra_s_i[pid + 1].put(oi_out)
+
+        # Bridge: connect intra-chunk output to cross-chunk input
+        @df.kernel(mapping=[1])
+        def bridge():
+            for c in range(NUM_CHUNKS):
+                tmp_r: float32[CHUNK] = intra_s_r[NUM_INTRA].get()
+                tmp_i: float32[CHUNK] = intra_s_i[NUM_INTRA].get()
+                cross_s_r[0].put(tmp_r)
+                cross_s_i[0].put(tmp_i)
+
+        # =================================================================
+        # CROSS-CHUNK STAGES: 3-phase pattern (read all, compute, write all)
+        #
+        # Each stage reads all chunks, computes butterflies, writes all chunks
+        # =================================================================
+        @df.kernel(mapping=[NUM_CROSS])
         def cross_chunk_stage():
             pid = df.get_pid()
-            all_twiddles_r: float32[252] = all_tw_r
-            all_twiddles_i: float32[252] = all_tw_i
-            offsets: int32[6] = np_offsets
-            spans: int32[6] = np_spans
+            all_twiddles_r: float32[N - CHUNK] = cross_tw_r
+            all_twiddles_i: float32[N - CHUNK] = cross_tw_i
+            offsets: int32[NUM_CROSS] = np_cross_offsets
+            spans: int32[NUM_CROSS] = np_cross_spans
 
             buf_r: float32[N]
             buf_i: float32[N]
@@ -175,12 +195,12 @@ def create_fft(N: int, UF: int):
             # Compute stage parameters from pid
             span: int32 = spans[pid]
             tw_offset: int32 = offsets[pid]
-            shift: int32 = pid + 2  # stage number = pid + 2
+            shift: int32 = pid + LOG2_CHUNK  # stage number
 
             # Phase 1: Read all chunks from input stream
             for c in range(NUM_CHUNKS):
-                tmp_r: float32[CHUNK] = s_r[pid].get()
-                tmp_i: float32[CHUNK] = s_i[pid].get()
+                tmp_r: float32[CHUNK] = cross_s_r[pid].get()
+                tmp_i: float32[CHUNK] = cross_s_i[pid].get()
                 for u in range(CHUNK):
                     idx: int32 = c * CHUNK + u
                     buf_r[idx] = tmp_r[u]
@@ -209,14 +229,14 @@ def create_fft(N: int, UF: int):
                     idx: int32 = c * CHUNK + u
                     out_r[u] = res_r[idx]
                     out_i[u] = res_i[idx]
-                s_r[pid + 1].put(out_r)
-                s_i[pid + 1].put(out_i)
+                cross_s_r[pid + 1].put(out_r)
+                cross_s_i[pid + 1].put(out_i)
 
         @df.kernel(mapping=[1], args=[out_real, out_imag])
         def output_store(local_out_real: float32[N], local_out_imag: float32[N]):
             for c in range(NUM_CHUNKS):
-                tmp_r: float32[CHUNK] = s_r[6].get()
-                tmp_i: float32[CHUNK] = s_i[6].get()
+                tmp_r: float32[CHUNK] = cross_s_r[NUM_CROSS].get()
+                tmp_i: float32[CHUNK] = cross_s_i[NUM_CROSS].get()
                 for u in range(CHUNK):
                     idx: int32 = c * CHUNK + u
                     local_out_real[idx] = tmp_r[u]
@@ -233,7 +253,11 @@ def test_fft(mod, N, UF):
     out_imag = np.zeros(N, dtype=np.float32)
 
     LOG2_N = int(log2(N))
+    LOG2_CHUNK = int(log2(UF * 2))
     print(f"HP-FFT {N}-point ({LOG2_N} stages, UF={UF})")
+    print(
+        f"  CHUNK={UF*2}, {LOG2_CHUNK} intra-chunk stages, {LOG2_N - LOG2_CHUNK} cross-chunk stages"
+    )
 
     mod(inp_real, inp_imag, out_real, out_imag)
 
@@ -254,8 +278,8 @@ def test_fft(mod, N, UF):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HP-FFT (Merged Stages)")
-    parser.add_argument("--uf", type=int, default=2)
+    parser = argparse.ArgumentParser(description="HP-FFT (Generalized)")
+    parser.add_argument("--uf", type=int, default=2, choices=[1, 2, 4])
     parser.add_argument("--sim-only", action="store_true")
     args = parser.parse_args()
 
@@ -273,7 +297,7 @@ def main():
         top,
         target="vitis_hls",
         mode="hw_emu",
-        project=f"fft_{N}_uf{UF}_merged.prj",
+        project=f"fft_{N}_uf{UF}.prj",
         configs={"num_output_args": 2, "frequency": 250},
         wrap_io=False,
     )
