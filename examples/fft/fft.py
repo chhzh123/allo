@@ -133,16 +133,21 @@ def create_fft(N: int, UF: int):
             bit_rev: int32[N] = np_bit_rev
             buf_in_r: float32[N]
             buf_in_i: float32[N]
-            # 1. Sequential load to enable burst
-            for i in range(N):
-                buf_in_r[i] = local_inp_real[i]
-                buf_in_i[i] = local_inp_imag[i]
-            # 2. Bit-reversal shuffle from local buffer
-            for c in range(NUM_CHUNKS):
+
+            # 1. Load from memory to local buffer
+            # Split loop to allow unrolling factor = CHUNK
+            for r in range(N // CHUNK):
+                for j in range(CHUNK):
+                    idx: int32 = r * CHUNK + j
+                    buf_in_r[idx] = local_inp_real[idx]
+                    buf_in_i[idx] = local_inp_imag[idx]
+
+            # 2. Bit-reversal shuffle
+            for k in range(NUM_CHUNKS):
                 buf_r: float32[CHUNK]
                 buf_i: float32[CHUNK]
                 for u in range(CHUNK):
-                    src: int32 = c * CHUNK + u
+                    src: int32 = k * CHUNK + u
                     rev: int32 = bit_rev[src]
                     buf_r[u] = buf_in_r[rev]
                     buf_i[u] = buf_in_i[rev]
@@ -321,11 +326,18 @@ def main():
     s = df.customize(top)
     if UF > 1:
         # Partition internal buffers in input_loader
-        chunk_size = UF * 2
-        for buffer in ["buf_in_r", "buf_in_i"]:
-            s.partition(
-                f"input_loader_0:{buffer}", dim=0, partition_type=2, factor=chunk_size
-            )
+        # Complete partition to allow parallel access
+        s.partition("input_loader_0:buf_in_r", dim=0, partition_type=0)
+        s.partition("input_loader_0:buf_in_i", dim=0, partition_type=0)
+        s.partition("input_loader_0:bit_rev", dim=0, partition_type=0)
+
+        # Unroll inner loops for parallelism
+        s.unroll("input_loader_0:j")  # Load inner loop
+        s.unroll("input_loader_0:u")  # Shuffle inner loop
+
+        # Pipeline outer loops
+        s.pipeline("input_loader_0:r")
+        s.pipeline("input_loader_0:k")
 
     mod = s.build(
         target="vitis_hls",
