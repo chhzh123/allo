@@ -699,11 +699,13 @@ void inter_5_0(
   float out_re_b[32][8];	// L514
   #pragma HLS array_partition variable=out_re_b complete dim=1
 
-    #pragma HLS dependence variable=out_re_b inter false
+  #pragma HLS bind_storage variable=out_re_b type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_re_b inter false
   float out_im_b[32][8];	// L515
   #pragma HLS array_partition variable=out_im_b complete dim=1
 
-    #pragma HLS dependence variable=out_im_b inter false
+  #pragma HLS bind_storage variable=out_im_b type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_im_b inter false
   l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L516
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v394 = v383.read();
@@ -923,11 +925,13 @@ void inter_6_0(
   float out_re_b1[32][8];	// L698
   #pragma HLS array_partition variable=out_re_b1 complete dim=1
 
-    #pragma HLS dependence variable=out_re_b1 inter false
+  #pragma HLS bind_storage variable=out_re_b1 type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_re_b1 inter false
   float out_im_b1[32][8];	// L699
   #pragma HLS array_partition variable=out_im_b1 complete dim=1
 
-    #pragma HLS dependence variable=out_im_b1 inter false
+  #pragma HLS bind_storage variable=out_im_b1 type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_im_b1 inter false
   l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L700
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v537 = v526.read();
@@ -1171,11 +1175,13 @@ void inter_7_0(
   float out_re_b2[32][8];	// L904
   #pragma HLS array_partition variable=out_re_b2 complete dim=1
 
-    #pragma HLS dependence variable=out_re_b2 inter false
+  #pragma HLS bind_storage variable=out_re_b2 type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_re_b2 inter false
   float out_im_b2[32][8];	// L905
   #pragma HLS array_partition variable=out_im_b2 complete dim=1
 
-    #pragma HLS dependence variable=out_im_b2 inter false
+  #pragma HLS bind_storage variable=out_im_b2 type=ram_2p impl=lutram
+  #pragma HLS dependence variable=out_im_b2 inter false
   l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L906
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v700 = v689.read();
@@ -1410,163 +1416,85 @@ void output_stage_0(
   }
 }
 
-void load_buf0(
-  hls::stream<hls::vector<float, 32>>& v854,
-  float v855[8][32]
-) {
-  #pragma HLS array_partition variable=v855 complete dim=2
-
-  for (int _si = 0; _si < 8; _si++) {
-  #pragma HLS pipeline II=1 rewind
-    hls::vector<float, 32> _vtmp = v854.read();
-    for (int _sk = 0; _sk < 32; _sk++) {
-    #pragma HLS unroll
-      v855[_si][_sk] = _vtmp[_sk];
-    }
-  }
-}
-
-void load_buf1(
-  hls::stream<hls::vector<float, 32>>& v859,
-  float v860[8][32]
-) {
-  #pragma HLS array_partition variable=v860 complete dim=2
-
-  for (int _si = 0; _si < 8; _si++) {
-  #pragma HLS pipeline II=1 rewind
-    hls::vector<float, 32> _vtmp = v859.read();
-    for (int _sk = 0; _sk < 32; _sk++) {
-    #pragma HLS unroll
-      v860[_si][_sk] = _vtmp[_sk];
-    }
-  }
-}
-
-void store_res2(
-  float v864[8][32],
-  hls::stream<hls::vector<float, 32>>& v865
-) {
-  #pragma HLS array_partition variable=v864 complete dim=2
-
-  for (int _si = 0; _si < 8; _si++) {
-  #pragma HLS pipeline II=1 rewind
-    hls::vector<float, 32> _vtmp;
-    for (int _sk = 0; _sk < 32; _sk++) {
-    #pragma HLS unroll
-      _vtmp[_sk] = v864[_si][_sk];
-    }
-    v865.write(_vtmp);
-  }
-}
-
-void store_res3(
-  float v869[8][32],
-  hls::stream<hls::vector<float, 32>>& v870
-) {
-  #pragma HLS array_partition variable=v869 complete dim=2
-
-  for (int _si = 0; _si < 8; _si++) {
-  #pragma HLS pipeline II=1 rewind
-    hls::vector<float, 32> _vtmp;
-    for (int _sk = 0; _sk < 32; _sk++) {
-    #pragma HLS unroll
-      _vtmp[_sk] = v869[_si][_sk];
-    }
-    v870.write(_vtmp);
-  }
-}
-
 /// This is top function.
 void fft_256(
-  hls::stream<hls::vector<float, 32>>& v874,
-  hls::stream<hls::vector<float, 32>>& v875,
-  hls::stream<hls::vector<float, 32>>& v876,
-  hls::stream<hls::vector<float, 32>>& v877
+  float v854[8][32],
+  float v855[8][32],
+  float v856[8][32],
+  float v857[8][32]
 ) {	// L1101
   #pragma HLS dataflow disable_start_propagation
+  #pragma HLS array_partition variable=v854 complete dim=2
 
+  #pragma HLS array_partition variable=v855 complete dim=2
 
+  #pragma HLS array_partition variable=v856 complete dim=2
 
-
-  float buf0[8][32];	//
-  #pragma HLS array_partition variable=buf0 complete dim=2
-
-  load_buf0(v874, buf0);	//
-  float buf1[8][32];	//
-  #pragma HLS array_partition variable=buf1 complete dim=2
-
-  load_buf1(v875, buf1);	//
-  float buf2[8][32];	//
-  #pragma HLS array_partition variable=buf2 complete dim=2
-
-  float buf3[8][32];	//
-  #pragma HLS array_partition variable=buf3 complete dim=2
+  #pragma HLS array_partition variable=v857 complete dim=2
 
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v882;
-  #pragma HLS stream variable=v882 depth=2	// L1102
+  hls::stream< hls::vector< float, 32 > > v858;
+  #pragma HLS stream variable=v858 depth=2	// L1102
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v883;
-  #pragma HLS stream variable=v883 depth=2	// L1103
+  hls::stream< hls::vector< float, 32 > > v859;
+  #pragma HLS stream variable=v859 depth=2	// L1103
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v884;
-  #pragma HLS stream variable=v884 depth=2	// L1104
+  hls::stream< hls::vector< float, 32 > > v860;
+  #pragma HLS stream variable=v860 depth=2	// L1104
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v885;
-  #pragma HLS stream variable=v885 depth=2	// L1105
+  hls::stream< hls::vector< float, 32 > > v861;
+  #pragma HLS stream variable=v861 depth=2	// L1105
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v886;
-  #pragma HLS stream variable=v886 depth=2	// L1106
+  hls::stream< hls::vector< float, 32 > > v862;
+  #pragma HLS stream variable=v862 depth=2	// L1106
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v887;
-  #pragma HLS stream variable=v887 depth=2	// L1107
+  hls::stream< hls::vector< float, 32 > > v863;
+  #pragma HLS stream variable=v863 depth=2	// L1107
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v888;
-  #pragma HLS stream variable=v888 depth=2	// L1108
+  hls::stream< hls::vector< float, 32 > > v864;
+  #pragma HLS stream variable=v864 depth=2	// L1108
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v889;
-  #pragma HLS stream variable=v889 depth=2	// L1109
+  hls::stream< hls::vector< float, 32 > > v865;
+  #pragma HLS stream variable=v865 depth=2	// L1109
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v890;
-  #pragma HLS stream variable=v890 depth=2	// L1110
+  hls::stream< hls::vector< float, 32 > > v866;
+  #pragma HLS stream variable=v866 depth=2	// L1110
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v891;
-  #pragma HLS stream variable=v891 depth=2	// L1111
+  hls::stream< hls::vector< float, 32 > > v867;
+  #pragma HLS stream variable=v867 depth=2	// L1111
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v892;
-  #pragma HLS stream variable=v892 depth=2	// L1112
+  hls::stream< hls::vector< float, 32 > > v868;
+  #pragma HLS stream variable=v868 depth=2	// L1112
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v893;
-  #pragma HLS stream variable=v893 depth=2	// L1113
+  hls::stream< hls::vector< float, 32 > > v869;
+  #pragma HLS stream variable=v869 depth=2	// L1113
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v894;
-  #pragma HLS stream variable=v894 depth=2	// L1114
+  hls::stream< hls::vector< float, 32 > > v870;
+  #pragma HLS stream variable=v870 depth=2	// L1114
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v895;
-  #pragma HLS stream variable=v895 depth=2	// L1115
+  hls::stream< hls::vector< float, 32 > > v871;
+  #pragma HLS stream variable=v871 depth=2	// L1115
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v896;
-  #pragma HLS stream variable=v896 depth=2	// L1116
+  hls::stream< hls::vector< float, 32 > > v872;
+  #pragma HLS stream variable=v872 depth=2	// L1116
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v897;
-  #pragma HLS stream variable=v897 depth=2	// L1117
+  hls::stream< hls::vector< float, 32 > > v873;
+  #pragma HLS stream variable=v873 depth=2	// L1117
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v898;
-  #pragma HLS stream variable=v898 depth=2	// L1118
+  hls::stream< hls::vector< float, 32 > > v874;
+  #pragma HLS stream variable=v874 depth=2	// L1118
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v899;
-  #pragma HLS stream variable=v899 depth=2	// L1119
-  bit_rev_stage_0(buf0, buf1, v882, v891);	// L1120
-  intra_0_0(v882, v891, v883, v892);	// L1121
-  intra_1_0(v883, v892, v884, v893);	// L1122
-  intra_2_0(v884, v893, v885, v894);	// L1123
-  intra_3_0(v885, v894, v886, v895);	// L1124
-  intra_4_0(v886, v895, v887, v896);	// L1125
-  inter_5_0(v887, v896, v888, v897);	// L1126
-  inter_6_0(v888, v897, v889, v898);	// L1127
-  inter_7_0(v889, v898, v890, v899);	// L1128
-  output_stage_0(buf2, buf3, v890, v899);	// L1129
-  store_res2(buf2, v876);	//
-  store_res3(buf3, v877);	//
+  hls::stream< hls::vector< float, 32 > > v875;
+  #pragma HLS stream variable=v875 depth=2	// L1119
+  bit_rev_stage_0(v854, v855, v858, v867);	// L1120
+  intra_0_0(v858, v867, v859, v868);	// L1121
+  intra_1_0(v859, v868, v860, v869);	// L1122
+  intra_2_0(v860, v869, v861, v870);	// L1123
+  intra_3_0(v861, v870, v862, v871);	// L1124
+  intra_4_0(v862, v871, v863, v872);	// L1125
+  inter_5_0(v863, v872, v864, v873);	// L1126
+  inter_6_0(v864, v873, v865, v874);	// L1127
+  inter_7_0(v865, v874, v866, v875);	// L1128
+  output_stage_0(v856, v857, v866, v875);	// L1129
 }
 

@@ -726,11 +726,23 @@ _IO_MAPPINGS = [
     ([NUM_VECS, WIDTH], None, None, True),  # out_im
 ]
 
-# Full build configs including bind_op_fabric for float add/sub latency reduction
+# Full build configs including bind_op_fabric for float add/sub latency reduction.
+# wrap_io=False: no load_buf/store_res wrapper functions; top function directly
+# receives and passes 2D arrays to bit_rev_stage and output_stage kernels.
+# flatten=False: keep 2D array args in the top function signature so kernel
+# sub-functions can receive them as float v[8][32] (required when wrap_io=False).
 _BUILD_CONFIGS = {
     "mappings": _IO_MAPPINGS,
     "bind_op_fabric": True,  # reduces fadd/fsub latency from ~5 to ~1 cycle
-    "stream_io": True,  # convert array top-level I/O to hls::stream (AXI4-Stream)
+    "flatten": False,  # keep 2D array args (needed for wrap_io=False dataflow)
+}
+
+# Stream-IO variant: convert top-level arrays to hls::stream (uses wrap_io=True).
+# Used by test_fft_256_stream_io_codegen only.
+_STREAM_IO_CONFIGS = {
+    "mappings": _IO_MAPPINGS,
+    "bind_op_fabric": True,
+    "stream_io": True,
 }
 
 
@@ -738,7 +750,7 @@ def test_fft_256_hls_codegen():
     """Verify that the HLS code contains F2-partitioned 2D buffers and swizzle."""
     s = df.customize(fft_256)
     _apply_f2_optimizations(s)
-    mod = s.build(target="vitis_hls", configs=_BUILD_CONFIGS)
+    mod = s.build(target="vitis_hls", configs=_BUILD_CONFIGS, wrap_io=False)
     code = mod.hls_code
 
     # Structural checks
@@ -763,10 +775,9 @@ def test_fft_256_hls_codegen():
         "Expected dataflow pragma for inter-stage sub-function pipeline"
     )
 
-    # dependence pragma on inter-stage buffers
-    # Note: bind_storage is removed when using complete (all-dim) partition since
-    # fully-partitioned arrays become registers with unlimited ports (no RAM needed)
+    # dependence pragma on inter-stage buffers (output banks keep bind_storage lutram)
     assert "dependence" in code, "Expected dependence pragma for II=1"
+    assert "bind_storage" in code, "Expected bind_storage lutram pragma for output banks"
 
     # bind_op fabric pragma for float add/sub latency reduction
     assert "#pragma HLS bind_op" in code, (
@@ -780,9 +791,7 @@ def test_fft_256_stream_io_codegen():
     """Verify that stream_io=True converts top-level I/O to hls::stream interface."""
     s = df.customize(fft_256)
     _apply_f2_optimizations(s)
-    stream_configs = dict(_BUILD_CONFIGS)
-    stream_configs["stream_io"] = True
-    mod = s.build(target="vitis_hls", configs=stream_configs)
+    mod = s.build(target="vitis_hls", configs=_STREAM_IO_CONFIGS)
     code = mod.hls_code
 
     # Top function must accept hls::stream<hls::vector<float, WIDTH>>& args
@@ -825,6 +834,7 @@ def test_fft_256_csyn():
             mode="csyn",
             project=tmpdir,
             configs=_BUILD_CONFIGS,
+            wrap_io=False,
         )
     print("✅ FFT-256 CSyn Passed!")
 

@@ -192,15 +192,13 @@ def fix_bank_array_partition(hls_code):
        (0-cycle combinational access) with unlimited read/write ports.
 
     2. **Output banks** (``out_re_b*``, ``out_im_b*``): Written by the COMPUTE sub-loop.
-       With ``complete`` (all-dim) partition, the ``dependence inter false`` pragma fails
-       to propagate to the individual register sub-variables, causing HLS to report
-       "carried dependence constraint" WAW violations (II=2). Fix: keep ``dim=1``
-       partition (32 separate 8-element sub-arrays) so ``dependence inter false`` applies
-       correctly to each sub-array. Remove ``bind_storage ram_2p`` to let HLS auto-select
-       a multi-port implementation (2R/2W instead of forced 1R/1W).
+       Keep ``dim=1`` partition (32 separate 8-element sub-arrays) so ``dependence inter
+       false`` applies correctly to each sub-array.  **Keep** ``bind_storage lutram``
+       so each 8-element sub-array is implemented as LUTRAM (0 BRAM) rather than BRAM
+       (the HLS default for small RAM without explicit storage binding).
 
-    For both kinds: remove ``bind_storage type=ram_2p impl=lutram`` (input arrays don't
-    need it after full partition; output arrays need auto-selection for sufficient ports).
+    Input banks: remove ``bind_storage`` (no longer needed after full FF partition).
+    Output banks: keep ``bind_storage lutram`` to prevent BRAM allocation.
 
     Only modifies ``complete dim=1`` pragmas (not ``dim=2`` used for I/O buffers).
     Enabled automatically when ``optimize_stream_reads`` or ``bind_op_fabric`` is True.
@@ -215,7 +213,7 @@ def fix_bank_array_partition(hls_code):
     # Input bank arrays: upgrade to complete (all dims) for II=1 in LOAD loops
     input_bank_pat = re.compile(r"^in_re\d*$|^in_im\d*$|^buf_re\d*$|^buf_im\d*$")
     input_banks = {v for v in all_dim1_vars if input_bank_pat.match(v)}
-    # Output bank arrays: keep dim=1 but let HLS auto-select memory type
+    # Output bank arrays: keep dim=1 + bind_storage lutram (LUTRAM, not BRAM)
     output_banks = all_dim1_vars - input_banks
 
     # Step 2a: input banks need BOTH dim=1 and dim=2 complete partition to fully convert
@@ -231,12 +229,12 @@ def fix_bank_array_partition(hls_code):
             f"  #pragma HLS array_partition variable={var} complete dim=2",
         )
 
-    # Step 2b: output banks keep 'complete dim=1' but we remove bind_storage below
+    # Step 2b: output banks keep 'complete dim=1' and 'bind_storage lutram' (no change needed)
 
-    # Step 3: remove 'bind_storage ... type=ram_2p impl=lutram' for ALL bank arrays
-    # - Input banks: no longer needed (using individual registers)
-    # - Output banks: allow HLS to auto-select multi-port memory (not forced 1R/1W)
-    for var in all_dim1_vars:
+    # Step 3: remove 'bind_storage ... type=ram_2p impl=lutram' only for INPUT banks
+    # (which are now fully register-partitioned and don't need any RAM binding).
+    # Output banks KEEP their bind_storage lutram pragma to use LUTRAM instead of BRAM.
+    for var in input_banks:
         hls_code = re.sub(
             rf"#pragma HLS bind_storage variable={re.escape(var)} type=ram_2p impl=lutram\n",
             "",
@@ -764,8 +762,13 @@ class HLSModule:
                 success = allo_d.emit_catapult(self.module, buf)
             case _:
                 # wrap_io=True has already linearized array indexing in
-                # generate_input_output_buffers, so we don't need to do it again
-                flatten = False if platform == "vivado_hls" else (not wrap_io)
+                # generate_input_output_buffers, so we don't need to do it again.
+                # configs["flatten"] overrides the default: use it when wrap_io=False
+                # but the top function has multi-dim array args (e.g. dataflow regions).
+                if configs is not None and configs.get("flatten") is not None:
+                    flatten = configs["flatten"]
+                else:
+                    flatten = False if platform == "vivado_hls" else (not wrap_io)
                 success = allo_d.emit_vhls(self.module, buf, flatten=flatten)
 
         if not success:
