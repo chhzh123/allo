@@ -26,12 +26,12 @@ void bit_rev_stage_0(
   #pragma HLS array_partition variable=v1 complete dim=2
 
   float buf_re[32][8];	// L13
-  #pragma HLS array_partition variable=buf_re complete dim=1
+  #pragma HLS array_partition variable=buf_re complete
 
   #pragma HLS bind_storage variable=buf_re type=ram_2p impl=lutram
   #pragma HLS dependence variable=buf_re inter false
   float buf_im[32][8];	// L14
-  #pragma HLS array_partition variable=buf_im complete dim=1
+  #pragma HLS array_partition variable=buf_im complete
 
   #pragma HLS bind_storage variable=buf_im type=ram_2p impl=lutram
   #pragma HLS dependence variable=buf_im inter false
@@ -82,7 +82,9 @@ void bit_rev_stage_0(
   l_S_jj_2_jj: for (int jj = 0; jj < 8; jj++) {	// L57
   #pragma HLS pipeline II=1
     float chunk_re[32];	// L58
+    #pragma HLS array_partition variable=chunk_re complete
     float chunk_im[32];	// L59
+    #pragma HLS array_partition variable=chunk_im complete
     l_S_mm_2_mm: for (int mm = 0; mm < 32; mm++) {	// L60
     #pragma HLS unroll
       int v46 = jj << 2;	// L61
@@ -135,24 +137,12 @@ void intra_0_0(
 ) {	// L89
   l_S__i_0__i: for (int _i = 0; _i < 8; _i++) {	// L90
   #pragma HLS pipeline II=1
-    float v69[32];
-    {
-      hls::vector< float, 32 > _vec = v64.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v69[_iv0] = _vec[_iv0];
-      }
-    }	// L91
-    float v70[32];
-    {
-      hls::vector< float, 32 > _vec = v65.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v70[_iv0] = _vec[_iv0];
-      }
-    }	// L92
+    hls::vector< float, 32 > v69 = v64.read();
+    hls::vector< float, 32 > v70 = v65.read();
     float o_re[32];	// L93
+    #pragma HLS array_partition variable=o_re complete
     float o_im[32];	// L94
+    #pragma HLS array_partition variable=o_im complete
     l_S_k_0_k: for (int k = 0; k < 16; k++) {	// L95
     #pragma HLS unroll
       float v74 = v69[(k * 2)];	// L96
@@ -221,24 +211,12 @@ void intra_1_0(
   #pragma HLS array_partition variable=twi complete
   l_S__i_0__i1: for (int _i1 = 0; _i1 < 8; _i1++) {	// L140
   #pragma HLS pipeline II=1
-    float v101[32];
-    {
-      hls::vector< float, 32 > _vec = v94.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v101[_iv0] = _vec[_iv0];
-      }
-    }	// L141
-    float v102[32];
-    {
-      hls::vector< float, 32 > _vec = v95.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v102[_iv0] = _vec[_iv0];
-      }
-    }	// L142
+    hls::vector< float, 32 > v101 = v94.read();
+    hls::vector< float, 32 > v102 = v95.read();
     float o_re1[32];	// L143
+    #pragma HLS array_partition variable=o_re1 complete
     float o_im1[32];	// L144
+    #pragma HLS array_partition variable=o_im1 complete
     l_S_k_0_k1: for (int k1 = 0; k1 < 16; k1++) {	// L145
     #pragma HLS unroll
       int v106 = k1 >> 1;	// L146
@@ -368,24 +346,12 @@ void intra_2_0(
   #pragma HLS array_partition variable=twi_0 complete
   l_S__i_0__i2: for (int _i2 = 0; _i2 < 8; _i2++) {	// L249
   #pragma HLS pipeline II=1
-    float v185[32];
-    {
-      hls::vector< float, 32 > _vec = v178.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v185[_iv0] = _vec[_iv0];
-      }
-    }	// L250
-    float v186[32];
-    {
-      hls::vector< float, 32 > _vec = v179.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v186[_iv0] = _vec[_iv0];
-      }
-    }	// L251
+    hls::vector< float, 32 > v185 = v178.read();
+    hls::vector< float, 32 > v186 = v179.read();
     float o_re2[32];	// L252
+    #pragma HLS array_partition variable=o_re2 complete
     float o_im2[32];	// L253
+    #pragma HLS array_partition variable=o_im2 complete
     l_S_k_0_k2: for (int k2 = 0; k2 < 16; k2++) {	// L254
     #pragma HLS unroll
       int v190 = k2 >> 2;	// L255
@@ -515,24 +481,12 @@ void intra_3_0(
   #pragma HLS array_partition variable=twi_1 complete
   l_S__i_0__i3: for (int _i3 = 0; _i3 < 8; _i3++) {	// L358
   #pragma HLS pipeline II=1
-    float v269[32];
-    {
-      hls::vector< float, 32 > _vec = v262.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v269[_iv0] = _vec[_iv0];
-      }
-    }	// L359
-    float v270[32];
-    {
-      hls::vector< float, 32 > _vec = v263.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v270[_iv0] = _vec[_iv0];
-      }
-    }	// L360
+    hls::vector< float, 32 > v269 = v262.read();
+    hls::vector< float, 32 > v270 = v263.read();
     float o_re3[32];	// L361
+    #pragma HLS array_partition variable=o_re3 complete
     float o_im3[32];	// L362
+    #pragma HLS array_partition variable=o_im3 complete
     l_S_k_0_k3: for (int k3 = 0; k3 < 16; k3++) {	// L363
     #pragma HLS unroll
       int v274 = k3 >> 3;	// L364
@@ -662,24 +616,12 @@ void intra_4_0(
   #pragma HLS array_partition variable=twi_2 complete
   l_S__i_0__i4: for (int _i4 = 0; _i4 < 8; _i4++) {	// L464
   #pragma HLS pipeline II=1
-    float v353[32];
-    {
-      hls::vector< float, 32 > _vec = v346.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v353[_iv0] = _vec[_iv0];
-      }
-    }	// L465
-    float v354[32];
-    {
-      hls::vector< float, 32 > _vec = v347.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v354[_iv0] = _vec[_iv0];
-      }
-    }	// L466
+    hls::vector< float, 32 > v353 = v346.read();
+    hls::vector< float, 32 > v354 = v347.read();
     float o_re4[32];	// L467
+    #pragma HLS array_partition variable=o_re4 complete
     float o_im4[32];	// L468
+    #pragma HLS array_partition variable=o_im4 complete
     l_S_k_0_k4: for (int k4 = 0; k4 < 16; k4++) {	// L469
     #pragma HLS unroll
       int32_t v358 = k4;	// L470
@@ -804,43 +746,29 @@ void inter_5_0(
   // placeholder for const float twi_3	// L569
   #pragma HLS array_partition variable=twi_3 complete
   float in_re[32][8];	// L570
-  #pragma HLS array_partition variable=in_re complete dim=1
+  #pragma HLS array_partition variable=in_re complete
 
   #pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re inter false
   float in_im[32][8];	// L571
-  #pragma HLS array_partition variable=in_im complete dim=1
+  #pragma HLS array_partition variable=in_im complete
 
   #pragma HLS bind_storage variable=in_im type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im inter false
   float out_re_b[32][8];	// L572
-  #pragma HLS array_partition variable=out_re_b complete dim=1
+  #pragma HLS array_partition variable=out_re_b complete
 
   #pragma HLS bind_storage variable=out_re_b type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b inter false
   float out_im_b[32][8];	// L573
-  #pragma HLS array_partition variable=out_im_b complete dim=1
+  #pragma HLS array_partition variable=out_im_b complete
 
   #pragma HLS bind_storage variable=out_im_b type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b inter false
   l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L574
   #pragma HLS pipeline II=1
-    float v436[32];
-    {
-      hls::vector< float, 32 > _vec = v425.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v436[_iv0] = _vec[_iv0];
-      }
-    }	// L575
-    float v437[32];
-    {
-      hls::vector< float, 32 > _vec = v426.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v437[_iv0] = _vec[_iv0];
-      }
-    }	// L576
+    hls::vector< float, 32 > v436 = v425.read();
+    hls::vector< float, 32 > v437 = v426.read();
     l_S_k_0_k5: for (int k5 = 0; k5 < 32; k5++) {	// L577
     #pragma HLS unroll
       int32_t v439 = i;	// L578
@@ -992,7 +920,9 @@ void inter_5_0(
   l_S_i_4_i2: for (int i2 = 0; i2 < 8; i2++) {	// L716
   #pragma HLS pipeline II=1
     float chunk_re1[32];	// L717
+    #pragma HLS array_partition variable=chunk_re1 complete
     float chunk_im1[32];	// L718
+    #pragma HLS array_partition variable=chunk_im1 complete
     l_S_k_4_k7: for (int k7 = 0; k7 < 32; k7++) {	// L719
     #pragma HLS unroll
       int32_t v556 = i2;	// L720
@@ -1044,43 +974,29 @@ void inter_6_0(
   // placeholder for const float twi_4	// L755
   #pragma HLS array_partition variable=twi_4 complete
   float in_re1[32][8];	// L756
-  #pragma HLS array_partition variable=in_re1 complete dim=1
+  #pragma HLS array_partition variable=in_re1 complete
 
   #pragma HLS bind_storage variable=in_re1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re1 inter false
   float in_im1[32][8];	// L757
-  #pragma HLS array_partition variable=in_im1 complete dim=1
+  #pragma HLS array_partition variable=in_im1 complete
 
   #pragma HLS bind_storage variable=in_im1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im1 inter false
   float out_re_b1[32][8];	// L758
-  #pragma HLS array_partition variable=out_re_b1 complete dim=1
+  #pragma HLS array_partition variable=out_re_b1 complete
 
   #pragma HLS bind_storage variable=out_re_b1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b1 inter false
   float out_im_b1[32][8];	// L759
-  #pragma HLS array_partition variable=out_im_b1 complete dim=1
+  #pragma HLS array_partition variable=out_im_b1 complete
 
   #pragma HLS bind_storage variable=out_im_b1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b1 inter false
   l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L760
   #pragma HLS pipeline II=1
-    float v579[32];
-    {
-      hls::vector< float, 32 > _vec = v568.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v579[_iv0] = _vec[_iv0];
-      }
-    }	// L761
-    float v580[32];
-    {
-      hls::vector< float, 32 > _vec = v569.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v580[_iv0] = _vec[_iv0];
-      }
-    }	// L762
+    hls::vector< float, 32 > v579 = v568.read();
+    hls::vector< float, 32 > v580 = v569.read();
     l_S_k_0_k8: for (int k8 = 0; k8 < 32; k8++) {	// L763
     #pragma HLS unroll
       int v582 = i3 >> 1;	// L764
@@ -1255,7 +1171,9 @@ void inter_6_0(
   l_S_i_4_i5: for (int i5 = 0; i5 < 8; i5++) {	// L925
   #pragma HLS pipeline II=1
     float chunk_re2[32];	// L926
+    #pragma HLS array_partition variable=chunk_re2 complete
     float chunk_im2[32];	// L927
+    #pragma HLS array_partition variable=chunk_im2 complete
     l_S_k_4_k10: for (int k10 = 0; k10 < 32; k10++) {	// L928
     #pragma HLS unroll
       int v718 = i5 >> 1;	// L929
@@ -1308,43 +1226,29 @@ void inter_7_0(
   // placeholder for const float twi_5	// L963
   #pragma HLS array_partition variable=twi_5 complete
   float in_re2[32][8];	// L964
-  #pragma HLS array_partition variable=in_re2 complete dim=1
+  #pragma HLS array_partition variable=in_re2 complete
 
   #pragma HLS bind_storage variable=in_re2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re2 inter false
   float in_im2[32][8];	// L965
-  #pragma HLS array_partition variable=in_im2 complete dim=1
+  #pragma HLS array_partition variable=in_im2 complete
 
   #pragma HLS bind_storage variable=in_im2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im2 inter false
   float out_re_b2[32][8];	// L966
-  #pragma HLS array_partition variable=out_re_b2 complete dim=1
+  #pragma HLS array_partition variable=out_re_b2 complete
 
   #pragma HLS bind_storage variable=out_re_b2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b2 inter false
   float out_im_b2[32][8];	// L967
-  #pragma HLS array_partition variable=out_im_b2 complete dim=1
+  #pragma HLS array_partition variable=out_im_b2 complete
 
   #pragma HLS bind_storage variable=out_im_b2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b2 inter false
   l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L968
   #pragma HLS pipeline II=1
-    float v742[32];
-    {
-      hls::vector< float, 32 > _vec = v731.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v742[_iv0] = _vec[_iv0];
-      }
-    }	// L969
-    float v743[32];
-    {
-      hls::vector< float, 32 > _vec = v732.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v743[_iv0] = _vec[_iv0];
-      }
-    }	// L970
+    hls::vector< float, 32 > v742 = v731.read();
+    hls::vector< float, 32 > v743 = v732.read();
     l_S_k_0_k11: for (int k11 = 0; k11 < 32; k11++) {	// L971
     #pragma HLS unroll
       int v745 = i6 >> 2;	// L972
@@ -1510,7 +1414,9 @@ void inter_7_0(
   l_S_i_4_i8: for (int i8 = 0; i8 < 8; i8++) {	// L1124
   #pragma HLS pipeline II=1
     float chunk_re3[32];	// L1125
+    #pragma HLS array_partition variable=chunk_re3 complete
     float chunk_im3[32];	// L1126
+    #pragma HLS array_partition variable=chunk_im3 complete
     l_S_k_4_k13: for (int k13 = 0; k13 < 32; k13++) {	// L1127
     #pragma HLS unroll
       int v873 = i8 >> 2;	// L1128
@@ -1561,22 +1467,8 @@ void output_stage_0(
 
   l_S_i_0_i9: for (int i9 = 0; i9 < 8; i9++) {	// L1151
   #pragma HLS pipeline II=1
-    float v891[32];
-    {
-      hls::vector< float, 32 > _vec = v888.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v891[_iv0] = _vec[_iv0];
-      }
-    }	// L1152
-    float v892[32];
-    {
-      hls::vector< float, 32 > _vec = v889.read();
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        v892[_iv0] = _vec[_iv0];
-      }
-    }	// L1153
+    hls::vector< float, 32 > v891 = v888.read();
+    hls::vector< float, 32 > v892 = v889.read();
     l_S_k_0_k14: for (int k14 = 0; k14 < 32; k14++) {	// L1154
     #pragma HLS unroll
       float v894 = v891[k14];	// L1155

@@ -134,6 +134,99 @@ def copy_ext_libs(ext_libs, project):
         os.system(f"cp {impl_path} {project}/{cpp_file}")
 
 
+def optimize_stream_reads(hls_code):
+    """Replace intermediate float[N] arrays from stream reads with direct hls::vector assignments.
+
+    The HLS code generator emits stream reads as:
+        float vN[M];
+        {
+          hls::vector< float, M > _vec = STREAM.read();
+          for (int _iv0 = 0; _iv0 < M; ++_iv0) {
+            #pragma HLS unroll
+            vN[_iv0] = _vec[_iv0];
+          }
+        }	// LNNN
+
+    When vN is inside a pipelined loop body, the float[M] array has limited memory ports.
+    Multiple pipeline stages writing/reading vN cause II=2 (HLS violation HLS 200-885).
+    Fix: replace with ``hls::vector< float, M > vN = STREAM.read();``
+    hls::vector supports operator[], so downstream ``vN[k]`` accesses still compile correctly.
+
+    Enabled via ``configs={'optimize_stream_reads': True}`` in ``s.build()``.
+    Also enabled automatically when ``bind_op_fabric`` is True.
+    """
+    pattern = re.compile(
+        r"(\s+)float (v\d+)\[(\d+)\];\n"
+        r"\1\{\n"
+        r"[ \t]+hls::vector< float, \3 > _vec = (\S+)\.read\(\);\n"
+        r"[ \t]+for \(int _iv0 = 0; _iv0 < \3; \+\+_iv0\) \{\n"
+        r"[ \t]+#pragma HLS unroll\n"
+        r"[ \t]+\2\[_iv0\] = _vec\[_iv0\];\n"
+        r"[ \t]+\}\n"
+        r"[ \t]+\}\t// L\d+",
+        re.MULTILINE,
+    )
+
+    def _replace(m):
+        indent = m.group(1)
+        var_name = m.group(2)
+        size = m.group(3)
+        stream = m.group(4)
+        return f"{indent}hls::vector< float, {size} > {var_name} = {stream}.read();"
+
+    return pattern.sub(_replace, hls_code)
+
+
+def fix_bank_array_partition(hls_code):
+    """Fix array_partition pragmas on bank arrays from ``complete dim=1`` to ``complete``.
+
+    Dataflow inter-stage uses [BANKS][DEPTH] 2D arrays with ``complete dim=1`` partition,
+    giving 32 separate 8-element LUTRAMs (one per bank). When the 16x-unrolled butterfly
+    loop writes to bank arrays using runtime-computed indices, HLS cannot statically prove
+    conflict-freedom and fails to schedule with II=1 (violation HLS 200-885).
+
+    Changing to ``complete`` (all dimensions) turns the [32][8] array into 256 individual
+    registers (32*8 = 256 FFs), allowing all reads/writes in parallel and achieving II=1.
+
+    Only modifies ``complete dim=1`` pragmas (not ``dim=2`` which is used for I/O buffers).
+    Enabled via ``configs={'fix_bank_partition': True}`` or automatically with
+    ``optimize_stream_reads``.
+    """
+    return re.sub(
+        r"(#pragma HLS array_partition variable=\S+ complete) dim=1\b",
+        r"\1",
+        hls_code,
+    )
+
+
+def add_local_array_partition_pragmas(hls_code):
+    """Add ``complete`` array_partition pragmas for local output arrays in pipelined loops.
+
+    In butterfly compute loops, local arrays like ``o_re[32]`` and ``o_im[32]`` are used to
+    accumulate 16x-unrolled butterfly results. Without ``complete`` partition, the 32 writes
+    serialize through a 2-port array, causing high iteration_latency (16+ cycles).
+    With ``complete`` partition all 32 elements become individual registers, enabling
+    all 32 parallel writes and reducing iteration_latency to ~5-7 cycles.
+
+    Enabled via ``configs={'add_local_array_partition': True}`` or automatically with
+    ``optimize_stream_reads``.
+    """
+    lines = hls_code.split("\n")
+    result = []
+    # Match float arrays declared inside loop bodies: "    float NAME[N];\t// L..."
+    # These are local SSA-named arrays (vN) or named arrays (o_re, o_im, etc.)
+    pat = re.compile(r"^(\s{4,})(float) (\w+)\[(\d+)\];\t// L\d+$")
+    for line in lines:
+        result.append(line)
+        m = pat.match(line)
+        if m:
+            name = m.group(3)
+            indent = m.group(1)
+            # Add complete partition for local compute buffers (not the 2D bank arrays)
+            result.append(f"{indent}#pragma HLS array_partition variable={name} complete")
+    return "\n".join(result)
+
+
 def add_bind_op_fabric_pragmas(hls_code):
     """Add #pragma HLS bind_op variable=V op=fadd/fsub impl=fabric after float add/sub assignments.
 
@@ -291,11 +384,16 @@ class HLSModule:
 
         buf.seek(0)
         self.hls_code = buf.read()
-        if configs.get("bind_op_fabric", False) and platform in {
-            "vitis_hls",
-            "vivado_hls",
-        }:
-            self.hls_code = add_bind_op_fabric_pragmas(self.hls_code)
+        if platform in {"vitis_hls", "vivado_hls"}:
+            # optimize_stream_reads is enabled explicitly or implicitly via bind_op_fabric
+            if configs.get("optimize_stream_reads", False) or configs.get(
+                "bind_op_fabric", False
+            ):
+                self.hls_code = optimize_stream_reads(self.hls_code)
+                self.hls_code = fix_bank_array_partition(self.hls_code)
+                self.hls_code = add_local_array_partition_pragmas(self.hls_code)
+            if configs.get("bind_op_fabric", False):
+                self.hls_code = add_bind_op_fabric_pragmas(self.hls_code)
         if project is not None:
             assert mode is not None, "mode must be specified when project is specified"
             os.makedirs(project, exist_ok=True)
