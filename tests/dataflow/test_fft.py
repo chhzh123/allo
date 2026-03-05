@@ -205,8 +205,8 @@ def fft_256(
     # ------------------------------------------------------------------
     @df.kernel(mapping=[1], args=[inp_re, inp_im])
     def bit_rev_stage(local_re: float32[N], local_im: float32[N]):
-        buf_re: float32[N] = 0
-        buf_im: float32[N] = 0
+        buf_re: float32[N]
+        buf_im: float32[N]
         for src in range(N):
             rev: int32 = (
                 ((src & 1) << 7)
@@ -221,8 +221,8 @@ def fft_256(
             buf_re[rev] = local_re[src]
             buf_im[rev] = local_im[src]
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = 0
-            chunk_im: float32[WIDTH] = 0
+            chunk_re: float32[WIDTH]
+            chunk_im: float32[WIDTH]
             for k in range(WIDTH):
                 chunk_re[k] = buf_re[i * WIDTH + k]
                 chunk_im[k] = buf_im[i * WIDTH + k]
@@ -238,8 +238,8 @@ def fft_256(
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[0].get()
             c_im: float32[WIDTH] = s_im[0].get()
-            o_re: float32[WIDTH] = 0
-            o_im: float32[WIDTH] = 0
+            o_re: float32[WIDTH]
+            o_im: float32[WIDTH]
             for k in range(16):  # WIDTH//2, STRIDE=1, twiddle=(1,0)
                 a_re = c_re[k * 2]
                 a_im = c_im[k * 2]
@@ -259,8 +259,8 @@ def fft_256(
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[1].get()
             c_im: float32[WIDTH] = s_im[1].get()
-            o_re: float32[WIDTH] = 0
-            o_im: float32[WIDTH] = 0
+            o_re: float32[WIDTH]
+            o_im: float32[WIDTH]
             for k in range(16):  # STRIDE=2
                 il = (k // 2) * 4 + k % 2
                 iu = il + 2
@@ -282,8 +282,8 @@ def fft_256(
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[2].get()
             c_im: float32[WIDTH] = s_im[2].get()
-            o_re: float32[WIDTH] = 0
-            o_im: float32[WIDTH] = 0
+            o_re: float32[WIDTH]
+            o_im: float32[WIDTH]
             for k in range(16):  # STRIDE=4
                 il = (k // 4) * 8 + k % 4
                 iu = il + 4
@@ -305,8 +305,8 @@ def fft_256(
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[3].get()
             c_im: float32[WIDTH] = s_im[3].get()
-            o_re: float32[WIDTH] = 0
-            o_im: float32[WIDTH] = 0
+            o_re: float32[WIDTH]
+            o_im: float32[WIDTH]
             for k in range(16):  # STRIDE=8
                 il = (k // 8) * 16 + k % 8
                 iu = il + 8
@@ -328,8 +328,8 @@ def fft_256(
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[4].get()
             c_im: float32[WIDTH] = s_im[4].get()
-            o_re: float32[WIDTH] = 0
-            o_im: float32[WIDTH] = 0
+            o_re: float32[WIDTH]
+            o_im: float32[WIDTH]
             for k in range(16):  # STRIDE=16
                 il = (k // 16) * 32 + k % 16
                 iu = il + 16
@@ -369,10 +369,10 @@ def fft_256(
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
         # 2D buffer: dim-0 = bank (partitioned), dim-1 = depth
-        in_re: float32[WIDTH, NUM_VECS] = 0
-        in_im: float32[WIDTH, NUM_VECS] = 0
-        out_re_b: float32[WIDTH, NUM_VECS] = 0
-        out_im_b: float32[WIDTH, NUM_VECS] = 0
+        in_re: float32[WIDTH, NUM_VECS]
+        in_im: float32[WIDTH, NUM_VECS]
+        out_re_b: float32[WIDTH, NUM_VECS]
+        out_im_b: float32[WIDTH, NUM_VECS]
 
         # Load: stream → swizzled buffer
         # bank = k ^ ((i & 1) << 4)   [since (i*32+k)>>5 & 1 = i & 1]
@@ -408,8 +408,8 @@ def fft_256(
 
         # Readout: swizzled buffer → stream
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = 0
-            chunk_im: float32[WIDTH] = 0
+            chunk_re: float32[WIDTH]
+            chunk_im: float32[WIDTH]
             for k in range(WIDTH):
                 bank: int32 = k ^ ((i & 1) << 4)
                 chunk_re[k] = out_re_b[bank, i]
@@ -422,10 +422,10 @@ def fft_256(
         """Inter-vector stage, STRIDE=64, stride_bit=6."""
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
-        in_re: float32[WIDTH, NUM_VECS] = 0
-        in_im: float32[WIDTH, NUM_VECS] = 0
-        out_re_b: float32[WIDTH, NUM_VECS] = 0
-        out_im_b: float32[WIDTH, NUM_VECS] = 0
+        in_re: float32[WIDTH, NUM_VECS]
+        in_im: float32[WIDTH, NUM_VECS]
+        out_re_b: float32[WIDTH, NUM_VECS]
+        out_im_b: float32[WIDTH, NUM_VECS]
 
         # Load: bank = k ^ (((i>>1) & 1) << 4)  [since (i*32+k)>>6 & 1 = i>>1 & 1]
         for i in range(NUM_VECS):
@@ -467,8 +467,8 @@ def fft_256(
 
         # Readout: bank = k ^ (((i>>1) & 1) << 4)
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = 0
-            chunk_im: float32[WIDTH] = 0
+            chunk_re: float32[WIDTH]
+            chunk_im: float32[WIDTH]
             for k in range(WIDTH):
                 bank: int32 = k ^ (((i >> 1) & 1) << 4)
                 chunk_re[k] = out_re_b[bank, i]
@@ -481,10 +481,10 @@ def fft_256(
         """Inter-vector stage, STRIDE=128, stride_bit=7."""
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
-        in_re: float32[WIDTH, NUM_VECS] = 0
-        in_im: float32[WIDTH, NUM_VECS] = 0
-        out_re_b: float32[WIDTH, NUM_VECS] = 0
-        out_im_b: float32[WIDTH, NUM_VECS] = 0
+        in_re: float32[WIDTH, NUM_VECS]
+        in_im: float32[WIDTH, NUM_VECS]
+        out_re_b: float32[WIDTH, NUM_VECS]
+        out_im_b: float32[WIDTH, NUM_VECS]
 
         # Load: bank = k ^ (((i>>2) & 1) << 4)  [since (i*32+k)>>7 & 1 = i>>2 & 1]
         for i in range(NUM_VECS):
@@ -524,8 +524,8 @@ def fft_256(
 
         # Readout: bank = k ^ (((i>>2) & 1) << 4)
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = 0
-            chunk_im: float32[WIDTH] = 0
+            chunk_re: float32[WIDTH]
+            chunk_im: float32[WIDTH]
             for k in range(WIDTH):
                 bank: int32 = k ^ (((i >> 2) & 1) << 4)
                 chunk_re[k] = out_re_b[bank, i]
@@ -575,6 +575,11 @@ def _apply_f2_optimizations(s):
     """
     # 1. Partition inter-stage 2D buffers
     _apply_f2_partitions(s)
+
+    # 1b. Partition twiddle ROMs (global constants) for parallel access
+    #     Without this, unrolled k-loops stall waiting for twiddle reads.
+    s.partition_global("twr")
+    s.partition_global("twi")
 
     # 2. Sub-function dataflow for inter-vector stages
     #    This lets HLS pipeline load/compute/write sub-loops concurrently,

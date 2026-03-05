@@ -861,6 +861,32 @@ class Schedule:
             mlir_target.attributes["dependence_inter_false"] = UnitAttr.get()
 
     @wrapped_apply
+    def partition_global(self, name_prefix):
+        """Mark all global constants whose sym_name starts with `name_prefix`
+        for complete array partitioning.  Emits:
+          ``#pragma HLS array_partition variable=<sym> complete``
+        after each matching global declaration in the generated HLS output.
+
+        Parameters
+        ----------
+        name_prefix: str
+            The Python-level variable name (e.g., "twr").  All MLIR globals
+            whose ``sym_name`` equals ``name_prefix`` or starts with
+            ``name_prefix + "_"`` will be tagged.
+        """
+        matched = 0
+        for op in self.module.body.operations:
+            if isinstance(op, memref_d.GlobalOp):
+                sym = op.sym_name.value
+                if sym == name_prefix or sym.startswith(name_prefix + "_"):
+                    op.attributes["partition_complete"] = UnitAttr.get()
+                    matched += 1
+        if matched == 0:
+            raise RuntimeError(
+                f"No global found matching prefix '{name_prefix}'"
+            )
+
+    @wrapped_apply
     def pipeline(self, axis, initiation_interval=1, rewind=False):
         """
         Pipelines a loop with index `axis` into `initiation_interval` stages.

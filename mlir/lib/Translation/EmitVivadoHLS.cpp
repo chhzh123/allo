@@ -68,6 +68,10 @@ static SmallString<16> getTypeName(Type valType) {
           return SmallString<16>(signedness + "int" +
                                  std::to_string(intType.getWidth()) + "_t");
         default:
+          // For widths 33-65 (e.g., i65 from signed add overflow-safe widening),
+          // map to int64_t / uint64_t — avoids costly ap_int<N> for index arithmetic.
+          if (intType.getWidth() <= 65)
+            return SmallString<16>(signedness + "int64_t");
           return SmallString<16>("ap_" + signedness + "int<" +
                                  std::to_string(intType.getWidth()) + ">");
         }
@@ -1656,6 +1660,13 @@ void allo::hls::VhlsModuleEmitter::emitGlobal(memref::GlobalOp op) {
     }
     os << "};";
     emitInfoAndNewLine(op);
+    // Emit array_partition pragma if requested via s.partition_global()
+    if (op->hasAttr("partition_complete")) {
+      indent();
+      os << "#pragma HLS array_partition variable=";
+      os << op.getSymName();
+      os << " complete\n";
+    }
   }
 }
 
@@ -2748,7 +2759,7 @@ void allo::hls::VhlsModuleEmitter::emitFunctionDirectives(
   //   os << "\n";
   if (func->hasAttr("dataflow")) {
     indent();
-    os << "#pragma HLS dataflow\n";
+    os << "#pragma HLS dataflow disable_start_propagation\n";
   }
 
   if (func->hasAttr("inline")) {
