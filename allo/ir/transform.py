@@ -366,16 +366,33 @@ def create_data_movement(
     else:
         shape = MemRefType(src_tensor.type).shape
 
+    pipeline_outer = False
     if mapping is not None:
-        loop_bounds, src_pattern, dst_pattern = mapping
+        if len(mapping) == 4:
+            loop_bounds, src_pattern, dst_pattern, pipeline_outer = mapping
+        else:
+            loop_bounds, src_pattern, dst_pattern = mapping
     else:
         loop_bounds, src_pattern, dst_pattern = shape, None, None
 
     for_loops = build_for_loops(loop_bounds, ip, name)
-    for_loops[-1].attributes["pipeline_ii"] = IntegerAttr.get(
-        IntegerType.get_unsigned(32), 1
-    )
-    for_loops[-1].attributes["rewind"] = UnitAttr.get()
+    if pipeline_outer and len(for_loops) >= 2:
+        # Vectorized I/O: pipeline outer loop, unroll inner loop.
+        # This reduces load_buf/store_res latency from prod(shape) cycles to
+        # shape[0] cycles when the inner dimension is fully partitioned.
+        for_loops[0].attributes["pipeline_ii"] = IntegerAttr.get(
+            IntegerType.get_unsigned(32), 1
+        )
+        for_loops[0].attributes["rewind"] = UnitAttr.get()
+        # unroll factor=0 means full unroll (all iterations) in EmitVivadoHLS
+        for_loops[-1].attributes["unroll"] = IntegerAttr.get(
+            IntegerType.get_unsigned(32), 0
+        )
+    else:
+        for_loops[-1].attributes["pipeline_ii"] = IntegerAttr.get(
+            IntegerType.get_unsigned(32), 1
+        )
+        for_loops[-1].attributes["rewind"] = UnitAttr.get()
     induction_vars = [for_loop.induction_variable for for_loop in for_loops]
 
     with InsertionPoint(for_loops[-1].body.operations[0]):

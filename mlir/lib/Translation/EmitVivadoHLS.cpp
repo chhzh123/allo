@@ -1571,6 +1571,21 @@ void allo::hls::VhlsModuleEmitter::emitGetGlobal(memref::GetGlobalOp op) {
   fixUnsignedType(result, op->hasAttr("unsigned"));
   emitValue(result, 0, false /*isPtr*/, op.getName().str());
   emitInfoAndNewLine(op);
+  // If the referenced GlobalOp is marked partition_complete, emit the pragma
+  // inside the current function scope (global-scope pragmas are invalid in HLS).
+  auto moduleOp = op->getParentOfType<mlir::ModuleOp>();
+  if (moduleOp) {
+    auto symName = op.getName();
+    moduleOp.walk([&](memref::GlobalOp globalOp) {
+      if (globalOp.getSymName() == symName &&
+          globalOp->hasAttr("partition_complete")) {
+        indent();
+        os << "#pragma HLS array_partition variable=";
+        os << symName;
+        os << " complete\n";
+      }
+    });
+  }
 }
 
 void allo::hls::VhlsModuleEmitter::emitGetGlobalFixed(
@@ -1660,13 +1675,6 @@ void allo::hls::VhlsModuleEmitter::emitGlobal(memref::GlobalOp op) {
     }
     os << "};";
     emitInfoAndNewLine(op);
-    // Emit array_partition pragma if requested via s.partition_global()
-    if (op->hasAttr("partition_complete")) {
-      indent();
-      os << "#pragma HLS array_partition variable=";
-      os << op.getSymName();
-      os << " complete\n";
-    }
   }
 }
 

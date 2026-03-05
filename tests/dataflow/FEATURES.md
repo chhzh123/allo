@@ -107,7 +107,116 @@ Emits: `#pragma HLS dependence variable=out_re_b inter false`
 
 ---
 
+## 4. `pipeline_outer` Mode in `create_data_movement` (`allo/ir/transform.py`)
+
+**Problem:**
+The default `create_data_movement` emits a single loop nest where the innermost
+loop is pipelined.  For a 2D array `[8][32]`, this generates a 256-iteration
+pipelined loop (II=1, 256 cycles), not the desired 8-iteration pipelined outer
+loop with 32-way unrolled inner (8 cycles).
+
+**Fix:**
+A 4-element mapping tuple `(loop_bounds, src_pattern, dst_pattern, True)` enables
+`pipeline_outer` mode: the outer loop gets `pipeline_ii=1 rewind` and the
+innermost loop gets `unroll` (full unroll, factor=0).
+
+```python
+# In allo/ir/transform.py:
+pipeline_outer = False
+if mapping is not None:
+    if len(mapping) == 4:
+        loop_bounds, src_pattern, dst_pattern, pipeline_outer = mapping
+    else:
+        loop_bounds, src_pattern, dst_pattern = mapping
+...
+if pipeline_outer and len(for_loops) >= 2:
+    for_loops[0].attributes["pipeline_ii"] = IntegerAttr.get(UInt32, 1)
+    for_loops[0].attributes["rewind"] = UnitAttr.get()
+    for_loops[-1].attributes["unroll"] = IntegerAttr.get(UInt32, 0)
+else:
+    for_loops[-1].attributes["pipeline_ii"] = IntegerAttr.get(UInt32, 1)
+    for_loops[-1].attributes["rewind"] = UnitAttr.get()
+```
+
+**Important:** `unroll` must be `IntegerAttr(UInt32, 0)`, **not** `UnitAttr`.
+`EmitVivadoHLS.cpp` calls `dyn_cast<IntegerAttr>(factor).getValue()` — a
+`UnitAttr` causes a null-dereference segfault.  Value `0` emits
+`#pragma HLS unroll` (no factor) per the `if (val == 0)` branch in
+`emitLoopDirectives`.
+
+**Result:**
+```cpp
+void load_buf0(float v0[256], float v1[8][32]) {
+  #pragma HLS array_partition variable=v1 complete dim=2
+  for (int i = 0; i < 8; i++) {
+    #pragma HLS pipeline II=1 rewind
+    for (int k = 0; k < 32; k++) {
+      #pragma HLS unroll
+      v1[i][k] = v0[i * 32 + k];
+    }
+  }
+}
+```
+Reduces load_buf latency from 256 to 8 cycles.
+
+---
+
 ## 5. Vectorized FFT-256 with F2 Swizzle (`tests/dataflow/test_fft.py`)
+
+### 5a. Vectorized I/O Interface
+
+Top-level I/O uses `float32[NUM_VECS, WIDTH]` = `float32[8, 32]` instead of flat
+`float32[N]`. This enables vectorized load_buf (8 × II=1 outer loop with 32-way
+unrolled inner) instead of a flat 256-iteration loop. Configured via:
+
+```python
+_IO_MAPPINGS = [
+    ([NUM_VECS, WIDTH], None, None, True),  # inp_re (pipeline_outer mode)
+    ...
+]
+```
+
+The `True` flag triggers `pipeline_outer` mode in `create_data_movement`
+(`allo/ir/transform.py`): outer loop gets `pipeline_ii=1` + `rewind`, inner loop
+gets `unroll` attribute = 0 (full unroll).
+
+### 5b. Vectorized bit_rev_stage
+
+Restructured from a flat 256-iteration loop to a 2-phase 8-iteration structure:
+
+**LOAD phase** (`ii` outer, `kk` inner, II=1):
+- 2D buffer `buf_re[32][8]` with `array_partition complete dim=1`
+- Writes `buf_re[bit_rev5(kk)][bit_rev3(ii)] = local_re[ii][kk]`
+- bit_rev5 is a bijection on kk → 32 distinct banks → no conflicts
+
+**WRITE phase** (`jj` outer, `mm` inner, II=1):
+- Reads sequentially: `buf_re[rd_bank][rd_off]` where
+  `rd_bank = (jj << 2) | (mm >> 3)`, `rd_off = mm & 7`
+- Packs 32-element chunks into block streams
+
+Key insight: uses loop variables directly (native `int`) instead of `int32`
+temporaries to avoid MLIR sign-extension widening to `i64`.
+
+`s.dataflow("bit_rev_stage_0")` enables LOAD and WRITE to overlap as concurrent
+sub-functions, halving the latency from 16 to 8 cycles.
+
+### 5c. Bit arithmetic rule: use loop variables, not int32 temporaries
+
+MLIR loads from `memref<i32>` allocas produce SSA values that get sign-extended
+to `i64` when combined with integer constants in `&` or arithmetic ops. Loop
+induction variables are direct i32 SSA values and avoid this.
+
+**Pattern to avoid:**
+```python
+out_idx: int32 = (jj << LOG2_WIDTH) | mm  # stored in memref<i32>
+rd_off: int32 = out_idx & 7               # sext → int64_t in HLS!
+```
+
+**Correct pattern:**
+```python
+rd_bank: int32 = (jj << 2) | (mm >> LOG2_NUM_VECS)  # loop vars → stays int32
+rd_off: int32 = mm & 7                               # loop var → stays int32
+```
 
 **What it is:**
 A complete, annotated Allo dataflow implementation of a radix-2 DIT FFT for

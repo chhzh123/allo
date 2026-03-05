@@ -43,6 +43,7 @@ WIDTH = 32
 LOG2_N = 8
 LOG2_WIDTH = 5
 NUM_VECS = N // WIDTH  # 8
+LOG2_NUM_VECS = LOG2_N - LOG2_WIDTH  # 3
 
 # Full twiddle LUT: W_N^k = exp(-2*pi*i*k/N) for k=0..N/2-1
 full_twr = np.array([cos(-2.0 * pi * k / N) for k in range(N // 2)], dtype=np.float32)
@@ -189,10 +190,10 @@ _sw7 = fft_swizzle(N, WIDTH, stride_bit=7)  # STRIDE=128
 
 @df.region()
 def fft_256(
-    inp_re: float32[N],
-    inp_im: float32[N],
-    out_re: float32[N],
-    out_im: float32[N],
+    inp_re: float32[NUM_VECS, WIDTH],
+    inp_im: float32[NUM_VECS, WIDTH],
+    out_re: float32[NUM_VECS, WIDTH],
+    out_im: float32[NUM_VECS, WIDTH],
 ):
     """Vectorized 256-point FFT with F2-swizzled inter-stage buffers."""
 
@@ -204,28 +205,48 @@ def fft_256(
     # Bit-reversal stage: inline 8-bit reversal (N=256, LOG2_N=8)
     # ------------------------------------------------------------------
     @df.kernel(mapping=[1], args=[inp_re, inp_im])
-    def bit_rev_stage(local_re: float32[N], local_im: float32[N]):
-        buf_re: float32[N]
-        buf_im: float32[N]
-        for src in range(N):
-            rev: int32 = (
-                ((src & 1) << 7)
-                | ((src & 2) << 5)
-                | ((src & 4) << 3)
-                | ((src & 8) << 1)
-                | ((src & 16) >> 1)
-                | ((src & 32) >> 3)
-                | ((src & 64) >> 5)
-                | ((src & 128) >> 7)
-            )
-            buf_re[rev] = local_re[src]
-            buf_im[rev] = local_im[src]
-        for i in range(NUM_VECS):
+    def bit_rev_stage(
+        local_re: float32[NUM_VECS, WIDTH], local_im: float32[NUM_VECS, WIDTH]
+    ):
+        """Bit-reversal stage: rearranges N=256 inputs for DIT FFT with II=1.
+
+        Uses a 2D swizzled buffer [WIDTH, NUM_VECS] = [32, 8] with complete dim=1:
+          LOAD (8 iters, II=1): write WIDTH=32 elements in parallel.
+            bank  = bit_rev5(kk):  5-bit reversal of lane → unique bank per lane (no conflicts)
+            offset = bit_rev3(ii): 3-bit reversal of vector index
+
+          WRITE (8 iters, II=1): read back in sequential (jj, mm) order.
+            buf_re[(jj*32+mm)/8][(jj*32+mm)%8] = input[bit_rev(jj*32+mm)]  (verified)
+        """
+        # 2D buffer: dim-0 = WIDTH banks (complete partition), dim-1 = NUM_VECS depth
+        buf_re: float32[WIDTH, NUM_VECS]
+        buf_im: float32[WIDTH, NUM_VECS]
+
+        # LOAD: bit_rev5(kk) is unique per kk → 32 parallel writes to 32 distinct banks
+        for ii in range(NUM_VECS):
+            for kk in range(WIDTH):
+                bank: int32 = (
+                    ((kk & 1) << 4)
+                    | ((kk & 2) << 2)
+                    | (kk & 4)
+                    | ((kk & 8) >> 2)
+                    | ((kk & 16) >> 4)
+                )
+                offset: int32 = ((ii & 4) >> 2) | (ii & 2) | ((ii & 1) << 2)
+                buf_re[bank, offset] = local_re[ii, kk]
+                buf_im[bank, offset] = local_im[ii, kk]
+
+        # WRITE: sequential 2D read order produces the bit-reversed permutation
+        for jj in range(NUM_VECS):
             chunk_re: float32[WIDTH]
             chunk_im: float32[WIDTH]
-            for k in range(WIDTH):
-                chunk_re[k] = buf_re[i * WIDTH + k]
-                chunk_im[k] = buf_im[i * WIDTH + k]
+            for mm in range(WIDTH):
+                # rd_bank = (jj*32+mm) >> 3 = (jj<<2) | (mm>>3)
+                # rd_off  = (jj*32+mm) &  7 = mm & 7  (jj*32 divisible by 8)
+                rd_bank: int32 = (jj << 2) | (mm >> LOG2_NUM_VECS)
+                rd_off: int32 = mm & 7
+                chunk_re[mm] = buf_re[rd_bank, rd_off]
+                chunk_im[mm] = buf_im[rd_bank, rd_off]
             s_re[0].put(chunk_re)
             s_im[0].put(chunk_im)
 
@@ -261,10 +282,10 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[1].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=2
-                il = (k // 2) * 4 + k % 2
-                iu = il + 2
-                tw_k = (k % 2) * 64
+            for k in range(16):  # STRIDE=2; bit ops to stay int32 (avoid MLIR widening)
+                il: int32 = ((k >> 1) << 2) | (k & 1)
+                iu: int32 = il | 2
+                tw_k: int32 = (k & 1) << 6
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
                 tr = twr[tw_k]; ti = twi[tw_k]
@@ -284,10 +305,10 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[2].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=4
-                il = (k // 4) * 8 + k % 4
-                iu = il + 4
-                tw_k = (k % 4) * 32
+            for k in range(16):  # STRIDE=4; bit ops to stay int32 (avoid MLIR widening)
+                il: int32 = ((k >> 2) << 3) | (k & 3)
+                iu: int32 = il | 4
+                tw_k: int32 = (k & 3) << 5
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
                 tr = twr[tw_k]; ti = twi[tw_k]
@@ -307,10 +328,10 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[3].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=8
-                il = (k // 8) * 16 + k % 8
-                iu = il + 8
-                tw_k = (k % 8) * 16
+            for k in range(16):  # STRIDE=8; bit ops to stay int32 (avoid MLIR widening)
+                il: int32 = ((k >> 3) << 4) | (k & 7)
+                iu: int32 = il | 8
+                tw_k: int32 = (k & 7) << 4
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
                 tr = twr[tw_k]; ti = twi[tw_k]
@@ -330,10 +351,10 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[4].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=16
-                il = (k // 16) * 32 + k % 16
-                iu = il + 16
-                tw_k = (k % 16) * 8
+            for k in range(16):  # STRIDE=16; bit ops to stay int32 (avoid MLIR widening)
+                il: int32 = k  # k//16==0 for k<16, so il = k%16 = k
+                iu: int32 = k | 16
+                tw_k: int32 = k << 3
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
                 tr = twr[tw_k]; ti = twi[tw_k]
@@ -387,24 +408,27 @@ def fft_256(
         # Compute: butterfly pairs (il, iu=il+32)
         # bank_il = within, offset_il = grp*2
         # bank_iu = within^16, offset_iu = grp*2+1
+        # Use bit ops throughout to keep int32 (avoid MLIR signed-int widening).
         for i in range(NUM_VECS):
             for k in range(16):  # WIDTH // 2
-                bg: int32 = i * 16 + k
-                grp: int32 = bg // 32
-                within: int32 = bg % 32
-                tw_k: int32 = within * 4
-                a_re = in_re[within, grp * 2]
-                a_im = in_im[within, grp * 2]
-                b_re = in_re[within ^ 16, grp * 2 + 1]
-                b_im = in_im[within ^ 16, grp * 2 + 1]
+                bg: int32 = (i << 4) | k
+                grp: int32 = bg >> 5
+                within: int32 = bg & 31
+                tw_k: int32 = within << 2
+                off_l: int32 = grp << 1
+                off_u: int32 = off_l | 1
+                a_re = in_re[within, off_l]
+                a_im = in_im[within, off_l]
+                b_re = in_re[within ^ 16, off_u]
+                b_im = in_im[within ^ 16, off_u]
                 tr = twr[tw_k]
                 ti = twi[tw_k]
                 bw_re: float32 = b_re * tr - b_im * ti
                 bw_im: float32 = b_re * ti + b_im * tr
-                out_re_b[within, grp * 2] = a_re + bw_re
-                out_im_b[within, grp * 2] = a_im + bw_im
-                out_re_b[within ^ 16, grp * 2 + 1] = a_re - bw_re
-                out_im_b[within ^ 16, grp * 2 + 1] = a_im - bw_im
+                out_re_b[within, off_l] = a_re + bw_re
+                out_im_b[within, off_l] = a_im + bw_im
+                out_re_b[within ^ 16, off_u] = a_re - bw_re
+                out_im_b[within ^ 16, off_u] = a_im - bw_im
 
         # Readout: swizzled buffer → stream
         for i in range(NUM_VECS):
@@ -439,14 +463,17 @@ def fft_256(
         # Compute: butterfly pairs (il, iu=il+64)
         # bank  = (idx & 31) ^ (((idx >> 6) & 1) << 4)
         # offset = idx >> 5
+        # Use bit-ops (<<, >>, &, |) to keep all arithmetic in int32,
+        # avoiding MLIR's int64 widening of * / // % which prevents HLS
+        # range analysis and causes memory-port II violations.
         for i in range(NUM_VECS):
             for k in range(16):
-                bg: int32 = i * 16 + k
-                grp: int32 = bg // 64
-                within: int32 = bg % 64
-                tw_k: int32 = within * 2
-                il: int32 = grp * 128 + within
-                iu: int32 = il + 64
+                bg: int32 = (i << 4) | k
+                grp: int32 = bg >> 6
+                within: int32 = bg & 63
+                tw_k: int32 = within << 1
+                il: int32 = (grp << 7) | within
+                iu: int32 = il | 64
                 # bank(il) = (il & 31) ^ (((il>>6)&1)<<4)
                 bank_il: int32 = (il & 31) ^ (((il >> 6) & 1) << 4)
                 off_il: int32 = il >> 5
@@ -498,13 +525,15 @@ def fft_256(
         # Compute: butterfly pairs (il, iu=il+128)
         # bank  = (idx & 31) ^ (((idx >> 7) & 1) << 4)
         # offset = idx >> 5
+        # Use bit ops (<<, >>, &, |) to keep indices as int32 and avoid
+        # MLIR signed-int widening to int64 (which prevents HLS II=1).
         for i in range(NUM_VECS):
             for k in range(16):
-                bg: int32 = i * 16 + k
+                bg: int32 = (i << 4) | k
                 within: int32 = bg  # single group for STRIDE=128, grp=0
                 tw_k: int32 = within  # within * (N//(2*128)) = within
                 il: int32 = within
-                iu: int32 = within + 128
+                iu: int32 = within | 128  # within + 128, within < 128
                 bank_il: int32 = (il & 31) ^ (((il >> 7) & 1) << 4)
                 off_il: int32 = il >> 5
                 bank_iu: int32 = (iu & 31) ^ (((iu >> 7) & 1) << 4)
@@ -537,13 +566,15 @@ def fft_256(
     # Output stage
     # ------------------------------------------------------------------
     @df.kernel(mapping=[1], args=[out_re, out_im])
-    def output_stage(local_re: float32[N], local_im: float32[N]):
+    def output_stage(
+        local_re: float32[NUM_VECS, WIDTH], local_im: float32[NUM_VECS, WIDTH]
+    ):
         for i in range(NUM_VECS):
             chunk_re: float32[WIDTH] = s_re[8].get()
             chunk_im: float32[WIDTH] = s_im[8].get()
             for k in range(WIDTH):
-                local_re[i * WIDTH + k] = chunk_re[k]
-                local_im[i * WIDTH + k] = chunk_im[k]
+                local_re[i, k] = chunk_re[k]
+                local_im[i, k] = chunk_im[k]
 
 
 def _apply_f2_partitions(s):
@@ -597,12 +628,32 @@ def _apply_f2_optimizations(s):
             s.bind_storage(f"{kn}:{bn}", impl="lutram", storage_type="ram_2p")
             s.dependence(f"{kn}:{bn}")
 
-    # 4. Pipeline outer loops + unroll inner k loops for all kernels
-    #    bit_rev_stage: two separate loop bands (src, i)
+    # 4a. Partition and annotate bit_rev_stage 2D buffers (complete dim=1 for
+    #     32 parallel banks, enabling II=1 for the vectorized LOAD/WRITE phases)
+    for bn in ["buf_re", "buf_im"]:
+        s.partition("bit_rev_stage_0:" + bn, partition_type=Partition.Complete, dim=1)
+        s.bind_storage("bit_rev_stage_0:" + bn, impl="lutram", storage_type="ram_2p")
+        s.dependence("bit_rev_stage_0:" + bn)
+
+    # 4b. Partition the bit_rev_stage I/O buffers (dim=2 for 32-element
+    #     parallel reads; propagates to the fft_256 allocs buf0/buf1 and
+    #     through load_buf0/1 for vectorized copy at top-level)
+    for arg in ["local_re", "local_im"]:
+        s.partition("bit_rev_stage_0:" + arg, partition_type=Partition.Complete, dim=2)
+    for arg in ["local_re", "local_im"]:
+        s.partition("output_stage_0:" + arg, partition_type=Partition.Complete, dim=2)
+
+    # 4c. Enable DATAFLOW within bit_rev_stage so LOAD and WRITE overlap
+    #     (achieves II=8 for the stage instead of II=16 sequential)
+    s.dataflow("bit_rev_stage_0")
+
+    # 4d. Pipeline outer loops + unroll inner loops for all kernels
+    #     bit_rev_stage: vectorized LOAD (ii/kk) and WRITE (jj/mm) phases
     br_loops = s.get_loops("bit_rev_stage_0")
-    s.pipeline(br_loops["S_src_0"]["src"])
-    s.unroll(br_loops["S_i_1"]["k"])
-    s.pipeline(br_loops["S_i_1"]["i"])
+    s.pipeline(br_loops["S_ii_0"]["ii"])
+    s.unroll(br_loops["S_ii_0"]["kk"])
+    s.pipeline(br_loops["S_jj_2"]["jj"])
+    s.unroll(br_loops["S_jj_2"]["mm"])
 
     # intra stages: single outer _i loop
     for stage in range(5):
@@ -656,11 +707,21 @@ def test_fft_256_vectorized():
     print("✅ FFT-256 Vectorized Simulator Test PASSED!")
 
 
+# IO mappings for vectorized data movement: outer loop pipelined, inner unrolled.
+# Reduces load_buf / store_res from N=256 sequential cycles to NUM_VECS=8 cycles.
+_IO_MAPPINGS = [
+    ([NUM_VECS, WIDTH], None, None, True),  # inp_re
+    ([NUM_VECS, WIDTH], None, None, True),  # inp_im
+    ([NUM_VECS, WIDTH], None, None, True),  # out_re
+    ([NUM_VECS, WIDTH], None, None, True),  # out_im
+]
+
+
 def test_fft_256_hls_codegen():
     """Verify that the HLS code contains F2-partitioned 2D buffers and swizzle."""
     s = df.customize(fft_256)
     _apply_f2_optimizations(s)
-    mod = s.build(target="vitis_hls")
+    mod = s.build(target="vitis_hls", configs={"mappings": _IO_MAPPINGS})
     code = mod.hls_code
 
     # Structural checks
@@ -700,7 +761,12 @@ def test_fft_256_csyn():
     s = df.customize(fft_256)
     _apply_f2_optimizations(s)
     with tempfile.TemporaryDirectory() as tmpdir:
-        s.build(target="vitis_hls", mode="csyn", project=tmpdir)
+        s.build(
+            target="vitis_hls",
+            mode="csyn",
+            project=tmpdir,
+            configs={"mappings": _IO_MAPPINGS},
+        )
     print("✅ FFT-256 CSyn Passed!")
 
 
