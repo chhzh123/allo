@@ -111,6 +111,7 @@ void bit_rev_stage_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_re[_iv0];
       }
       v2.write(_vec);
@@ -118,6 +119,7 @@ void bit_rev_stage_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_im[_iv0];
       }
       v3.write(_vec);
@@ -137,6 +139,7 @@ void intra_0_0(
     {
       hls::vector< float, 32 > _vec = v64.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v69[_iv0] = _vec[_iv0];
       }
     }	// L91
@@ -144,6 +147,7 @@ void intra_0_0(
     {
       hls::vector< float, 32 > _vec = v65.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v70[_iv0] = _vec[_iv0];
       }
     }	// L92
@@ -166,23 +170,28 @@ void intra_0_0(
       float v82 = a_re;	// L108
       float v83 = b_re;	// L109
       float v84 = v82 + v83;	// L110
+      #pragma HLS bind_op variable=v84 op=fadd impl=fabric
       o_re[(k * 2)] = v84;	// L111
       float v85 = a_im;	// L112
       float v86 = b_im;	// L113
       float v87 = v85 + v86;	// L114
+      #pragma HLS bind_op variable=v87 op=fadd impl=fabric
       o_im[(k * 2)] = v87;	// L115
       float v88 = a_re;	// L116
       float v89 = b_re;	// L117
       float v90 = v88 - v89;	// L118
+      #pragma HLS bind_op variable=v90 op=fsub impl=fabric
       o_re[((k * 2) + 1)] = v90;	// L119
       float v91 = a_im;	// L120
       float v92 = b_im;	// L121
       float v93 = v91 - v92;	// L122
+      #pragma HLS bind_op variable=v93 op=fsub impl=fabric
       o_im[((k * 2) + 1)] = v93;	// L123
     }
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_re[_iv0];
       }
       v66.write(_vec);
@@ -190,6 +199,7 @@ void intra_0_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_im[_iv0];
       }
       v67.write(_vec);
@@ -215,6 +225,7 @@ void intra_1_0(
     {
       hls::vector< float, 32 > _vec = v94.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v101[_iv0] = _vec[_iv0];
       }
     }	// L141
@@ -222,6 +233,7 @@ void intra_1_0(
     {
       hls::vector< float, 32 > _vec = v95.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v102[_iv0] = _vec[_iv0];
       }
     }	// L142
@@ -281,6 +293,7 @@ void intra_1_0(
       float v146 = ti;	// L195
       float v147 = v145 * v146;	// L196
       float v148 = v144 - v147;	// L197
+      #pragma HLS bind_op variable=v148 op=fsub impl=fabric
       float bw_re;	// L198
       bw_re = v148;	// L199
       float v150 = b_re1;	// L200
@@ -290,29 +303,34 @@ void intra_1_0(
       float v154 = tr;	// L204
       float v155 = v153 * v154;	// L205
       float v156 = v152 + v155;	// L206
+      #pragma HLS bind_op variable=v156 op=fadd impl=fabric
       float bw_im;	// L207
       bw_im = v156;	// L208
       float v158 = a_re1;	// L209
       float v159 = bw_re;	// L210
       float v160 = v158 + v159;	// L211
+      #pragma HLS bind_op variable=v160 op=fadd impl=fabric
       int32_t v161 = il;	// L212
       int v162 = v161;	// L213
       o_re1[v162] = v160;	// L214
       float v163 = a_im1;	// L215
       float v164 = bw_im;	// L216
       float v165 = v163 + v164;	// L217
+      #pragma HLS bind_op variable=v165 op=fadd impl=fabric
       int32_t v166 = il;	// L218
       int v167 = v166;	// L219
       o_im1[v167] = v165;	// L220
       float v168 = a_re1;	// L221
       float v169 = bw_re;	// L222
       float v170 = v168 - v169;	// L223
+      #pragma HLS bind_op variable=v170 op=fsub impl=fabric
       int32_t v171 = iu;	// L224
       int v172 = v171;	// L225
       o_re1[v172] = v170;	// L226
       float v173 = a_im1;	// L227
       float v174 = bw_im;	// L228
       float v175 = v173 - v174;	// L229
+      #pragma HLS bind_op variable=v175 op=fsub impl=fabric
       int32_t v176 = iu;	// L230
       int v177 = v176;	// L231
       o_im1[v177] = v175;	// L232
@@ -320,6 +338,7 @@ void intra_1_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_re1[_iv0];
       }
       v96.write(_vec);
@@ -327,6 +346,7 @@ void intra_1_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_im1[_iv0];
       }
       v97.write(_vec);
@@ -352,6 +372,7 @@ void intra_2_0(
     {
       hls::vector< float, 32 > _vec = v178.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v185[_iv0] = _vec[_iv0];
       }
     }	// L250
@@ -359,6 +380,7 @@ void intra_2_0(
     {
       hls::vector< float, 32 > _vec = v179.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v186[_iv0] = _vec[_iv0];
       }
     }	// L251
@@ -418,6 +440,7 @@ void intra_2_0(
       float v230 = ti1;	// L304
       float v231 = v229 * v230;	// L305
       float v232 = v228 - v231;	// L306
+      #pragma HLS bind_op variable=v232 op=fsub impl=fabric
       float bw_re1;	// L307
       bw_re1 = v232;	// L308
       float v234 = b_re2;	// L309
@@ -427,29 +450,34 @@ void intra_2_0(
       float v238 = tr1;	// L313
       float v239 = v237 * v238;	// L314
       float v240 = v236 + v239;	// L315
+      #pragma HLS bind_op variable=v240 op=fadd impl=fabric
       float bw_im1;	// L316
       bw_im1 = v240;	// L317
       float v242 = a_re2;	// L318
       float v243 = bw_re1;	// L319
       float v244 = v242 + v243;	// L320
+      #pragma HLS bind_op variable=v244 op=fadd impl=fabric
       int32_t v245 = il1;	// L321
       int v246 = v245;	// L322
       o_re2[v246] = v244;	// L323
       float v247 = a_im2;	// L324
       float v248 = bw_im1;	// L325
       float v249 = v247 + v248;	// L326
+      #pragma HLS bind_op variable=v249 op=fadd impl=fabric
       int32_t v250 = il1;	// L327
       int v251 = v250;	// L328
       o_im2[v251] = v249;	// L329
       float v252 = a_re2;	// L330
       float v253 = bw_re1;	// L331
       float v254 = v252 - v253;	// L332
+      #pragma HLS bind_op variable=v254 op=fsub impl=fabric
       int32_t v255 = iu1;	// L333
       int v256 = v255;	// L334
       o_re2[v256] = v254;	// L335
       float v257 = a_im2;	// L336
       float v258 = bw_im1;	// L337
       float v259 = v257 - v258;	// L338
+      #pragma HLS bind_op variable=v259 op=fsub impl=fabric
       int32_t v260 = iu1;	// L339
       int v261 = v260;	// L340
       o_im2[v261] = v259;	// L341
@@ -457,6 +485,7 @@ void intra_2_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_re2[_iv0];
       }
       v180.write(_vec);
@@ -464,6 +493,7 @@ void intra_2_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_im2[_iv0];
       }
       v181.write(_vec);
@@ -489,6 +519,7 @@ void intra_3_0(
     {
       hls::vector< float, 32 > _vec = v262.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v269[_iv0] = _vec[_iv0];
       }
     }	// L359
@@ -496,6 +527,7 @@ void intra_3_0(
     {
       hls::vector< float, 32 > _vec = v263.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v270[_iv0] = _vec[_iv0];
       }
     }	// L360
@@ -555,6 +587,7 @@ void intra_3_0(
       float v314 = ti2;	// L413
       float v315 = v313 * v314;	// L414
       float v316 = v312 - v315;	// L415
+      #pragma HLS bind_op variable=v316 op=fsub impl=fabric
       float bw_re2;	// L416
       bw_re2 = v316;	// L417
       float v318 = b_re3;	// L418
@@ -564,29 +597,34 @@ void intra_3_0(
       float v322 = tr2;	// L422
       float v323 = v321 * v322;	// L423
       float v324 = v320 + v323;	// L424
+      #pragma HLS bind_op variable=v324 op=fadd impl=fabric
       float bw_im2;	// L425
       bw_im2 = v324;	// L426
       float v326 = a_re3;	// L427
       float v327 = bw_re2;	// L428
       float v328 = v326 + v327;	// L429
+      #pragma HLS bind_op variable=v328 op=fadd impl=fabric
       int32_t v329 = il2;	// L430
       int v330 = v329;	// L431
       o_re3[v330] = v328;	// L432
       float v331 = a_im3;	// L433
       float v332 = bw_im2;	// L434
       float v333 = v331 + v332;	// L435
+      #pragma HLS bind_op variable=v333 op=fadd impl=fabric
       int32_t v334 = il2;	// L436
       int v335 = v334;	// L437
       o_im3[v335] = v333;	// L438
       float v336 = a_re3;	// L439
       float v337 = bw_re2;	// L440
       float v338 = v336 - v337;	// L441
+      #pragma HLS bind_op variable=v338 op=fsub impl=fabric
       int32_t v339 = iu2;	// L442
       int v340 = v339;	// L443
       o_re3[v340] = v338;	// L444
       float v341 = a_im3;	// L445
       float v342 = bw_im2;	// L446
       float v343 = v341 - v342;	// L447
+      #pragma HLS bind_op variable=v343 op=fsub impl=fabric
       int32_t v344 = iu2;	// L448
       int v345 = v344;	// L449
       o_im3[v345] = v343;	// L450
@@ -594,6 +632,7 @@ void intra_3_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_re3[_iv0];
       }
       v264.write(_vec);
@@ -601,6 +640,7 @@ void intra_3_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_im3[_iv0];
       }
       v265.write(_vec);
@@ -626,6 +666,7 @@ void intra_4_0(
     {
       hls::vector< float, 32 > _vec = v346.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v353[_iv0] = _vec[_iv0];
       }
     }	// L465
@@ -633,6 +674,7 @@ void intra_4_0(
     {
       hls::vector< float, 32 > _vec = v347.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v354[_iv0] = _vec[_iv0];
       }
     }	// L466
@@ -687,6 +729,7 @@ void intra_4_0(
       float v393 = ti3;	// L514
       float v394 = v392 * v393;	// L515
       float v395 = v391 - v394;	// L516
+      #pragma HLS bind_op variable=v395 op=fsub impl=fabric
       float bw_re3;	// L517
       bw_re3 = v395;	// L518
       float v397 = b_re4;	// L519
@@ -696,29 +739,34 @@ void intra_4_0(
       float v401 = tr3;	// L523
       float v402 = v400 * v401;	// L524
       float v403 = v399 + v402;	// L525
+      #pragma HLS bind_op variable=v403 op=fadd impl=fabric
       float bw_im3;	// L526
       bw_im3 = v403;	// L527
       float v405 = a_re4;	// L528
       float v406 = bw_re3;	// L529
       float v407 = v405 + v406;	// L530
+      #pragma HLS bind_op variable=v407 op=fadd impl=fabric
       int32_t v408 = il3;	// L531
       int v409 = v408;	// L532
       o_re4[v409] = v407;	// L533
       float v410 = a_im4;	// L534
       float v411 = bw_im3;	// L535
       float v412 = v410 + v411;	// L536
+      #pragma HLS bind_op variable=v412 op=fadd impl=fabric
       int32_t v413 = il3;	// L537
       int v414 = v413;	// L538
       o_im4[v414] = v412;	// L539
       float v415 = a_re4;	// L540
       float v416 = bw_re3;	// L541
       float v417 = v415 - v416;	// L542
+      #pragma HLS bind_op variable=v417 op=fsub impl=fabric
       int32_t v418 = iu3;	// L543
       int v419 = v418;	// L544
       o_re4[v419] = v417;	// L545
       float v420 = a_im4;	// L546
       float v421 = bw_im3;	// L547
       float v422 = v420 - v421;	// L548
+      #pragma HLS bind_op variable=v422 op=fsub impl=fabric
       int32_t v423 = iu3;	// L549
       int v424 = v423;	// L550
       o_im4[v424] = v422;	// L551
@@ -726,6 +774,7 @@ void intra_4_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_re4[_iv0];
       }
       v348.write(_vec);
@@ -733,6 +782,7 @@ void intra_4_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = o_im4[_iv0];
       }
       v349.write(_vec);
@@ -779,6 +829,7 @@ void inter_5_0(
     {
       hls::vector< float, 32 > _vec = v425.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v436[_iv0] = _vec[_iv0];
       }
     }	// L575
@@ -786,6 +837,7 @@ void inter_5_0(
     {
       hls::vector< float, 32 > _vec = v426.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v437[_iv0] = _vec[_iv0];
       }
     }	// L576
@@ -884,6 +936,7 @@ void inter_5_0(
       float v510 = ti4;	// L666
       float v511 = v509 * v510;	// L667
       float v512 = v508 - v511;	// L668
+      #pragma HLS bind_op variable=v512 op=fsub impl=fabric
       float bw_re4;	// L669
       bw_re4 = v512;	// L670
       float v514 = b_re5;	// L671
@@ -893,11 +946,13 @@ void inter_5_0(
       float v518 = tr4;	// L675
       float v519 = v517 * v518;	// L676
       float v520 = v516 + v519;	// L677
+      #pragma HLS bind_op variable=v520 op=fadd impl=fabric
       float bw_im4;	// L678
       bw_im4 = v520;	// L679
       float v522 = a_re5;	// L680
       float v523 = bw_re4;	// L681
       float v524 = v522 + v523;	// L682
+      #pragma HLS bind_op variable=v524 op=fadd impl=fabric
       int32_t v525 = within;	// L683
       int v526 = v525;	// L684
       int32_t v527 = off_l;	// L685
@@ -906,6 +961,7 @@ void inter_5_0(
       float v529 = a_im5;	// L688
       float v530 = bw_im4;	// L689
       float v531 = v529 + v530;	// L690
+      #pragma HLS bind_op variable=v531 op=fadd impl=fabric
       int32_t v532 = within;	// L691
       int v533 = v532;	// L692
       int32_t v534 = off_l;	// L693
@@ -914,6 +970,7 @@ void inter_5_0(
       float v536 = a_re5;	// L696
       float v537 = bw_re4;	// L697
       float v538 = v536 - v537;	// L698
+      #pragma HLS bind_op variable=v538 op=fsub impl=fabric
       int32_t v539 = within;	// L699
       int32_t v540 = v539 ^ 16;	// L700
       int v541 = v540;	// L701
@@ -923,6 +980,7 @@ void inter_5_0(
       float v544 = a_im5;	// L705
       float v545 = bw_im4;	// L706
       float v546 = v544 - v545;	// L707
+      #pragma HLS bind_op variable=v546 op=fsub impl=fabric
       int32_t v547 = within;	// L708
       int32_t v548 = v547 ^ 16;	// L709
       int v549 = v548;	// L710
@@ -956,6 +1014,7 @@ void inter_5_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_re1[_iv0];
       }
       v427.write(_vec);
@@ -963,6 +1022,7 @@ void inter_5_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_im1[_iv0];
       }
       v428.write(_vec);
@@ -1009,6 +1069,7 @@ void inter_6_0(
     {
       hls::vector< float, 32 > _vec = v568.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v579[_iv0] = _vec[_iv0];
       }
     }	// L761
@@ -1016,6 +1077,7 @@ void inter_6_0(
     {
       hls::vector< float, 32 > _vec = v569.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v580[_iv0] = _vec[_iv0];
       }
     }	// L762
@@ -1139,6 +1201,7 @@ void inter_6_0(
       float v674 = ti5;	// L877
       float v675 = v673 * v674;	// L878
       float v676 = v672 - v675;	// L879
+      #pragma HLS bind_op variable=v676 op=fsub impl=fabric
       float bw_re5;	// L880
       bw_re5 = v676;	// L881
       float v678 = b_re6;	// L882
@@ -1148,11 +1211,13 @@ void inter_6_0(
       float v682 = tr5;	// L886
       float v683 = v681 * v682;	// L887
       float v684 = v680 + v683;	// L888
+      #pragma HLS bind_op variable=v684 op=fadd impl=fabric
       float bw_im5;	// L889
       bw_im5 = v684;	// L890
       float v686 = a_re6;	// L891
       float v687 = bw_re5;	// L892
       float v688 = v686 + v687;	// L893
+      #pragma HLS bind_op variable=v688 op=fadd impl=fabric
       int32_t v689 = bank_il;	// L894
       int v690 = v689;	// L895
       int32_t v691 = off_il;	// L896
@@ -1161,6 +1226,7 @@ void inter_6_0(
       float v693 = a_im6;	// L899
       float v694 = bw_im5;	// L900
       float v695 = v693 + v694;	// L901
+      #pragma HLS bind_op variable=v695 op=fadd impl=fabric
       int32_t v696 = bank_il;	// L902
       int v697 = v696;	// L903
       int32_t v698 = off_il;	// L904
@@ -1169,6 +1235,7 @@ void inter_6_0(
       float v700 = a_re6;	// L907
       float v701 = bw_re5;	// L908
       float v702 = v700 - v701;	// L909
+      #pragma HLS bind_op variable=v702 op=fsub impl=fabric
       int32_t v703 = bank_iu;	// L910
       int v704 = v703;	// L911
       int32_t v705 = off_iu;	// L912
@@ -1177,6 +1244,7 @@ void inter_6_0(
       float v707 = a_im6;	// L915
       float v708 = bw_im5;	// L916
       float v709 = v707 - v708;	// L917
+      #pragma HLS bind_op variable=v709 op=fsub impl=fabric
       int32_t v710 = bank_iu;	// L918
       int v711 = v710;	// L919
       int32_t v712 = off_iu;	// L920
@@ -1210,6 +1278,7 @@ void inter_6_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_re2[_iv0];
       }
       v570.write(_vec);
@@ -1217,6 +1286,7 @@ void inter_6_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_im2[_iv0];
       }
       v571.write(_vec);
@@ -1263,6 +1333,7 @@ void inter_7_0(
     {
       hls::vector< float, 32 > _vec = v731.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v742[_iv0] = _vec[_iv0];
       }
     }	// L969
@@ -1270,6 +1341,7 @@ void inter_7_0(
     {
       hls::vector< float, 32 > _vec = v732.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v743[_iv0] = _vec[_iv0];
       }
     }	// L970
@@ -1384,6 +1456,7 @@ void inter_7_0(
       float v829 = ti6;	// L1076
       float v830 = v828 * v829;	// L1077
       float v831 = v827 - v830;	// L1078
+      #pragma HLS bind_op variable=v831 op=fsub impl=fabric
       float bw_re6;	// L1079
       bw_re6 = v831;	// L1080
       float v833 = b_re7;	// L1081
@@ -1393,11 +1466,13 @@ void inter_7_0(
       float v837 = tr6;	// L1085
       float v838 = v836 * v837;	// L1086
       float v839 = v835 + v838;	// L1087
+      #pragma HLS bind_op variable=v839 op=fadd impl=fabric
       float bw_im6;	// L1088
       bw_im6 = v839;	// L1089
       float v841 = a_re7;	// L1090
       float v842 = bw_re6;	// L1091
       float v843 = v841 + v842;	// L1092
+      #pragma HLS bind_op variable=v843 op=fadd impl=fabric
       int32_t v844 = bank_il1;	// L1093
       int v845 = v844;	// L1094
       int32_t v846 = off_il1;	// L1095
@@ -1406,6 +1481,7 @@ void inter_7_0(
       float v848 = a_im7;	// L1098
       float v849 = bw_im6;	// L1099
       float v850 = v848 + v849;	// L1100
+      #pragma HLS bind_op variable=v850 op=fadd impl=fabric
       int32_t v851 = bank_il1;	// L1101
       int v852 = v851;	// L1102
       int32_t v853 = off_il1;	// L1103
@@ -1414,6 +1490,7 @@ void inter_7_0(
       float v855 = a_re7;	// L1106
       float v856 = bw_re6;	// L1107
       float v857 = v855 - v856;	// L1108
+      #pragma HLS bind_op variable=v857 op=fsub impl=fabric
       int32_t v858 = bank_iu1;	// L1109
       int v859 = v858;	// L1110
       int32_t v860 = off_iu1;	// L1111
@@ -1422,6 +1499,7 @@ void inter_7_0(
       float v862 = a_im7;	// L1114
       float v863 = bw_im6;	// L1115
       float v864 = v862 - v863;	// L1116
+      #pragma HLS bind_op variable=v864 op=fsub impl=fabric
       int32_t v865 = bank_iu1;	// L1117
       int v866 = v865;	// L1118
       int32_t v867 = off_iu1;	// L1119
@@ -1455,6 +1533,7 @@ void inter_7_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_re3[_iv0];
       }
       v733.write(_vec);
@@ -1462,6 +1541,7 @@ void inter_7_0(
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         _vec[_iv0] = chunk_im3[_iv0];
       }
       v734.write(_vec);
@@ -1485,6 +1565,7 @@ void output_stage_0(
     {
       hls::vector< float, 32 > _vec = v888.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v891[_iv0] = _vec[_iv0];
       }
     }	// L1152
@@ -1492,6 +1573,7 @@ void output_stage_0(
     {
       hls::vector< float, 32 > _vec = v889.read();
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
         v892[_iv0] = _vec[_iv0];
       }
     }	// L1153
@@ -1506,32 +1588,36 @@ void output_stage_0(
 }
 
 void load_buf0(
-  float v896[256],
+  float v896[8][32],
   float v897[8][32]
 ) {	//
+  #pragma HLS array_partition variable=v896 complete dim=2
+
   #pragma HLS array_partition variable=v897 complete dim=2
 
   l_S_load_buf0_load_buf0_l_0: for (int load_buf0_l_0 = 0; load_buf0_l_0 < 8; load_buf0_l_0++) {	//
   #pragma HLS pipeline II=1 rewind
     l_load_buf0_l_1: for (int load_buf0_l_1 = 0; load_buf0_l_1 < 32; load_buf0_l_1++) {	//
     #pragma HLS unroll
-      float v900 = v896[((load_buf0_l_0 * 32) + load_buf0_l_1)];	//
+      float v900 = v896[load_buf0_l_0][load_buf0_l_1];	//
       v897[load_buf0_l_0][load_buf0_l_1] = v900;	//
     }
   }
 }
 
 void load_buf1(
-  float v901[256],
+  float v901[8][32],
   float v902[8][32]
 ) {	//
+  #pragma HLS array_partition variable=v901 complete dim=2
+
   #pragma HLS array_partition variable=v902 complete dim=2
 
   l_S_load_buf1_load_buf1_l_0: for (int load_buf1_l_0 = 0; load_buf1_l_0 < 8; load_buf1_l_0++) {	//
   #pragma HLS pipeline II=1 rewind
     l_load_buf1_l_1: for (int load_buf1_l_1 = 0; load_buf1_l_1 < 32; load_buf1_l_1++) {	//
     #pragma HLS unroll
-      float v905 = v901[((load_buf1_l_0 * 32) + load_buf1_l_1)];	//
+      float v905 = v901[load_buf1_l_0][load_buf1_l_1];	//
       v902[load_buf1_l_0][load_buf1_l_1] = v905;	//
     }
   }
@@ -1539,44 +1625,56 @@ void load_buf1(
 
 void store_res2(
   float v906[8][32],
-  float v907[256]
+  float v907[8][32]
 ) {	//
   #pragma HLS array_partition variable=v906 complete dim=2
+
+  #pragma HLS array_partition variable=v907 complete dim=2
 
   l_S_store_res2_store_res2_l_0: for (int store_res2_l_0 = 0; store_res2_l_0 < 8; store_res2_l_0++) {	//
   #pragma HLS pipeline II=1 rewind
     l_store_res2_l_1: for (int store_res2_l_1 = 0; store_res2_l_1 < 32; store_res2_l_1++) {	//
     #pragma HLS unroll
       float v910 = v906[store_res2_l_0][store_res2_l_1];	//
-      v907[((store_res2_l_0 * 32) + store_res2_l_1)] = v910;	//
+      v907[store_res2_l_0][store_res2_l_1] = v910;	//
     }
   }
 }
 
 void store_res3(
   float v911[8][32],
-  float v912[256]
+  float v912[8][32]
 ) {	//
   #pragma HLS array_partition variable=v911 complete dim=2
+
+  #pragma HLS array_partition variable=v912 complete dim=2
 
   l_S_store_res3_store_res3_l_0: for (int store_res3_l_0 = 0; store_res3_l_0 < 8; store_res3_l_0++) {	//
   #pragma HLS pipeline II=1 rewind
     l_store_res3_l_1: for (int store_res3_l_1 = 0; store_res3_l_1 < 32; store_res3_l_1++) {	//
     #pragma HLS unroll
       float v915 = v911[store_res3_l_0][store_res3_l_1];	//
-      v912[((store_res3_l_0 * 32) + store_res3_l_1)] = v915;	//
+      v912[store_res3_l_0][store_res3_l_1] = v915;	//
     }
   }
 }
 
 /// This is top function.
 void fft_256(
-  float v916[256],
-  float v917[256],
-  float v918[256],
-  float v919[256]
+  float v916[8][32],
+  float v917[8][32],
+  float v918[8][32],
+  float v919[8][32]
 ) {	// L1163
   #pragma HLS dataflow disable_start_propagation
+  #pragma HLS array_partition variable=v916 complete dim=2
+
+  #pragma HLS array_partition variable=v917 complete dim=2
+
+  #pragma HLS array_partition variable=v918 complete dim=2
+
+  #pragma HLS array_partition variable=v919 complete dim=2
+
   float buf0[8][32];	//
   #pragma HLS array_partition variable=buf0 complete dim=2
 

@@ -6,6 +6,6 @@ set_top fft_256
 add_files kernel.cpp
 open_solution "solution1" -flow_target vivado
 set_part {xcu250-figd2104-2L-e}
-create_clock -period 3.333 -name default
+create_clock -period 4.0 -name default
 csynth_design
 close_project
