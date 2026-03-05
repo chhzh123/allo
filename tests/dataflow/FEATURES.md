@@ -71,7 +71,43 @@ Changed the deduplication key in `_build_top` from `dtensor.name` to
 
 ---
 
-## 3. Vectorized FFT-256 with F2 Swizzle (`tests/dataflow/test_fft.py`)
+## 3. New Schedule Primitives (`allo/customize.py`)
+
+### `s.bind_storage(target, impl, storage_type="")`
+
+Emits `#pragma HLS bind_storage variable=<buf> type=<storage_type> impl=<impl>`.
+
+| Argument | Example values |
+|---|---|
+| `impl` | `"bram"`, `"uram"`, `"lutram"`, `"srl"` |
+| `storage_type` | `""` (auto), `"ram_1p"`, `"ram_2p"`, `"ram_t2p"`, `"ram_s2p"` |
+
+**Example:**
+```python
+s.bind_storage("inter_5_0:in_re", impl="lutram", storage_type="ram_2p")
+```
+Emits: `#pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram`
+
+`ram_2p` enables dual-port access, which is required for HLS DATAFLOW ping-pong
+buffering (one port writes new data while another reads previous call's data).
+
+### `s.dependence(target, dep_type="inter", direction="false")`
+
+Emits `#pragma HLS dependence variable=<buf> inter false`.
+
+Suppresses conservative false loop-carried dependency analysis by HLS, enabling
+II=1 for loops that compute butterfly indices via XOR expressions that HLS cannot
+easily prove are conflict-free.
+
+**Example:**
+```python
+s.dependence("inter_5_0:out_re_b")
+```
+Emits: `#pragma HLS dependence variable=out_re_b inter false`
+
+---
+
+## 5. Vectorized FFT-256 with F2 Swizzle (`tests/dataflow/test_fft.py`)
 
 **What it is:**
 A complete, annotated Allo dataflow implementation of a radix-2 DIT FFT for
@@ -141,7 +177,7 @@ The generated HLS C++ code includes:
 
 ---
 
-## 4. Scalar HP-FFT (`tests/dataflow/test_fft.py`)
+## 6. Scalar HP-FFT (`tests/dataflow/test_fft.py`)
 
 A simple reference implementation using the Allo dataflow `mapping` API:
 - `input_loader`: `mapping=[N]` — one PE per element, handles bit-reversal
@@ -149,6 +185,32 @@ A simple reference implementation using the Allo dataflow `mapping` API:
 - `output_store`: `mapping=[N]`
 
 This serves as the functional baseline for the vectorized implementation.
+
+---
+
+## 7. Full Optimization Pass (`_apply_f2_optimizations`)
+
+```python
+def _apply_f2_optimizations(s):
+    # 1. ARRAY_PARTITION complete dim=1 on all inter-stage 2D buffers
+    _apply_f2_partitions(s)
+    # 2. BIND_STORAGE ram_2p lutram + DEPENDENCE inter false on buffers
+    for kn in inter_kernels:
+        for bn in bufs:
+            s.bind_storage(f"{kn}:{bn}", impl="lutram", storage_type="ram_2p")
+            s.dependence(f"{kn}:{bn}")
+    # 3. DATAFLOW on inter-stage kernels (sub-function pipeline, II=8)
+    for kn in inter_kernels:
+        s.dataflow(kn)
+    # 4. PIPELINE II=1 on all outer loops + UNROLL on all inner k loops
+    # (bit_rev, intra_0..4, inter_5..7, output_stage)
+```
+
+This achieves:
+- Intra stages: II=1 (8 cycles per call, pipeline on outer `_i` loop)
+- Inter stages: II=8 (dataflow sub-pipelining of load/compute/write)
+- Bit-rev stage: II=256 (load) + II=8 (write)
+- Overall throughput: 1 FFT per ~N*LOG2_N/WIDTH = 64 cycles
 
 ---
 

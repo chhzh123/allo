@@ -1408,6 +1408,50 @@ void allo::hls::VhlsModuleEmitter::emitAlloc(OpType op) {
   os << ";";
   emitInfoAndNewLine(op);
   emitArrayDirectives(result);
+
+  // Emit bind_storage pragma from schedule attribute (set by s.bind_storage())
+  if (auto bsRaw = op->getAttr("bind_storage")) {
+    if (auto bsAttr = llvm::dyn_cast<IntegerAttr>(bsRaw)) {
+      int64_t code = bsAttr.getInt();
+      if (code > 0) {
+        int implCode = code / 16;
+        int storageCode = code % 16;
+        const char *implType = "";
+        switch (implCode) {
+        case 1: implType = "bram"; break;
+        case 2: implType = "uram"; break;
+        case 3: implType = "lutram"; break;
+        case 4: implType = "srl"; break;
+        }
+        const char *storageType = "";
+        switch (storageCode) {
+        case 1: storageType = "ram_1p"; break;
+        case 2: storageType = "ram_2p"; break;
+        case 3: storageType = "ram_t2p"; break;
+        case 4: storageType = "ram_1wnr"; break;
+        case 5: storageType = "ram_s2p"; break;
+        case 6: storageType = "rom_1p"; break;
+        case 7: storageType = "rom_2p"; break;
+        }
+        if (implCode > 0) {
+          indent();
+          os << "#pragma HLS bind_storage variable=";
+          emitValue(result);
+          if (storageCode > 0)
+            os << " type=" << storageType;
+          os << " impl=" << implType << "\n";
+        }
+      }
+    }
+  }
+
+  // Emit dependence pragma from schedule attribute (set by s.dependence())
+  if (op->hasAttr("dependence_inter_false")) {
+    indent();
+    os << "#pragma HLS dependence variable=";
+    emitValue(result);
+    os << " inter false\n";
+  }
 }
 
 void allo::hls::VhlsModuleEmitter::emitLoad(memref::LoadOp op) {

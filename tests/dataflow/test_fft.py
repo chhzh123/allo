@@ -563,6 +563,63 @@ def _apply_f2_partitions(s):
             s.partition(f"{kn}:{bn}", partition_type=Partition.Complete, dim=1)
 
 
+def _apply_f2_optimizations(s):
+    """Full F2 optimization pass: partition + dataflow + pipeline + unroll.
+
+    Applies all HLS pragmas needed to match the performance of
+    gemini-fft.prj/kernel.cpp:
+      - ARRAY_PARTITION complete dim=1 on inter-stage 2D buffers
+      - DATAFLOW on inter-stage kernels (sub-function pipeline)
+      - PIPELINE II=1 on all outer i/_i/src loops
+      - UNROLL on all inner k loops
+    """
+    # 1. Partition inter-stage 2D buffers
+    _apply_f2_partitions(s)
+
+    # 2. Sub-function dataflow for inter-vector stages
+    #    This lets HLS pipeline load/compute/write sub-loops concurrently,
+    #    achieving II=N/WIDTH instead of 3*(N/WIDTH) cycles per inter stage.
+    for kn in ["inter_5_0", "inter_6_0", "inter_7_0"]:
+        s.dataflow(kn)
+
+    # 3. BIND_STORAGE ram_2p lutram + DEPENDENCE inter false on all inter-stage buffers
+    #    ram_2p enables dual-port access needed for HLS DATAFLOW ping-pong buffering.
+    #    DEPENDENCE inter false removes conservative false dependencies for II=1.
+    inter_kernels = ["inter_5_0", "inter_6_0", "inter_7_0"]
+    bufs = ["in_re", "in_im", "out_re_b", "out_im_b"]
+    for kn in inter_kernels:
+        for bn in bufs:
+            s.bind_storage(f"{kn}:{bn}", impl="lutram", storage_type="ram_2p")
+            s.dependence(f"{kn}:{bn}")
+
+    # 4. Pipeline outer loops + unroll inner k loops for all kernels
+    #    bit_rev_stage: two separate loop bands (src, i)
+    br_loops = s.get_loops("bit_rev_stage_0")
+    s.pipeline(br_loops["S_src_0"]["src"])
+    s.unroll(br_loops["S_i_1"]["k"])
+    s.pipeline(br_loops["S_i_1"]["i"])
+
+    # intra stages: single outer _i loop
+    for stage in range(5):
+        kn = f"intra_{stage}_0"
+        lp = s.get_loops(kn)
+        s.pipeline(lp["S__i_0"]["_i"])
+        s.unroll(lp["S__i_0"]["k"])
+
+    # inter stages: three loop bands (load=S_i_0, compute=S_i_2, write=S_i_4)
+    for stage in [5, 6, 7]:
+        kn = f"inter_{stage}_0"
+        lp = s.get_loops(kn)
+        for band in ["S_i_0", "S_i_2", "S_i_4"]:
+            s.pipeline(lp[band]["i"])
+            s.unroll(lp[band]["k"])
+
+    # output_stage: single outer i loop
+    out_lp = s.get_loops("output_stage_0")
+    s.pipeline(out_lp["S_i_0"]["i"])
+    s.unroll(out_lp["S_i_0"]["k"])
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -597,7 +654,7 @@ def test_fft_256_vectorized():
 def test_fft_256_hls_codegen():
     """Verify that the HLS code contains F2-partitioned 2D buffers and swizzle."""
     s = df.customize(fft_256)
-    _apply_f2_partitions(s)
+    _apply_f2_optimizations(s)
     mod = s.build(target="vitis_hls")
     code = mod.hls_code
 
@@ -615,6 +672,18 @@ def test_fft_256_hls_codegen():
         "Expected array_partition pragma for swizzled 2D buffers"
     )
 
+    # Pipeline pragmas on all kernels
+    assert "#pragma HLS pipeline" in code, "Expected pipeline pragma for II=1"
+
+    # Sub-function dataflow on inter-vector stages
+    assert "#pragma HLS dataflow" in code, (
+        "Expected dataflow pragma for inter-stage sub-function pipeline"
+    )
+
+    # bind_storage and dependence pragmas on inter-stage buffers
+    assert "bind_storage" in code, "Expected bind_storage pragma for lutram"
+    assert "dependence" in code, "Expected dependence pragma for II=1"
+
     print("✅ FFT-256 HLS Codegen Test PASSED!")
 
 
@@ -624,7 +693,7 @@ def test_fft_256_csyn():
         import pytest
         pytest.skip("Vitis HLS not available")
     s = df.customize(fft_256)
-    _apply_f2_partitions(s)
+    _apply_f2_optimizations(s)
     with tempfile.TemporaryDirectory() as tmpdir:
         s.build(target="vitis_hls", mode="csyn", project=tmpdir)
     print("✅ FFT-256 CSyn Passed!")

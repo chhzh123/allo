@@ -804,6 +804,63 @@ class Schedule:
         allo_d.ReshapeOp(memref_type, target.result, ip=self.ip)
 
     @wrapped_apply
+    def bind_storage(self, target, impl, storage_type=""):
+        """
+        Annotates a local array with a bind_storage pragma for HLS synthesis.
+
+        Emits: #pragma HLS bind_storage variable=<target> type=<storage_type> impl=<impl>
+
+        Parameters
+        ----------
+        target: str
+            "func_name:buf_name" identifying the local buffer.
+        impl: str
+            Implementation type: "bram", "uram", "lutram", "srl".
+        storage_type: str
+            Storage interface type: "ram_1p", "ram_2p", "ram_t2p", "ram_s2p", etc.
+            Default "" lets HLS choose.
+        """
+        impl_codes = {"bram": 1, "uram": 2, "lutram": 3, "srl": 4}
+        storage_codes = {
+            "": 0, "ram_1p": 1, "ram_2p": 2, "ram_t2p": 3,
+            "ram_1wnr": 4, "ram_s2p": 5, "rom_1p": 6, "rom_2p": 7, "rom_np": 8,
+        }
+        impl_code = impl_codes.get(impl.lower(), 0)
+        storage_code = storage_codes.get(storage_type.lower(), 0)
+        enc = impl_code * 16 + storage_code
+
+        if isinstance(target, str):
+            func_name, buf_name = target.split(":")
+            target = MockBuffer(func_name, buf_name)
+
+        _, _, mlir_target = find_buffer(self.module, target, self.func_args)
+        i32 = IntegerType.get_signless(32)
+        mlir_target.attributes["bind_storage"] = IntegerAttr.get(i32, enc)
+
+    @wrapped_apply
+    def dependence(self, target, dep_type="inter", direction="false"):
+        """
+        Annotates a local array with a dependence pragma for HLS synthesis.
+
+        Emits: #pragma HLS dependence variable=<target> inter false
+
+        Parameters
+        ----------
+        target: str
+            "func_name:buf_name" identifying the local buffer.
+        dep_type: str
+            "inter" (cross-iteration) or "intra" (within-iteration). Default "inter".
+        direction: str
+            "false" (no dependency) or "true". Default "false".
+        """
+        if dep_type == "inter" and direction == "false":
+            if isinstance(target, str):
+                func_name, buf_name = target.split(":")
+                target = MockBuffer(func_name, buf_name)
+            _, _, mlir_target = find_buffer(self.module, target, self.func_args)
+            mlir_target.attributes["dependence_inter_false"] = UnitAttr.get()
+
+    @wrapped_apply
     def pipeline(self, axis, initiation_interval=1, rewind=False):
         """
         Pipelines a loop with index `axis` into `initiation_interval` stages.
