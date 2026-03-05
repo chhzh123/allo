@@ -338,6 +338,210 @@ def add_compute_loop_dependence_pragmas(hls_code):
     return "\n".join(result)
 
 
+def convert_io_to_streams(hls_code, n_vecs, width, stream_arg_indices=None):
+    """Convert top-level array arguments to hls::stream interface.
+
+    Transforms the generated HLS code so that selected top-level I/O arguments
+    become ``hls::stream<hls::vector<float, WIDTH>>`` instead of
+    ``float varname[N_VECS][WIDTH]``.  The corresponding ``load_buf{N}`` and
+    ``store_res{N}`` wrapper functions are updated to read from / write to the
+    stream rather than copying from/to a flat array.
+
+    Parameters
+    ----------
+    hls_code : str
+        The HLS C++ source string as emitted by allo_d.emit_vhls.
+    n_vecs : int
+        Outer dimension of the I/O arrays (e.g. NUM_VECS = N // WIDTH).
+    width : int
+        Inner dimension / stream vector width (e.g. WIDTH = 32).
+    stream_arg_indices : list[int] | None
+        Which top-function argument positions to convert.  When *None*, ALL
+        array arguments are converted (the common case when stream_io=True).
+
+    Transformation steps
+    --------------------
+    1. **load_buf{N} / store_res{N} signatures** – replace the first argument
+       ``float v{A}[N][W]`` with ``hls::stream<hls::vector<float, W>>& v{A}``.
+    2. **load_buf{N} body** – replace the nested copy loop with a stream ``.read()``
+       call that unpacks each ``hls::vector`` token into the local buffer row.
+    3. **store_res{N} body** – replace the nested copy loop with a stream
+       ``.write()`` call that packs each local buffer row into an ``hls::vector``
+       token and sends it.
+    4. **Top function signature** – replace ``float v{X}[N][W]`` with
+       ``hls::stream<hls::vector<float, W>>& v{X}`` for every converted argument.
+    5. **Top function body** – remove the ``#pragma HLS array_partition`` pragma
+       that was inserted for the (now-gone) array argument, and remove the
+       ``load_buf`` / ``store_res`` calls so the kernels read directly from the
+       streams passed in from outside.
+
+    Returns the modified HLS source string.
+    """
+    stream_type = f"hls::stream<hls::vector<float, {width}>>"
+    n_str = str(n_vecs)
+    w_str = str(width)
+
+    # ------------------------------------------------------------------
+    # Step 1 & 2 & 3: Transform load_buf / store_res function bodies.
+    # Pattern for a load_buf / store_res function:
+    #
+    #   void load_bufN(
+    #     float vA[N][W],     <- first arg = external array / stream candidate
+    #     float vB[N][W]      <- second arg = internal buffer
+    #   ) {
+    #     #pragma HLS array_partition variable=vA complete dim=2
+    #     #pragma HLS array_partition variable=vB complete dim=2
+    #     l_S_...: for (int ...l_0 = 0; ...l_0 < N; ...l_0++) {
+    #     #pragma HLS pipeline II=1 rewind
+    #       l_...: for (int ...l_1 = 0; ...l_1 < W; ...l_1++) {
+    #       #pragma HLS unroll
+    #         float vT = vA[...l_0][...l_1];
+    #         vB[...l_0][...l_1] = vT;
+    #       }
+    #     }
+    #   }
+    # ------------------------------------------------------------------
+    def _transform_wrapper_func(m):
+        """Called for each load_buf / store_res match."""
+        func_type = m.group("ftype")   # 'load_buf' or 'store_res'
+        func_idx  = m.group("fidx")    # numeric suffix
+        first_var = m.group("ext_var")  # first argument variable name
+        second_var = m.group("buf_var")  # second argument variable name
+
+        # Only convert this wrapper if the argument is in the target index set.
+        arg_idx = int(func_idx)
+        if stream_arg_indices is not None and arg_idx not in stream_arg_indices:
+            return m.group(0)  # no change
+
+        if func_type == "load_buf":
+            # load_buf(external_input, internal_buffer):
+            #   first arg is external (becomes stream), second is internal buffer.
+            stream_var = first_var
+            buf_var = second_var
+            new_sig = (
+                f"void {func_type}{func_idx}(\n"
+                f"  {stream_type}& {stream_var},\n"
+                f"  float {buf_var}[{n_str}][{w_str}]\n"
+                f") {{"
+            )
+            new_body = (
+                f"\n  #pragma HLS array_partition variable={buf_var} complete dim=2\n\n"
+                f"  for (int _si = 0; _si < {n_str}; _si++) {{\n"
+                f"  #pragma HLS pipeline II=1 rewind\n"
+                f"    hls::vector<float, {w_str}> _vtmp = {stream_var}.read();\n"
+                f"    for (int _sk = 0; _sk < {w_str}; _sk++) {{\n"
+                f"    #pragma HLS unroll\n"
+                f"      {buf_var}[_si][_sk] = _vtmp[_sk];\n"
+                f"    }}\n"
+                f"  }}\n"
+            )
+        else:  # store_res
+            # store_res(internal_buffer, external_output):
+            #   first arg is internal buffer, second is external (becomes stream).
+            buf_var = first_var
+            stream_var = second_var
+            new_sig = (
+                f"void {func_type}{func_idx}(\n"
+                f"  float {buf_var}[{n_str}][{w_str}],\n"
+                f"  {stream_type}& {stream_var}\n"
+                f") {{"
+            )
+            new_body = (
+                f"\n  #pragma HLS array_partition variable={buf_var} complete dim=2\n\n"
+                f"  for (int _si = 0; _si < {n_str}; _si++) {{\n"
+                f"  #pragma HLS pipeline II=1 rewind\n"
+                f"    hls::vector<float, {w_str}> _vtmp;\n"
+                f"    for (int _sk = 0; _sk < {w_str}; _sk++) {{\n"
+                f"    #pragma HLS unroll\n"
+                f"      _vtmp[_sk] = {buf_var}[_si][_sk];\n"
+                f"    }}\n"
+                f"    {stream_var}.write(_vtmp);\n"
+                f"  }}\n"
+            )
+
+        return new_sig + new_body + "}"
+
+    # Match each load_buf / store_res function definition.
+    # The regex captures the two argument variable names and the full function body.
+    wrapper_pat = re.compile(
+        r"void (?P<ftype>load_buf|store_res)(?P<fidx>\d+)\(\s*"
+        r"float (?P<ext_var>\w+)\[" + n_str + r"\]\[" + w_str + r"\],\s*"
+        r"float (?P<buf_var>\w+)\[" + n_str + r"\]\[" + w_str + r"\]\s*"
+        r"\) \{(?P<body>.*?)\n\}",
+        re.DOTALL,
+    )
+    hls_code = wrapper_pat.sub(_transform_wrapper_func, hls_code)
+
+    # ------------------------------------------------------------------
+    # Step 4: Transform the top function signature.
+    # The top function may have multiple array arguments; we need to convert
+    # only those whose positional index is in stream_arg_indices.
+    # We do a single-pass replacement inside the argument list of the top function.
+    # ------------------------------------------------------------------
+    # Find the top function signature (lines between "void <top>(" and ") {")
+    top_sig_pat = re.compile(
+        r"(void \w+\(\s*)((?:  float \w+\[" + n_str + r"\]\[" + w_str + r"\][,\s]*\n)+)(\) \{)",
+        re.MULTILINE,
+    )
+
+    def _transform_top_sig(m):
+        prefix = m.group(1)
+        args_block = m.group(2)
+        suffix = m.group(3)
+
+        # Each arg line looks like:  "  float vXXX[8][32],\n"
+        arg_lines = re.findall(
+            r"  float (\w+)\[" + n_str + r"\]\[" + w_str + r"\](,?)\n",
+            args_block,
+        )
+        result_lines = []
+        for pos, (var_name, comma) in enumerate(arg_lines):
+            if stream_arg_indices is None or pos in stream_arg_indices:
+                result_lines.append(
+                    f"  {stream_type}& {var_name}{comma}\n"
+                )
+            else:
+                result_lines.append(
+                    f"  float {var_name}[{n_str}][{w_str}]{comma}\n"
+                )
+        return prefix + "".join(result_lines) + suffix
+
+    hls_code = top_sig_pat.sub(_transform_top_sig, hls_code)
+
+    # ------------------------------------------------------------------
+    # Step 5: In the top function body, remove only the
+    #   "#pragma HLS array_partition variable=vXXX complete dim=2" pragmas
+    #   for converted stream args (they are no longer arrays, so the pragma
+    #   is meaningless and would cause HLS warnings).
+    #
+    # The load_buf / store_res CALL sites are kept because they are still
+    # the mechanism that transfers data between the top-level stream interface
+    # and the internal local buffers.  The wrapper functions themselves were
+    # already updated in steps 1-3 to read/write hls::stream instead of arrays.
+    #
+    # The top-function argument variable names are now "hls::stream<...>& vXXX"
+    # in the transformed signature - collect them from the whole code string.
+    # ------------------------------------------------------------------
+    top_stream_vars = set(
+        re.findall(re.escape(stream_type) + r"& (\w+)", hls_code)
+    )
+
+    if top_stream_vars:
+        lines = hls_code.split("\n")
+        result = []
+        for line in lines:
+            stripped = line.strip()
+            # Remove array_partition pragmas for stream-converted top-level args
+            if stripped.startswith("#pragma HLS array_partition"):
+                var_match = re.search(r"variable=(\w+)\b", stripped)
+                if var_match and var_match.group(1) in top_stream_vars:
+                    continue
+            result.append(line)
+        hls_code = "\n".join(result)
+
+    return hls_code
+
+
 def fix_deduped_global_refs(hls_code):
     """Rewrite placeholder SSA names for deduplicated global constants.
 
@@ -585,6 +789,30 @@ class HLSModule:
                 self.hls_code = fix_deduped_global_refs(self.hls_code)
             if configs.get("bind_op_fabric", False):
                 self.hls_code = add_bind_op_fabric_pragmas(self.hls_code)
+            if configs.get("stream_io", False):
+                stream_io_cfg = configs["stream_io"]
+                # stream_io may be True (convert all) or a dict with keys:
+                #   n_vecs, width, indices (list of arg positions to convert)
+                if isinstance(stream_io_cfg, dict):
+                    n_vecs = stream_io_cfg.get("n_vecs", None)
+                    width  = stream_io_cfg.get("width", None)
+                    indices = stream_io_cfg.get("indices", None)
+                else:
+                    # Infer n_vecs and width from the IO mappings if available.
+                    # Each mapping entry is (shape, ...) where shape=[n_vecs, width].
+                    mappings = configs.get("mappings", None)
+                    n_vecs = None
+                    width = None
+                    if mappings and len(mappings) > 0 and mappings[0] is not None:
+                        shape = mappings[0][0]  # e.g. [NUM_VECS, WIDTH]
+                        if isinstance(shape, (list, tuple)) and len(shape) >= 2:
+                            n_vecs = shape[0]
+                            width  = shape[1]
+                    indices = None
+                if n_vecs is not None and width is not None:
+                    self.hls_code = convert_io_to_streams(
+                        self.hls_code, n_vecs, width, stream_arg_indices=indices
+                    )
         if project is not None:
             assert mode is not None, "mode must be specified when project is specified"
             os.makedirs(project, exist_ok=True)

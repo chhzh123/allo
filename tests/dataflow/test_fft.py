@@ -48,6 +48,12 @@ LOG2_NUM_VECS = LOG2_N - LOG2_WIDTH  # 3
 # Full twiddle LUT: W_N^k = exp(-2*pi*i*k/N) for k=0..N/2-1
 full_twr = np.array([cos(-2.0 * pi * k / N) for k in range(N // 2)], dtype=np.float32)
 full_twi = np.array([sin(-2.0 * pi * k / N) for k in range(N // 2)], dtype=np.float32)
+# Snap values within float32 epsilon to exactly 0.0 so HLS can constant-fold multiplications.
+# cos(π/2) = 6.12e-17 in float64 is representable as float32 (non-zero), which forces
+# HLS to generate DSP multipliers in stage-1 butterflies even though tw=(1,0)/(0,-1).
+_snap_eps = float(np.finfo(np.float32).eps)
+full_twr = np.where(np.abs(full_twr) < _snap_eps, np.float32(0.0), full_twr).astype(np.float32)
+full_twi = np.where(np.abs(full_twi) < _snap_eps, np.float32(0.0), full_twi).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -198,8 +204,9 @@ def fft_256(
     """Vectorized 256-point FFT with F2-swizzled inter-stage buffers."""
 
     # 9 intermediate streams (s[0]..s[8]); each token is WIDTH float32 values
-    s_re: Stream[float32[WIDTH], 16][LOG2_N + 1]
-    s_im: Stream[float32[WIDTH], 16][LOG2_N + 1]
+    # depth=2 matches the reference design (FIFO_SRL, 0.87ns) for min pipeline latency
+    s_re: Stream[float32[WIDTH], 2][LOG2_N + 1]
+    s_im: Stream[float32[WIDTH], 2][LOG2_N + 1]
 
     # ------------------------------------------------------------------
     # Bit-reversal stage: inline 8-bit reversal (N=256, LOG2_N=8)
@@ -275,24 +282,27 @@ def fft_256(
 
     @df.kernel(mapping=[1])
     def intra_1():
-        twr: float32[N // 2] = full_twr
-        twi: float32[N // 2] = full_twi
+        # Stage 1 (STRIDE=2): twiddle factors are only (1,0) and (0,-1).
+        # Even-positioned pairs (k*4, k*4+2) use tw=(1,0): trivial butterfly a±b.
+        # Odd-positioned pairs (k*4+1, k*4+3) use tw=(0,-1): bw=(b_im,-b_re), no multiply.
+        # Matching the reference design's butterfly_trivial/butterfly_minus_i approach.
         for _i in range(NUM_VECS):
             c_re: float32[WIDTH] = s_re[1].get()
             c_im: float32[WIDTH] = s_im[1].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=2; bit ops to stay int32 (avoid MLIR widening)
-                il: int32 = ((k >> 1) << 2) | (k & 1)
-                iu: int32 = il | 2
-                tw_k: int32 = (k & 1) << 6
-                a_re = c_re[il]; a_im = c_im[il]
-                b_re = c_re[iu]; b_im = c_im[iu]
-                tr = twr[tw_k]; ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
+            for k in range(8):  # 8 groups, each with 2 butterfly pairs (trivial + -j)
+                # Trivial butterfly: pair (k*4, k*4+2) with tw=(1,0)
+                a_re = c_re[k * 4]; a_im = c_im[k * 4]
+                b_re = c_re[k * 4 + 2]; b_im = c_im[k * 4 + 2]
+                o_re[k * 4] = a_re + b_re; o_im[k * 4] = a_im + b_im
+                o_re[k * 4 + 2] = a_re - b_re; o_im[k * 4 + 2] = a_im - b_im
+                # -j butterfly: pair (k*4+1, k*4+3) with tw=(0,-1): bw=(b_im,-b_re)
+                # Inlined to avoid variable redefinition when loop is unrolled in HLS C
+                o_re[k * 4 + 1] = c_re[k * 4 + 1] + c_im[k * 4 + 3]
+                o_im[k * 4 + 1] = c_im[k * 4 + 1] - c_re[k * 4 + 3]
+                o_re[k * 4 + 3] = c_re[k * 4 + 1] - c_im[k * 4 + 3]
+                o_im[k * 4 + 3] = c_im[k * 4 + 1] + c_re[k * 4 + 3]
             s_re[2].put(o_re)
             s_im[2].put(o_im)
 
@@ -720,6 +730,7 @@ _IO_MAPPINGS = [
 _BUILD_CONFIGS = {
     "mappings": _IO_MAPPINGS,
     "bind_op_fabric": True,  # reduces fadd/fsub latency from ~5 to ~1 cycle
+    "stream_io": True,  # convert array top-level I/O to hls::stream (AXI4-Stream)
 }
 
 
@@ -763,6 +774,42 @@ def test_fft_256_hls_codegen():
     )
 
     print("✅ FFT-256 HLS Codegen Test PASSED!")
+
+
+def test_fft_256_stream_io_codegen():
+    """Verify that stream_io=True converts top-level I/O to hls::stream interface."""
+    s = df.customize(fft_256)
+    _apply_f2_optimizations(s)
+    stream_configs = dict(_BUILD_CONFIGS)
+    stream_configs["stream_io"] = True
+    mod = s.build(target="vitis_hls", configs=stream_configs)
+    code = mod.hls_code
+
+    # Top function must accept hls::stream<hls::vector<float, WIDTH>>& args
+    assert "hls::stream<hls::vector<float, 32>>& " in code, (
+        "Expected stream-typed top-level I/O args in fft_256 signature"
+    )
+
+    # load_buf / store_res must use stream read/write instead of array copy
+    assert "hls::vector<float, 32> _vtmp = " in code and ".read()" in code, (
+        "Expected stream .read() in load_buf functions"
+    )
+    assert ".write(_vtmp)" in code, (
+        "Expected stream .write() in store_res functions"
+    )
+
+    # No spurious array_partition for the stream-converted top args;
+    # the internal buf arrays should still have their pragmas.
+    assert "#pragma HLS array_partition variable=buf0 complete dim=2" in code, (
+        "Expected internal buffer buf0 to retain its array_partition pragma"
+    )
+
+    # Structural checks from existing test still hold
+    assert "hls::vector" in code
+    assert "bit_rev_stage" in code
+    assert "#pragma HLS pipeline" in code
+
+    print("FFT-256 Stream-IO Codegen Test PASSED!")
 
 
 def test_fft_256_csyn():
