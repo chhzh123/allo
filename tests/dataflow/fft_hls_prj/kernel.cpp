@@ -752,11 +752,11 @@ void inter_5_0(
 
     #pragma HLS dependence variable=in_im inter false
   float out_re_b[32][8];	// L572
-  #pragma HLS array_partition variable=out_re_b complete
+  #pragma HLS array_partition variable=out_re_b complete dim=1
 
     #pragma HLS dependence variable=out_re_b inter false
   float out_im_b[32][8];	// L573
-  #pragma HLS array_partition variable=out_im_b complete
+  #pragma HLS array_partition variable=out_im_b complete dim=1
 
     #pragma HLS dependence variable=out_im_b inter false
   l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L574
@@ -976,11 +976,11 @@ void inter_6_0(
 
     #pragma HLS dependence variable=in_im1 inter false
   float out_re_b1[32][8];	// L758
-  #pragma HLS array_partition variable=out_re_b1 complete
+  #pragma HLS array_partition variable=out_re_b1 complete dim=1
 
     #pragma HLS dependence variable=out_re_b1 inter false
   float out_im_b1[32][8];	// L759
-  #pragma HLS array_partition variable=out_im_b1 complete
+  #pragma HLS array_partition variable=out_im_b1 complete dim=1
 
     #pragma HLS dependence variable=out_im_b1 inter false
   l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L760
@@ -1224,11 +1224,11 @@ void inter_7_0(
 
     #pragma HLS dependence variable=in_im2 inter false
   float out_re_b2[32][8];	// L966
-  #pragma HLS array_partition variable=out_re_b2 complete
+  #pragma HLS array_partition variable=out_re_b2 complete dim=1
 
     #pragma HLS dependence variable=out_re_b2 inter false
   float out_im_b2[32][8];	// L967
-  #pragma HLS array_partition variable=out_im_b2 complete
+  #pragma HLS array_partition variable=out_im_b2 complete dim=1
 
     #pragma HLS dependence variable=out_im_b2 inter false
   l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L968

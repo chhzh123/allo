@@ -178,42 +178,57 @@ def optimize_stream_reads(hls_code):
 
 
 def fix_bank_array_partition(hls_code):
-    """Fix array_partition pragmas on bank arrays from ``complete dim=1`` to ``complete``.
+    """Fix array_partition pragmas and bind_storage for inter-stage bank arrays.
 
-    Dataflow inter-stage uses [BANKS][DEPTH] 2D arrays with ``complete dim=1`` partition,
-    giving 32 separate 8-element LUTRAMs (one per bank). When the 16x-unrolled butterfly
-    loop writes to bank arrays using runtime-computed indices, HLS cannot statically prove
-    conflict-freedom and fails to schedule with II=1 (violation HLS 200-885).
+    Dataflow inter-stage uses two kinds of [BANKS][DEPTH] 2D bank arrays:
 
-    Changing to ``complete`` (all dimensions) turns the [32][8] array into 256 individual
-    registers (32*8 = 256 FFs), allowing all reads/writes in parallel and achieving II=1.
+    1. **Input banks** (``in_re*``, ``in_im*``): Written by the LOAD sub-loop with 32x
+       unrolled writes using runtime-computed bank indices. With ``complete dim=1``
+       partition each bank is an 8-element LUTRAM with 1W port, causing II=2
+       (violation HLS 200-885: "limited memory ports"). Fix: upgrade to ``complete``
+       (all-dimension) partition, making them 256 individual FF registers with
+       unlimited write ports.
 
-    Also removes ``#pragma HLS bind_storage variable=V type=ram_2p impl=lutram`` for the
-    same arrays. The ``bind_storage ram_2p`` pragma conflicts with full ``complete``
-    partition — when an array is completely partitioned into individual registers, requesting
-    a RAM implementation causes HLS to retain limited memory ports, preventing II=1.
+    2. **Output banks** (``out_re_b*``, ``out_im_b*``): Written by the COMPUTE sub-loop.
+       With ``complete`` (all-dim) partition, the ``dependence inter false`` pragma fails
+       to propagate to the individual register sub-variables, causing HLS to report
+       "carried dependence constraint" WAW violations (II=2). Fix: keep ``dim=1``
+       partition (32 separate 8-element sub-arrays) so ``dependence inter false`` applies
+       correctly to each sub-array. Remove ``bind_storage ram_2p`` to let HLS auto-select
+       a multi-port implementation (2R/2W instead of forced 1R/1W).
 
-    Only modifies ``complete dim=1`` pragmas (not ``dim=2`` which is used for I/O buffers).
-    Enabled via ``configs={'fix_bank_partition': True}`` or automatically with
-    ``optimize_stream_reads``.
+    For both kinds: remove ``bind_storage type=ram_2p impl=lutram`` (input arrays don't
+    need it after full partition; output arrays need auto-selection for sufficient ports).
+
+    Only modifies ``complete dim=1`` pragmas (not ``dim=2`` used for I/O buffers).
+    Enabled automatically when ``optimize_stream_reads`` or ``bind_op_fabric`` is True.
     """
-    # Step 1: find which variables are being upgraded from dim=1 to complete
-    changed_vars = set()
+    # Step 1: collect all variables with 'complete dim=1' partition
+    all_dim1_vars = set()
     for m in re.finditer(
         r"#pragma HLS array_partition variable=(\S+) complete dim=1\b", hls_code
     ):
-        changed_vars.add(m.group(1))
+        all_dim1_vars.add(m.group(1))
 
-    # Step 2: replace 'complete dim=1' → 'complete'
-    hls_code = re.sub(
-        r"(#pragma HLS array_partition variable=\S+ complete) dim=1\b",
-        r"\1",
-        hls_code,
-    )
+    # Input bank arrays: upgrade to complete (all dims) for II=1 in LOAD loops
+    input_bank_pat = re.compile(r"^in_re\d*$|^in_im\d*$|^buf_re\d*$|^buf_im\d*$")
+    input_banks = {v for v in all_dim1_vars if input_bank_pat.match(v)}
+    # Output bank arrays: keep dim=1 but let HLS auto-select memory type
+    output_banks = all_dim1_vars - input_banks
 
-    # Step 3: remove 'bind_storage ... type=ram_2p impl=lutram' for those same variables
-    # (individual registers from complete partition cannot be a RAM)
-    for var in changed_vars:
+    # Step 2a: upgrade input banks to complete (remove dim=1)
+    for var in input_banks:
+        hls_code = hls_code.replace(
+            f"#pragma HLS array_partition variable={var} complete dim=1",
+            f"#pragma HLS array_partition variable={var} complete",
+        )
+
+    # Step 2b: output banks keep 'complete dim=1' but we remove bind_storage below
+
+    # Step 3: remove 'bind_storage ... type=ram_2p impl=lutram' for ALL bank arrays
+    # - Input banks: no longer needed (using individual registers)
+    # - Output banks: allow HLS to auto-select multi-port memory (not forced 1R/1W)
+    for var in all_dim1_vars:
         hls_code = re.sub(
             rf"#pragma HLS bind_storage variable={re.escape(var)} type=ram_2p impl=lutram\n",
             "",
