@@ -183,11 +183,13 @@ def fix_bank_array_partition(hls_code):
     Dataflow inter-stage uses two kinds of [BANKS][DEPTH] 2D bank arrays:
 
     1. **Input banks** (``in_re*``, ``in_im*``): Written by the LOAD sub-loop with 32x
-       unrolled writes using runtime-computed bank indices. With ``complete dim=1``
-       partition each bank is an 8-element LUTRAM with 1W port, causing II=2
-       (violation HLS 200-885: "limited memory ports"). Fix: upgrade to ``complete``
-       (all-dimension) partition, making them 256 individual FF registers with
-       unlimited write ports.
+       unrolled writes using runtime-computed bank indices. In HLS 2023.2,
+       ``complete`` without ``dim`` only partitions the outermost dimension (same as
+       ``dim=1``), leaving each depth-8 sub-array as a BRAM_AUTO 1R1W RAM (2-cycle
+       read latency), which causes COMPUTE iter_latency=11 vs reference 10.
+       Fix: add ``complete dim=2`` as a second pragma to also partition the inner
+       dimension, converting all [BANKS][DEPTH] entries to 256 individual FF registers
+       (0-cycle combinational access) with unlimited read/write ports.
 
     2. **Output banks** (``out_re_b*``, ``out_im_b*``): Written by the COMPUTE sub-loop.
        With ``complete`` (all-dim) partition, the ``dependence inter false`` pragma fails
@@ -216,11 +218,17 @@ def fix_bank_array_partition(hls_code):
     # Output bank arrays: keep dim=1 but let HLS auto-select memory type
     output_banks = all_dim1_vars - input_banks
 
-    # Step 2a: upgrade input banks to complete (remove dim=1)
+    # Step 2a: input banks need BOTH dim=1 and dim=2 complete partition to fully convert
+    # [BANKS][DEPTH] 2D arrays to individual FF registers.
+    # In HLS 2023.2, 'complete' without dim = partition outermost dim only (same as dim=1),
+    # leaving each [DEPTH] sub-array as a BRAM_AUTO RAM (1R1W, 2-cycle read latency).
+    # Adding 'complete dim=2' partitions the inner dimension too, producing BANKS*DEPTH
+    # individual scalar registers (FF, 0-cycle combinational access).
     for var in input_banks:
         hls_code = hls_code.replace(
             f"#pragma HLS array_partition variable={var} complete dim=1",
-            f"#pragma HLS array_partition variable={var} complete",
+            f"#pragma HLS array_partition variable={var} complete dim=1\n"
+            f"  #pragma HLS array_partition variable={var} complete dim=2",
         )
 
     # Step 2b: output banks keep 'complete dim=1' but we remove bind_storage below
@@ -266,12 +274,140 @@ def add_local_array_partition_pragmas(hls_code):
     return "\n".join(result)
 
 
+def add_compute_loop_dependence_pragmas(hls_code):
+    """Add ``dependence inter false`` pragmas INSIDE compute loops for output bank arrays.
+
+    When HLS DATAFLOW extracts ``l_S_i_2_*`` loops as separate sub-functions (via
+    XFORM 203-721), ``#pragma HLS dependence`` pragmas declared at the parent function
+    scope do not propagate into the extracted sub-function.  This causes HLS to report
+    a false WAW carried-dependence violation (HLS 200-880) on ``out_re_b*``/``out_im_b*``
+    and produce II=2.
+
+    Fix: scan each ``l_S_i_2_*`` loop body, identify the output bank array names accessed
+    (matching ``out_re_b*`` / ``out_im_b*``), and insert ``dependence inter false``
+    pragmas immediately after ``#pragma HLS pipeline II=1`` inside the loop.  These
+    pragmas travel with the loop when DATAFLOW extraction creates the sub-function.
+
+    Enabled automatically with ``optimize_stream_reads`` or ``bind_op_fabric``.
+    """
+    lines = hls_code.split("\n")
+    result = []
+
+    # Pattern: the compute loop label (DATAFLOW sub-loop extracted as separate proc)
+    compute_loop_pat = re.compile(r"^\s+l_S_i_2_\w+: for ")
+    pipeline_pat = re.compile(r"^(\s+)#pragma HLS pipeline")
+    # Output bank array names referenced in assignments (out_re_b, out_im_b, with optional suffix)
+    out_bank_pat = re.compile(r"\b(out_re_b\w*|out_im_b\w*)\[")
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if compute_loop_pat.match(line):
+            # The loop opens with { on this line; next line should be #pragma HLS pipeline
+            if i + 1 < len(lines) and pipeline_pat.match(lines[i + 1]):
+                pipeline_line = lines[i + 1]
+                m_pipe = pipeline_pat.match(pipeline_line)
+                indent = m_pipe.group(1)
+
+                # Scan loop body (starting at i+2) to collect output bank array names.
+                # We start at depth=1 (inside the loop's opening {).
+                depth = 1
+                j = i + 2
+                out_vars = set()
+                while j < len(lines) and depth > 0:
+                    depth += lines[j].count("{") - lines[j].count("}")
+                    if depth > 0:
+                        m_out = out_bank_pat.search(lines[j])
+                        if m_out:
+                            out_vars.add(m_out.group(1))
+                    j += 1
+
+                # Emit loop label and pipeline pragma
+                result.append(line)
+                result.append(pipeline_line)
+                # Add dependence pragmas inside the loop body
+                for var in sorted(out_vars):
+                    result.append(
+                        f"{indent}#pragma HLS dependence variable={var} inter false"
+                    )
+                i += 2
+                continue
+        result.append(line)
+        i += 1
+
+    return "\n".join(result)
+
+
+def fix_deduped_global_refs(hls_code):
+    """Rewrite placeholder SSA names for deduplicated global constants.
+
+    When the same numpy array is used in multiple kernels (e.g. ``full_twr``
+    used by intra_2 … inter_7), the IR builder now emits a single
+    ``memref.GlobalOp`` (symbol ``@twr``).  The MLIR HLS emitter assigns the
+    first ``GetGlobalOp`` result the name ``twr``, and subsequent ones the
+    names ``twr1``, ``twr2``, … — these extra names are not defined anywhere
+    in the generated C, causing compile errors.
+
+    This pass finds every ``// placeholder for const float <var>`` comment and,
+    if ``<var>`` looks like a deduplicated name (base name with a numeric
+    suffix, e.g. ``twr1``), replaces all references to it with the canonical
+    base name (``twr``).
+    """
+    placeholder_re = re.compile(
+        r"//\s*placeholder for const \w+ (\w+)"
+    )
+    replacements = {}
+    for m in placeholder_re.finditer(hls_code):
+        var = m.group(1)  # e.g. "twr1"
+        base = var.rstrip("0123456789")  # e.g. "twr"
+        if base and base != var:
+            replacements[var] = base
+    for var, base in replacements.items():
+        hls_code = re.sub(rf"\b{re.escape(var)}\b", base, hls_code)
+    return hls_code
+
+
+def add_const_to_global_arrays(hls_code):
+    """Add ``const`` qualifier to global float array declarations.
+
+    Allo's HLS codegen emits twiddle factor lookup tables as mutable global arrays:
+        float twr[128] = {1.0, ...};
+    Without ``const``, HLS treats the array as potentially modified at runtime and
+    will NOT constant-fold reads even when the array index is a compile-time constant
+    after loop unrolling.  This prevents HLS from eliminating multiplications by 0.0
+    or 1.0 (e.g., in stage-1 intra butterflies where tw=(1,0) or tw=(0,-1)).
+
+    The reference design uses ``static const float twiddle_re[N/2] = {...}`` which
+    allows HLS to propagate the twiddle constants through the unrolled multiply chain,
+    eliminating DSP usage for trivial twiddle factors.
+
+    This transformation adds ``const`` to all global float array declarations that
+    have an initializer list ``= {...}``, making them read-only and enabling HLS
+    constant-folding.
+
+    Enabled automatically when ``optimize_stream_reads`` or ``bind_op_fabric`` is True.
+    """
+    # Match: "float NAME[N] = {..." at the start of a line (global scope, not indented)
+    pat = re.compile(r"^(float \w+\[[\d\]\[]*\] = \{)", re.MULTILINE)
+    return pat.sub(r"const \1", hls_code)
+
+
 def add_bind_op_fabric_pragmas(hls_code):
     """Add #pragma HLS bind_op variable=V op=fadd/fsub impl=fabric after float add/sub assignments.
 
-    This reduces floating-point add/sub operation latency from ~5 cycles (DSP-backed)
-    to ~1 cycle (LUT-based fabric), significantly reducing pipeline depth in FFT butterfly
-    computations and similar float-heavy pipelines.
+    This reduces floating-point add/sub operation latency from ~5 cycles (DSP-backed) to
+    ~1 cycle (LUT-based fabric), reducing pipeline depth in FFT butterfly computations.
+
+    **Important**: The pragma is NOT added to intermediate butterfly results
+    (e.g., ``bw_re = b_re*tw_re - b_im*tw_im``) where both inputs come from
+    float multiplications.  Those operations use ``FAddSub_primitivedsp`` (Latency=0,
+    combinational) by default, which is faster than fabric (Latency=3).  Only the
+    final butterfly outputs (``out = a ± bw``) get the ``impl=fabric`` pragma,
+    matching the reference design strategy.
+
+    Specifically, the pragma is skipped when the immediately preceding code line is a
+    float multiplication (``float vN = vA * vB``), which indicates the current
+    add/sub is an intermediate bw computation, not a final butterfly output.
 
     Enabled via ``configs={'bind_op_fabric': True}`` in ``s.build()``.
     """
@@ -281,19 +417,32 @@ def add_bind_op_fabric_pragmas(hls_code):
     pat_add = re.compile(r"^(\s+)float (v\d+) = v\d+ \+ v\d+;\t// L\d+$")
     # Match SSA-form float sub: `  float vN = vA - vB;\t// L...`
     pat_sub = re.compile(r"^(\s+)float (v\d+) = v\d+ - v\d+;\t// L\d+$")
+    # Match float multiplication: `  float vN = vA * vB;  // L...`
+    mul_pat = re.compile(r"^\s+float v\d+ = v\d+ \* v\d+;\t// L\d+$")
+
+    prev_code_line = ""
     for line in lines:
         result.append(line)
         m = pat_add.match(line)
         if m:
-            result.append(
-                f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fadd impl=fabric"
-            )
+            if not mul_pat.match(prev_code_line):
+                result.append(
+                    f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fadd impl=fabric"
+                )
+            prev_code_line = line
             continue
         m = pat_sub.match(line)
         if m:
-            result.append(
-                f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fsub impl=fabric"
-            )
+            if not mul_pat.match(prev_code_line):
+                result.append(
+                    f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fsub impl=fabric"
+                )
+            prev_code_line = line
+            continue
+        # Track previous non-pragma, non-blank code line
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#pragma") and not stripped.startswith("//"):
+            prev_code_line = line
     return "\n".join(result)
 
 
@@ -431,6 +580,9 @@ class HLSModule:
                 self.hls_code = optimize_stream_reads(self.hls_code)
                 self.hls_code = fix_bank_array_partition(self.hls_code)
                 self.hls_code = add_local_array_partition_pragmas(self.hls_code)
+                self.hls_code = add_compute_loop_dependence_pragmas(self.hls_code)
+                self.hls_code = add_const_to_global_arrays(self.hls_code)
+                self.hls_code = fix_deduped_global_refs(self.hls_code)
             if configs.get("bind_op_fabric", False):
                 self.hls_code = add_bind_op_fabric_pragmas(self.hls_code)
         if project is not None:

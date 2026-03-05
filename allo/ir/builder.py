@@ -116,6 +116,8 @@ class ASTBuilder(ASTVisitor):
 class ASTTransformer(ASTBuilder):
     # to resolve global variable naming conflict
     global_var_cnt: dict[str, int] = {}
+    # content-based dedup cache: (bytes, dtype_str, shape_str) -> sym_name
+    _numpy_global_cache: dict[tuple, str] = {}
 
     @staticmethod
     def get_mlir_op_result(ctx, op, dtype=None):
@@ -1211,6 +1213,18 @@ class ASTTransformer(ASTBuilder):
                 name = node.id
             else:
                 name = f"const_{abs(hash(str(np_values)))}"
+            # Content-based deduplication: if identical data already exists as a
+            # global, reuse it to avoid duplicating large constant arrays across
+            # kernels (e.g., twiddle-factor tables shared by multiple FFT stages).
+            cache_key = (np_values.tobytes(), str(np_values.dtype), str(shape))
+            if cache_key in ASTTransformer._numpy_global_cache:
+                cached_name = ASTTransformer._numpy_global_cache[cache_key]
+                memref_type = MemRefType.get(shape, dtype.build())
+                return memref_d.GetGlobalOp(
+                    memref_type,
+                    FlatSymbolRefAttr.get(cached_name),
+                    ip=ctx.get_ip(),
+                )
             if name not in ASTTransformer.global_var_cnt:
                 ASTTransformer.global_var_cnt[name] = 0
             else:
@@ -1232,6 +1246,7 @@ class ASTTransformer(ASTBuilder):
                 alignment=None,
                 ip=InsertionPoint(ctx.top_func),
             )
+            ASTTransformer._numpy_global_cache[cache_key] = name
             const_tensor = memref_d.GetGlobalOp(
                 memref_type,
                 FlatSymbolRefAttr.get(name),
@@ -2486,6 +2501,7 @@ class ASTTransformer(ASTBuilder):
     @staticmethod
     def build_Module(ctx: ASTContext, node: ast.Module):
         ASTTransformer.global_var_cnt.clear()
+        ASTTransformer._numpy_global_cache.clear()
         with ctx.mlir_ctx:
             module = Module.create()
         ctx.set_ip(module.body)
