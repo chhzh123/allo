@@ -1866,6 +1866,8 @@ void allo::hls::VhlsModuleEmitter::emitStreamGet(StreamGetOp op) {
       os << "for (int _iv" << dimIdx << " = 0; _iv" << dimIdx << " < " << dim
          << "; ++_iv" << dimIdx++ << ") {\n";
       addIndent();
+      indent();
+      os << "#pragma HLS unroll\n";
     }
 
     // Compute linearized index for vector access
@@ -1981,6 +1983,8 @@ void allo::hls::VhlsModuleEmitter::emitStreamPut(StreamPutOp op) {
       os << "for (int _iv" << dimIdx << " = 0; _iv" << dimIdx << " < " << dim
          << "; ++_iv" << dimIdx++ << ") {\n";
       addIndent();
+      indent();
+      os << "#pragma HLS unroll\n";
     }
 
     // Compute linearized index for vector access

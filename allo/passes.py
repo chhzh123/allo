@@ -123,6 +123,11 @@ def lower_linalg_and_attach_names(module):
 
 
 # pylint: disable=too-many-branches
+def _is_pipeline_outer(mapping):
+    """Return True if this mapping uses pipeline_outer mode (4-tuple ending with True)."""
+    return mapping is not None and len(mapping) == 4 and mapping[3]
+
+
 def generate_input_output_buffers(module, top_func_name, flatten=False, mappings=None):
     results = {"inputs": [], "outputs": []}
     top_func = find_func_in_module(module, top_func_name)
@@ -156,15 +161,29 @@ def generate_input_output_buffers(module, top_func_name, flatten=False, mappings
             if load_store_mapping[top_func_name][idx] in {"in", "both"}:
                 func_name = f"load_buf{idx}"
                 load_func_names.append(func_name)
+                eff_flatten = flatten and not _is_pipeline_outer(mappings[idx])
                 wrap_data_movement(
                     arg,
                     ip,
                     func_name,
                     from_memory=True,
-                    flatten=flatten,
+                    flatten=eff_flatten,
                     mapping=mappings[idx],
                     typehint=input_typehints.get(idx),
                 )
+                if _is_pipeline_outer(mappings[idx]):
+                    # Mark the external I/O arg of load_buf with complete partition
+                    # on the last dimension so HLS enables parallel read access.
+                    i32 = IntegerType.get_signless(32)
+                    ndims = len(MemRefType(arg.type).shape)
+                    load_func = find_func_in_module(module, func_name)
+                    allo_d.PartitionOp(
+                        load_func.arguments[0],
+                        partition_kind=IntegerAttr.get(i32, 0),
+                        dim=IntegerAttr.get(i32, ndims),
+                        factor=IntegerAttr.get(i32, 0),
+                        ip=InsertionPoint(load_func.entry_block.operations[0]),
+                    )
 
     # Find ReturnOp
     for op in top_func.entry_block.operations:
@@ -206,16 +225,30 @@ def generate_input_output_buffers(module, top_func_name, flatten=False, mappings
                     ip = InsertionPoint(top_func)
                     func_name = f"store_res{idx}"
                     store_func_names.append(func_name)
-
+                    out_mapping = mappings[idx] if idx < len(mappings) else mappings[-1]
+                    eff_flatten_out = flatten and not _is_pipeline_outer(out_mapping)
                     wrap_data_movement(
                         arg,
                         ip,
                         func_name,
                         from_memory=False,
-                        flatten=flatten,
-                        mapping=mappings[-1],
+                        flatten=eff_flatten_out,
+                        mapping=out_mapping,
                         typehint=input_typehints.get(idx),
                     )
+                    if _is_pipeline_outer(out_mapping):
+                        # Mark the external I/O arg of store_res with complete
+                        # partition on the last dim for parallel write access.
+                        i32 = IntegerType.get_signless(32)
+                        ndims = len(MemRefType(arg.type).shape)
+                        store_func = find_func_in_module(module, func_name)
+                        allo_d.PartitionOp(
+                            store_func.arguments[1],
+                            partition_kind=IntegerAttr.get(i32, 0),
+                            dim=IntegerAttr.get(i32, ndims),
+                            factor=IntegerAttr.get(i32, 0),
+                            ip=InsertionPoint(store_func.entry_block.operations[0]),
+                        )
 
     # Modify Top function
     with top_func.context, Location.unknown():
@@ -246,7 +279,9 @@ def generate_input_output_buffers(module, top_func_name, flatten=False, mappings
                 arg.replace_all_uses_with(alloc_op.result)
 
                 # Update shape of arguments in top function
-                if flatten:
+                # Don't flatten when pipeline_outer mode is used (needs 2D for partition)
+                arg_eff_flatten = flatten and not _is_pipeline_outer(mappings[idx])
+                if arg_eff_flatten:
                     old_memref = MemRefType(arg.type)
                     new_memref = MemRefType.get(
                         (np.prod(old_memref.shape),),
@@ -256,6 +291,17 @@ def generate_input_output_buffers(module, top_func_name, flatten=False, mappings
                     new_in_types.append(new_memref)
                 else:
                     new_in_types.append(arg.type)
+                    if _is_pipeline_outer(mappings[idx]):
+                        # Partition the external I/O arg in the top function for
+                        # parallel access from load_buf/store_res.
+                        i32 = IntegerType.get_signless(32)
+                        ndims = len(MemRefType(arg.type).shape)
+                        allo_d.PartitionOp(
+                            arg,
+                            partition_kind=IntegerAttr.get(i32, 0),
+                            dim=IntegerAttr.get(i32, ndims),
+                            factor=IntegerAttr.get(i32, 0),
+                        )
 
                 # Build CallOp for buffer loading
                 if load_store_mapping[top_func_name][idx] in {

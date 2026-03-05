@@ -134,6 +134,37 @@ def copy_ext_libs(ext_libs, project):
         os.system(f"cp {impl_path} {project}/{cpp_file}")
 
 
+def add_bind_op_fabric_pragmas(hls_code):
+    """Add #pragma HLS bind_op variable=V op=fadd/fsub impl=fabric after float add/sub assignments.
+
+    This reduces floating-point add/sub operation latency from ~5 cycles (DSP-backed)
+    to ~1 cycle (LUT-based fabric), significantly reducing pipeline depth in FFT butterfly
+    computations and similar float-heavy pipelines.
+
+    Enabled via ``configs={'bind_op_fabric': True}`` in ``s.build()``.
+    """
+    lines = hls_code.split("\n")
+    result = []
+    # Match SSA-form float add: `  float vN = vA + vB;\t// L...`
+    pat_add = re.compile(r"^(\s+)float (v\d+) = v\d+ \+ v\d+;\t// L\d+$")
+    # Match SSA-form float sub: `  float vN = vA - vB;\t// L...`
+    pat_sub = re.compile(r"^(\s+)float (v\d+) = v\d+ - v\d+;\t// L\d+$")
+    for line in lines:
+        result.append(line)
+        m = pat_add.match(line)
+        if m:
+            result.append(
+                f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fadd impl=fabric"
+            )
+            continue
+        m = pat_sub.match(line)
+        if m:
+            result.append(
+                f"{m.group(1)}#pragma HLS bind_op variable={m.group(2)} op=fsub impl=fabric"
+            )
+    return "\n".join(result)
+
+
 def separate_header(hls_code, top=None, extern_c=True):
     func_decl = False
     sig_str = "#ifndef KERNEL_H\n"
@@ -260,6 +291,11 @@ class HLSModule:
 
         buf.seek(0)
         self.hls_code = buf.read()
+        if configs.get("bind_op_fabric", False) and platform in {
+            "vitis_hls",
+            "vivado_hls",
+        }:
+            self.hls_code = add_bind_op_fabric_pragmas(self.hls_code)
         if project is not None:
             assert mode is not None, "mode must be specified when project is specified"
             os.makedirs(project, exist_ok=True)

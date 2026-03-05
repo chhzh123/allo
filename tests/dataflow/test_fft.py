@@ -716,12 +716,18 @@ _IO_MAPPINGS = [
     ([NUM_VECS, WIDTH], None, None, True),  # out_im
 ]
 
+# Full build configs including bind_op_fabric for float add/sub latency reduction
+_BUILD_CONFIGS = {
+    "mappings": _IO_MAPPINGS,
+    "bind_op_fabric": True,  # reduces fadd/fsub latency from ~5 to ~1 cycle
+}
+
 
 def test_fft_256_hls_codegen():
     """Verify that the HLS code contains F2-partitioned 2D buffers and swizzle."""
     s = df.customize(fft_256)
     _apply_f2_optimizations(s)
-    mod = s.build(target="vitis_hls", configs={"mappings": _IO_MAPPINGS})
+    mod = s.build(target="vitis_hls", configs=_BUILD_CONFIGS)
     code = mod.hls_code
 
     # Structural checks
@@ -750,6 +756,11 @@ def test_fft_256_hls_codegen():
     assert "bind_storage" in code, "Expected bind_storage pragma for lutram"
     assert "dependence" in code, "Expected dependence pragma for II=1"
 
+    # bind_op fabric pragma for float add/sub latency reduction
+    assert "#pragma HLS bind_op" in code, (
+        "Expected bind_op pragma for float fadd/fsub impl=fabric"
+    )
+
     print("✅ FFT-256 HLS Codegen Test PASSED!")
 
 
@@ -765,7 +776,7 @@ def test_fft_256_csyn():
             target="vitis_hls",
             mode="csyn",
             project=tmpdir,
-            configs={"mappings": _IO_MAPPINGS},
+            configs=_BUILD_CONFIGS,
         )
     print("✅ FFT-256 CSyn Passed!")
 
