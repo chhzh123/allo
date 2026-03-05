@@ -471,10 +471,13 @@ def _build_top(s, stream_info, enable_layout=False):
         arg_mapping[func_name] = []
         for i, arg in enumerate(func.arguments):
             if "!allo.stream" not in str(arg.type):
-                arg_name = s.func_args[func_name][i].name
+                dtensor = s.func_args[func_name][i]
+                # Use top_name (region arg name) for deduplication so that
+                # kernels with the same formal parameter names but different
+                # region args (e.g. both using "local_re") are not merged.
+                arg_name = dtensor.top_name
                 if arg_name not in used_args:
                     used_args[arg_name] = len(input_types)
-                    dtensor = s.func_args[func_name][i]
                     input_types.append((dtensor.shape, dtensor.dtype))
                     if "itypes" in func.attributes:
                         input_signed += func.attributes["itypes"].value[i]
