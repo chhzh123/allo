@@ -214,6 +214,52 @@ This achieves:
 
 ---
 
+## 8. HLS Codegen Fixes (Closing the Performance Gap)
+
+### `ap_int<65>` → `int64_t` (`mlir/lib/Translation/EmitVivadoHLS.cpp`)
+
+MLIR conservatively widens signed integer arithmetic: `i64 + i32` produces an
+`i65` result type to prevent overflow.  The previous HLS emitter mapped any
+non-standard-width integer to `ap_int<N>`, generating `ap_int<65>` for all
+index arithmetic — expensive in HLS (uses 2 DSPs and is slow to synthesize).
+
+**Fix**: integers with width 33–65 are now emitted as `int64_t`/`uint64_t`.
+This eliminates all 72 `ap_int<65>` occurrences in the FFT-256 HLS output.
+
+### `disable_start_propagation` on DATAFLOW functions
+
+Function-level `#pragma HLS dataflow` now always includes
+`disable_start_propagation`, matching the reference `kernel.cpp` behavior for
+all inter-stage sub-function pipelines.
+
+### `s.partition_global(name_prefix)` schedule primitive
+
+Marks all `memref.GlobalOp` constants whose `sym_name` starts with the given
+prefix for complete array partitioning.  `EmitVivadoHLS.cpp` emits:
+```cpp
+#pragma HLS array_partition variable=twr_3 complete
+```
+after the global declaration.  Used in `_apply_f2_optimizations` to partition
+all twiddle ROM copies (`twr`, `twr_0`…`twr_3`, `twi`, `twi_0`…`twi_3`),
+enabling parallel lookup from unrolled k-loops.
+
+### Redundant zero-initializer removal (test_fft.py)
+
+All `= 0` initializers on arrays that are fully written before being read have
+been removed:
+
+| Location | Arrays | Reason safe to remove |
+|---|---|---|
+| `bit_rev_stage` | `buf_re[256]`, `buf_im[256]` | Bit-reversal loop is a bijection |
+| `intra_0..4` | `o_re[32]`, `o_im[32]` | k loop writes all 32 elements |
+| `inter_5..7` write | `chunk_re[32]`, `chunk_im[32]` | k loop writes all 32 elements |
+| `bit_rev_stage` write | `chunk_re[32]`, `chunk_im[32]` | k loop writes all 32 elements |
+
+Removing these eliminates init loops that appeared _inside_ `#pragma HLS pipeline`
+loops, which would prevent II=1.
+
+---
+
 ## Performance Target
 
 The goal is HLS output matching `gemini-fft.prj/kernel.cpp`:
