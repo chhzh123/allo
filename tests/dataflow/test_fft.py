@@ -752,8 +752,9 @@ def test_fft_256_hls_codegen():
         "Expected dataflow pragma for inter-stage sub-function pipeline"
     )
 
-    # bind_storage and dependence pragmas on inter-stage buffers
-    assert "bind_storage" in code, "Expected bind_storage pragma for lutram"
+    # dependence pragma on inter-stage buffers
+    # Note: bind_storage is removed when using complete (all-dim) partition since
+    # fully-partitioned arrays become registers with unlimited ports (no RAM needed)
     assert "dependence" in code, "Expected dependence pragma for II=1"
 
     # bind_op fabric pragma for float add/sub latency reduction

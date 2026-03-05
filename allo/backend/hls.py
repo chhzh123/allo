@@ -188,15 +188,39 @@ def fix_bank_array_partition(hls_code):
     Changing to ``complete`` (all dimensions) turns the [32][8] array into 256 individual
     registers (32*8 = 256 FFs), allowing all reads/writes in parallel and achieving II=1.
 
+    Also removes ``#pragma HLS bind_storage variable=V type=ram_2p impl=lutram`` for the
+    same arrays. The ``bind_storage ram_2p`` pragma conflicts with full ``complete``
+    partition — when an array is completely partitioned into individual registers, requesting
+    a RAM implementation causes HLS to retain limited memory ports, preventing II=1.
+
     Only modifies ``complete dim=1`` pragmas (not ``dim=2`` which is used for I/O buffers).
     Enabled via ``configs={'fix_bank_partition': True}`` or automatically with
     ``optimize_stream_reads``.
     """
-    return re.sub(
+    # Step 1: find which variables are being upgraded from dim=1 to complete
+    changed_vars = set()
+    for m in re.finditer(
+        r"#pragma HLS array_partition variable=(\S+) complete dim=1\b", hls_code
+    ):
+        changed_vars.add(m.group(1))
+
+    # Step 2: replace 'complete dim=1' → 'complete'
+    hls_code = re.sub(
         r"(#pragma HLS array_partition variable=\S+ complete) dim=1\b",
         r"\1",
         hls_code,
     )
+
+    # Step 3: remove 'bind_storage ... type=ram_2p impl=lutram' for those same variables
+    # (individual registers from complete partition cannot be a RAM)
+    for var in changed_vars:
+        hls_code = re.sub(
+            rf"#pragma HLS bind_storage variable={re.escape(var)} type=ram_2p impl=lutram\n",
+            "",
+            hls_code,
+        )
+
+    return hls_code
 
 
 def add_local_array_partition_pragmas(hls_code):

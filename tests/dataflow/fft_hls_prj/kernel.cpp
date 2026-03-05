@@ -28,13 +28,11 @@ void bit_rev_stage_0(
   float buf_re[32][8];	// L13
   #pragma HLS array_partition variable=buf_re complete
 
-  #pragma HLS bind_storage variable=buf_re type=ram_2p impl=lutram
-  #pragma HLS dependence variable=buf_re inter false
+    #pragma HLS dependence variable=buf_re inter false
   float buf_im[32][8];	// L14
   #pragma HLS array_partition variable=buf_im complete
 
-  #pragma HLS bind_storage variable=buf_im type=ram_2p impl=lutram
-  #pragma HLS dependence variable=buf_im inter false
+    #pragma HLS dependence variable=buf_im inter false
   l_S_ii_0_ii: for (int ii = 0; ii < 8; ii++) {	// L15
   #pragma HLS pipeline II=1
     l_S_kk_0_kk: for (int kk = 0; kk < 32; kk++) {	// L16
@@ -748,23 +746,19 @@ void inter_5_0(
   float in_re[32][8];	// L570
   #pragma HLS array_partition variable=in_re complete
 
-  #pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_re inter false
+    #pragma HLS dependence variable=in_re inter false
   float in_im[32][8];	// L571
   #pragma HLS array_partition variable=in_im complete
 
-  #pragma HLS bind_storage variable=in_im type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_im inter false
+    #pragma HLS dependence variable=in_im inter false
   float out_re_b[32][8];	// L572
   #pragma HLS array_partition variable=out_re_b complete
 
-  #pragma HLS bind_storage variable=out_re_b type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_re_b inter false
+    #pragma HLS dependence variable=out_re_b inter false
   float out_im_b[32][8];	// L573
   #pragma HLS array_partition variable=out_im_b complete
 
-  #pragma HLS bind_storage variable=out_im_b type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_im_b inter false
+    #pragma HLS dependence variable=out_im_b inter false
   l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L574
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v436 = v425.read();
@@ -976,23 +970,19 @@ void inter_6_0(
   float in_re1[32][8];	// L756
   #pragma HLS array_partition variable=in_re1 complete
 
-  #pragma HLS bind_storage variable=in_re1 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_re1 inter false
+    #pragma HLS dependence variable=in_re1 inter false
   float in_im1[32][8];	// L757
   #pragma HLS array_partition variable=in_im1 complete
 
-  #pragma HLS bind_storage variable=in_im1 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_im1 inter false
+    #pragma HLS dependence variable=in_im1 inter false
   float out_re_b1[32][8];	// L758
   #pragma HLS array_partition variable=out_re_b1 complete
 
-  #pragma HLS bind_storage variable=out_re_b1 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_re_b1 inter false
+    #pragma HLS dependence variable=out_re_b1 inter false
   float out_im_b1[32][8];	// L759
   #pragma HLS array_partition variable=out_im_b1 complete
 
-  #pragma HLS bind_storage variable=out_im_b1 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_im_b1 inter false
+    #pragma HLS dependence variable=out_im_b1 inter false
   l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L760
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v579 = v568.read();
@@ -1228,23 +1218,19 @@ void inter_7_0(
   float in_re2[32][8];	// L964
   #pragma HLS array_partition variable=in_re2 complete
 
-  #pragma HLS bind_storage variable=in_re2 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_re2 inter false
+    #pragma HLS dependence variable=in_re2 inter false
   float in_im2[32][8];	// L965
   #pragma HLS array_partition variable=in_im2 complete
 
-  #pragma HLS bind_storage variable=in_im2 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=in_im2 inter false
+    #pragma HLS dependence variable=in_im2 inter false
   float out_re_b2[32][8];	// L966
   #pragma HLS array_partition variable=out_re_b2 complete
 
-  #pragma HLS bind_storage variable=out_re_b2 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_re_b2 inter false
+    #pragma HLS dependence variable=out_re_b2 inter false
   float out_im_b2[32][8];	// L967
   #pragma HLS array_partition variable=out_im_b2 complete
 
-  #pragma HLS bind_storage variable=out_im_b2 type=ram_2p impl=lutram
-  #pragma HLS dependence variable=out_im_b2 inter false
+    #pragma HLS dependence variable=out_im_b2 inter false
   l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L968
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v742 = v731.read();
