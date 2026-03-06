@@ -184,39 +184,12 @@ def fix_bank_array_partition(hls_code):
     two input arrays (``in_re*``, ``in_im*``) and two output arrays
     (``out_re_b*``, ``out_im_b*``).
 
-    **Input arrays** (``in_re*``, ``in_im*``, ``buf_re*``, ``buf_im*``):
-    Keep ``complete dim=1`` (32 LUTRAM banks of depth 8) with ``bind_storage
-    ram_2p lutram``.  The LOAD loop writes each element once (no port conflict).
-    Add ``intra false`` alongside ``inter false`` to allow II=1 despite the
-    LUTRAM read latency of 2 cycles (tells HLS consecutive pipelined reads to
-    different dynamic banks are independent).
-
-    **Output arrays** (``out_re_b*``, ``out_im_b*``):
-    Keep LUTRAM (``complete dim=1`` + ``bind_storage ram_2p lutram``) to avoid
-    FIFO explosion in DATAFLOW regions.  Add a stage-specific ``array_partition``
-    on dim=2 (the depth/offset dimension) so that HLS can prove at compile time
-    that the two butterfly writes per unrolled-k iteration always land in
-    *different* physical sub-banks — eliminating the need for complete dim=2
-    scalar registers that would cause each element to become a separate FIFO
-    channel (34816 FF × 3 stages = 104 K FF overhead).
-
-    Stage-specific dim=2 partition strategies (based on butterfly offset patterns):
-
-    * **inter_5** (no suffix, ``out_re_b`` / ``out_im_b``): ``cyclic factor=2``
-      off_l is always even (0,2,4,6) → sub-bank 0; off_u = off_l+1 is always
-      odd (1,3,5,7) → sub-bank 1.  Never conflicts.
-
-    * **inter_6** (suffix ``1``, ``out_re_b1`` / ``out_im_b1``): ``cyclic factor=4``
-      off_il ∈ {0,1,4,5} → cyclic sub-banks {0,1,0,1};
-      off_iu ∈ {2,3,6,7} → cyclic sub-banks {2,3,2,3}.  Never same sub-bank.
-
-    * **inter_7** (suffix ``2``, ``out_re_b2`` / ``out_im_b2``): ``block factor=2``
-      off_il ∈ {0,1,2,3} → block 0 (indices 0–3);
-      off_iu ∈ {4,5,6,7} → block 1 (indices 4–7).  Never same block.
-
-    With ``cyclic factor=N`` or ``block factor=2``, each sub-array still has
-    depth > 1 (2 or 4 elements), so DATAFLOW keeps them as ping-pong LUTRAM
-    memory channels rather than converting them to scalar FIFO channels.
+    All bank arrays (input and output) use ``complete dim=1`` (32 LUTRAM banks
+    of depth 8) with ``bind_storage ram_2p lutram`` and ``DEPENDENCE inter false``
+    at function scope.  No dim=2 sub-partition is added; instead, ``dependence
+    intra false`` pragmas are injected INSIDE the compute loop body by
+    ``add_compute_loop_dependence_pragmas`` so they propagate into the DATAFLOW-
+    extracted sub-function.  This achieves II=1 with minimal resource overhead.
 
     Only modifies ``complete dim=1`` bank arrays (not ``dim=2`` I/O buffers).
     Enabled automatically when ``bind_op_fabric`` is True.
@@ -228,53 +201,10 @@ def fix_bank_array_partition(hls_code):
     ):
         all_dim1_vars.add(m.group(1))
 
-    # Classify: output bank arrays (out_re_b*, out_im_b*) need stage-specific
-    # dim=2 partitioning to prevent write-port conflicts in the COMPUTE loop.
-    # The stage suffix (empty, '1', '2') encodes which inter stage the array
-    # belongs to.  Input bank arrays keep LUTRAM (dim=1 only).
-    output_bank_pat = re.compile(r"^out_(?:re|im)_b(\d*)$")
-    input_banks = {v for v in all_dim1_vars if not output_bank_pat.match(v)}
-    output_banks = {v for v in all_dim1_vars if output_bank_pat.match(v)}
-
-    # Stage suffix → dim=2 partition strategy (keeps arrays as memory, not scalars).
-    # The partition is chosen so that butterfly pairs (off_il, off_iu) always land
-    # in different sub-banks, giving HLS compile-time proof of no port conflicts.
-    # Without explicit dim=2 partition, HLS auto-applies cyclic-2 which causes
-    # write-port conflicts for inter_6 (off diff=2) and inter_7 (off diff=4),
-    # resulting in II=2 for those COMPUTE loops (verified in synthesis run 10).
-    stage_dim2_partition = {
-        "": "cyclic factor=2",   # inter_5: off_l even vs off_u odd
-        "1": "cyclic factor=4",  # inter_6: off_il in {0,1,4,5} vs off_iu in {2,3,6,7}
-        "2": "block factor=2",   # inter_7: off_il in {0-3} vs off_iu in {4-7}
-    }
-
-    # Output banks: add stage-specific dim=2 partition (keeps as LUTRAM, no FIFO).
-    # Also add intra false + inter false at function scope for conservative safety.
-    for var in output_banks:
-        m = output_bank_pat.match(var)
-        suffix = m.group(1)  # "", "1", or "2"
-        partition = stage_dim2_partition.get(suffix, "cyclic factor=4")
-        hls_code = hls_code.replace(
-            f"#pragma HLS array_partition variable={var} complete dim=1",
-            f"#pragma HLS array_partition variable={var} complete dim=1\n"
-            f"  #pragma HLS array_partition variable={var} {partition} dim=2",
-        )
-        # Add intra false alongside existing inter false for the output bank.
-        hls_code = hls_code.replace(
-            f"#pragma HLS dependence variable={var} inter false\n",
-            f"#pragma HLS dependence variable={var} inter false\n"
-            f"  #pragma HLS dependence variable={var} intra false\n",
-        )
-
-    # Input banks: add 'intra false' alongside existing 'inter false' for II=1.
-    # Without this, HLS conservatively serializes pipelined reads with dynamic indices
-    # against the LUTRAM read latency, inflating the LOAD loop II above 1.
-    for var in input_banks:
-        hls_code = hls_code.replace(
-            f"#pragma HLS dependence variable={var} inter false\n",
-            f"#pragma HLS dependence variable={var} inter false\n"
-            f"  #pragma HLS dependence variable={var} intra false\n",
-        )
+    # No dim=2 sub-partition needed: gemini achieves II=1 with complete dim=1 only
+    # and DEPENDENCE inter false at function scope (no intra false).
+    # The function-scope 'inter false' pragma is already emitted by Allo's schedule
+    # API (s.dependence()) for all bank arrays.  We do not need to add anything here.
 
     return hls_code
 
@@ -308,7 +238,7 @@ def add_local_array_partition_pragmas(hls_code):
 
 
 def add_compute_loop_dependence_pragmas(hls_code):
-    """Add ``dependence inter false`` pragmas INSIDE compute loops for output bank arrays.
+    """Add ``dependence inter/intra false`` pragmas INSIDE compute loops for output arrays.
 
     When HLS DATAFLOW extracts ``l_S_i_2_*`` loops as separate sub-functions (via
     XFORM 203-721), ``#pragma HLS dependence`` pragmas declared at the parent function
@@ -317,9 +247,16 @@ def add_compute_loop_dependence_pragmas(hls_code):
     and produce II=2.
 
     Fix: scan each ``l_S_i_2_*`` loop body, identify the output bank array names accessed
-    (matching ``out_re_b*`` / ``out_im_b*``), and insert ``dependence inter false``
-    pragmas immediately after ``#pragma HLS pipeline II=1`` inside the loop.  These
-    pragmas travel with the loop when DATAFLOW extraction creates the sub-function.
+    (matching ``out_re_b*`` / ``out_im_b*``), and insert ``dependence inter false`` and
+    ``dependence intra false`` pragmas immediately after ``#pragma HLS pipeline II=1``
+    inside the loop.  These pragmas travel with the loop when DATAFLOW extraction creates
+    the sub-function.
+
+    Both ``inter false`` and ``intra false`` are needed:
+    - ``inter false``: suppresses cross-iteration WAW false dependence on LUTRAM arrays.
+    - ``intra false``: suppresses within-iteration WAW conflicts among the 16 unrolled
+      butterfly writes.  The F2 swizzle guarantees distinct banks (no real conflict) but
+      HLS cannot prove it analytically from the XOR-based expressions alone.
 
     Enabled automatically with ``optimize_stream_reads`` or ``bind_op_fabric``.
     """
@@ -358,11 +295,19 @@ def add_compute_loop_dependence_pragmas(hls_code):
                 # Emit loop label and pipeline pragma
                 result.append(line)
                 result.append(pipeline_line)
-                # Add dependence pragmas inside the loop body.
-                # Both 'inter false' and 'intra false' are needed:
-                # - inter false: no dependence between different DATAFLOW iterations
-                # - intra false: no dependence between consecutive pipelined iterations
-                #   when writing to LUTRAM banks via dynamic (runtime) indices.
+                # Add 'inter false' and 'intra false' inside the compute loop body
+                # so the pragmas propagate into the DATAFLOW-extracted sub-function
+                # (Vitis HLS does not propagate function-scope pragmas into extracted
+                # sub-fns).
+                # 'inter false': suppress cross-iteration false WAW dependencies on
+                #   the output bank arrays (needed for LUTRAM-backed memories).
+                # 'intra false': suppress within-iteration false WAW conflicts among
+                #   the 16 unrolled butterfly writes.  With complete dim=1 partition
+                #   (32 banks) and the F2 swizzle guaranteeing all 16 lower-half
+                #   indices map to distinct banks and all 16 upper-half indices map
+                #   to distinct banks (disjoint from each other), no real conflict
+                #   exists.  The pragma is required because HLS cannot analytically
+                #   prove this from the XOR-based bank expressions alone.
                 for var in sorted(out_vars):
                     result.append(
                         f"{indent}#pragma HLS dependence variable={var} inter false"

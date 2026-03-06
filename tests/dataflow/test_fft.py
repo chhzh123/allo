@@ -27,7 +27,7 @@ import tempfile
 from math import log2, cos, sin, pi
 
 import allo
-from allo.ir.types import float32, int32, Stream, ConstExpr
+from allo.ir.types import float32, int32, uint32, Stream, ConstExpr
 from allo.customize import Partition
 import allo.dataflow as df
 import allo.backend.hls as hls
@@ -471,24 +471,23 @@ def fft_256(
                 in_im[bank, i] = chunk_im[k]
 
         # Compute: butterfly pairs (il, iu=il+64)
-        # bank  = (idx & 31) ^ (((idx >> 6) & 1) << 4)
-        # offset = idx >> 5
-        # Use bit-ops (<<, >>, &, |) to keep all arithmetic in int32,
-        # avoiding MLIR's int64 widening of * / // % which prevents HLS
-        # range analysis and causes memory-port II violations.
+        # Direct bank formula (STRIDE=64):
+        #   bank_il = k | ((i & 1) << 4)   ← lower nibble = k (compile-time
+        #              distinct 0..15), provably distinct for all k in 0..15.
+        #   bank_iu = bank_il ^ 16         ← opposite half; lower nibble = k.
+        #   off_il  = ((i>>2)<<2) | ((i>>1)&1)  [purely function of i, not k]
+        #   off_iu  = off_il | 2           ← adding STRIDE/32=2 to offset
+        #   tw_k    = (bg & 63) << 1       ← twiddle index for STRIDE=64
+        # Using bank = k | bit4 (same structure as inter_5's `within`) ensures
+        # HLS analytically proves no write-port conflict → II=1 for COMPUTE.
         for i in range(NUM_VECS):
             for k in range(16):
-                bg: int32 = (i << 4) | k
-                grp: int32 = bg >> 6
-                within: int32 = bg & 63
-                tw_k: int32 = within << 1
-                il: int32 = (grp << 7) | within
-                iu: int32 = il | 64
-                # bank(il) = (il & 31) ^ (((il>>6)&1)<<4)
-                bank_il: int32 = (il & 31) ^ (((il >> 6) & 1) << 4)
-                off_il: int32 = il >> 5
-                bank_iu: int32 = (iu & 31) ^ (((iu >> 6) & 1) << 4)
-                off_iu: int32 = iu >> 5
+                bg: uint32 = (i << 4) | k
+                tw_k: uint32 = (bg & 63) << 1
+                bank_il: uint32 = k | ((i & 1) << 4)
+                bank_iu: uint32 = bank_il ^ 16
+                off_il: uint32 = ((i >> 2) << 2) | ((i >> 1) & 1)
+                off_iu: uint32 = off_il | 2
                 a_re = in_re[bank_il, off_il]
                 a_im = in_im[bank_il, off_il]
                 b_re = in_re[bank_iu, off_iu]
@@ -533,21 +532,19 @@ def fft_256(
                 in_im[bank, i] = chunk_im[k]
 
         # Compute: butterfly pairs (il, iu=il+128)
-        # bank  = (idx & 31) ^ (((idx >> 7) & 1) << 4)
-        # offset = idx >> 5
-        # Use bit ops (<<, >>, &, |) to keep indices as int32 and avoid
-        # MLIR signed-int widening to int64 (which prevents HLS II=1).
+        # Direct bank formula (STRIDE=128):
+        #   bank_il = k | ((i & 1) << 4)   ← same as inter_6; lower nibble=k.
+        #   bank_iu = bank_il ^ 16
+        #   off_il  = i >> 1               ← purely function of i, not k
+        #   off_iu  = off_il | 4           ← adding STRIDE/32=4 to offset
+        #   tw_k    = (i << 4) | k         ← within = bg (grp=0 always)
         for i in range(NUM_VECS):
             for k in range(16):
-                bg: int32 = (i << 4) | k
-                within: int32 = bg  # single group for STRIDE=128, grp=0
-                tw_k: int32 = within  # within * (N//(2*128)) = within
-                il: int32 = within
-                iu: int32 = within | 128  # within + 128, within < 128
-                bank_il: int32 = (il & 31) ^ (((il >> 7) & 1) << 4)
-                off_il: int32 = il >> 5
-                bank_iu: int32 = (iu & 31) ^ (((iu >> 7) & 1) << 4)
-                off_iu: int32 = iu >> 5
+                bank_il: uint32 = k | ((i & 1) << 4)
+                bank_iu: uint32 = bank_il ^ 16
+                off_il: uint32 = i >> 1
+                off_iu: uint32 = off_il | 4
+                tw_k: uint32 = (i << 4) | k
                 a_re = in_re[bank_il, off_il]
                 a_im = in_im[bank_il, off_il]
                 b_re = in_re[bank_iu, off_iu]
@@ -776,11 +773,14 @@ def test_fft_256_hls_codegen():
     )
 
     # dependence pragma on inter-stage buffers
-    # All bank arrays (in_re, in_im, out_re_b, out_im_b) use complete dim=1 + bind_storage
-    # lutram (matching gemini reference) with intra false to allow II=1 pipelined writes.
+    # All bank arrays use complete dim=1 + bind_storage lutram.
+    # 'inter false' suppresses cross-iteration false WAW deps (function scope).
+    # 'intra false' suppresses within-iteration false WAW among 16 unrolled butterfly
+    # writes (injected inside compute loop body by add_compute_loop_dependence_pragmas).
     assert "dependence" in code, "Expected dependence pragma for II=1"
     assert "bind_storage" in code, "Expected bind_storage pragma for LUTRAM (no BRAM)"
-    assert "intra false" in code, "Expected intra false pragma for II=1 with LUTRAM"
+    assert "inter false" in code, "Expected inter false pragma for II=1 with LUTRAM"
+    assert "intra false" in code, "Expected intra false pragma for II=1 unrolled butterfly"
 
     # bind_op fabric pragma for float add/sub latency reduction
     assert "#pragma HLS bind_op" in code, (
