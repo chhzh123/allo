@@ -775,9 +775,12 @@ def test_fft_256_hls_codegen():
         "Expected dataflow pragma for inter-stage sub-function pipeline"
     )
 
-    # dependence pragma on inter-stage buffers (output banks keep bind_storage lutram)
+    # dependence pragma on inter-stage buffers
+    # All bank arrays (in_re, in_im, out_re_b, out_im_b) use complete dim=1 + bind_storage
+    # lutram (matching gemini reference) with intra false to allow II=1 pipelined writes.
     assert "dependence" in code, "Expected dependence pragma for II=1"
-    assert "bind_storage" in code, "Expected bind_storage lutram pragma for output banks"
+    assert "bind_storage" in code, "Expected bind_storage pragma for LUTRAM (no BRAM)"
+    assert "intra false" in code, "Expected intra false pragma for II=1 with LUTRAM"
 
     # bind_op fabric pragma for float add/sub latency reduction
     assert "#pragma HLS bind_op" in code, (
