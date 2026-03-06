@@ -315,17 +315,24 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[2].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=4; bit ops to stay int32 (avoid MLIR widening)
+            for k in range(16):  # STRIDE=4; tw_k=(k&3)<<5 cycles 0,32,64,96
                 il: int32 = ((k >> 2) << 3) | (k & 3)
                 iu: int32 = il | 4
                 tw_k: int32 = (k & 3) << 5
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
-                tr = twr[tw_k]; ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
+                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
+                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
+                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
+                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
+                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
+                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
+                else:
+                    tr = twr[tw_k]; ti = twi[tw_k]
+                    bw_re: float32 = b_re * tr - b_im * ti
+                    bw_im: float32 = b_re * ti + b_im * tr
+                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
+                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
             s_re[3].put(o_re)
             s_im[3].put(o_im)
 
@@ -338,17 +345,24 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[3].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=8; bit ops to stay int32 (avoid MLIR widening)
+            for k in range(16):  # STRIDE=8; tw_k=(k&7)<<4 cycles 0,16,..,112
                 il: int32 = ((k >> 3) << 4) | (k & 7)
                 iu: int32 = il | 8
                 tw_k: int32 = (k & 7) << 4
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
-                tr = twr[tw_k]; ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
+                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
+                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
+                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
+                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
+                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
+                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
+                else:
+                    tr = twr[tw_k]; ti = twi[tw_k]
+                    bw_re: float32 = b_re * tr - b_im * ti
+                    bw_im: float32 = b_re * ti + b_im * tr
+                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
+                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
             s_re[4].put(o_re)
             s_im[4].put(o_im)
 
@@ -361,17 +375,24 @@ def fft_256(
             c_im: float32[WIDTH] = s_im[4].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=16; bit ops to stay int32 (avoid MLIR widening)
-                il: int32 = k  # k//16==0 for k<16, so il = k%16 = k
+            for k in range(16):  # STRIDE=16; tw_k=k<<3: 0,8,16,..,120
+                il: int32 = k  # k//16==0 for k<16, so il = k
                 iu: int32 = k | 16
                 tw_k: int32 = k << 3
                 a_re = c_re[il]; a_im = c_im[il]
                 b_re = c_re[iu]; b_im = c_im[iu]
-                tr = twr[tw_k]; ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
+                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply (k=0 only)
+                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
+                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
+                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply (k=8)
+                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
+                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
+                else:
+                    tr = twr[tw_k]; ti = twi[tw_k]
+                    bw_re: float32 = b_re * tr - b_im * ti
+                    bw_im: float32 = b_re * ti + b_im * tr
+                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
+                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
             s_re[5].put(o_re)
             s_im[5].put(o_im)
 
@@ -419,6 +440,8 @@ def fft_256(
         # bank_il = within, offset_il = grp*2
         # bank_iu = within^16, offset_iu = grp*2+1
         # Use bit ops throughout to keep int32 (avoid MLIR signed-int widening).
+        # For unrolled k=0: within=(i<<4)&31 ∈ {0,16} → tw_k ∈ {0,64} always,
+        # so the else-branch is dead for k=0, saving 4 DSPs.
         for i in range(NUM_VECS):
             for k in range(16):  # WIDTH // 2
                 bg: int32 = (i << 4) | k
@@ -431,14 +454,25 @@ def fft_256(
                 a_im = in_im[within, off_l]
                 b_re = in_re[within ^ 16, off_u]
                 b_im = in_im[within ^ 16, off_u]
-                tr = twr[tw_k]
-                ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                out_re_b[within, off_l] = a_re + bw_re
-                out_im_b[within, off_l] = a_im + bw_im
-                out_re_b[within ^ 16, off_u] = a_re - bw_re
-                out_im_b[within ^ 16, off_u] = a_im - bw_im
+                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
+                    out_re_b[within, off_l] = a_re + b_re
+                    out_im_b[within, off_l] = a_im + b_im
+                    out_re_b[within ^ 16, off_u] = a_re - b_re
+                    out_im_b[within ^ 16, off_u] = a_im - b_im
+                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
+                    out_re_b[within, off_l] = a_re + b_im
+                    out_im_b[within, off_l] = a_im - b_re
+                    out_re_b[within ^ 16, off_u] = a_re - b_im
+                    out_im_b[within ^ 16, off_u] = a_im + b_re
+                else:
+                    tr = twr[tw_k]
+                    ti = twi[tw_k]
+                    bw_re: float32 = b_re * tr - b_im * ti
+                    bw_im: float32 = b_re * ti + b_im * tr
+                    out_re_b[within, off_l] = a_re + bw_re
+                    out_im_b[within, off_l] = a_im + bw_im
+                    out_re_b[within ^ 16, off_u] = a_re - bw_re
+                    out_im_b[within ^ 16, off_u] = a_im - bw_im
 
         # Readout: swizzled buffer → stream
         for i in range(NUM_VECS):
