@@ -492,21 +492,37 @@ def _build_top(s, stream_info, enable_layout=False):
             top_func = func
             break
     assert top_func is not None, "Top function not found"
+    # Collect stream-typed region args from the original top function so they
+    # can be threaded through to the new top function and added to stream_map.
+    region_stream_args = []  # [(name, old_block_arg)]
+    for i, arg in enumerate(top_func.arguments):
+        if "!allo.stream" in str(arg.type):
+            dtensor = s.func_args[s.top_func_name][i]
+            region_stream_args.append((dtensor.name, arg))
     with s.module.context, Location.unknown():
         # create new func
         func_type = FunctionType.get(
-            [MemRefType.get(shape, dtype.build()) for shape, dtype in input_types], []
+            [MemRefType.get(shape, dtype.build()) for shape, dtype in input_types]
+            + [arg.type for _, arg in region_stream_args],
+            [],
         )
         new_top = func_d.FuncOp(
             name=s.top_func_name, type=func_type, ip=InsertionPoint(top_func)
         )
-        new_top.attributes["itypes"] = StringAttr.get(input_signed)
+        # Extend itypes with 'x' for each stream arg (streams have no sign type)
+        new_top.attributes["itypes"] = StringAttr.get(
+            input_signed + "x" * len(region_stream_args)
+        )
         new_top.add_entry_block()
         return_op = func_d.ReturnOp([], ip=InsertionPoint(new_top.entry_block))
         for op in top_func.entry_block.operations:
             if isinstance(op, func_d.ReturnOp):
                 break
             op.operation.move_before(return_op)
+        # Remap old stream arg SSA values to the new top function's stream args.
+        n_non_stream = len(input_types)
+        for j, (_, old_arg) in enumerate(region_stream_args):
+            old_arg.replace_all_uses_with(new_top.arguments[n_non_stream + j])
         top_func.operation.erase()
         # get all global streams
         stream_map = {}
@@ -514,6 +530,9 @@ def _build_top(s, stream_info, enable_layout=False):
             if isinstance(op, allo_d.StreamConstructOp):
                 stream_name = op.attributes["name"].value
                 stream_map[stream_name] = op
+        # Add region-level stream args to stream_map so kernel CallOps can use them.
+        for j, (name, _) in enumerate(region_stream_args):
+            stream_map[name] = new_top.arguments[n_non_stream + j]
         # add call functions
         for i, func in enumerate(funcs):
             func_name = func.attributes["sym_name"].value

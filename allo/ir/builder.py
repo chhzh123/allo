@@ -2151,11 +2151,20 @@ class ASTTransformer(ASTBuilder):
                 and arg.dtensor.memory is not None
             ):
                 memory_space = arg.dtensor.memory.get_memory_space()
-            input_types.append(
-                ASTTransformer.build_shaped_type(
-                    ctx, arg.dtype, arg.shape, layout=layout, memory_space=memory_space
+            if isinstance(arg.dtype, Stream) and len(arg.shape) == 0:
+                # Stream-typed function argument: compile as !allo.stream<inner_type>
+                # so that kernel bodies can call .get()/.put() on region-level stream args.
+                inner_mlir_type = arg.dtype.build()
+                stream_mlir_type = allo_d.StreamType.get(
+                    inner_mlir_type, depth=arg.dtype.depth
                 )
-            )
+                input_types.append(stream_mlir_type)
+            else:
+                input_types.append(
+                    ASTTransformer.build_shaped_type(
+                        ctx, arg.dtype, arg.shape, layout=layout, memory_space=memory_space
+                    )
+                )
             input_typehints.append(get_extra_type_hints(arg.dtype))
             dtensors.append(arg.dtensor)
 
@@ -2588,9 +2597,19 @@ class ASTTransformer(ASTBuilder):
                     new_name, symbolic_slice, iterator_infos = (
                         ASTTransformer.get_stream_name(ctx, node.func.value)
                     )
-                    stream = ctx.get_symbol(new_name).clone(
-                        ip=ctx.get_stream_construct_ip()
-                    )
+                    sym = ctx.get_symbol(new_name)
+                    if isinstance(sym, MockArg) and allo_d.StreamType.isinstance(
+                        sym.result.type
+                    ):
+                        # Region-level stream arg captured in kernel: create a
+                        # StreamConstructOp placeholder so move_stream_to_interface
+                        # can move it to the kernel's interface.
+                        stream = allo_d.StreamConstructOp(
+                            sym.result.type, ip=ctx.get_stream_construct_ip()
+                        )
+                        stream.attributes["name"] = StringAttr.get(new_name)
+                    else:
+                        stream = sym.clone(ip=ctx.get_stream_construct_ip())
                     if symbolic_slice is not None:
                         stream.attributes["symbolic_slice"] = StringAttr.get(
                             symbolic_slice
@@ -2610,9 +2629,17 @@ class ASTTransformer(ASTBuilder):
                         ASTTransformer.get_stream_name(ctx, node.func.value)
                     )
                     # insert after the last stream construct op to preserve ordering
-                    stream = ctx.get_symbol(new_name).clone(
-                        ip=ctx.get_stream_construct_ip()
-                    )
+                    sym = ctx.get_symbol(new_name)
+                    if isinstance(sym, MockArg) and allo_d.StreamType.isinstance(
+                        sym.result.type
+                    ):
+                        # Region-level stream arg captured in kernel
+                        stream = allo_d.StreamConstructOp(
+                            sym.result.type, ip=ctx.get_stream_construct_ip()
+                        )
+                        stream.attributes["name"] = StringAttr.get(new_name)
+                    else:
+                        stream = sym.clone(ip=ctx.get_stream_construct_ip())
                     if symbolic_slice is not None:
                         stream.attributes["symbolic_slice"] = StringAttr.get(
                             symbolic_slice

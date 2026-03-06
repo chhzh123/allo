@@ -321,6 +321,23 @@ class Stream(AlloType):
     A FIFO type. Schedules using the `dataflow` schedule may find using this improves parallelism.
     """
 
+    @classmethod
+    def __class_getitem__(cls, item):
+        """Support Stream[dtype, depth] syntax in function-parameter annotations.
+
+        When used as a function parameter type annotation (evaluated at Python
+        runtime), Stream[dtype, depth] returns a Stream instance so the module
+        import succeeds. The Allo builder separately processes the AST node for
+        accurate type inference.
+        """
+        if isinstance(item, tuple) and len(item) == 2:
+            dtype_ann, depth = item
+            if isinstance(dtype_ann, TypeAnnotation):
+                return cls(dtype_ann.dtype, dtype_ann.shape, depth)
+            if isinstance(dtype_ann, AlloType):
+                return cls(dtype_ann, tuple(), depth)
+        return cls
+
     def __init__(self, dtype, shape, depth=2, size=1):
         assert isinstance(dtype, AlloType), f"dtype must be an AlloType, got {dtype}"
         self.dtype = dtype
