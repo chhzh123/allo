@@ -238,24 +238,24 @@ def add_local_array_partition_pragmas(hls_code):
 
 
 def add_compute_loop_dependence_pragmas(hls_code):
-    """Add ``dependence inter/intra false`` pragmas INSIDE compute loops for output arrays.
+    """Add ``dependence inter/intra false`` pragmas INSIDE compute AND readout loops.
 
-    When HLS DATAFLOW extracts ``l_S_i_2_*`` loops as separate sub-functions (via
-    XFORM 203-721), ``#pragma HLS dependence`` pragmas declared at the parent function
-    scope do not propagate into the extracted sub-function.  This causes HLS to report
-    a false WAW carried-dependence violation (HLS 200-880) on ``out_re_b*``/``out_im_b*``
-    and produce II=2.
+    When HLS DATAFLOW extracts ``l_S_i_2_*`` (compute) and ``l_S_i_4_*`` (readout)
+    loops as separate sub-functions (via XFORM 203-721), ``#pragma HLS dependence``
+    pragmas declared at the parent function scope do not propagate into the extracted
+    sub-function.  This causes HLS to:
+    - Report false WAW carried-dependence violations (HLS 200-880) → II=2
+    - Split the readout loop into two sub-functions → extra 8-10 cycles latency
 
-    Fix: scan each ``l_S_i_2_*`` loop body, identify the output bank array names accessed
-    (matching ``out_re_b*`` / ``out_im_b*``), and insert ``dependence inter false`` and
-    ``dependence intra false`` pragmas immediately after ``#pragma HLS pipeline II=1``
-    inside the loop.  These pragmas travel with the loop when DATAFLOW extraction creates
-    the sub-function.
+    Fix: scan each ``l_S_i_2_*`` and ``l_S_i_4_*`` loop body, identify the bank
+    array names accessed (matching ``out_re_b*`` / ``out_im_b*`` / ``in_re*`` /
+    ``in_im*``), and insert ``dependence inter false`` and ``dependence intra false``
+    pragmas immediately after ``#pragma HLS pipeline II=1`` inside the loop.
 
     Both ``inter false`` and ``intra false`` are needed:
     - ``inter false``: suppresses cross-iteration WAW false dependence on LUTRAM arrays.
-    - ``intra false``: suppresses within-iteration WAW conflicts among the 16 unrolled
-      butterfly writes.  The F2 swizzle guarantees distinct banks (no real conflict) but
+    - ``intra false``: suppresses within-iteration WAW/RAW conflicts among 16+ unrolled
+      bank accesses.  The F2 swizzle guarantees distinct banks (no real conflict) but
       HLS cannot prove it analytically from the XOR-based expressions alone.
 
     Enabled automatically with ``optimize_stream_reads`` or ``bind_op_fabric``.
@@ -263,23 +263,23 @@ def add_compute_loop_dependence_pragmas(hls_code):
     lines = hls_code.split("\n")
     result = []
 
-    # Pattern: the compute loop label (DATAFLOW sub-loop extracted as separate proc)
-    compute_loop_pat = re.compile(r"^\s+l_S_i_2_\w+: for ")
+    # Pattern: compute loop (l_S_i_2_*) and readout loop (l_S_i_4_*) labels
+    target_loop_pat = re.compile(r"^\s+l_S_i_[24]_\w+: for ")
     pipeline_pat = re.compile(r"^(\s+)#pragma HLS pipeline")
-    # Output bank array names referenced in assignments (out_re_b, out_im_b, with optional suffix)
-    out_bank_pat = re.compile(r"\b(out_re_b\w*|out_im_b\w*)\[")
+    # Bank array names referenced in the loop body
+    bank_pat = re.compile(r"\b(out_re_b\w*|out_im_b\w*|in_re\w*|in_im\w*)\[")
 
     i = 0
     while i < len(lines):
         line = lines[i]
-        if compute_loop_pat.match(line):
+        if target_loop_pat.match(line):
             # The loop opens with { on this line; next line should be #pragma HLS pipeline
             if i + 1 < len(lines) and pipeline_pat.match(lines[i + 1]):
                 pipeline_line = lines[i + 1]
                 m_pipe = pipeline_pat.match(pipeline_line)
                 indent = m_pipe.group(1)
 
-                # Scan loop body (starting at i+2) to collect output bank array names.
+                # Scan loop body (starting at i+2) to collect bank array names.
                 # We start at depth=1 (inside the loop's opening {).
                 depth = 1
                 j = i + 2
@@ -287,7 +287,7 @@ def add_compute_loop_dependence_pragmas(hls_code):
                 while j < len(lines) and depth > 0:
                     depth += lines[j].count("{") - lines[j].count("}")
                     if depth > 0:
-                        m_out = out_bank_pat.search(lines[j])
+                        m_out = bank_pat.search(lines[j])
                         if m_out:
                             out_vars.add(m_out.group(1))
                     j += 1
@@ -295,19 +295,8 @@ def add_compute_loop_dependence_pragmas(hls_code):
                 # Emit loop label and pipeline pragma
                 result.append(line)
                 result.append(pipeline_line)
-                # Add 'inter false' and 'intra false' inside the compute loop body
-                # so the pragmas propagate into the DATAFLOW-extracted sub-function
-                # (Vitis HLS does not propagate function-scope pragmas into extracted
-                # sub-fns).
-                # 'inter false': suppress cross-iteration false WAW dependencies on
-                #   the output bank arrays (needed for LUTRAM-backed memories).
-                # 'intra false': suppress within-iteration false WAW conflicts among
-                #   the 16 unrolled butterfly writes.  With complete dim=1 partition
-                #   (32 banks) and the F2 swizzle guaranteeing all 16 lower-half
-                #   indices map to distinct banks and all 16 upper-half indices map
-                #   to distinct banks (disjoint from each other), no real conflict
-                #   exists.  The pragma is required because HLS cannot analytically
-                #   prove this from the XOR-based bank expressions alone.
+                # Add 'inter false' and 'intra false' inside the loop body
+                # so the pragmas propagate into the DATAFLOW-extracted sub-function.
                 for var in sorted(out_vars):
                     result.append(
                         f"{indent}#pragma HLS dependence variable={var} inter false"

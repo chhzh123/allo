@@ -433,7 +433,7 @@ def fft_256(
             chunk_re: float32[WIDTH] = s_re[5].get()
             chunk_im: float32[WIDTH] = s_im[5].get()
             for k in range(WIDTH):
-                bank: int32 = k ^ ((i & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ (i & 1)) << 4)
                 in_re[bank, i] = chunk_re[k]
                 in_im[bank, i] = chunk_im[k]
 
@@ -480,7 +480,7 @@ def fft_256(
             chunk_re: float32[WIDTH]
             chunk_im: float32[WIDTH]
             for k in range(WIDTH):
-                bank: int32 = k ^ ((i & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ (i & 1)) << 4)
                 chunk_re[k] = out_re_b[bank, i]
                 chunk_im[k] = out_im_b[bank, i]
             s_re[6].put(chunk_re)
@@ -501,7 +501,7 @@ def fft_256(
             chunk_re: float32[WIDTH] = s_re[6].get()
             chunk_im: float32[WIDTH] = s_im[6].get()
             for k in range(WIDTH):
-                bank: int32 = k ^ (((i >> 1) & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 1) & 1)) << 4)
                 in_re[bank, i] = chunk_re[k]
                 in_im[bank, i] = chunk_im[k]
 
@@ -541,7 +541,7 @@ def fft_256(
             chunk_re: float32[WIDTH]
             chunk_im: float32[WIDTH]
             for k in range(WIDTH):
-                bank: int32 = k ^ (((i >> 1) & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 1) & 1)) << 4)
                 chunk_re[k] = out_re_b[bank, i]
                 chunk_im[k] = out_im_b[bank, i]
             s_re[7].put(chunk_re)
@@ -562,7 +562,7 @@ def fft_256(
             chunk_re: float32[WIDTH] = s_re[7].get()
             chunk_im: float32[WIDTH] = s_im[7].get()
             for k in range(WIDTH):
-                bank: int32 = k ^ (((i >> 2) & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 2) & 1)) << 4)
                 in_re[bank, i] = chunk_re[k]
                 in_im[bank, i] = chunk_im[k]
 
@@ -598,7 +598,7 @@ def fft_256(
             chunk_re: float32[WIDTH]
             chunk_im: float32[WIDTH]
             for k in range(WIDTH):
-                bank: int32 = k ^ (((i >> 2) & 1) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 2) & 1)) << 4)
                 chunk_re[k] = out_re_b[bank, i]
                 chunk_im[k] = out_im_b[bank, i]
             out_re.put(chunk_re)
