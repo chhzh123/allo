@@ -799,6 +799,29 @@ def test_fft_256_csyn():
     print("✅ FFT-256 CSyn Passed!")
 
 
+def test_fft_256_simulator(N_=256):
+    import numpy as np
+    sim_mod = df.build(fft_256, target="simulator")
+    
+    np.random.seed(42)
+    inp_real = np.random.rand(NUM_VECS, WIDTH).astype(np.float32)
+    inp_imag = np.random.rand(NUM_VECS, WIDTH).astype(np.float32)
+    out_real = np.zeros((NUM_VECS, WIDTH), dtype=np.float32)
+    out_imag = np.zeros((NUM_VECS, WIDTH), dtype=np.float32)
+
+    print("Running simulator...")
+    sim_mod(inp_real, inp_imag, out_real, out_imag)
+    
+    # Verify results
+    inp_cmplx = (inp_real + 1j * inp_imag).flatten()
+    out_cmplx = (out_real + 1j * out_imag).flatten()
+    ref = np.fft.fft(inp_cmplx)
+    
+    np.testing.assert_allclose(out_cmplx.real, ref.real, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(out_cmplx.imag, ref.imag, rtol=1e-4, atol=1e-4)
+    print("✅ Simulator Passed!")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -808,5 +831,9 @@ if __name__ == "__main__":
     num_threads = max(64, N_ * 2)
     os.environ["OMP_NUM_THREADS"] = str(num_threads)
 
-    test_fft(N_)
+    if len(sys.argv) > 1 and sys.argv[1] == "csyn":
+        test_fft_256_csyn()
+    else:
+        test_fft_256_simulator()
+
     del os.environ["OMP_NUM_THREADS"]

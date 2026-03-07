@@ -4,6 +4,7 @@
 # pylint: disable=consider-using-enumerate, no-value-for-parameter, too-many-function-args, redefined-variable-type
 
 import os
+import re
 from ..backend.llvm import LLVMModule
 from .._mlir.ir import (
     Location,
@@ -31,6 +32,7 @@ from .._mlir.ir import (
     IntegerType,
     FloatType,
     IndexType,
+    ShapedType,
     FlatSymbolRefAttr,
 )
 from .._mlir.dialects import (
@@ -877,6 +879,377 @@ def convert_critical_write_to_atomic_write(module: Module):
             critical_op.operation.erase()
 
 
+def _emit_loader_loop(ip, index_type, mem_arg, stream_val, item_type):
+    """Inline: for i in 0..dim(mem_arg, 0): buf = mem_arg[i,:]; stream_put(stream, buf)"""
+    c0 = arith_d.ConstantOp(index_type, 0, ip=ip)
+    c1 = arith_d.ConstantOp(index_type, 1, ip=ip)
+    n = memref_d.DimOp(mem_arg, c0, ip=ip)
+    loop = scf_d.ForOp(c0, n, c1, ip=ip)
+    with InsertionPoint(loop.body):
+        iv = loop.body.arguments[0]
+        if MemRefType.isinstance(item_type):
+            item_mr = MemRefType(item_type)
+            buf = memref_d.AllocOp(item_mr, [], [])
+            for dim_size in item_mr.shape:
+                jc0 = arith_d.ConstantOp(index_type, 0)
+                jc1 = arith_d.ConstantOp(index_type, 1)
+                jcn = arith_d.ConstantOp(index_type, dim_size)
+                inner = scf_d.ForOp(jc0, jcn, jc1)
+                with InsertionPoint(inner.body):
+                    j = inner.body.arguments[0]
+                    val = memref_d.LoadOp(mem_arg, [iv, j])
+                    memref_d.StoreOp(val, buf, [j])
+                    scf_d.YieldOp([])
+            allo_d.StreamPutOp(stream=stream_val, indices=[], data=buf)
+        else:
+            val = memref_d.LoadOp(mem_arg, [iv])
+            allo_d.StreamPutOp(stream=stream_val, indices=[], data=val)
+        scf_d.YieldOp([])
+
+
+def _emit_storer_loop(ip, index_type, mem_arg, stream_val, item_type):
+    """Inline: for i in 0..dim(mem_arg, 0): buf = stream_get(stream); mem_arg[i,:] = buf"""
+    c0 = arith_d.ConstantOp(index_type, 0, ip=ip)
+    c1 = arith_d.ConstantOp(index_type, 1, ip=ip)
+    n = memref_d.DimOp(mem_arg, c0, ip=ip)
+    loop = scf_d.ForOp(c0, n, c1, ip=ip)
+    with InsertionPoint(loop.body):
+        iv = loop.body.arguments[0]
+        if MemRefType.isinstance(item_type):
+            item_mr = MemRefType(item_type)
+            buf = allo_d.StreamGetOp(res=item_mr, stream=stream_val, indices=[])
+            for dim_size in item_mr.shape:
+                jc0 = arith_d.ConstantOp(index_type, 0)
+                jc1 = arith_d.ConstantOp(index_type, 1)
+                jcn = arith_d.ConstantOp(index_type, dim_size)
+                inner = scf_d.ForOp(jc0, jcn, jc1)
+                with InsertionPoint(inner.body):
+                    j = inner.body.arguments[0]
+                    val = memref_d.LoadOp(buf, [j])
+                    memref_d.StoreOp(val, mem_arg, [iv, j])
+                    scf_d.YieldOp([])
+        else:
+            val = allo_d.StreamGetOp(res=item_type, stream=stream_val, indices=[])
+            memref_d.StoreOp(val, mem_arg, [iv])
+        scf_d.YieldOp([])
+
+
+def _wrap_streams_phase1(module: Module, top_func_name: str) -> list:
+    """Phase 1 (before build_dataflow_simulator):
+    - Identify stream-typed top-level args and their directions
+    - Inject stream_construct ops at the top of the top function's block
+    - Replace all uses of the stream block args with the construct results
+    - Update the function signature (stream -> flat memref)
+    Returns a list of (arg_idx, direction, orig_stream_type, item_type, flat_type, stream_val)
+    """
+    with module.context, Location.unknown():
+        top_func = find_func_in_module(module, top_func_name)
+        if top_func is None:
+            return []
+
+        func_type = FunctionType(top_func.type)
+        inputs = list(func_type.inputs)
+
+        stream_arg_indices = [
+            i for i, t in enumerate(inputs) if allo_d.StreamType.isinstance(t)
+        ]
+        if not stream_arg_indices:
+            return []
+
+        top_block = top_func.body.blocks[0]
+        dyn = ShapedType.get_dynamic_size()
+
+        def get_direction(blk_arg) -> str:
+            """Return 'in' or 'out' by matching blk_arg to call operands in top block."""
+            for op in top_block.operations:
+                if not isinstance(op, func_d.CallOp):
+                    continue
+                operands = list(op.operands_)
+                matching = [j for j, a in enumerate(operands) if Value(a) == Value(blk_arg)]
+                if not matching:
+                    continue
+                call_pos = matching[0]
+                callee_name = str(op.callee)[1:]
+                for mod_op in module.body.operations:
+                    if not isinstance(mod_op, func_d.FuncOp):
+                        continue
+                    if str(mod_op.sym_name).strip('"') != callee_name:
+                        continue
+                    if "stypes" not in mod_op.attributes:
+                        break
+                    stypes = str(mod_op.attributes["stypes"]).strip('"')
+                    if call_pos < len(stypes):
+                        return 'in' if stypes[call_pos] == 'i' else 'out'
+            return 'in'
+
+        new_input_types = list(inputs)
+        info = []  # (arg_idx, direction, orig_stream_type, item_type, flat_type)
+
+        for arg_idx in stream_arg_indices:
+            stream_type = allo_d.StreamType(inputs[arg_idx])
+            item_type = stream_type.base_type
+            blk_arg = top_block.arguments[arg_idx]
+            direction = get_direction(blk_arg)
+
+            if MemRefType.isinstance(item_type):
+                flat_type = MemRefType.get(
+                    [dyn] + list(MemRefType(item_type).shape),
+                    MemRefType(item_type).element_type,
+                )
+            else:
+                flat_type = MemRefType.get([dyn], item_type)
+
+            new_input_types[arg_idx] = flat_type
+            info.append((arg_idx, direction, inputs[arg_idx], item_type, flat_type))
+
+        # Update function signature
+        new_fn_type = FunctionType.get(new_input_types, list(func_type.results))
+        top_func.attributes["function_type"] = TypeAttr.get(new_fn_type)
+        for arg_idx, _d, _s, _i, flat_type in info:
+            top_block.arguments[arg_idx].set_type(flat_type)
+
+        # Inject stream_construct ops at the very top and redirect blk_arg uses
+        first_op = top_block.operations[0]
+        inject_ip = InsertionPoint(beforeOperation=first_op)
+        results = []
+
+        for arg_idx, direction, orig_stream_type, item_type, flat_type in info:
+            blk_arg = top_block.arguments[arg_idx]
+            sc = allo_d.StreamConstructOp(res=orig_stream_type, ip=inject_ip)
+            sc.operation.attributes["name"] = StringAttr.get(f"stream_arg{arg_idx}")
+            stream_val = sc.result
+            # Redirect PE call uses of blk_arg to stream_val
+            blk_arg.replace_all_uses_with(stream_val)
+            results.append((arg_idx, direction, orig_stream_type, item_type, flat_type))
+
+
+        # Update itypes
+        if "itypes" in top_func.attributes:
+            itypes = list(str(top_func.attributes["itypes"]).strip('"'))
+            for arg_idx, *_ in info:
+                if arg_idx < len(itypes) and itypes[arg_idx] == 'x':
+                    itypes[arg_idx] = '_'
+            top_func.attributes["itypes"] = StringAttr.get("".join(itypes))
+
+        return results
+
+
+def _wrap_streams_phase2(module: Module, top_func_name: str, stream_info: list):
+    """Phase 2 (after build_dataflow_simulator):
+    Find named struct allocs created by _process_function_streams and add
+    loader/storer omp.sections to the existing omp.parallel.
+    """
+    if not stream_info:
+        return
+
+    with module.context, Location.unknown():
+        top_func = find_func_in_module(module, top_func_name)
+        if top_func is None:
+            return
+
+        top_block = top_func.body.blocks[0]
+        int_type = IntegerType.get_signless(32, module.context)
+        index_type = IndexType.get()
+        empty_map = AffineMapAttr.get(AffineMap.get(0, 0, []))
+
+        named_allocs: dict = {}
+        for op in top_block.operations:
+            if isinstance(op, memref_d.AllocOp) and "name" in op.attributes:
+                named_allocs[str(op.attributes["name"]).strip('"')] = op.result
+
+        omp_sections_block = None
+        for op in top_block.operations:
+            if op.name != "omp.parallel":
+                continue
+            for region in op.regions:
+                for block in region.blocks:
+                    for inner in block.operations:
+                        if inner.name == "omp.sections":
+                            for sr in inner.regions:
+                                for sb in sr.blocks:
+                                    omp_sections_block = sb
+
+        if omp_sections_block is None:
+            return
+
+        sections_terminator = None
+        first_section = None
+        for op in omp_sections_block.operations:
+            if op.name == "omp.terminator" and sections_terminator is None:
+                sections_terminator = op
+                break
+            if op.name == "omp.section" and first_section is None:
+                first_section = op
+
+        def add_section_ip(before_op):
+            sec = openmp_d.SectionOp(ip=InsertionPoint(beforeOperation=before_op))
+            sec_block = Block.create_at_start(sec.region, [])
+            term = openmp_d.TerminatorOp(ip=InsertionPoint(sec_block))
+            return InsertionPoint(beforeOperation=term)
+
+        def fifo_push_section(before_op, stream_name, mem_arg, item_type, depth):
+            struct_mr = named_allocs[stream_name]
+            head_alloc = named_allocs[f"{stream_name}_head"]
+            tail_alloc = named_allocs[f"{stream_name}_tail"]
+            fifo_struct_type = MemRefType(struct_mr.type).element_type
+            ip = add_section_ip(before_op)
+
+            c0_idx = arith_d.ConstantOp(index_type, 0, ip=ip)
+            c1_idx = arith_d.ConstantOp(index_type, 1, ip=ip)
+            n = memref_d.DimOp(mem_arg, c0_idx.result, ip=ip)
+            outer = scf_d.ForOp(c0_idx.result, n.result, c1_idx.result, ip=ip)
+
+            with InsertionPoint(outer.body):
+                iv = outer.body.arguments[0]
+                c1_i32 = arith_d.ConstantOp(int_type, 1)
+                c_depth = arith_d.ConstantOp(int_type, depth)
+
+                tail_val = memref_d.LoadOp(tail_alloc, [])
+                tail_inc = arith_d.AddIOp(tail_val.result, c1_i32.result)
+                tail_next = arith_d.RemUIOp(tail_inc.result, c_depth.result)
+
+                # spin while full (tail_next == head)
+                spin = scf_d.WhileOp(results_=[], inits=[])
+                bfr = Block.create_at_start(spin.before, [])
+                bfr_ip = InsertionPoint(bfr)
+                openmp_d.FlushOp([], ip=bfr_ip)
+                tv = memref_d.LoadOp(tail_alloc, [], ip=bfr_ip)
+                ti = arith_d.AddIOp(tv.result, c1_i32.result, ip=bfr_ip)
+                tn = arith_d.RemUIOp(ti.result, c_depth.result, ip=bfr_ip)
+                hv = memref_d.LoadOp(head_alloc, [], ip=bfr_ip)
+                cmp = arith_d.CmpIOp(0, tn.result, hv.result, ip=bfr_ip)
+                scf_d.ConditionOp(condition=cmp.result, args=[], ip=bfr_ip)
+                afr = Block.create_at_start(spin.after, [])
+                afr_ip = InsertionPoint(afr)
+                openmp_d.TaskyieldOp(ip=afr_ip)
+                c1_32b = arith_d.ConstantOp(IntegerType.get_signless(32, module.context), 1, ip=afr_ip)
+                func_d.CallOp([], FlatSymbolRefAttr.get("usleep"), [c1_32b.result], ip=afr_ip)
+                scf_d.YieldOp(results_=[], ip=afr_ip)
+
+                # write data to FIFO
+                t_val = memref_d.LoadOp(tail_alloc, [])
+                t_idx = index_d.CastUOp(output=index_type, input=t_val.result)
+
+                if MemRefType.isinstance(item_type):
+                    item_mr_t = MemRefType(item_type)
+                    data_type = MemRefType.get([depth] + list(item_mr_t.shape), item_mr_t.element_type)
+                    fifo_struct = affine_d.AffineLoadOp(
+                        result=fifo_struct_type, memref=struct_mr,
+                        indices=[], map=empty_map)
+                    data_arr = allo_d.StructGetOp(output=data_type, input=fifo_struct.result, index=0)
+                    for dim_sz in item_mr_t.shape:
+                        jc0 = arith_d.ConstantOp(index_type, 0)
+                        jcn = arith_d.ConstantOp(index_type, dim_sz)
+                        jc1 = arith_d.ConstantOp(index_type, 1)
+                        inner = scf_d.ForOp(jc0.result, jcn.result, jc1.result)
+                        with InsertionPoint(inner.body):
+                            j = inner.body.arguments[0]
+                            val = memref_d.LoadOp(mem_arg, [iv, j])
+                            memref_d.StoreOp(val.result, data_arr.result, [t_idx.result, j])
+                            scf_d.YieldOp([])
+                else:
+                    data_type = MemRefType.get([depth], item_type)
+                    fifo_struct = affine_d.AffineLoadOp(
+                        result=fifo_struct_type, memref=struct_mr,
+                        indices=[], map=empty_map)
+                    data_arr = allo_d.StructGetOp(output=data_type, input=fifo_struct.result, index=0)
+                    val = memref_d.LoadOp(mem_arg, [iv])
+                    memref_d.StoreOp(val.result, data_arr.result, [t_idx.result])
+
+                crit = openmp_d.CriticalOp()
+                crit_ip = InsertionPoint(Block.create_at_start(crit.region))
+                memref_d.StoreOp(tail_next.result, tail_alloc, [], ip=crit_ip)
+                openmp_d.TerminatorOp(ip=crit_ip)
+                scf_d.YieldOp([])
+
+        def fifo_pop_section(before_op, stream_name, mem_arg, item_type, depth):
+            struct_mr = named_allocs[stream_name]
+            head_alloc = named_allocs[f"{stream_name}_head"]
+            tail_alloc = named_allocs[f"{stream_name}_tail"]
+            fifo_struct_type = MemRefType(struct_mr.type).element_type
+            ip = add_section_ip(before_op)
+
+            c0_idx = arith_d.ConstantOp(index_type, 0, ip=ip)
+            c1_idx = arith_d.ConstantOp(index_type, 1, ip=ip)
+            n = memref_d.DimOp(mem_arg, c0_idx.result, ip=ip)
+            outer = scf_d.ForOp(c0_idx.result, n.result, c1_idx.result, ip=ip)
+
+            with InsertionPoint(outer.body):
+                iv = outer.body.arguments[0]
+                c1_i32 = arith_d.ConstantOp(int_type, 1)
+                c_depth = arith_d.ConstantOp(int_type, depth)
+
+                head_val = memref_d.LoadOp(head_alloc, [])
+                head_inc = arith_d.AddIOp(head_val.result, c1_i32.result)
+                head_next = arith_d.RemUIOp(head_inc.result, c_depth.result)
+
+                # spin while empty (head == tail)
+                spin = scf_d.WhileOp(results_=[], inits=[])
+                bfr = Block.create_at_start(spin.before, [])
+                bfr_ip = InsertionPoint(bfr)
+                openmp_d.FlushOp([], ip=bfr_ip)
+                hd = memref_d.LoadOp(head_alloc, [], ip=bfr_ip)
+                tl = memref_d.LoadOp(tail_alloc, [], ip=bfr_ip)
+                cmp = arith_d.CmpIOp(0, hd.result, tl.result, ip=bfr_ip)
+                scf_d.ConditionOp(condition=cmp.result, args=[], ip=bfr_ip)
+                afr = Block.create_at_start(spin.after, [])
+                afr_ip = InsertionPoint(afr)
+                openmp_d.TaskyieldOp(ip=afr_ip)
+                c1_32b = arith_d.ConstantOp(IntegerType.get_signless(32, module.context), 1, ip=afr_ip)
+                func_d.CallOp([], FlatSymbolRefAttr.get("usleep"), [c1_32b.result], ip=afr_ip)
+                scf_d.YieldOp(results_=[], ip=afr_ip)
+
+                # read data from FIFO
+                h_val = memref_d.LoadOp(head_alloc, [])
+                h_idx = index_d.CastUOp(output=index_type, input=h_val.result)
+
+                if MemRefType.isinstance(item_type):
+                    item_mr_t = MemRefType(item_type)
+                    data_type = MemRefType.get([depth] + list(item_mr_t.shape), item_mr_t.element_type)
+                    fifo_struct = affine_d.AffineLoadOp(
+                        result=fifo_struct_type, memref=struct_mr,
+                        indices=[], map=empty_map)
+                    data_arr = allo_d.StructGetOp(output=data_type, input=fifo_struct.result, index=0)
+                    for dim_sz in item_mr_t.shape:
+                        jc0 = arith_d.ConstantOp(index_type, 0)
+                        jcn = arith_d.ConstantOp(index_type, dim_sz)
+                        jc1 = arith_d.ConstantOp(index_type, 1)
+                        inner = scf_d.ForOp(jc0.result, jcn.result, jc1.result)
+                        with InsertionPoint(inner.body):
+                            j = inner.body.arguments[0]
+                            val = memref_d.LoadOp(data_arr.result, [h_idx.result, j])
+                            memref_d.StoreOp(val.result, mem_arg, [iv, j])
+                            scf_d.YieldOp([])
+                else:
+                    data_type = MemRefType.get([depth], item_type)
+                    fifo_struct = affine_d.AffineLoadOp(
+                        result=fifo_struct_type, memref=struct_mr,
+                        indices=[], map=empty_map)
+                    data_arr = allo_d.StructGetOp(output=data_type, input=fifo_struct.result, index=0)
+                    val = memref_d.LoadOp(data_arr.result, [h_idx.result])
+                    memref_d.StoreOp(val.result, mem_arg, [iv])
+
+                crit = openmp_d.CriticalOp()
+                crit_ip = InsertionPoint(Block.create_at_start(crit.region))
+                memref_d.StoreOp(head_next.result, head_alloc, [], ip=crit_ip)
+                openmp_d.TerminatorOp(ip=crit_ip)
+                scf_d.YieldOp([])
+
+        for arg_idx, direction, orig_stream_type, item_type, flat_type in stream_info:
+            stream_name = f"stream_arg{arg_idx}"
+            if stream_name not in named_allocs:
+                continue
+            depth = allo_d.StreamType(orig_stream_type).depth + 1
+            blk_arg = top_func.body.blocks[0].arguments[arg_idx]
+
+            if direction == 'in':
+                tgt = first_section if first_section is not None else sections_terminator
+                fifo_push_section(tgt, stream_name, blk_arg, item_type, depth)
+            else:
+                fifo_pop_section(sections_terminator, stream_name, blk_arg, item_type, depth)
+
+
+
 class LLVMOMPModule(LLVMModule):
     def __init__(self, mod: Module, top_func_name: str, ext_libs=None):
         with Context() as ctx:
@@ -885,17 +1258,24 @@ class LLVMOMPModule(LLVMModule):
             self.top_func_name = top_func_name
             func = find_func_in_module(self.module, top_func_name)
             ext_libs = [] if ext_libs is None else ext_libs
-            # Get input/output types
-            self.in_types, self.out_types = get_func_inputs_outputs(func)
             self.module = decompose_library_function(self.module)
+            # Phase 1: inject stream_construct ops + update signature BEFORE
+            # build_dataflow_simulator so _process_function_streams sees them.
+            stream_info = _wrap_streams_phase1(self.module, top_func_name)
 
             build_dataflow_simulator(self.module, self.top_func_name)
-            # Attach necessary attributes
+
+            # Phase 2: add loader/storer as omp.section threads INSIDE omp.parallel
+            # so they run concurrently with PE sections (avoids deadlock).
+            _wrap_streams_phase2(self.module, top_func_name, stream_info)
+
+            # Get input/output types AFTER signature modification
             func = find_func_in_module(self.module, top_func_name)
             if func is None:
                 raise RuntimeError(
                     "No top-level function found in the built MLIR module"
                 )
+            self.in_types, self.out_types = get_func_inputs_outputs(func)
             func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
             func.attributes["top"] = UnitAttr.get()
 
