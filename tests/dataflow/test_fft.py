@@ -188,12 +188,6 @@ def test_fft(N_=8):
 # generate  #pragma HLS array_partition complete dim=1  for each 2D buffer.
 # ---------------------------------------------------------------------------
 
-# Pre-compute swizzle helpers (once, at module load)
-_sw5 = fft_swizzle(N, WIDTH, stride_bit=5)  # STRIDE=32
-_sw6 = fft_swizzle(N, WIDTH, stride_bit=6)  # STRIDE=64
-_sw7 = fft_swizzle(N, WIDTH, stride_bit=7)  # STRIDE=128
-
-
 @df.region()
 def fft_256(
     inp_re: Stream[float32[WIDTH], 2],
@@ -205,8 +199,8 @@ def fft_256(
 
     # 8 intermediate streams (s[0]..s[7]); each token is WIDTH float32 values
     # depth=2 matches the reference design (FIFO_SRL, 0.87ns) for min pipeline latency
-    s_re: Stream[float32[WIDTH], 2][LOG2_N]
-    s_im: Stream[float32[WIDTH], 2][LOG2_N]
+    s_re: Stream[float32[WIDTH], 2][LOG2_N + 1]
+    s_im: Stream[float32[WIDTH], 2][LOG2_N + 1]
 
     # ------------------------------------------------------------------
     # Bit-reversal stage: inline 8-bit reversal (N=256, LOG2_N=8)
@@ -262,140 +256,48 @@ def fft_256(
     # Intra-vector stages 0-4  (STRIDE=2^s < WIDTH=32)
     # All butterflies within one WIDTH-element chunk; no bank conflicts.
     # ------------------------------------------------------------------
-    @df.kernel(mapping=[1])
-    def intra_0():
-        for _i in range(NUM_VECS):
-            c_re: float32[WIDTH] = s_re[0].get()
-            c_im: float32[WIDTH] = s_im[0].get()
-            o_re: float32[WIDTH]
-            o_im: float32[WIDTH]
-            for k in range(16):  # WIDTH//2, STRIDE=1, twiddle=(1,0)
-                a_re = c_re[k * 2]
-                a_im = c_im[k * 2]
-                b_re = c_re[k * 2 + 1]
-                b_im = c_im[k * 2 + 1]
-                o_re[k * 2] = a_re + b_re
-                o_im[k * 2] = a_im + b_im
-                o_re[k * 2 + 1] = a_re - b_re
-                o_im[k * 2 + 1] = a_im - b_im
-            s_re[1].put(o_re)
-            s_im[1].put(o_im)
-
-    @df.kernel(mapping=[1])
-    def intra_1():
-        # Stage 1 (STRIDE=2): twiddle factors are only (1,0) and (0,-1).
-        # Even-positioned pairs (k*4, k*4+2) use tw=(1,0): trivial butterfly a±b.
-        # Odd-positioned pairs (k*4+1, k*4+3) use tw=(0,-1): bw=(b_im,-b_re), no multiply.
-        # Matching the reference design's butterfly_trivial/butterfly_minus_i approach.
-        for _i in range(NUM_VECS):
-            c_re: float32[WIDTH] = s_re[1].get()
-            c_im: float32[WIDTH] = s_im[1].get()
-            o_re: float32[WIDTH]
-            o_im: float32[WIDTH]
-            for k in range(8):  # 8 groups, each with 2 butterfly pairs (trivial + -j)
-                # Trivial butterfly: pair (k*4, k*4+2) with tw=(1,0)
-                a_re = c_re[k * 4]; a_im = c_im[k * 4]
-                b_re = c_re[k * 4 + 2]; b_im = c_im[k * 4 + 2]
-                o_re[k * 4] = a_re + b_re; o_im[k * 4] = a_im + b_im
-                o_re[k * 4 + 2] = a_re - b_re; o_im[k * 4 + 2] = a_im - b_im
-                # -j butterfly: pair (k*4+1, k*4+3) with tw=(0,-1): bw=(b_im,-b_re)
-                # Inlined to avoid variable redefinition when loop is unrolled in HLS C
-                o_re[k * 4 + 1] = c_re[k * 4 + 1] + c_im[k * 4 + 3]
-                o_im[k * 4 + 1] = c_im[k * 4 + 1] - c_re[k * 4 + 3]
-                o_re[k * 4 + 3] = c_re[k * 4 + 1] - c_im[k * 4 + 3]
-                o_im[k * 4 + 3] = c_im[k * 4 + 1] + c_re[k * 4 + 3]
-            s_re[2].put(o_re)
-            s_im[2].put(o_im)
-
-    @df.kernel(mapping=[1])
-    def intra_2():
+    @df.kernel(mapping=[5])
+    def intra():
+        s = df.get_pid()
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
         for _i in range(NUM_VECS):
-            c_re: float32[WIDTH] = s_re[2].get()
-            c_im: float32[WIDTH] = s_im[2].get()
+            c_re: float32[WIDTH] = s_re[s].get()
+            c_im: float32[WIDTH] = s_im[s].get()
             o_re: float32[WIDTH]
             o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=4; tw_k=(k&3)<<5 cycles 0,32,64,96
-                il: int32 = ((k >> 2) << 3) | (k & 3)
-                iu: int32 = il | 4
-                tw_k: int32 = (k & 3) << 5
-                a_re = c_re[il]; a_im = c_im[il]
-                b_re = c_re[iu]; b_im = c_im[iu]
-                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
-                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
-                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
-                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
-                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
-                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
-                else:
-                    tr = twr[tw_k]; ti = twi[tw_k]
-                    bw_re: float32 = b_re * tr - b_im * ti
-                    bw_im: float32 = b_re * ti + b_im * tr
-                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
-            s_re[3].put(o_re)
-            s_im[3].put(o_im)
+            stride: int32 = 1 << s
+            for k in range(16):
+                il: int32 = ((k >> s) << (s + 1)) | (k & (stride - 1))
+                iu: int32 = il | stride
+                tw_k: int32 = (k & (stride - 1)) << (7 - s)
+                
+                a_re = c_re[il]
+                a_im = c_im[il]
+                b_re = c_re[iu]
+                b_im = c_im[iu]
 
-    @df.kernel(mapping=[1])
-    def intra_3():
-        twr: float32[N // 2] = full_twr
-        twi: float32[N // 2] = full_twi
-        for _i in range(NUM_VECS):
-            c_re: float32[WIDTH] = s_re[3].get()
-            c_im: float32[WIDTH] = s_im[3].get()
-            o_re: float32[WIDTH]
-            o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=8; tw_k=(k&7)<<4 cycles 0,16,..,112
-                il: int32 = ((k >> 3) << 4) | (k & 7)
-                iu: int32 = il | 8
-                tw_k: int32 = (k & 7) << 4
-                a_re = c_re[il]; a_im = c_im[il]
-                b_re = c_re[iu]; b_im = c_im[iu]
-                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
-                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
-                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
-                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
-                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
-                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
+                if tw_k == 0:
+                    o_re[il] = a_re + b_re
+                    o_im[il] = a_im + b_im
+                    o_re[iu] = a_re - b_re
+                    o_im[iu] = a_im - b_im
+                elif tw_k == 64:
+                    o_re[il] = a_re + b_im
+                    o_im[il] = a_im - b_re
+                    o_re[iu] = a_re - b_im
+                    o_im[iu] = a_im + b_re
                 else:
-                    tr = twr[tw_k]; ti = twi[tw_k]
+                    tr = twr[tw_k]
+                    ti = twi[tw_k]
                     bw_re: float32 = b_re * tr - b_im * ti
                     bw_im: float32 = b_re * ti + b_im * tr
-                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
-            s_re[4].put(o_re)
-            s_im[4].put(o_im)
-
-    @df.kernel(mapping=[1])
-    def intra_4():
-        twr: float32[N // 2] = full_twr
-        twi: float32[N // 2] = full_twi
-        for _i in range(NUM_VECS):
-            c_re: float32[WIDTH] = s_re[4].get()
-            c_im: float32[WIDTH] = s_im[4].get()
-            o_re: float32[WIDTH]
-            o_im: float32[WIDTH]
-            for k in range(16):  # STRIDE=16; tw_k=k<<3: 0,8,16,..,120
-                il: int32 = k  # k//16==0 for k<16, so il = k
-                iu: int32 = k | 16
-                tw_k: int32 = k << 3
-                a_re = c_re[il]; a_im = c_im[il]
-                b_re = c_re[iu]; b_im = c_im[iu]
-                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply (k=0 only)
-                    o_re[il] = a_re + b_re; o_im[il] = a_im + b_im
-                    o_re[iu] = a_re - b_re; o_im[iu] = a_im - b_im
-                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply (k=8)
-                    o_re[il] = a_re + b_im; o_im[il] = a_im - b_re
-                    o_re[iu] = a_re - b_im; o_im[iu] = a_im + b_re
-                else:
-                    tr = twr[tw_k]; ti = twi[tw_k]
-                    bw_re: float32 = b_re * tr - b_im * ti
-                    bw_im: float32 = b_re * ti + b_im * tr
-                    o_re[il] = a_re + bw_re; o_im[il] = a_im + bw_im
-                    o_re[iu] = a_re - bw_re; o_im[iu] = a_im - bw_im
-            s_re[5].put(o_re)
-            s_im[5].put(o_im)
+                    o_re[il] = a_re + bw_re
+                    o_im[il] = a_im + bw_im
+                    o_re[iu] = a_re - bw_re
+                    o_im[iu] = a_im - bw_im
+            s_re[s + 1].put(o_re)
+            s_im[s + 1].put(o_im)
 
     # ------------------------------------------------------------------
     # Inter-vector stages 5-7  (STRIDE=2^s >= WIDTH=32)
@@ -405,204 +307,83 @@ def fft_256(
     #
     # Buffer shape: float32[WIDTH, NUM_VECS] = float32[32, 8]
     # s.partition(kernel:buf, dim=1) → #pragma HLS array_partition complete dim=1
-    #
-    # Load phase  (stream → buffer):
-    #   for idx=i*32+k: bank = k ^ (((i>>(s-5))&1)<<4), offset = i
-    #
-    # Compute phase (buffer read/write with swizzle, butterfly pairs):
-    #   bank  = (idx & 31) ^ (((idx >> s) & 1) << 4)
-    #   offset = idx >> 5
-    #
-    # Readout phase (buffer → stream): same as load formula.
     # ------------------------------------------------------------------
 
-    @df.kernel(mapping=[1])
-    def inter_5():
-        """Inter-vector stage, STRIDE=32, stride_bit=5."""
+    @df.kernel(mapping=[3])
+    def inter():
+        s_rel = df.get_pid()
+        # s = s_rel + 5
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
-        # 2D buffer: dim-0 = bank (partitioned), dim-1 = depth
         in_re: float32[WIDTH, NUM_VECS]
         in_im: float32[WIDTH, NUM_VECS]
         out_re_b: float32[WIDTH, NUM_VECS]
         out_im_b: float32[WIDTH, NUM_VECS]
 
-        # Load: stream → swizzled buffer
-        # bank = k ^ ((i & 1) << 4)   [since (i*32+k)>>5 & 1 = i & 1]
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = s_re[5].get()
-            chunk_im: float32[WIDTH] = s_im[5].get()
+            chunk_re: float32[WIDTH] = s_re[s_rel + 5].get()
+            chunk_im: float32[WIDTH] = s_im[s_rel + 5].get()
             for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ (i & 1)) << 4)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> s_rel) & 1)) << 4)
                 in_re[bank, i] = chunk_re[k]
                 in_im[bank, i] = chunk_im[k]
 
-        # Compute: butterfly pairs (il, iu=il+32)
-        # bank_il = within, offset_il = grp*2
-        # bank_iu = within^16, offset_iu = grp*2+1
-        # Use bit ops throughout to keep int32 (avoid MLIR signed-int widening).
-        # For unrolled k=0: within=(i<<4)&31 ∈ {0,16} → tw_k ∈ {0,64} always,
-        # so the else-branch is dead for k=0, saving 4 DSPs.
         for i in range(NUM_VECS):
-            for k in range(16):  # WIDTH // 2
-                bg: int32 = (i << 4) | k
-                grp: int32 = bg >> 5
-                within: int32 = bg & 31
-                tw_k: int32 = within << 2
-                off_l: int32 = grp << 1
-                off_u: int32 = off_l | 1
-                a_re = in_re[within, off_l]
-                a_im = in_im[within, off_l]
-                b_re = in_re[within ^ 16, off_u]
-                b_im = in_im[within ^ 16, off_u]
-                if tw_k == 0:  # trivial tw=(1,0): bw=b, no multiply
-                    out_re_b[within, off_l] = a_re + b_re
-                    out_im_b[within, off_l] = a_im + b_im
-                    out_re_b[within ^ 16, off_u] = a_re - b_re
-                    out_im_b[within ^ 16, off_u] = a_im - b_im
-                elif tw_k == 64:  # minus_j tw=(0,-1): bw=(b_im,-b_re), no multiply
-                    out_re_b[within, off_l] = a_re + b_im
-                    out_im_b[within, off_l] = a_im - b_re
-                    out_re_b[within ^ 16, off_u] = a_re - b_im
-                    out_im_b[within ^ 16, off_u] = a_im + b_re
+            for k in range(16):
+                bg: uint32 = (i << 4) | k
+                tw_k: uint32 = (bg & (((1 << s_rel) << 5) - 1)) << (2 - s_rel)
+                bank_il: uint32 = k | ((i & 1) << 4)
+                bank_iu: uint32 = bank_il ^ 16
+                
+                i_shr: uint32 = i >> 1
+                low_mask: uint32 = (1 << s_rel) - 1
+                low_bits: uint32 = i_shr & low_mask
+                high_bits: uint32 = i_shr >> s_rel
+                off_il: uint32 = (high_bits << (s_rel + 1)) | low_bits
+                stride_off: uint32 = 1 << s_rel
+                off_iu: uint32 = off_il | stride_off
+                
+                a_re = in_re[bank_il, off_il]
+                a_im = in_im[bank_il, off_il]
+                b_re = in_re[bank_iu, off_iu]
+                b_im = in_im[bank_iu, off_iu]
+                
+                if tw_k == 0:
+                    out_re_b[bank_il, off_il] = a_re + b_re
+                    out_im_b[bank_il, off_il] = a_im + b_im
+                    out_re_b[bank_iu, off_iu] = a_re - b_re
+                    out_im_b[bank_iu, off_iu] = a_im - b_im
+                elif tw_k == 64:
+                    out_re_b[bank_il, off_il] = a_re + b_im
+                    out_im_b[bank_il, off_il] = a_im - b_re
+                    out_re_b[bank_iu, off_iu] = a_re - b_im
+                    out_im_b[bank_iu, off_iu] = a_im + b_re
                 else:
                     tr = twr[tw_k]
                     ti = twi[tw_k]
                     bw_re: float32 = b_re * tr - b_im * ti
                     bw_im: float32 = b_re * ti + b_im * tr
-                    out_re_b[within, off_l] = a_re + bw_re
-                    out_im_b[within, off_l] = a_im + bw_im
-                    out_re_b[within ^ 16, off_u] = a_re - bw_re
-                    out_im_b[within ^ 16, off_u] = a_im - bw_im
+                    out_re_b[bank_il, off_il] = a_re + bw_re
+                    out_im_b[bank_il, off_il] = a_im + bw_im
+                    out_re_b[bank_iu, off_iu] = a_re - bw_re
+                    out_im_b[bank_iu, off_iu] = a_im - bw_im
 
-        # Readout: swizzled buffer → stream
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH]
-            chunk_im: float32[WIDTH]
+            chunk_re_out: float32[WIDTH]
+            chunk_im_out: float32[WIDTH]
             for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ (i & 1)) << 4)
-                chunk_re[k] = out_re_b[bank, i]
-                chunk_im[k] = out_im_b[bank, i]
-            s_re[6].put(chunk_re)
-            s_im[6].put(chunk_im)
+                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> s_rel) & 1)) << 4)
+                chunk_re_out[k] = out_re_b[bank, i]
+                chunk_im_out[k] = out_im_b[bank, i]
+            s_re[s_rel + 6].put(chunk_re_out)
+            s_im[s_rel + 6].put(chunk_im_out)
 
     @df.kernel(mapping=[1])
-    def inter_6():
-        """Inter-vector stage, STRIDE=64, stride_bit=6."""
-        twr: float32[N // 2] = full_twr
-        twi: float32[N // 2] = full_twi
-        in_re: float32[WIDTH, NUM_VECS]
-        in_im: float32[WIDTH, NUM_VECS]
-        out_re_b: float32[WIDTH, NUM_VECS]
-        out_im_b: float32[WIDTH, NUM_VECS]
-
-        # Load: bank = k ^ (((i>>1) & 1) << 4)  [since (i*32+k)>>6 & 1 = i>>1 & 1]
+    def output_stage():
         for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = s_re[6].get()
-            chunk_im: float32[WIDTH] = s_im[6].get()
-            for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 1) & 1)) << 4)
-                in_re[bank, i] = chunk_re[k]
-                in_im[bank, i] = chunk_im[k]
+            out_re.put(s_re[LOG2_N].get())
+            out_im.put(s_im[LOG2_N].get())
 
-        # Compute: butterfly pairs (il, iu=il+64)
-        # Direct bank formula (STRIDE=64):
-        #   bank_il = k | ((i & 1) << 4)   ← lower nibble = k (compile-time
-        #              distinct 0..15), provably distinct for all k in 0..15.
-        #   bank_iu = bank_il ^ 16         ← opposite half; lower nibble = k.
-        #   off_il  = ((i>>2)<<2) | ((i>>1)&1)  [purely function of i, not k]
-        #   off_iu  = off_il | 2           ← adding STRIDE/32=2 to offset
-        #   tw_k    = (bg & 63) << 1       ← twiddle index for STRIDE=64
-        # Using bank = k | bit4 (same structure as inter_5's `within`) ensures
-        # HLS analytically proves no write-port conflict → II=1 for COMPUTE.
-        for i in range(NUM_VECS):
-            for k in range(16):
-                bg: uint32 = (i << 4) | k
-                tw_k: uint32 = (bg & 63) << 1
-                bank_il: uint32 = k | ((i & 1) << 4)
-                bank_iu: uint32 = bank_il ^ 16
-                off_il: uint32 = ((i >> 2) << 2) | ((i >> 1) & 1)
-                off_iu: uint32 = off_il | 2
-                a_re = in_re[bank_il, off_il]
-                a_im = in_im[bank_il, off_il]
-                b_re = in_re[bank_iu, off_iu]
-                b_im = in_im[bank_iu, off_iu]
-                tr = twr[tw_k]
-                ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                out_re_b[bank_il, off_il] = a_re + bw_re
-                out_im_b[bank_il, off_il] = a_im + bw_im
-                out_re_b[bank_iu, off_iu] = a_re - bw_re
-                out_im_b[bank_iu, off_iu] = a_im - bw_im
-
-        # Readout: bank = k ^ (((i>>1) & 1) << 4)
-        for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH]
-            chunk_im: float32[WIDTH]
-            for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 1) & 1)) << 4)
-                chunk_re[k] = out_re_b[bank, i]
-                chunk_im[k] = out_im_b[bank, i]
-            s_re[7].put(chunk_re)
-            s_im[7].put(chunk_im)
-
-    @df.kernel(mapping=[1])
-    def inter_7():
-        """Inter-vector stage, STRIDE=128, stride_bit=7."""
-        twr: float32[N // 2] = full_twr
-        twi: float32[N // 2] = full_twi
-        in_re: float32[WIDTH, NUM_VECS]
-        in_im: float32[WIDTH, NUM_VECS]
-        out_re_b: float32[WIDTH, NUM_VECS]
-        out_im_b: float32[WIDTH, NUM_VECS]
-
-        # Load: bank = k ^ (((i>>2) & 1) << 4)  [since (i*32+k)>>7 & 1 = i>>2 & 1]
-        for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH] = s_re[7].get()
-            chunk_im: float32[WIDTH] = s_im[7].get()
-            for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 2) & 1)) << 4)
-                in_re[bank, i] = chunk_re[k]
-                in_im[bank, i] = chunk_im[k]
-
-        # Compute: butterfly pairs (il, iu=il+128)
-        # Direct bank formula (STRIDE=128):
-        #   bank_il = k | ((i & 1) << 4)   ← same as inter_6; lower nibble=k.
-        #   bank_iu = bank_il ^ 16
-        #   off_il  = i >> 1               ← purely function of i, not k
-        #   off_iu  = off_il | 4           ← adding STRIDE/32=4 to offset
-        #   tw_k    = (i << 4) | k         ← within = bg (grp=0 always)
-        for i in range(NUM_VECS):
-            for k in range(16):
-                bank_il: uint32 = k | ((i & 1) << 4)
-                bank_iu: uint32 = bank_il ^ 16
-                off_il: uint32 = i >> 1
-                off_iu: uint32 = off_il | 4
-                tw_k: uint32 = (i << 4) | k
-                a_re = in_re[bank_il, off_il]
-                a_im = in_im[bank_il, off_il]
-                b_re = in_re[bank_iu, off_iu]
-                b_im = in_im[bank_iu, off_iu]
-                tr = twr[tw_k]
-                ti = twi[tw_k]
-                bw_re: float32 = b_re * tr - b_im * ti
-                bw_im: float32 = b_re * ti + b_im * tr
-                out_re_b[bank_il, off_il] = a_re + bw_re
-                out_im_b[bank_il, off_il] = a_im + bw_im
-                out_re_b[bank_iu, off_iu] = a_re - bw_re
-                out_im_b[bank_iu, off_iu] = a_im - bw_im
-
-        # Readout: bank = k ^ (((i>>2) & 1) << 4); write directly to output streams
-        for i in range(NUM_VECS):
-            chunk_re: float32[WIDTH]
-            chunk_im: float32[WIDTH]
-            for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> 2) & 1)) << 4)
-                chunk_re[k] = out_re_b[bank, i]
-                chunk_im[k] = out_im_b[bank, i]
-            out_re.put(chunk_re)
-            out_im.put(chunk_im)
 
 
 def _apply_f2_partitions(s):
@@ -612,10 +393,10 @@ def _apply_f2_partitions(s):
     inter_5, inter_6, inter_7 with  #pragma HLS array_partition complete dim=1
     so Vitis HLS instantiates WIDTH separate LUTRAM banks enabling II=1.
 
-    The kernel names have a '_0' suffix added by the dataflow compilation pass.
+    # The kernel names are suffixed by the mapping ID: "_0", "_1", "_2"
     """
-    # After df.customize() the dataflow pass appends "_0" to kernel names
-    inter_kernels = ["inter_5_0", "inter_6_0", "inter_7_0"]
+    # The kernel names are suffixed by the mapping ID: "_0", "_1", "_2"
+    inter_kernels = ["inter_0", "inter_1", "inter_2"]
     bufs = ["in_re", "in_im", "out_re_b", "out_im_b"]
     for kn in inter_kernels:
         for bn in bufs:
@@ -643,13 +424,13 @@ def _apply_f2_optimizations(s):
     # 2. Sub-function dataflow for inter-vector stages
     #    This lets HLS pipeline load/compute/write sub-loops concurrently,
     #    achieving II=N/WIDTH instead of 3*(N/WIDTH) cycles per inter stage.
-    for kn in ["inter_5_0", "inter_6_0", "inter_7_0"]:
+    for kn in ["inter_0", "inter_1", "inter_2"]:
         s.dataflow(kn)
 
     # 3. BIND_STORAGE ram_2p lutram + DEPENDENCE inter false on all inter-stage buffers
     #    ram_2p enables dual-port access needed for HLS DATAFLOW ping-pong buffering.
     #    DEPENDENCE inter false removes conservative false dependencies for II=1.
-    inter_kernels = ["inter_5_0", "inter_6_0", "inter_7_0"]
+    inter_kernels = ["inter_0", "inter_1", "inter_2"]
     bufs = ["in_re", "in_im", "out_re_b", "out_im_b"]
     for kn in inter_kernels:
         for bn in bufs:
@@ -677,18 +458,22 @@ def _apply_f2_optimizations(s):
 
     # intra stages: single outer _i loop
     for stage in range(5):
-        kn = f"intra_{stage}_0"
+        kn = f"intra_{stage}"
         lp = s.get_loops(kn)
         s.pipeline(lp["S__i_0"]["_i"])
         s.unroll(lp["S__i_0"]["k"])
 
     # inter stages: three loop bands (load=S_i_0, compute=S_i_2, write=S_i_4)
-    for stage in [5, 6, 7]:
-        kn = f"inter_{stage}_0"
+    for stage in range(3):
+        kn = f"inter_{stage}"
         lp = s.get_loops(kn)
         for band in ["S_i_0", "S_i_2", "S_i_4"]:
             s.pipeline(lp[band]["i"])
             s.unroll(lp[band]["k"])
+
+    # output stages: single outer loop
+    lp_out = s.get_loops("output_stage_0")
+    s.pipeline(lp_out["S_i_0"]["i"])
 
 
 
@@ -722,7 +507,7 @@ def test_fft_256_vectorized():
         "Expected hls::stream<hls::vector<float,32>>& args in fft_256 signature"
     )
     assert "bit_rev_stage" in code
-    assert "inter_7" in code
+    assert "inter_2" in code
     print("✅ FFT-256 Vectorized HLS Codegen Test PASSED!")
 
 
@@ -745,7 +530,7 @@ def test_fft_256_hls_codegen():
     assert "hls::vector" in code, "Expected vectorized stream in HLS code"
     assert "hls::stream" in code
     assert "bit_rev_stage" in code
-    assert "inter_7" in code
+    assert "inter_2" in code
 
     # F2 swizzle is visible as XOR operations on bank indices
     assert "^" in code, "Expected XOR operations for F2 swizzle"
