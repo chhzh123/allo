@@ -21,92 +21,87 @@ void bit_rev_stage_0(
   hls::stream< hls::vector< float, 32 > >& v3
 ) {	// L4
   #pragma HLS dataflow disable_start_propagation
-  float buf_re[32][8];	// L13
+  float buf_re[32][8];	// L17
   #pragma HLS array_partition variable=buf_re complete dim=1
 
   #pragma HLS bind_storage variable=buf_re type=ram_2p impl=lutram
   #pragma HLS dependence variable=buf_re inter false
-  float buf_im[32][8];	// L14
+  float buf_im[32][8];	// L18
   #pragma HLS array_partition variable=buf_im complete dim=1
 
   #pragma HLS bind_storage variable=buf_im type=ram_2p impl=lutram
   #pragma HLS dependence variable=buf_im inter false
-  l_S_ii_0_ii: for (int ii = 0; ii < 8; ii++) {	// L15
+  l_S_ii_0_ii: for (int ii = 0; ii < 8; ii++) {	// L19
   #pragma HLS pipeline II=1
     hls::vector< float, 32 > v7 = v0.read();
     hls::vector< float, 32 > v8 = v1.read();
-    l_S_kk_0_kk: for (int kk = 0; kk < 32; kk++) {	// L18
+    l_S_kk_0_kk: for (int kk = 0; kk < 32; kk++) {	// L22
     #pragma HLS unroll
-      int32_t v10 = kk;	// L19
-      int32_t v11 = v10 & 1;	// L20
-      int32_t v12 = v11 << 4;	// L21
-      int32_t v13 = v10 & 2;	// L22
-      int32_t v14 = v13 << 2;	// L23
-      int32_t v15 = v12 | v14;	// L24
-      int32_t v16 = v10 & 4;	// L25
-      int32_t v17 = v15 | v16;	// L26
-      int32_t v18 = v10 & 8;	// L27
-      int32_t v19 = v18 >> 2;	// L28
-      int32_t v20 = v17 | v19;	// L29
-      int32_t v21 = v10 & 16;	// L30
-      int32_t v22 = v21 >> 4;	// L31
-      int32_t v23 = v20 | v22;	// L32
-      int32_t bank;	// L33
-      bank = v23;	// L34
-      int32_t v25 = ii;	// L35
-      int32_t v26 = v25 & 4;	// L36
-      int32_t v27 = v26 >> 2;	// L37
-      int32_t v28 = v25 & 2;	// L38
-      int32_t v29 = v27 | v28;	// L39
-      int32_t v30 = v25 & 1;	// L40
-      int32_t v31 = v30 << 2;	// L41
-      int32_t v32 = v29 | v31;	// L42
-      int32_t offset;	// L43
-      offset = v32;	// L44
-      float v34 = v7[kk];	// L45
-      int32_t v35 = bank;	// L46
-      int v36 = v35;	// L47
-      int32_t v37 = offset;	// L48
-      int v38 = v37;	// L49
-      buf_re[v36][v38] = v34;	// L50
-      float v39 = v8[kk];	// L51
-      int32_t v40 = bank;	// L52
-      int v41 = v40;	// L53
-      int32_t v42 = offset;	// L54
-      int v43 = v42;	// L55
-      buf_im[v41][v43] = v39;	// L56
+      int v10 = ii << 5;	// L23
+      int v11 = v10 | kk;	// L24
+      uint32_t v12 = v11;	// L25
+      uint32_t idx;	// L26
+      idx = v12;	// L27
+      int32_t v14 = idx;	// L28
+      int32_t v15 = v14 & 1;	// L29
+      int32_t v16 = v15 << 7;	// L30
+      int32_t v17 = v14 & 2;	// L31
+      int32_t v18 = v17 << 5;	// L32
+      int32_t v19 = v16 | v18;	// L33
+      int32_t v20 = v14 & 4;	// L34
+      int32_t v21 = v20 << 3;	// L35
+      int32_t v22 = v19 | v21;	// L36
+      int32_t v23 = v14 & 8;	// L37
+      int32_t v24 = v23 << 1;	// L38
+      int32_t v25 = v22 | v24;	// L39
+      int32_t v26 = v14 & 16;	// L40
+      int32_t v27 = v26 >> 1;	// L41
+      int32_t v28 = v25 | v27;	// L42
+      int32_t v29 = v14 & 32;	// L43
+      int32_t v30 = v29 >> 3;	// L44
+      int32_t v31 = v28 | v30;	// L45
+      int32_t v32 = v14 & 64;	// L46
+      int32_t v33 = v32 >> 5;	// L47
+      int32_t v34 = v31 | v33;	// L48
+      int32_t v35 = v14 & 128;	// L49
+      int32_t v36 = v35 >> 7;	// L50
+      int32_t v37 = v34 | v36;	// L51
+      uint32_t rev;	// L52
+      rev = v37;	// L53
+      float v39 = v7[kk];	// L54
+      int32_t v40 = rev;	// L55
+      int32_t v41 = v40 >> 3;	// L57
+      int32_t v42 = v40 & 7;	// L59
+      int v43 = v41;	// L60
+      int v44 = v42;	// L61
+      buf_re[v43][v44] = v39;	// L62
+      float v45 = v8[kk];	// L63
+      int32_t v46 = rev;	// L64
+      int32_t v47 = v46 >> 3;	// L65
+      int32_t v48 = v46 & 7;	// L66
+      int v49 = v47;	// L67
+      int v50 = v48;	// L68
+      buf_im[v49][v50] = v45;	// L69
     }
   }
-  l_S_jj_2_jj: for (int jj = 0; jj < 8; jj++) {	// L59
+  l_S_jj_2_jj: for (int jj = 0; jj < 8; jj++) {	// L72
   #pragma HLS pipeline II=1
-    float chunk_re[32];	// L60
+    float chunk_re[32];	// L73
     #pragma HLS array_partition variable=chunk_re complete
-    float chunk_im[32];	// L61
+    float chunk_im[32];	// L74
     #pragma HLS array_partition variable=chunk_im complete
-    l_S_mm_2_mm: for (int mm = 0; mm < 32; mm++) {	// L62
+    l_S_mm_2_mm: for (int mm = 0; mm < 32; mm++) {	// L75
     #pragma HLS unroll
-      int v48 = jj << 2;	// L63
-      int v49 = mm >> 3;	// L64
-      int v50 = v48 | v49;	// L65
-      int32_t v51 = v50;	// L66
-      int32_t rd_bank;	// L67
-      rd_bank = v51;	// L68
-      int32_t v53 = mm;	// L69
-      int32_t v54 = v53 & 7;	// L70
-      int32_t rd_off;	// L71
-      rd_off = v54;	// L72
-      int32_t v56 = rd_bank;	// L73
-      int v57 = v56;	// L74
-      int32_t v58 = rd_off;	// L75
-      int v59 = v58;	// L76
-      float v60 = buf_re[v57][v59];	// L77
-      chunk_re[mm] = v60;	// L78
-      int32_t v61 = rd_bank;	// L79
-      int v62 = v61;	// L80
-      int32_t v63 = rd_off;	// L81
-      int v64 = v63;	// L82
-      float v65 = buf_im[v62][v64];	// L83
-      chunk_im[mm] = v65;	// L84
+      int v55 = ((jj * 32) + mm);	// L76
+      int32_t v56 = v55;	// L77
+      int32_t v57 = v56 >> 3;	// L79
+      int32_t v58 = v56 & 7;	// L81
+      int v59 = v57;	// L82
+      int v60 = v58;	// L83
+      float v61 = buf_re[v59][v60];	// L84
+      chunk_re[mm] = v61;	// L85
+      float v62 = buf_im[v59][v60];	// L86
+      chunk_im[mm] = v62;	// L87
     }
     {
       hls::vector< float, 32 > _vec;
@@ -115,7 +110,7 @@ void bit_rev_stage_0(
         _vec[_iv0] = chunk_re[_iv0];
       }
       v2.write(_vec);
-    }	// L86
+    }	// L89
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
@@ -123,198 +118,198 @@ void bit_rev_stage_0(
         _vec[_iv0] = chunk_im[_iv0];
       }
       v3.write(_vec);
-    }	// L87
+    }	// L90
   }
 }
 
-const float twr[128] = {1.000000e+00, 9.996988e-01, 9.987954e-01, 9.972904e-01, 9.951847e-01, 9.924796e-01, 9.891765e-01, 9.852777e-01, 9.807853e-01, 9.757021e-01, 9.700313e-01, 9.637761e-01, 9.569404e-01, 9.495282e-01, 9.415441e-01, 9.329928e-01, 9.238795e-01, 9.142098e-01, 9.039893e-01, 8.932243e-01, 8.819213e-01, 8.700870e-01, 8.577286e-01, 8.448536e-01, 8.314696e-01, 8.175848e-01, 8.032075e-01, 7.883464e-01, 7.730104e-01, 7.572088e-01, 7.409511e-01, 7.242471e-01, 7.071068e-01, 6.895406e-01, 6.715590e-01, 6.531729e-01, 6.343933e-01, 6.152316e-01, 5.956993e-01, 5.758082e-01, 5.555702e-01, 5.349976e-01, 5.141028e-01, 4.928982e-01, 4.713967e-01, 4.496113e-01, 4.275551e-01, 4.052413e-01, 3.826834e-01, 3.598951e-01, 3.368899e-01, 3.136818e-01, 2.902847e-01, 2.667128e-01, 2.429802e-01, 2.191012e-01, 1.950903e-01, 1.709619e-01, 1.467305e-01, 1.224107e-01, 9.801714e-02, 7.356457e-02, 4.906768e-02, 2.454123e-02, 0.000000e+00, -2.454123e-02, -4.906768e-02, -7.356457e-02, -9.801714e-02, -1.224107e-01, -1.467305e-01, -1.709619e-01, -1.950903e-01, -2.191012e-01, -2.429802e-01, -2.667128e-01, -2.902847e-01, -3.136818e-01, -3.368899e-01, -3.598951e-01, -3.826834e-01, -4.052413e-01, -4.275551e-01, -4.496113e-01, -4.713967e-01, -4.928982e-01, -5.141028e-01, -5.349976e-01, -5.555702e-01, -5.758082e-01, -5.956993e-01, -6.152316e-01, -6.343933e-01, -6.531729e-01, -6.715590e-01, -6.895406e-01, -7.071068e-01, -7.242471e-01, -7.409511e-01, -7.572088e-01, -7.730104e-01, -7.883464e-01, -8.032075e-01, -8.175848e-01, -8.314696e-01, -8.448536e-01, -8.577286e-01, -8.700870e-01, -8.819213e-01, -8.932243e-01, -9.039893e-01, -9.142098e-01, -9.238795e-01, -9.329928e-01, -9.415441e-01, -9.495282e-01, -9.569404e-01, -9.637761e-01, -9.700313e-01, -9.757021e-01, -9.807853e-01, -9.852777e-01, -9.891765e-01, -9.924796e-01, -9.951847e-01, -9.972904e-01, -9.987954e-01, -9.996988e-01};	// L91
-const float twi[128] = {0.000000e+00, -2.454123e-02, -4.906768e-02, -7.356457e-02, -9.801714e-02, -1.224107e-01, -1.467305e-01, -1.709619e-01, -1.950903e-01, -2.191012e-01, -2.429802e-01, -2.667128e-01, -2.902847e-01, -3.136818e-01, -3.368899e-01, -3.598951e-01, -3.826834e-01, -4.052413e-01, -4.275551e-01, -4.496113e-01, -4.713967e-01, -4.928982e-01, -5.141028e-01, -5.349976e-01, -5.555702e-01, -5.758082e-01, -5.956993e-01, -6.152316e-01, -6.343933e-01, -6.531729e-01, -6.715590e-01, -6.895406e-01, -7.071068e-01, -7.242471e-01, -7.409511e-01, -7.572088e-01, -7.730104e-01, -7.883464e-01, -8.032075e-01, -8.175848e-01, -8.314696e-01, -8.448536e-01, -8.577286e-01, -8.700870e-01, -8.819213e-01, -8.932243e-01, -9.039893e-01, -9.142098e-01, -9.238795e-01, -9.329928e-01, -9.415441e-01, -9.495282e-01, -9.569404e-01, -9.637761e-01, -9.700313e-01, -9.757021e-01, -9.807853e-01, -9.852777e-01, -9.891765e-01, -9.924796e-01, -9.951847e-01, -9.972904e-01, -9.987954e-01, -9.996988e-01, -1.000000e+00, -9.996988e-01, -9.987954e-01, -9.972904e-01, -9.951847e-01, -9.924796e-01, -9.891765e-01, -9.852777e-01, -9.807853e-01, -9.757021e-01, -9.700313e-01, -9.637761e-01, -9.569404e-01, -9.495282e-01, -9.415441e-01, -9.329928e-01, -9.238795e-01, -9.142098e-01, -9.039893e-01, -8.932243e-01, -8.819213e-01, -8.700870e-01, -8.577286e-01, -8.448536e-01, -8.314696e-01, -8.175848e-01, -8.032075e-01, -7.883464e-01, -7.730104e-01, -7.572088e-01, -7.409511e-01, -7.242471e-01, -7.071068e-01, -6.895406e-01, -6.715590e-01, -6.531729e-01, -6.343933e-01, -6.152316e-01, -5.956993e-01, -5.758082e-01, -5.555702e-01, -5.349976e-01, -5.141028e-01, -4.928982e-01, -4.713967e-01, -4.496113e-01, -4.275551e-01, -4.052413e-01, -3.826834e-01, -3.598951e-01, -3.368899e-01, -3.136818e-01, -2.902847e-01, -2.667128e-01, -2.429802e-01, -2.191012e-01, -1.950903e-01, -1.709619e-01, -1.467305e-01, -1.224107e-01, -9.801714e-02, -7.356457e-02, -4.906768e-02, -2.454123e-02};	// L92
+const float twr[128] = {1.000000e+00, 9.996988e-01, 9.987954e-01, 9.972904e-01, 9.951847e-01, 9.924796e-01, 9.891765e-01, 9.852777e-01, 9.807853e-01, 9.757021e-01, 9.700313e-01, 9.637761e-01, 9.569404e-01, 9.495282e-01, 9.415441e-01, 9.329928e-01, 9.238795e-01, 9.142098e-01, 9.039893e-01, 8.932243e-01, 8.819213e-01, 8.700870e-01, 8.577286e-01, 8.448536e-01, 8.314696e-01, 8.175848e-01, 8.032075e-01, 7.883464e-01, 7.730104e-01, 7.572088e-01, 7.409511e-01, 7.242471e-01, 7.071068e-01, 6.895406e-01, 6.715590e-01, 6.531729e-01, 6.343933e-01, 6.152316e-01, 5.956993e-01, 5.758082e-01, 5.555702e-01, 5.349976e-01, 5.141028e-01, 4.928982e-01, 4.713967e-01, 4.496113e-01, 4.275551e-01, 4.052413e-01, 3.826834e-01, 3.598951e-01, 3.368899e-01, 3.136818e-01, 2.902847e-01, 2.667128e-01, 2.429802e-01, 2.191012e-01, 1.950903e-01, 1.709619e-01, 1.467305e-01, 1.224107e-01, 9.801714e-02, 7.356457e-02, 4.906768e-02, 2.454123e-02, 0.000000e+00, -2.454123e-02, -4.906768e-02, -7.356457e-02, -9.801714e-02, -1.224107e-01, -1.467305e-01, -1.709619e-01, -1.950903e-01, -2.191012e-01, -2.429802e-01, -2.667128e-01, -2.902847e-01, -3.136818e-01, -3.368899e-01, -3.598951e-01, -3.826834e-01, -4.052413e-01, -4.275551e-01, -4.496113e-01, -4.713967e-01, -4.928982e-01, -5.141028e-01, -5.349976e-01, -5.555702e-01, -5.758082e-01, -5.956993e-01, -6.152316e-01, -6.343933e-01, -6.531729e-01, -6.715590e-01, -6.895406e-01, -7.071068e-01, -7.242471e-01, -7.409511e-01, -7.572088e-01, -7.730104e-01, -7.883464e-01, -8.032075e-01, -8.175848e-01, -8.314696e-01, -8.448536e-01, -8.577286e-01, -8.700870e-01, -8.819213e-01, -8.932243e-01, -9.039893e-01, -9.142098e-01, -9.238795e-01, -9.329928e-01, -9.415441e-01, -9.495282e-01, -9.569404e-01, -9.637761e-01, -9.700313e-01, -9.757021e-01, -9.807853e-01, -9.852777e-01, -9.891765e-01, -9.924796e-01, -9.951847e-01, -9.972904e-01, -9.987954e-01, -9.996988e-01};	// L94
+const float twi[128] = {0.000000e+00, -2.454123e-02, -4.906768e-02, -7.356457e-02, -9.801714e-02, -1.224107e-01, -1.467305e-01, -1.709619e-01, -1.950903e-01, -2.191012e-01, -2.429802e-01, -2.667128e-01, -2.902847e-01, -3.136818e-01, -3.368899e-01, -3.598951e-01, -3.826834e-01, -4.052413e-01, -4.275551e-01, -4.496113e-01, -4.713967e-01, -4.928982e-01, -5.141028e-01, -5.349976e-01, -5.555702e-01, -5.758082e-01, -5.956993e-01, -6.152316e-01, -6.343933e-01, -6.531729e-01, -6.715590e-01, -6.895406e-01, -7.071068e-01, -7.242471e-01, -7.409511e-01, -7.572088e-01, -7.730104e-01, -7.883464e-01, -8.032075e-01, -8.175848e-01, -8.314696e-01, -8.448536e-01, -8.577286e-01, -8.700870e-01, -8.819213e-01, -8.932243e-01, -9.039893e-01, -9.142098e-01, -9.238795e-01, -9.329928e-01, -9.415441e-01, -9.495282e-01, -9.569404e-01, -9.637761e-01, -9.700313e-01, -9.757021e-01, -9.807853e-01, -9.852777e-01, -9.891765e-01, -9.924796e-01, -9.951847e-01, -9.972904e-01, -9.987954e-01, -9.996988e-01, -1.000000e+00, -9.996988e-01, -9.987954e-01, -9.972904e-01, -9.951847e-01, -9.924796e-01, -9.891765e-01, -9.852777e-01, -9.807853e-01, -9.757021e-01, -9.700313e-01, -9.637761e-01, -9.569404e-01, -9.495282e-01, -9.415441e-01, -9.329928e-01, -9.238795e-01, -9.142098e-01, -9.039893e-01, -8.932243e-01, -8.819213e-01, -8.700870e-01, -8.577286e-01, -8.448536e-01, -8.314696e-01, -8.175848e-01, -8.032075e-01, -7.883464e-01, -7.730104e-01, -7.572088e-01, -7.409511e-01, -7.242471e-01, -7.071068e-01, -6.895406e-01, -6.715590e-01, -6.531729e-01, -6.343933e-01, -6.152316e-01, -5.956993e-01, -5.758082e-01, -5.555702e-01, -5.349976e-01, -5.141028e-01, -4.928982e-01, -4.713967e-01, -4.496113e-01, -4.275551e-01, -4.052413e-01, -3.826834e-01, -3.598951e-01, -3.368899e-01, -3.136818e-01, -2.902847e-01, -2.667128e-01, -2.429802e-01, -2.191012e-01, -1.950903e-01, -1.709619e-01, -1.467305e-01, -1.224107e-01, -9.801714e-02, -7.356457e-02, -4.906768e-02, -2.454123e-02};	// L95
 void intra_0(
-  hls::stream< hls::vector< float, 32 > >& v66,
-  hls::stream< hls::vector< float, 32 > >& v67,
-  hls::stream< hls::vector< float, 32 > >& v68,
-  hls::stream< hls::vector< float, 32 > >& v69
-) {	// L93
-  // placeholder for const float twr	// L100
+  hls::stream< hls::vector< float, 32 > >& v63,
+  hls::stream< hls::vector< float, 32 > >& v64,
+  hls::stream< hls::vector< float, 32 > >& v65,
+  hls::stream< hls::vector< float, 32 > >& v66
+) {	// L96
+  // placeholder for const float twr	// L103
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L101
+  // placeholder for const float twi	// L104
   #pragma HLS array_partition variable=twi complete
-  l_S__i_0__i: for (int _i = 0; _i < 8; _i++) {	// L102
+  l_S__i_0__i: for (int _i = 0; _i < 8; _i++) {	// L105
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v73 = v66.read();
-    hls::vector< float, 32 > v74 = v67.read();
-    float o_re[32];	// L105
+    hls::vector< float, 32 > v70 = v63.read();
+    hls::vector< float, 32 > v71 = v64.read();
+    float o_re[32];	// L108
     #pragma HLS array_partition variable=o_re complete
-    float o_im[32];	// L106
+    float o_im[32];	// L109
     #pragma HLS array_partition variable=o_im complete
-    int32_t stride;	// L107
-    stride = 1;	// L108
-    l_S_k_0_k: for (int k = 0; k < 16; k++) {	// L109
+    int32_t stride;	// L110
+    stride = 1;	// L111
+    l_S_k_0_k: for (int k = 0; k < 16; k++) {	// L112
     #pragma HLS unroll
-      int v79 = k << 1;	// L110
-      int32_t v80 = stride;	// L111
-      int64_t v81 = v80;	// L112
-      int64_t v82 = v81 - 1;	// L113
-      int64_t v83 = k;	// L114
-      int64_t v84 = v83 & v82;	// L115
-      int64_t v85 = v79;	// L116
-      int64_t v86 = v85 | v84;	// L117
-      int32_t v87 = v86;	// L118
-      int32_t il;	// L119
-      il = v87;	// L120
-      int32_t v89 = il;	// L121
-      int32_t v90 = stride;	// L122
-      int32_t v91 = v89 | v90;	// L123
-      int32_t iu;	// L124
-      iu = v91;	// L125
-      int32_t v93 = stride;	// L126
-      int64_t v94 = v93;	// L127
-      int64_t v95 = v94 - 1;	// L128
-      int64_t v96 = v83 & v95;	// L129
-      int64_t v97 = v96 << 7;	// L130
-      int32_t v98 = v97;	// L131
-      int32_t tw_k;	// L132
-      tw_k = v98;	// L133
-      int32_t v100 = il;	// L134
-      int v101 = v100;	// L135
-      float v102 = v73[v101];	// L136
-      float a_re;	// L137
-      a_re = v102;	// L138
-      int32_t v104 = il;	// L139
-      int v105 = v104;	// L140
-      float v106 = v74[v105];	// L141
-      float a_im;	// L142
-      a_im = v106;	// L143
-      int32_t v108 = iu;	// L144
-      int v109 = v108;	// L145
-      float v110 = v73[v109];	// L146
-      float b_re;	// L147
-      b_re = v110;	// L148
-      int32_t v112 = iu;	// L149
-      int v113 = v112;	// L150
-      float v114 = v74[v113];	// L151
-      float b_im;	// L152
-      b_im = v114;	// L153
-      int32_t v116 = tw_k;	// L154
-      bool v117 = v116 == 0;	// L155
-      if (v117) {	// L156
-        float v118 = a_re;	// L157
-        float v119 = b_re;	// L158
-        float v120 = v118 + v119;	// L159
-        #pragma HLS bind_op variable=v120 op=fadd impl=fabric
-        int32_t v121 = il;	// L160
-        int v122 = v121;	// L161
-        o_re[v122] = v120;	// L162
-        float v123 = a_im;	// L163
-        float v124 = b_im;	// L164
-        float v125 = v123 + v124;	// L165
-        #pragma HLS bind_op variable=v125 op=fadd impl=fabric
-        int32_t v126 = il;	// L166
-        int v127 = v126;	// L167
-        o_im[v127] = v125;	// L168
-        float v128 = a_re;	// L169
-        float v129 = b_re;	// L170
-        float v130 = v128 - v129;	// L171
-        #pragma HLS bind_op variable=v130 op=fsub impl=fabric
-        int32_t v131 = iu;	// L172
-        int v132 = v131;	// L173
-        o_re[v132] = v130;	// L174
-        float v133 = a_im;	// L175
-        float v134 = b_im;	// L176
-        float v135 = v133 - v134;	// L177
-        #pragma HLS bind_op variable=v135 op=fsub impl=fabric
-        int32_t v136 = iu;	// L178
-        int v137 = v136;	// L179
-        o_im[v137] = v135;	// L180
+      int v76 = k << 1;	// L113
+      int32_t v77 = stride;	// L114
+      int64_t v78 = v77;	// L115
+      int64_t v79 = v78 - 1;	// L116
+      int64_t v80 = k;	// L117
+      int64_t v81 = v80 & v79;	// L118
+      int64_t v82 = v76;	// L119
+      int64_t v83 = v82 | v81;	// L120
+      int32_t v84 = v83;	// L121
+      int32_t il;	// L122
+      il = v84;	// L123
+      int32_t v86 = il;	// L124
+      int32_t v87 = stride;	// L125
+      int32_t v88 = v86 | v87;	// L126
+      int32_t iu;	// L127
+      iu = v88;	// L128
+      int32_t v90 = stride;	// L129
+      int64_t v91 = v90;	// L130
+      int64_t v92 = v91 - 1;	// L131
+      int64_t v93 = v80 & v92;	// L132
+      int64_t v94 = v93 << 7;	// L133
+      int32_t v95 = v94;	// L134
+      int32_t tw_k;	// L135
+      tw_k = v95;	// L136
+      int32_t v97 = il;	// L137
+      int v98 = v97;	// L138
+      float v99 = v70[v98];	// L139
+      float a_re;	// L140
+      a_re = v99;	// L141
+      int32_t v101 = il;	// L142
+      int v102 = v101;	// L143
+      float v103 = v71[v102];	// L144
+      float a_im;	// L145
+      a_im = v103;	// L146
+      int32_t v105 = iu;	// L147
+      int v106 = v105;	// L148
+      float v107 = v70[v106];	// L149
+      float b_re;	// L150
+      b_re = v107;	// L151
+      int32_t v109 = iu;	// L152
+      int v110 = v109;	// L153
+      float v111 = v71[v110];	// L154
+      float b_im;	// L155
+      b_im = v111;	// L156
+      int32_t v113 = tw_k;	// L157
+      bool v114 = v113 == 0;	// L158
+      if (v114) {	// L159
+        float v115 = a_re;	// L160
+        float v116 = b_re;	// L161
+        float v117 = v115 + v116;	// L162
+        #pragma HLS bind_op variable=v117 op=fadd impl=fabric
+        int32_t v118 = il;	// L163
+        int v119 = v118;	// L164
+        o_re[v119] = v117;	// L165
+        float v120 = a_im;	// L166
+        float v121 = b_im;	// L167
+        float v122 = v120 + v121;	// L168
+        #pragma HLS bind_op variable=v122 op=fadd impl=fabric
+        int32_t v123 = il;	// L169
+        int v124 = v123;	// L170
+        o_im[v124] = v122;	// L171
+        float v125 = a_re;	// L172
+        float v126 = b_re;	// L173
+        float v127 = v125 - v126;	// L174
+        #pragma HLS bind_op variable=v127 op=fsub impl=fabric
+        int32_t v128 = iu;	// L175
+        int v129 = v128;	// L176
+        o_re[v129] = v127;	// L177
+        float v130 = a_im;	// L178
+        float v131 = b_im;	// L179
+        float v132 = v130 - v131;	// L180
+        #pragma HLS bind_op variable=v132 op=fsub impl=fabric
+        int32_t v133 = iu;	// L181
+        int v134 = v133;	// L182
+        o_im[v134] = v132;	// L183
       } else {
-        int32_t v138 = tw_k;	// L182
-        bool v139 = v138 == 64;	// L183
-        if (v139) {	// L184
-          float v140 = a_re;	// L185
-          float v141 = b_im;	// L186
-          float v142 = v140 + v141;	// L187
-          #pragma HLS bind_op variable=v142 op=fadd impl=fabric
-          int32_t v143 = il;	// L188
-          int v144 = v143;	// L189
-          o_re[v144] = v142;	// L190
-          float v145 = a_im;	// L191
-          float v146 = b_re;	// L192
-          float v147 = v145 - v146;	// L193
-          #pragma HLS bind_op variable=v147 op=fsub impl=fabric
-          int32_t v148 = il;	// L194
-          int v149 = v148;	// L195
-          o_im[v149] = v147;	// L196
-          float v150 = a_re;	// L197
-          float v151 = b_im;	// L198
-          float v152 = v150 - v151;	// L199
-          #pragma HLS bind_op variable=v152 op=fsub impl=fabric
-          int32_t v153 = iu;	// L200
-          int v154 = v153;	// L201
-          o_re[v154] = v152;	// L202
-          float v155 = a_im;	// L203
-          float v156 = b_re;	// L204
-          float v157 = v155 + v156;	// L205
-          #pragma HLS bind_op variable=v157 op=fadd impl=fabric
-          int32_t v158 = iu;	// L206
-          int v159 = v158;	// L207
-          o_im[v159] = v157;	// L208
+        int32_t v135 = tw_k;	// L185
+        bool v136 = v135 == 64;	// L186
+        if (v136) {	// L187
+          float v137 = a_re;	// L188
+          float v138 = b_im;	// L189
+          float v139 = v137 + v138;	// L190
+          #pragma HLS bind_op variable=v139 op=fadd impl=fabric
+          int32_t v140 = il;	// L191
+          int v141 = v140;	// L192
+          o_re[v141] = v139;	// L193
+          float v142 = a_im;	// L194
+          float v143 = b_re;	// L195
+          float v144 = v142 - v143;	// L196
+          #pragma HLS bind_op variable=v144 op=fsub impl=fabric
+          int32_t v145 = il;	// L197
+          int v146 = v145;	// L198
+          o_im[v146] = v144;	// L199
+          float v147 = a_re;	// L200
+          float v148 = b_im;	// L201
+          float v149 = v147 - v148;	// L202
+          #pragma HLS bind_op variable=v149 op=fsub impl=fabric
+          int32_t v150 = iu;	// L203
+          int v151 = v150;	// L204
+          o_re[v151] = v149;	// L205
+          float v152 = a_im;	// L206
+          float v153 = b_re;	// L207
+          float v154 = v152 + v153;	// L208
+          #pragma HLS bind_op variable=v154 op=fadd impl=fabric
+          int32_t v155 = iu;	// L209
+          int v156 = v155;	// L210
+          o_im[v156] = v154;	// L211
         } else {
-          int32_t v160 = tw_k;	// L210
-          int v161 = v160;	// L211
-          float v162 = twr[v161];	// L212
-          float tr;	// L213
-          tr = v162;	// L214
-          int32_t v164 = tw_k;	// L215
-          int v165 = v164;	// L216
-          float v166 = twi[v165];	// L217
-          float ti;	// L218
-          ti = v166;	// L219
-          float v168 = b_re;	// L220
-          float v169 = tr;	// L221
-          float v170 = v168 * v169;	// L222
-          float v171 = b_im;	// L223
-          float v172 = ti;	// L224
-          float v173 = v171 * v172;	// L225
-          float v174 = v170 - v173;	// L226
-          float bw_re;	// L227
-          bw_re = v174;	// L228
-          float v176 = b_re;	// L229
-          float v177 = ti;	// L230
-          float v178 = v176 * v177;	// L231
-          float v179 = b_im;	// L232
-          float v180 = tr;	// L233
-          float v181 = v179 * v180;	// L234
-          float v182 = v178 + v181;	// L235
-          float bw_im;	// L236
-          bw_im = v182;	// L237
-          float v184 = a_re;	// L238
-          float v185 = bw_re;	// L239
-          float v186 = v184 + v185;	// L240
-          #pragma HLS bind_op variable=v186 op=fadd impl=fabric
-          int32_t v187 = il;	// L241
-          int v188 = v187;	// L242
-          o_re[v188] = v186;	// L243
-          float v189 = a_im;	// L244
-          float v190 = bw_im;	// L245
-          float v191 = v189 + v190;	// L246
-          #pragma HLS bind_op variable=v191 op=fadd impl=fabric
-          int32_t v192 = il;	// L247
-          int v193 = v192;	// L248
-          o_im[v193] = v191;	// L249
-          float v194 = a_re;	// L250
-          float v195 = bw_re;	// L251
-          float v196 = v194 - v195;	// L252
-          #pragma HLS bind_op variable=v196 op=fsub impl=fabric
-          int32_t v197 = iu;	// L253
-          int v198 = v197;	// L254
-          o_re[v198] = v196;	// L255
-          float v199 = a_im;	// L256
-          float v200 = bw_im;	// L257
-          float v201 = v199 - v200;	// L258
-          #pragma HLS bind_op variable=v201 op=fsub impl=fabric
-          int32_t v202 = iu;	// L259
-          int v203 = v202;	// L260
-          o_im[v203] = v201;	// L261
+          int32_t v157 = tw_k;	// L213
+          int v158 = v157;	// L214
+          float v159 = twr[v158];	// L215
+          float tr;	// L216
+          tr = v159;	// L217
+          int32_t v161 = tw_k;	// L218
+          int v162 = v161;	// L219
+          float v163 = twi[v162];	// L220
+          float ti;	// L221
+          ti = v163;	// L222
+          float v165 = b_re;	// L223
+          float v166 = tr;	// L224
+          float v167 = v165 * v166;	// L225
+          float v168 = b_im;	// L226
+          float v169 = ti;	// L227
+          float v170 = v168 * v169;	// L228
+          float v171 = v167 - v170;	// L229
+          float bw_re;	// L230
+          bw_re = v171;	// L231
+          float v173 = b_re;	// L232
+          float v174 = ti;	// L233
+          float v175 = v173 * v174;	// L234
+          float v176 = b_im;	// L235
+          float v177 = tr;	// L236
+          float v178 = v176 * v177;	// L237
+          float v179 = v175 + v178;	// L238
+          float bw_im;	// L239
+          bw_im = v179;	// L240
+          float v181 = a_re;	// L241
+          float v182 = bw_re;	// L242
+          float v183 = v181 + v182;	// L243
+          #pragma HLS bind_op variable=v183 op=fadd impl=fabric
+          int32_t v184 = il;	// L244
+          int v185 = v184;	// L245
+          o_re[v185] = v183;	// L246
+          float v186 = a_im;	// L247
+          float v187 = bw_im;	// L248
+          float v188 = v186 + v187;	// L249
+          #pragma HLS bind_op variable=v188 op=fadd impl=fabric
+          int32_t v189 = il;	// L250
+          int v190 = v189;	// L251
+          o_im[v190] = v188;	// L252
+          float v191 = a_re;	// L253
+          float v192 = bw_re;	// L254
+          float v193 = v191 - v192;	// L255
+          #pragma HLS bind_op variable=v193 op=fsub impl=fabric
+          int32_t v194 = iu;	// L256
+          int v195 = v194;	// L257
+          o_re[v195] = v193;	// L258
+          float v196 = a_im;	// L259
+          float v197 = bw_im;	// L260
+          float v198 = v196 - v197;	// L261
+          #pragma HLS bind_op variable=v198 op=fsub impl=fabric
+          int32_t v199 = iu;	// L262
+          int v200 = v199;	// L263
+          o_im[v200] = v198;	// L264
         }
       }
     }
@@ -324,206 +319,206 @@ void intra_0(
         #pragma HLS unroll
         _vec[_iv0] = o_re[_iv0];
       }
-      v68.write(_vec);
-    }	// L265
+      v65.write(_vec);
+    }	// L268
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = o_im[_iv0];
       }
-      v69.write(_vec);
-    }	// L266
+      v66.write(_vec);
+    }	// L269
   }
 }
 
 void intra_1(
-  hls::stream< hls::vector< float, 32 > >& v204,
-  hls::stream< hls::vector< float, 32 > >& v205,
-  hls::stream< hls::vector< float, 32 > >& v206,
-  hls::stream< hls::vector< float, 32 > >& v207
-) {	// L270
-  // placeholder for const float twr	// L278
+  hls::stream< hls::vector< float, 32 > >& v201,
+  hls::stream< hls::vector< float, 32 > >& v202,
+  hls::stream< hls::vector< float, 32 > >& v203,
+  hls::stream< hls::vector< float, 32 > >& v204
+) {	// L273
+  // placeholder for const float twr	// L281
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L279
+  // placeholder for const float twi	// L282
   #pragma HLS array_partition variable=twi complete
-  l_S__i_0__i1: for (int _i1 = 0; _i1 < 8; _i1++) {	// L280
+  l_S__i_0__i1: for (int _i1 = 0; _i1 < 8; _i1++) {	// L283
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v211 = v204.read();
-    hls::vector< float, 32 > v212 = v205.read();
-    float o_re1[32];	// L283
+    hls::vector< float, 32 > v208 = v201.read();
+    hls::vector< float, 32 > v209 = v202.read();
+    float o_re1[32];	// L286
     #pragma HLS array_partition variable=o_re1 complete
-    float o_im1[32];	// L284
+    float o_im1[32];	// L287
     #pragma HLS array_partition variable=o_im1 complete
-    int32_t stride1;	// L285
-    stride1 = 2;	// L286
-    l_S_k_0_k1: for (int k1 = 0; k1 < 16; k1++) {	// L287
+    int32_t stride1;	// L288
+    stride1 = 2;	// L289
+    l_S_k_0_k1: for (int k1 = 0; k1 < 16; k1++) {	// L290
     #pragma HLS unroll
-      int v217 = k1 >> 1;	// L288
-      int v218 = v217 << 2;	// L289
-      int32_t v219 = stride1;	// L290
-      int64_t v220 = v219;	// L291
-      int64_t v221 = v220 - 1;	// L292
-      int64_t v222 = k1;	// L293
-      int64_t v223 = v222 & v221;	// L294
-      int64_t v224 = v218;	// L295
-      int64_t v225 = v224 | v223;	// L296
-      int32_t v226 = v225;	// L297
-      int32_t il1;	// L298
-      il1 = v226;	// L299
-      int32_t v228 = il1;	// L300
-      int32_t v229 = stride1;	// L301
-      int32_t v230 = v228 | v229;	// L302
-      int32_t iu1;	// L303
-      iu1 = v230;	// L304
-      int32_t v232 = stride1;	// L305
-      int64_t v233 = v232;	// L306
-      int64_t v234 = v233 - 1;	// L307
-      int64_t v235 = v222 & v234;	// L308
-      int64_t v236 = v235 << 6;	// L309
-      int32_t v237 = v236;	// L310
-      int32_t tw_k1;	// L311
-      tw_k1 = v237;	// L312
-      int32_t v239 = il1;	// L313
-      int v240 = v239;	// L314
-      float v241 = v211[v240];	// L315
-      float a_re1;	// L316
-      a_re1 = v241;	// L317
-      int32_t v243 = il1;	// L318
-      int v244 = v243;	// L319
-      float v245 = v212[v244];	// L320
-      float a_im1;	// L321
-      a_im1 = v245;	// L322
-      int32_t v247 = iu1;	// L323
-      int v248 = v247;	// L324
-      float v249 = v211[v248];	// L325
-      float b_re1;	// L326
-      b_re1 = v249;	// L327
-      int32_t v251 = iu1;	// L328
-      int v252 = v251;	// L329
-      float v253 = v212[v252];	// L330
-      float b_im1;	// L331
-      b_im1 = v253;	// L332
-      int32_t v255 = tw_k1;	// L333
-      bool v256 = v255 == 0;	// L334
-      if (v256) {	// L335
-        float v257 = a_re1;	// L336
-        float v258 = b_re1;	// L337
-        float v259 = v257 + v258;	// L338
-        #pragma HLS bind_op variable=v259 op=fadd impl=fabric
-        int32_t v260 = il1;	// L339
-        int v261 = v260;	// L340
-        o_re1[v261] = v259;	// L341
-        float v262 = a_im1;	// L342
-        float v263 = b_im1;	// L343
-        float v264 = v262 + v263;	// L344
-        #pragma HLS bind_op variable=v264 op=fadd impl=fabric
-        int32_t v265 = il1;	// L345
-        int v266 = v265;	// L346
-        o_im1[v266] = v264;	// L347
-        float v267 = a_re1;	// L348
-        float v268 = b_re1;	// L349
-        float v269 = v267 - v268;	// L350
-        #pragma HLS bind_op variable=v269 op=fsub impl=fabric
-        int32_t v270 = iu1;	// L351
-        int v271 = v270;	// L352
-        o_re1[v271] = v269;	// L353
-        float v272 = a_im1;	// L354
-        float v273 = b_im1;	// L355
-        float v274 = v272 - v273;	// L356
-        #pragma HLS bind_op variable=v274 op=fsub impl=fabric
-        int32_t v275 = iu1;	// L357
-        int v276 = v275;	// L358
-        o_im1[v276] = v274;	// L359
+      int v214 = k1 >> 1;	// L291
+      int v215 = v214 << 2;	// L292
+      int32_t v216 = stride1;	// L293
+      int64_t v217 = v216;	// L294
+      int64_t v218 = v217 - 1;	// L295
+      int64_t v219 = k1;	// L296
+      int64_t v220 = v219 & v218;	// L297
+      int64_t v221 = v215;	// L298
+      int64_t v222 = v221 | v220;	// L299
+      int32_t v223 = v222;	// L300
+      int32_t il1;	// L301
+      il1 = v223;	// L302
+      int32_t v225 = il1;	// L303
+      int32_t v226 = stride1;	// L304
+      int32_t v227 = v225 | v226;	// L305
+      int32_t iu1;	// L306
+      iu1 = v227;	// L307
+      int32_t v229 = stride1;	// L308
+      int64_t v230 = v229;	// L309
+      int64_t v231 = v230 - 1;	// L310
+      int64_t v232 = v219 & v231;	// L311
+      int64_t v233 = v232 << 6;	// L312
+      int32_t v234 = v233;	// L313
+      int32_t tw_k1;	// L314
+      tw_k1 = v234;	// L315
+      int32_t v236 = il1;	// L316
+      int v237 = v236;	// L317
+      float v238 = v208[v237];	// L318
+      float a_re1;	// L319
+      a_re1 = v238;	// L320
+      int32_t v240 = il1;	// L321
+      int v241 = v240;	// L322
+      float v242 = v209[v241];	// L323
+      float a_im1;	// L324
+      a_im1 = v242;	// L325
+      int32_t v244 = iu1;	// L326
+      int v245 = v244;	// L327
+      float v246 = v208[v245];	// L328
+      float b_re1;	// L329
+      b_re1 = v246;	// L330
+      int32_t v248 = iu1;	// L331
+      int v249 = v248;	// L332
+      float v250 = v209[v249];	// L333
+      float b_im1;	// L334
+      b_im1 = v250;	// L335
+      int32_t v252 = tw_k1;	// L336
+      bool v253 = v252 == 0;	// L337
+      if (v253) {	// L338
+        float v254 = a_re1;	// L339
+        float v255 = b_re1;	// L340
+        float v256 = v254 + v255;	// L341
+        #pragma HLS bind_op variable=v256 op=fadd impl=fabric
+        int32_t v257 = il1;	// L342
+        int v258 = v257;	// L343
+        o_re1[v258] = v256;	// L344
+        float v259 = a_im1;	// L345
+        float v260 = b_im1;	// L346
+        float v261 = v259 + v260;	// L347
+        #pragma HLS bind_op variable=v261 op=fadd impl=fabric
+        int32_t v262 = il1;	// L348
+        int v263 = v262;	// L349
+        o_im1[v263] = v261;	// L350
+        float v264 = a_re1;	// L351
+        float v265 = b_re1;	// L352
+        float v266 = v264 - v265;	// L353
+        #pragma HLS bind_op variable=v266 op=fsub impl=fabric
+        int32_t v267 = iu1;	// L354
+        int v268 = v267;	// L355
+        o_re1[v268] = v266;	// L356
+        float v269 = a_im1;	// L357
+        float v270 = b_im1;	// L358
+        float v271 = v269 - v270;	// L359
+        #pragma HLS bind_op variable=v271 op=fsub impl=fabric
+        int32_t v272 = iu1;	// L360
+        int v273 = v272;	// L361
+        o_im1[v273] = v271;	// L362
       } else {
-        int32_t v277 = tw_k1;	// L361
-        bool v278 = v277 == 64;	// L362
-        if (v278) {	// L363
-          float v279 = a_re1;	// L364
-          float v280 = b_im1;	// L365
-          float v281 = v279 + v280;	// L366
-          #pragma HLS bind_op variable=v281 op=fadd impl=fabric
-          int32_t v282 = il1;	// L367
-          int v283 = v282;	// L368
-          o_re1[v283] = v281;	// L369
-          float v284 = a_im1;	// L370
-          float v285 = b_re1;	// L371
-          float v286 = v284 - v285;	// L372
-          #pragma HLS bind_op variable=v286 op=fsub impl=fabric
-          int32_t v287 = il1;	// L373
-          int v288 = v287;	// L374
-          o_im1[v288] = v286;	// L375
-          float v289 = a_re1;	// L376
-          float v290 = b_im1;	// L377
-          float v291 = v289 - v290;	// L378
-          #pragma HLS bind_op variable=v291 op=fsub impl=fabric
-          int32_t v292 = iu1;	// L379
-          int v293 = v292;	// L380
-          o_re1[v293] = v291;	// L381
-          float v294 = a_im1;	// L382
-          float v295 = b_re1;	// L383
-          float v296 = v294 + v295;	// L384
-          #pragma HLS bind_op variable=v296 op=fadd impl=fabric
-          int32_t v297 = iu1;	// L385
-          int v298 = v297;	// L386
-          o_im1[v298] = v296;	// L387
+        int32_t v274 = tw_k1;	// L364
+        bool v275 = v274 == 64;	// L365
+        if (v275) {	// L366
+          float v276 = a_re1;	// L367
+          float v277 = b_im1;	// L368
+          float v278 = v276 + v277;	// L369
+          #pragma HLS bind_op variable=v278 op=fadd impl=fabric
+          int32_t v279 = il1;	// L370
+          int v280 = v279;	// L371
+          o_re1[v280] = v278;	// L372
+          float v281 = a_im1;	// L373
+          float v282 = b_re1;	// L374
+          float v283 = v281 - v282;	// L375
+          #pragma HLS bind_op variable=v283 op=fsub impl=fabric
+          int32_t v284 = il1;	// L376
+          int v285 = v284;	// L377
+          o_im1[v285] = v283;	// L378
+          float v286 = a_re1;	// L379
+          float v287 = b_im1;	// L380
+          float v288 = v286 - v287;	// L381
+          #pragma HLS bind_op variable=v288 op=fsub impl=fabric
+          int32_t v289 = iu1;	// L382
+          int v290 = v289;	// L383
+          o_re1[v290] = v288;	// L384
+          float v291 = a_im1;	// L385
+          float v292 = b_re1;	// L386
+          float v293 = v291 + v292;	// L387
+          #pragma HLS bind_op variable=v293 op=fadd impl=fabric
+          int32_t v294 = iu1;	// L388
+          int v295 = v294;	// L389
+          o_im1[v295] = v293;	// L390
         } else {
-          int32_t v299 = tw_k1;	// L389
-          int v300 = v299;	// L390
-          float v301 = twr[v300];	// L391
-          float tr1;	// L392
-          tr1 = v301;	// L393
-          int32_t v303 = tw_k1;	// L394
-          int v304 = v303;	// L395
-          float v305 = twi[v304];	// L396
-          float ti1;	// L397
-          ti1 = v305;	// L398
-          float v307 = b_re1;	// L399
-          float v308 = tr1;	// L400
-          float v309 = v307 * v308;	// L401
-          float v310 = b_im1;	// L402
-          float v311 = ti1;	// L403
-          float v312 = v310 * v311;	// L404
-          float v313 = v309 - v312;	// L405
-          float bw_re1;	// L406
-          bw_re1 = v313;	// L407
-          float v315 = b_re1;	// L408
-          float v316 = ti1;	// L409
-          float v317 = v315 * v316;	// L410
-          float v318 = b_im1;	// L411
-          float v319 = tr1;	// L412
-          float v320 = v318 * v319;	// L413
-          float v321 = v317 + v320;	// L414
-          float bw_im1;	// L415
-          bw_im1 = v321;	// L416
-          float v323 = a_re1;	// L417
-          float v324 = bw_re1;	// L418
-          float v325 = v323 + v324;	// L419
-          #pragma HLS bind_op variable=v325 op=fadd impl=fabric
-          int32_t v326 = il1;	// L420
-          int v327 = v326;	// L421
-          o_re1[v327] = v325;	// L422
-          float v328 = a_im1;	// L423
-          float v329 = bw_im1;	// L424
-          float v330 = v328 + v329;	// L425
-          #pragma HLS bind_op variable=v330 op=fadd impl=fabric
-          int32_t v331 = il1;	// L426
-          int v332 = v331;	// L427
-          o_im1[v332] = v330;	// L428
-          float v333 = a_re1;	// L429
-          float v334 = bw_re1;	// L430
-          float v335 = v333 - v334;	// L431
-          #pragma HLS bind_op variable=v335 op=fsub impl=fabric
-          int32_t v336 = iu1;	// L432
-          int v337 = v336;	// L433
-          o_re1[v337] = v335;	// L434
-          float v338 = a_im1;	// L435
-          float v339 = bw_im1;	// L436
-          float v340 = v338 - v339;	// L437
-          #pragma HLS bind_op variable=v340 op=fsub impl=fabric
-          int32_t v341 = iu1;	// L438
-          int v342 = v341;	// L439
-          o_im1[v342] = v340;	// L440
+          int32_t v296 = tw_k1;	// L392
+          int v297 = v296;	// L393
+          float v298 = twr[v297];	// L394
+          float tr1;	// L395
+          tr1 = v298;	// L396
+          int32_t v300 = tw_k1;	// L397
+          int v301 = v300;	// L398
+          float v302 = twi[v301];	// L399
+          float ti1;	// L400
+          ti1 = v302;	// L401
+          float v304 = b_re1;	// L402
+          float v305 = tr1;	// L403
+          float v306 = v304 * v305;	// L404
+          float v307 = b_im1;	// L405
+          float v308 = ti1;	// L406
+          float v309 = v307 * v308;	// L407
+          float v310 = v306 - v309;	// L408
+          float bw_re1;	// L409
+          bw_re1 = v310;	// L410
+          float v312 = b_re1;	// L411
+          float v313 = ti1;	// L412
+          float v314 = v312 * v313;	// L413
+          float v315 = b_im1;	// L414
+          float v316 = tr1;	// L415
+          float v317 = v315 * v316;	// L416
+          float v318 = v314 + v317;	// L417
+          float bw_im1;	// L418
+          bw_im1 = v318;	// L419
+          float v320 = a_re1;	// L420
+          float v321 = bw_re1;	// L421
+          float v322 = v320 + v321;	// L422
+          #pragma HLS bind_op variable=v322 op=fadd impl=fabric
+          int32_t v323 = il1;	// L423
+          int v324 = v323;	// L424
+          o_re1[v324] = v322;	// L425
+          float v325 = a_im1;	// L426
+          float v326 = bw_im1;	// L427
+          float v327 = v325 + v326;	// L428
+          #pragma HLS bind_op variable=v327 op=fadd impl=fabric
+          int32_t v328 = il1;	// L429
+          int v329 = v328;	// L430
+          o_im1[v329] = v327;	// L431
+          float v330 = a_re1;	// L432
+          float v331 = bw_re1;	// L433
+          float v332 = v330 - v331;	// L434
+          #pragma HLS bind_op variable=v332 op=fsub impl=fabric
+          int32_t v333 = iu1;	// L435
+          int v334 = v333;	// L436
+          o_re1[v334] = v332;	// L437
+          float v335 = a_im1;	// L438
+          float v336 = bw_im1;	// L439
+          float v337 = v335 - v336;	// L440
+          #pragma HLS bind_op variable=v337 op=fsub impl=fabric
+          int32_t v338 = iu1;	// L441
+          int v339 = v338;	// L442
+          o_im1[v339] = v337;	// L443
         }
       }
     }
@@ -533,206 +528,206 @@ void intra_1(
         #pragma HLS unroll
         _vec[_iv0] = o_re1[_iv0];
       }
-      v206.write(_vec);
-    }	// L444
+      v203.write(_vec);
+    }	// L447
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = o_im1[_iv0];
       }
-      v207.write(_vec);
-    }	// L445
+      v204.write(_vec);
+    }	// L448
   }
 }
 
 void intra_2(
-  hls::stream< hls::vector< float, 32 > >& v343,
-  hls::stream< hls::vector< float, 32 > >& v344,
-  hls::stream< hls::vector< float, 32 > >& v345,
-  hls::stream< hls::vector< float, 32 > >& v346
-) {	// L449
-  // placeholder for const float twr	// L457
+  hls::stream< hls::vector< float, 32 > >& v340,
+  hls::stream< hls::vector< float, 32 > >& v341,
+  hls::stream< hls::vector< float, 32 > >& v342,
+  hls::stream< hls::vector< float, 32 > >& v343
+) {	// L452
+  // placeholder for const float twr	// L460
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L458
+  // placeholder for const float twi	// L461
   #pragma HLS array_partition variable=twi complete
-  l_S__i_0__i2: for (int _i2 = 0; _i2 < 8; _i2++) {	// L459
+  l_S__i_0__i2: for (int _i2 = 0; _i2 < 8; _i2++) {	// L462
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v350 = v343.read();
-    hls::vector< float, 32 > v351 = v344.read();
-    float o_re2[32];	// L462
+    hls::vector< float, 32 > v347 = v340.read();
+    hls::vector< float, 32 > v348 = v341.read();
+    float o_re2[32];	// L465
     #pragma HLS array_partition variable=o_re2 complete
-    float o_im2[32];	// L463
+    float o_im2[32];	// L466
     #pragma HLS array_partition variable=o_im2 complete
-    int32_t stride2;	// L464
-    stride2 = 4;	// L465
-    l_S_k_0_k2: for (int k2 = 0; k2 < 16; k2++) {	// L466
+    int32_t stride2;	// L467
+    stride2 = 4;	// L468
+    l_S_k_0_k2: for (int k2 = 0; k2 < 16; k2++) {	// L469
     #pragma HLS unroll
-      int v356 = k2 >> 2;	// L467
-      int v357 = v356 << 3;	// L468
-      int32_t v358 = stride2;	// L469
-      int64_t v359 = v358;	// L470
-      int64_t v360 = v359 - 1;	// L471
-      int64_t v361 = k2;	// L472
-      int64_t v362 = v361 & v360;	// L473
-      int64_t v363 = v357;	// L474
-      int64_t v364 = v363 | v362;	// L475
-      int32_t v365 = v364;	// L476
-      int32_t il2;	// L477
-      il2 = v365;	// L478
-      int32_t v367 = il2;	// L479
-      int32_t v368 = stride2;	// L480
-      int32_t v369 = v367 | v368;	// L481
-      int32_t iu2;	// L482
-      iu2 = v369;	// L483
-      int32_t v371 = stride2;	// L484
-      int64_t v372 = v371;	// L485
-      int64_t v373 = v372 - 1;	// L486
-      int64_t v374 = v361 & v373;	// L487
-      int64_t v375 = v374 << 5;	// L488
-      int32_t v376 = v375;	// L489
-      int32_t tw_k2;	// L490
-      tw_k2 = v376;	// L491
-      int32_t v378 = il2;	// L492
-      int v379 = v378;	// L493
-      float v380 = v350[v379];	// L494
-      float a_re2;	// L495
-      a_re2 = v380;	// L496
-      int32_t v382 = il2;	// L497
-      int v383 = v382;	// L498
-      float v384 = v351[v383];	// L499
-      float a_im2;	// L500
-      a_im2 = v384;	// L501
-      int32_t v386 = iu2;	// L502
-      int v387 = v386;	// L503
-      float v388 = v350[v387];	// L504
-      float b_re2;	// L505
-      b_re2 = v388;	// L506
-      int32_t v390 = iu2;	// L507
-      int v391 = v390;	// L508
-      float v392 = v351[v391];	// L509
-      float b_im2;	// L510
-      b_im2 = v392;	// L511
-      int32_t v394 = tw_k2;	// L512
-      bool v395 = v394 == 0;	// L513
-      if (v395) {	// L514
-        float v396 = a_re2;	// L515
-        float v397 = b_re2;	// L516
-        float v398 = v396 + v397;	// L517
-        #pragma HLS bind_op variable=v398 op=fadd impl=fabric
-        int32_t v399 = il2;	// L518
-        int v400 = v399;	// L519
-        o_re2[v400] = v398;	// L520
-        float v401 = a_im2;	// L521
-        float v402 = b_im2;	// L522
-        float v403 = v401 + v402;	// L523
-        #pragma HLS bind_op variable=v403 op=fadd impl=fabric
-        int32_t v404 = il2;	// L524
-        int v405 = v404;	// L525
-        o_im2[v405] = v403;	// L526
-        float v406 = a_re2;	// L527
-        float v407 = b_re2;	// L528
-        float v408 = v406 - v407;	// L529
-        #pragma HLS bind_op variable=v408 op=fsub impl=fabric
-        int32_t v409 = iu2;	// L530
-        int v410 = v409;	// L531
-        o_re2[v410] = v408;	// L532
-        float v411 = a_im2;	// L533
-        float v412 = b_im2;	// L534
-        float v413 = v411 - v412;	// L535
-        #pragma HLS bind_op variable=v413 op=fsub impl=fabric
-        int32_t v414 = iu2;	// L536
-        int v415 = v414;	// L537
-        o_im2[v415] = v413;	// L538
+      int v353 = k2 >> 2;	// L470
+      int v354 = v353 << 3;	// L471
+      int32_t v355 = stride2;	// L472
+      int64_t v356 = v355;	// L473
+      int64_t v357 = v356 - 1;	// L474
+      int64_t v358 = k2;	// L475
+      int64_t v359 = v358 & v357;	// L476
+      int64_t v360 = v354;	// L477
+      int64_t v361 = v360 | v359;	// L478
+      int32_t v362 = v361;	// L479
+      int32_t il2;	// L480
+      il2 = v362;	// L481
+      int32_t v364 = il2;	// L482
+      int32_t v365 = stride2;	// L483
+      int32_t v366 = v364 | v365;	// L484
+      int32_t iu2;	// L485
+      iu2 = v366;	// L486
+      int32_t v368 = stride2;	// L487
+      int64_t v369 = v368;	// L488
+      int64_t v370 = v369 - 1;	// L489
+      int64_t v371 = v358 & v370;	// L490
+      int64_t v372 = v371 << 5;	// L491
+      int32_t v373 = v372;	// L492
+      int32_t tw_k2;	// L493
+      tw_k2 = v373;	// L494
+      int32_t v375 = il2;	// L495
+      int v376 = v375;	// L496
+      float v377 = v347[v376];	// L497
+      float a_re2;	// L498
+      a_re2 = v377;	// L499
+      int32_t v379 = il2;	// L500
+      int v380 = v379;	// L501
+      float v381 = v348[v380];	// L502
+      float a_im2;	// L503
+      a_im2 = v381;	// L504
+      int32_t v383 = iu2;	// L505
+      int v384 = v383;	// L506
+      float v385 = v347[v384];	// L507
+      float b_re2;	// L508
+      b_re2 = v385;	// L509
+      int32_t v387 = iu2;	// L510
+      int v388 = v387;	// L511
+      float v389 = v348[v388];	// L512
+      float b_im2;	// L513
+      b_im2 = v389;	// L514
+      int32_t v391 = tw_k2;	// L515
+      bool v392 = v391 == 0;	// L516
+      if (v392) {	// L517
+        float v393 = a_re2;	// L518
+        float v394 = b_re2;	// L519
+        float v395 = v393 + v394;	// L520
+        #pragma HLS bind_op variable=v395 op=fadd impl=fabric
+        int32_t v396 = il2;	// L521
+        int v397 = v396;	// L522
+        o_re2[v397] = v395;	// L523
+        float v398 = a_im2;	// L524
+        float v399 = b_im2;	// L525
+        float v400 = v398 + v399;	// L526
+        #pragma HLS bind_op variable=v400 op=fadd impl=fabric
+        int32_t v401 = il2;	// L527
+        int v402 = v401;	// L528
+        o_im2[v402] = v400;	// L529
+        float v403 = a_re2;	// L530
+        float v404 = b_re2;	// L531
+        float v405 = v403 - v404;	// L532
+        #pragma HLS bind_op variable=v405 op=fsub impl=fabric
+        int32_t v406 = iu2;	// L533
+        int v407 = v406;	// L534
+        o_re2[v407] = v405;	// L535
+        float v408 = a_im2;	// L536
+        float v409 = b_im2;	// L537
+        float v410 = v408 - v409;	// L538
+        #pragma HLS bind_op variable=v410 op=fsub impl=fabric
+        int32_t v411 = iu2;	// L539
+        int v412 = v411;	// L540
+        o_im2[v412] = v410;	// L541
       } else {
-        int32_t v416 = tw_k2;	// L540
-        bool v417 = v416 == 64;	// L541
-        if (v417) {	// L542
-          float v418 = a_re2;	// L543
-          float v419 = b_im2;	// L544
-          float v420 = v418 + v419;	// L545
-          #pragma HLS bind_op variable=v420 op=fadd impl=fabric
-          int32_t v421 = il2;	// L546
-          int v422 = v421;	// L547
-          o_re2[v422] = v420;	// L548
-          float v423 = a_im2;	// L549
-          float v424 = b_re2;	// L550
-          float v425 = v423 - v424;	// L551
-          #pragma HLS bind_op variable=v425 op=fsub impl=fabric
-          int32_t v426 = il2;	// L552
-          int v427 = v426;	// L553
-          o_im2[v427] = v425;	// L554
-          float v428 = a_re2;	// L555
-          float v429 = b_im2;	// L556
-          float v430 = v428 - v429;	// L557
-          #pragma HLS bind_op variable=v430 op=fsub impl=fabric
-          int32_t v431 = iu2;	// L558
-          int v432 = v431;	// L559
-          o_re2[v432] = v430;	// L560
-          float v433 = a_im2;	// L561
-          float v434 = b_re2;	// L562
-          float v435 = v433 + v434;	// L563
-          #pragma HLS bind_op variable=v435 op=fadd impl=fabric
-          int32_t v436 = iu2;	// L564
-          int v437 = v436;	// L565
-          o_im2[v437] = v435;	// L566
+        int32_t v413 = tw_k2;	// L543
+        bool v414 = v413 == 64;	// L544
+        if (v414) {	// L545
+          float v415 = a_re2;	// L546
+          float v416 = b_im2;	// L547
+          float v417 = v415 + v416;	// L548
+          #pragma HLS bind_op variable=v417 op=fadd impl=fabric
+          int32_t v418 = il2;	// L549
+          int v419 = v418;	// L550
+          o_re2[v419] = v417;	// L551
+          float v420 = a_im2;	// L552
+          float v421 = b_re2;	// L553
+          float v422 = v420 - v421;	// L554
+          #pragma HLS bind_op variable=v422 op=fsub impl=fabric
+          int32_t v423 = il2;	// L555
+          int v424 = v423;	// L556
+          o_im2[v424] = v422;	// L557
+          float v425 = a_re2;	// L558
+          float v426 = b_im2;	// L559
+          float v427 = v425 - v426;	// L560
+          #pragma HLS bind_op variable=v427 op=fsub impl=fabric
+          int32_t v428 = iu2;	// L561
+          int v429 = v428;	// L562
+          o_re2[v429] = v427;	// L563
+          float v430 = a_im2;	// L564
+          float v431 = b_re2;	// L565
+          float v432 = v430 + v431;	// L566
+          #pragma HLS bind_op variable=v432 op=fadd impl=fabric
+          int32_t v433 = iu2;	// L567
+          int v434 = v433;	// L568
+          o_im2[v434] = v432;	// L569
         } else {
-          int32_t v438 = tw_k2;	// L568
-          int v439 = v438;	// L569
-          float v440 = twr[v439];	// L570
-          float tr2;	// L571
-          tr2 = v440;	// L572
-          int32_t v442 = tw_k2;	// L573
-          int v443 = v442;	// L574
-          float v444 = twi[v443];	// L575
-          float ti2;	// L576
-          ti2 = v444;	// L577
-          float v446 = b_re2;	// L578
-          float v447 = tr2;	// L579
-          float v448 = v446 * v447;	// L580
-          float v449 = b_im2;	// L581
-          float v450 = ti2;	// L582
-          float v451 = v449 * v450;	// L583
-          float v452 = v448 - v451;	// L584
-          float bw_re2;	// L585
-          bw_re2 = v452;	// L586
-          float v454 = b_re2;	// L587
-          float v455 = ti2;	// L588
-          float v456 = v454 * v455;	// L589
-          float v457 = b_im2;	// L590
-          float v458 = tr2;	// L591
-          float v459 = v457 * v458;	// L592
-          float v460 = v456 + v459;	// L593
-          float bw_im2;	// L594
-          bw_im2 = v460;	// L595
-          float v462 = a_re2;	// L596
-          float v463 = bw_re2;	// L597
-          float v464 = v462 + v463;	// L598
-          #pragma HLS bind_op variable=v464 op=fadd impl=fabric
-          int32_t v465 = il2;	// L599
-          int v466 = v465;	// L600
-          o_re2[v466] = v464;	// L601
-          float v467 = a_im2;	// L602
-          float v468 = bw_im2;	// L603
-          float v469 = v467 + v468;	// L604
-          #pragma HLS bind_op variable=v469 op=fadd impl=fabric
-          int32_t v470 = il2;	// L605
-          int v471 = v470;	// L606
-          o_im2[v471] = v469;	// L607
-          float v472 = a_re2;	// L608
-          float v473 = bw_re2;	// L609
-          float v474 = v472 - v473;	// L610
-          #pragma HLS bind_op variable=v474 op=fsub impl=fabric
-          int32_t v475 = iu2;	// L611
-          int v476 = v475;	// L612
-          o_re2[v476] = v474;	// L613
-          float v477 = a_im2;	// L614
-          float v478 = bw_im2;	// L615
-          float v479 = v477 - v478;	// L616
-          #pragma HLS bind_op variable=v479 op=fsub impl=fabric
-          int32_t v480 = iu2;	// L617
-          int v481 = v480;	// L618
-          o_im2[v481] = v479;	// L619
+          int32_t v435 = tw_k2;	// L571
+          int v436 = v435;	// L572
+          float v437 = twr[v436];	// L573
+          float tr2;	// L574
+          tr2 = v437;	// L575
+          int32_t v439 = tw_k2;	// L576
+          int v440 = v439;	// L577
+          float v441 = twi[v440];	// L578
+          float ti2;	// L579
+          ti2 = v441;	// L580
+          float v443 = b_re2;	// L581
+          float v444 = tr2;	// L582
+          float v445 = v443 * v444;	// L583
+          float v446 = b_im2;	// L584
+          float v447 = ti2;	// L585
+          float v448 = v446 * v447;	// L586
+          float v449 = v445 - v448;	// L587
+          float bw_re2;	// L588
+          bw_re2 = v449;	// L589
+          float v451 = b_re2;	// L590
+          float v452 = ti2;	// L591
+          float v453 = v451 * v452;	// L592
+          float v454 = b_im2;	// L593
+          float v455 = tr2;	// L594
+          float v456 = v454 * v455;	// L595
+          float v457 = v453 + v456;	// L596
+          float bw_im2;	// L597
+          bw_im2 = v457;	// L598
+          float v459 = a_re2;	// L599
+          float v460 = bw_re2;	// L600
+          float v461 = v459 + v460;	// L601
+          #pragma HLS bind_op variable=v461 op=fadd impl=fabric
+          int32_t v462 = il2;	// L602
+          int v463 = v462;	// L603
+          o_re2[v463] = v461;	// L604
+          float v464 = a_im2;	// L605
+          float v465 = bw_im2;	// L606
+          float v466 = v464 + v465;	// L607
+          #pragma HLS bind_op variable=v466 op=fadd impl=fabric
+          int32_t v467 = il2;	// L608
+          int v468 = v467;	// L609
+          o_im2[v468] = v466;	// L610
+          float v469 = a_re2;	// L611
+          float v470 = bw_re2;	// L612
+          float v471 = v469 - v470;	// L613
+          #pragma HLS bind_op variable=v471 op=fsub impl=fabric
+          int32_t v472 = iu2;	// L614
+          int v473 = v472;	// L615
+          o_re2[v473] = v471;	// L616
+          float v474 = a_im2;	// L617
+          float v475 = bw_im2;	// L618
+          float v476 = v474 - v475;	// L619
+          #pragma HLS bind_op variable=v476 op=fsub impl=fabric
+          int32_t v477 = iu2;	// L620
+          int v478 = v477;	// L621
+          o_im2[v478] = v476;	// L622
         }
       }
     }
@@ -742,206 +737,206 @@ void intra_2(
         #pragma HLS unroll
         _vec[_iv0] = o_re2[_iv0];
       }
-      v345.write(_vec);
-    }	// L623
+      v342.write(_vec);
+    }	// L626
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = o_im2[_iv0];
       }
-      v346.write(_vec);
-    }	// L624
+      v343.write(_vec);
+    }	// L627
   }
 }
 
 void intra_3(
-  hls::stream< hls::vector< float, 32 > >& v482,
-  hls::stream< hls::vector< float, 32 > >& v483,
-  hls::stream< hls::vector< float, 32 > >& v484,
-  hls::stream< hls::vector< float, 32 > >& v485
-) {	// L628
-  // placeholder for const float twr	// L636
+  hls::stream< hls::vector< float, 32 > >& v479,
+  hls::stream< hls::vector< float, 32 > >& v480,
+  hls::stream< hls::vector< float, 32 > >& v481,
+  hls::stream< hls::vector< float, 32 > >& v482
+) {	// L631
+  // placeholder for const float twr	// L639
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L637
+  // placeholder for const float twi	// L640
   #pragma HLS array_partition variable=twi complete
-  l_S__i_0__i3: for (int _i3 = 0; _i3 < 8; _i3++) {	// L638
+  l_S__i_0__i3: for (int _i3 = 0; _i3 < 8; _i3++) {	// L641
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v489 = v482.read();
-    hls::vector< float, 32 > v490 = v483.read();
-    float o_re3[32];	// L641
+    hls::vector< float, 32 > v486 = v479.read();
+    hls::vector< float, 32 > v487 = v480.read();
+    float o_re3[32];	// L644
     #pragma HLS array_partition variable=o_re3 complete
-    float o_im3[32];	// L642
+    float o_im3[32];	// L645
     #pragma HLS array_partition variable=o_im3 complete
-    int32_t stride3;	// L643
-    stride3 = 8;	// L644
-    l_S_k_0_k3: for (int k3 = 0; k3 < 16; k3++) {	// L645
+    int32_t stride3;	// L646
+    stride3 = 8;	// L647
+    l_S_k_0_k3: for (int k3 = 0; k3 < 16; k3++) {	// L648
     #pragma HLS unroll
-      int v495 = k3 >> 3;	// L646
-      int v496 = v495 << 4;	// L647
-      int32_t v497 = stride3;	// L648
-      int64_t v498 = v497;	// L649
-      int64_t v499 = v498 - 1;	// L650
-      int64_t v500 = k3;	// L651
-      int64_t v501 = v500 & v499;	// L652
-      int64_t v502 = v496;	// L653
-      int64_t v503 = v502 | v501;	// L654
-      int32_t v504 = v503;	// L655
-      int32_t il3;	// L656
-      il3 = v504;	// L657
-      int32_t v506 = il3;	// L658
-      int32_t v507 = stride3;	// L659
-      int32_t v508 = v506 | v507;	// L660
-      int32_t iu3;	// L661
-      iu3 = v508;	// L662
-      int32_t v510 = stride3;	// L663
-      int64_t v511 = v510;	// L664
-      int64_t v512 = v511 - 1;	// L665
-      int64_t v513 = v500 & v512;	// L666
-      int64_t v514 = v513 << 4;	// L667
-      int32_t v515 = v514;	// L668
-      int32_t tw_k3;	// L669
-      tw_k3 = v515;	// L670
-      int32_t v517 = il3;	// L671
-      int v518 = v517;	// L672
-      float v519 = v489[v518];	// L673
-      float a_re3;	// L674
-      a_re3 = v519;	// L675
-      int32_t v521 = il3;	// L676
-      int v522 = v521;	// L677
-      float v523 = v490[v522];	// L678
-      float a_im3;	// L679
-      a_im3 = v523;	// L680
-      int32_t v525 = iu3;	// L681
-      int v526 = v525;	// L682
-      float v527 = v489[v526];	// L683
-      float b_re3;	// L684
-      b_re3 = v527;	// L685
-      int32_t v529 = iu3;	// L686
-      int v530 = v529;	// L687
-      float v531 = v490[v530];	// L688
-      float b_im3;	// L689
-      b_im3 = v531;	// L690
-      int32_t v533 = tw_k3;	// L691
-      bool v534 = v533 == 0;	// L692
-      if (v534) {	// L693
-        float v535 = a_re3;	// L694
-        float v536 = b_re3;	// L695
-        float v537 = v535 + v536;	// L696
-        #pragma HLS bind_op variable=v537 op=fadd impl=fabric
-        int32_t v538 = il3;	// L697
-        int v539 = v538;	// L698
-        o_re3[v539] = v537;	// L699
-        float v540 = a_im3;	// L700
-        float v541 = b_im3;	// L701
-        float v542 = v540 + v541;	// L702
-        #pragma HLS bind_op variable=v542 op=fadd impl=fabric
-        int32_t v543 = il3;	// L703
-        int v544 = v543;	// L704
-        o_im3[v544] = v542;	// L705
-        float v545 = a_re3;	// L706
-        float v546 = b_re3;	// L707
-        float v547 = v545 - v546;	// L708
-        #pragma HLS bind_op variable=v547 op=fsub impl=fabric
-        int32_t v548 = iu3;	// L709
-        int v549 = v548;	// L710
-        o_re3[v549] = v547;	// L711
-        float v550 = a_im3;	// L712
-        float v551 = b_im3;	// L713
-        float v552 = v550 - v551;	// L714
-        #pragma HLS bind_op variable=v552 op=fsub impl=fabric
-        int32_t v553 = iu3;	// L715
-        int v554 = v553;	// L716
-        o_im3[v554] = v552;	// L717
+      int v492 = k3 >> 3;	// L649
+      int v493 = v492 << 4;	// L650
+      int32_t v494 = stride3;	// L651
+      int64_t v495 = v494;	// L652
+      int64_t v496 = v495 - 1;	// L653
+      int64_t v497 = k3;	// L654
+      int64_t v498 = v497 & v496;	// L655
+      int64_t v499 = v493;	// L656
+      int64_t v500 = v499 | v498;	// L657
+      int32_t v501 = v500;	// L658
+      int32_t il3;	// L659
+      il3 = v501;	// L660
+      int32_t v503 = il3;	// L661
+      int32_t v504 = stride3;	// L662
+      int32_t v505 = v503 | v504;	// L663
+      int32_t iu3;	// L664
+      iu3 = v505;	// L665
+      int32_t v507 = stride3;	// L666
+      int64_t v508 = v507;	// L667
+      int64_t v509 = v508 - 1;	// L668
+      int64_t v510 = v497 & v509;	// L669
+      int64_t v511 = v510 << 4;	// L670
+      int32_t v512 = v511;	// L671
+      int32_t tw_k3;	// L672
+      tw_k3 = v512;	// L673
+      int32_t v514 = il3;	// L674
+      int v515 = v514;	// L675
+      float v516 = v486[v515];	// L676
+      float a_re3;	// L677
+      a_re3 = v516;	// L678
+      int32_t v518 = il3;	// L679
+      int v519 = v518;	// L680
+      float v520 = v487[v519];	// L681
+      float a_im3;	// L682
+      a_im3 = v520;	// L683
+      int32_t v522 = iu3;	// L684
+      int v523 = v522;	// L685
+      float v524 = v486[v523];	// L686
+      float b_re3;	// L687
+      b_re3 = v524;	// L688
+      int32_t v526 = iu3;	// L689
+      int v527 = v526;	// L690
+      float v528 = v487[v527];	// L691
+      float b_im3;	// L692
+      b_im3 = v528;	// L693
+      int32_t v530 = tw_k3;	// L694
+      bool v531 = v530 == 0;	// L695
+      if (v531) {	// L696
+        float v532 = a_re3;	// L697
+        float v533 = b_re3;	// L698
+        float v534 = v532 + v533;	// L699
+        #pragma HLS bind_op variable=v534 op=fadd impl=fabric
+        int32_t v535 = il3;	// L700
+        int v536 = v535;	// L701
+        o_re3[v536] = v534;	// L702
+        float v537 = a_im3;	// L703
+        float v538 = b_im3;	// L704
+        float v539 = v537 + v538;	// L705
+        #pragma HLS bind_op variable=v539 op=fadd impl=fabric
+        int32_t v540 = il3;	// L706
+        int v541 = v540;	// L707
+        o_im3[v541] = v539;	// L708
+        float v542 = a_re3;	// L709
+        float v543 = b_re3;	// L710
+        float v544 = v542 - v543;	// L711
+        #pragma HLS bind_op variable=v544 op=fsub impl=fabric
+        int32_t v545 = iu3;	// L712
+        int v546 = v545;	// L713
+        o_re3[v546] = v544;	// L714
+        float v547 = a_im3;	// L715
+        float v548 = b_im3;	// L716
+        float v549 = v547 - v548;	// L717
+        #pragma HLS bind_op variable=v549 op=fsub impl=fabric
+        int32_t v550 = iu3;	// L718
+        int v551 = v550;	// L719
+        o_im3[v551] = v549;	// L720
       } else {
-        int32_t v555 = tw_k3;	// L719
-        bool v556 = v555 == 64;	// L720
-        if (v556) {	// L721
-          float v557 = a_re3;	// L722
-          float v558 = b_im3;	// L723
-          float v559 = v557 + v558;	// L724
-          #pragma HLS bind_op variable=v559 op=fadd impl=fabric
-          int32_t v560 = il3;	// L725
-          int v561 = v560;	// L726
-          o_re3[v561] = v559;	// L727
-          float v562 = a_im3;	// L728
-          float v563 = b_re3;	// L729
-          float v564 = v562 - v563;	// L730
-          #pragma HLS bind_op variable=v564 op=fsub impl=fabric
-          int32_t v565 = il3;	// L731
-          int v566 = v565;	// L732
-          o_im3[v566] = v564;	// L733
-          float v567 = a_re3;	// L734
-          float v568 = b_im3;	// L735
-          float v569 = v567 - v568;	// L736
-          #pragma HLS bind_op variable=v569 op=fsub impl=fabric
-          int32_t v570 = iu3;	// L737
-          int v571 = v570;	// L738
-          o_re3[v571] = v569;	// L739
-          float v572 = a_im3;	// L740
-          float v573 = b_re3;	// L741
-          float v574 = v572 + v573;	// L742
-          #pragma HLS bind_op variable=v574 op=fadd impl=fabric
-          int32_t v575 = iu3;	// L743
-          int v576 = v575;	// L744
-          o_im3[v576] = v574;	// L745
+        int32_t v552 = tw_k3;	// L722
+        bool v553 = v552 == 64;	// L723
+        if (v553) {	// L724
+          float v554 = a_re3;	// L725
+          float v555 = b_im3;	// L726
+          float v556 = v554 + v555;	// L727
+          #pragma HLS bind_op variable=v556 op=fadd impl=fabric
+          int32_t v557 = il3;	// L728
+          int v558 = v557;	// L729
+          o_re3[v558] = v556;	// L730
+          float v559 = a_im3;	// L731
+          float v560 = b_re3;	// L732
+          float v561 = v559 - v560;	// L733
+          #pragma HLS bind_op variable=v561 op=fsub impl=fabric
+          int32_t v562 = il3;	// L734
+          int v563 = v562;	// L735
+          o_im3[v563] = v561;	// L736
+          float v564 = a_re3;	// L737
+          float v565 = b_im3;	// L738
+          float v566 = v564 - v565;	// L739
+          #pragma HLS bind_op variable=v566 op=fsub impl=fabric
+          int32_t v567 = iu3;	// L740
+          int v568 = v567;	// L741
+          o_re3[v568] = v566;	// L742
+          float v569 = a_im3;	// L743
+          float v570 = b_re3;	// L744
+          float v571 = v569 + v570;	// L745
+          #pragma HLS bind_op variable=v571 op=fadd impl=fabric
+          int32_t v572 = iu3;	// L746
+          int v573 = v572;	// L747
+          o_im3[v573] = v571;	// L748
         } else {
-          int32_t v577 = tw_k3;	// L747
-          int v578 = v577;	// L748
-          float v579 = twr[v578];	// L749
-          float tr3;	// L750
-          tr3 = v579;	// L751
-          int32_t v581 = tw_k3;	// L752
-          int v582 = v581;	// L753
-          float v583 = twi[v582];	// L754
-          float ti3;	// L755
-          ti3 = v583;	// L756
-          float v585 = b_re3;	// L757
-          float v586 = tr3;	// L758
-          float v587 = v585 * v586;	// L759
-          float v588 = b_im3;	// L760
-          float v589 = ti3;	// L761
-          float v590 = v588 * v589;	// L762
-          float v591 = v587 - v590;	// L763
-          float bw_re3;	// L764
-          bw_re3 = v591;	// L765
-          float v593 = b_re3;	// L766
-          float v594 = ti3;	// L767
-          float v595 = v593 * v594;	// L768
-          float v596 = b_im3;	// L769
-          float v597 = tr3;	// L770
-          float v598 = v596 * v597;	// L771
-          float v599 = v595 + v598;	// L772
-          float bw_im3;	// L773
-          bw_im3 = v599;	// L774
-          float v601 = a_re3;	// L775
-          float v602 = bw_re3;	// L776
-          float v603 = v601 + v602;	// L777
-          #pragma HLS bind_op variable=v603 op=fadd impl=fabric
-          int32_t v604 = il3;	// L778
-          int v605 = v604;	// L779
-          o_re3[v605] = v603;	// L780
-          float v606 = a_im3;	// L781
-          float v607 = bw_im3;	// L782
-          float v608 = v606 + v607;	// L783
-          #pragma HLS bind_op variable=v608 op=fadd impl=fabric
-          int32_t v609 = il3;	// L784
-          int v610 = v609;	// L785
-          o_im3[v610] = v608;	// L786
-          float v611 = a_re3;	// L787
-          float v612 = bw_re3;	// L788
-          float v613 = v611 - v612;	// L789
-          #pragma HLS bind_op variable=v613 op=fsub impl=fabric
-          int32_t v614 = iu3;	// L790
-          int v615 = v614;	// L791
-          o_re3[v615] = v613;	// L792
-          float v616 = a_im3;	// L793
-          float v617 = bw_im3;	// L794
-          float v618 = v616 - v617;	// L795
-          #pragma HLS bind_op variable=v618 op=fsub impl=fabric
-          int32_t v619 = iu3;	// L796
-          int v620 = v619;	// L797
-          o_im3[v620] = v618;	// L798
+          int32_t v574 = tw_k3;	// L750
+          int v575 = v574;	// L751
+          float v576 = twr[v575];	// L752
+          float tr3;	// L753
+          tr3 = v576;	// L754
+          int32_t v578 = tw_k3;	// L755
+          int v579 = v578;	// L756
+          float v580 = twi[v579];	// L757
+          float ti3;	// L758
+          ti3 = v580;	// L759
+          float v582 = b_re3;	// L760
+          float v583 = tr3;	// L761
+          float v584 = v582 * v583;	// L762
+          float v585 = b_im3;	// L763
+          float v586 = ti3;	// L764
+          float v587 = v585 * v586;	// L765
+          float v588 = v584 - v587;	// L766
+          float bw_re3;	// L767
+          bw_re3 = v588;	// L768
+          float v590 = b_re3;	// L769
+          float v591 = ti3;	// L770
+          float v592 = v590 * v591;	// L771
+          float v593 = b_im3;	// L772
+          float v594 = tr3;	// L773
+          float v595 = v593 * v594;	// L774
+          float v596 = v592 + v595;	// L775
+          float bw_im3;	// L776
+          bw_im3 = v596;	// L777
+          float v598 = a_re3;	// L778
+          float v599 = bw_re3;	// L779
+          float v600 = v598 + v599;	// L780
+          #pragma HLS bind_op variable=v600 op=fadd impl=fabric
+          int32_t v601 = il3;	// L781
+          int v602 = v601;	// L782
+          o_re3[v602] = v600;	// L783
+          float v603 = a_im3;	// L784
+          float v604 = bw_im3;	// L785
+          float v605 = v603 + v604;	// L786
+          #pragma HLS bind_op variable=v605 op=fadd impl=fabric
+          int32_t v606 = il3;	// L787
+          int v607 = v606;	// L788
+          o_im3[v607] = v605;	// L789
+          float v608 = a_re3;	// L790
+          float v609 = bw_re3;	// L791
+          float v610 = v608 - v609;	// L792
+          #pragma HLS bind_op variable=v610 op=fsub impl=fabric
+          int32_t v611 = iu3;	// L793
+          int v612 = v611;	// L794
+          o_re3[v612] = v610;	// L795
+          float v613 = a_im3;	// L796
+          float v614 = bw_im3;	// L797
+          float v615 = v613 - v614;	// L798
+          #pragma HLS bind_op variable=v615 op=fsub impl=fabric
+          int32_t v616 = iu3;	// L799
+          int v617 = v616;	// L800
+          o_im3[v617] = v615;	// L801
         }
       }
     }
@@ -951,206 +946,206 @@ void intra_3(
         #pragma HLS unroll
         _vec[_iv0] = o_re3[_iv0];
       }
-      v484.write(_vec);
-    }	// L802
+      v481.write(_vec);
+    }	// L805
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = o_im3[_iv0];
       }
-      v485.write(_vec);
-    }	// L803
+      v482.write(_vec);
+    }	// L806
   }
 }
 
 void intra_4(
-  hls::stream< hls::vector< float, 32 > >& v621,
-  hls::stream< hls::vector< float, 32 > >& v622,
-  hls::stream< hls::vector< float, 32 > >& v623,
-  hls::stream< hls::vector< float, 32 > >& v624
-) {	// L807
-  // placeholder for const float twr	// L815
+  hls::stream< hls::vector< float, 32 > >& v618,
+  hls::stream< hls::vector< float, 32 > >& v619,
+  hls::stream< hls::vector< float, 32 > >& v620,
+  hls::stream< hls::vector< float, 32 > >& v621
+) {	// L810
+  // placeholder for const float twr	// L818
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L816
+  // placeholder for const float twi	// L819
   #pragma HLS array_partition variable=twi complete
-  l_S__i_0__i4: for (int _i4 = 0; _i4 < 8; _i4++) {	// L817
+  l_S__i_0__i4: for (int _i4 = 0; _i4 < 8; _i4++) {	// L820
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v628 = v621.read();
-    hls::vector< float, 32 > v629 = v622.read();
-    float o_re4[32];	// L820
+    hls::vector< float, 32 > v625 = v618.read();
+    hls::vector< float, 32 > v626 = v619.read();
+    float o_re4[32];	// L823
     #pragma HLS array_partition variable=o_re4 complete
-    float o_im4[32];	// L821
+    float o_im4[32];	// L824
     #pragma HLS array_partition variable=o_im4 complete
-    int32_t stride4;	// L822
-    stride4 = 16;	// L823
-    l_S_k_0_k4: for (int k4 = 0; k4 < 16; k4++) {	// L824
+    int32_t stride4;	// L825
+    stride4 = 16;	// L826
+    l_S_k_0_k4: for (int k4 = 0; k4 < 16; k4++) {	// L827
     #pragma HLS unroll
-      int v634 = k4 >> 4;	// L825
-      int v635 = v634 << 5;	// L826
-      int32_t v636 = stride4;	// L827
-      int64_t v637 = v636;	// L828
-      int64_t v638 = v637 - 1;	// L829
-      int64_t v639 = k4;	// L830
-      int64_t v640 = v639 & v638;	// L831
-      int64_t v641 = v635;	// L832
-      int64_t v642 = v641 | v640;	// L833
-      int32_t v643 = v642;	// L834
-      int32_t il4;	// L835
-      il4 = v643;	// L836
-      int32_t v645 = il4;	// L837
-      int32_t v646 = stride4;	// L838
-      int32_t v647 = v645 | v646;	// L839
-      int32_t iu4;	// L840
-      iu4 = v647;	// L841
-      int32_t v649 = stride4;	// L842
-      int64_t v650 = v649;	// L843
-      int64_t v651 = v650 - 1;	// L844
-      int64_t v652 = v639 & v651;	// L845
-      int64_t v653 = v652 << 3;	// L846
-      int32_t v654 = v653;	// L847
-      int32_t tw_k4;	// L848
-      tw_k4 = v654;	// L849
-      int32_t v656 = il4;	// L850
-      int v657 = v656;	// L851
-      float v658 = v628[v657];	// L852
-      float a_re4;	// L853
-      a_re4 = v658;	// L854
-      int32_t v660 = il4;	// L855
-      int v661 = v660;	// L856
-      float v662 = v629[v661];	// L857
-      float a_im4;	// L858
-      a_im4 = v662;	// L859
-      int32_t v664 = iu4;	// L860
-      int v665 = v664;	// L861
-      float v666 = v628[v665];	// L862
-      float b_re4;	// L863
-      b_re4 = v666;	// L864
-      int32_t v668 = iu4;	// L865
-      int v669 = v668;	// L866
-      float v670 = v629[v669];	// L867
-      float b_im4;	// L868
-      b_im4 = v670;	// L869
-      int32_t v672 = tw_k4;	// L870
-      bool v673 = v672 == 0;	// L871
-      if (v673) {	// L872
-        float v674 = a_re4;	// L873
-        float v675 = b_re4;	// L874
-        float v676 = v674 + v675;	// L875
-        #pragma HLS bind_op variable=v676 op=fadd impl=fabric
-        int32_t v677 = il4;	// L876
-        int v678 = v677;	// L877
-        o_re4[v678] = v676;	// L878
-        float v679 = a_im4;	// L879
-        float v680 = b_im4;	// L880
-        float v681 = v679 + v680;	// L881
-        #pragma HLS bind_op variable=v681 op=fadd impl=fabric
-        int32_t v682 = il4;	// L882
-        int v683 = v682;	// L883
-        o_im4[v683] = v681;	// L884
-        float v684 = a_re4;	// L885
-        float v685 = b_re4;	// L886
-        float v686 = v684 - v685;	// L887
-        #pragma HLS bind_op variable=v686 op=fsub impl=fabric
-        int32_t v687 = iu4;	// L888
-        int v688 = v687;	// L889
-        o_re4[v688] = v686;	// L890
-        float v689 = a_im4;	// L891
-        float v690 = b_im4;	// L892
-        float v691 = v689 - v690;	// L893
-        #pragma HLS bind_op variable=v691 op=fsub impl=fabric
-        int32_t v692 = iu4;	// L894
-        int v693 = v692;	// L895
-        o_im4[v693] = v691;	// L896
+      int v631 = k4 >> 4;	// L828
+      int v632 = v631 << 5;	// L829
+      int32_t v633 = stride4;	// L830
+      int64_t v634 = v633;	// L831
+      int64_t v635 = v634 - 1;	// L832
+      int64_t v636 = k4;	// L833
+      int64_t v637 = v636 & v635;	// L834
+      int64_t v638 = v632;	// L835
+      int64_t v639 = v638 | v637;	// L836
+      int32_t v640 = v639;	// L837
+      int32_t il4;	// L838
+      il4 = v640;	// L839
+      int32_t v642 = il4;	// L840
+      int32_t v643 = stride4;	// L841
+      int32_t v644 = v642 | v643;	// L842
+      int32_t iu4;	// L843
+      iu4 = v644;	// L844
+      int32_t v646 = stride4;	// L845
+      int64_t v647 = v646;	// L846
+      int64_t v648 = v647 - 1;	// L847
+      int64_t v649 = v636 & v648;	// L848
+      int64_t v650 = v649 << 3;	// L849
+      int32_t v651 = v650;	// L850
+      int32_t tw_k4;	// L851
+      tw_k4 = v651;	// L852
+      int32_t v653 = il4;	// L853
+      int v654 = v653;	// L854
+      float v655 = v625[v654];	// L855
+      float a_re4;	// L856
+      a_re4 = v655;	// L857
+      int32_t v657 = il4;	// L858
+      int v658 = v657;	// L859
+      float v659 = v626[v658];	// L860
+      float a_im4;	// L861
+      a_im4 = v659;	// L862
+      int32_t v661 = iu4;	// L863
+      int v662 = v661;	// L864
+      float v663 = v625[v662];	// L865
+      float b_re4;	// L866
+      b_re4 = v663;	// L867
+      int32_t v665 = iu4;	// L868
+      int v666 = v665;	// L869
+      float v667 = v626[v666];	// L870
+      float b_im4;	// L871
+      b_im4 = v667;	// L872
+      int32_t v669 = tw_k4;	// L873
+      bool v670 = v669 == 0;	// L874
+      if (v670) {	// L875
+        float v671 = a_re4;	// L876
+        float v672 = b_re4;	// L877
+        float v673 = v671 + v672;	// L878
+        #pragma HLS bind_op variable=v673 op=fadd impl=fabric
+        int32_t v674 = il4;	// L879
+        int v675 = v674;	// L880
+        o_re4[v675] = v673;	// L881
+        float v676 = a_im4;	// L882
+        float v677 = b_im4;	// L883
+        float v678 = v676 + v677;	// L884
+        #pragma HLS bind_op variable=v678 op=fadd impl=fabric
+        int32_t v679 = il4;	// L885
+        int v680 = v679;	// L886
+        o_im4[v680] = v678;	// L887
+        float v681 = a_re4;	// L888
+        float v682 = b_re4;	// L889
+        float v683 = v681 - v682;	// L890
+        #pragma HLS bind_op variable=v683 op=fsub impl=fabric
+        int32_t v684 = iu4;	// L891
+        int v685 = v684;	// L892
+        o_re4[v685] = v683;	// L893
+        float v686 = a_im4;	// L894
+        float v687 = b_im4;	// L895
+        float v688 = v686 - v687;	// L896
+        #pragma HLS bind_op variable=v688 op=fsub impl=fabric
+        int32_t v689 = iu4;	// L897
+        int v690 = v689;	// L898
+        o_im4[v690] = v688;	// L899
       } else {
-        int32_t v694 = tw_k4;	// L898
-        bool v695 = v694 == 64;	// L899
-        if (v695) {	// L900
-          float v696 = a_re4;	// L901
-          float v697 = b_im4;	// L902
-          float v698 = v696 + v697;	// L903
-          #pragma HLS bind_op variable=v698 op=fadd impl=fabric
-          int32_t v699 = il4;	// L904
-          int v700 = v699;	// L905
-          o_re4[v700] = v698;	// L906
-          float v701 = a_im4;	// L907
-          float v702 = b_re4;	// L908
-          float v703 = v701 - v702;	// L909
-          #pragma HLS bind_op variable=v703 op=fsub impl=fabric
-          int32_t v704 = il4;	// L910
-          int v705 = v704;	// L911
-          o_im4[v705] = v703;	// L912
-          float v706 = a_re4;	// L913
-          float v707 = b_im4;	// L914
-          float v708 = v706 - v707;	// L915
-          #pragma HLS bind_op variable=v708 op=fsub impl=fabric
-          int32_t v709 = iu4;	// L916
-          int v710 = v709;	// L917
-          o_re4[v710] = v708;	// L918
-          float v711 = a_im4;	// L919
-          float v712 = b_re4;	// L920
-          float v713 = v711 + v712;	// L921
-          #pragma HLS bind_op variable=v713 op=fadd impl=fabric
-          int32_t v714 = iu4;	// L922
-          int v715 = v714;	// L923
-          o_im4[v715] = v713;	// L924
+        int32_t v691 = tw_k4;	// L901
+        bool v692 = v691 == 64;	// L902
+        if (v692) {	// L903
+          float v693 = a_re4;	// L904
+          float v694 = b_im4;	// L905
+          float v695 = v693 + v694;	// L906
+          #pragma HLS bind_op variable=v695 op=fadd impl=fabric
+          int32_t v696 = il4;	// L907
+          int v697 = v696;	// L908
+          o_re4[v697] = v695;	// L909
+          float v698 = a_im4;	// L910
+          float v699 = b_re4;	// L911
+          float v700 = v698 - v699;	// L912
+          #pragma HLS bind_op variable=v700 op=fsub impl=fabric
+          int32_t v701 = il4;	// L913
+          int v702 = v701;	// L914
+          o_im4[v702] = v700;	// L915
+          float v703 = a_re4;	// L916
+          float v704 = b_im4;	// L917
+          float v705 = v703 - v704;	// L918
+          #pragma HLS bind_op variable=v705 op=fsub impl=fabric
+          int32_t v706 = iu4;	// L919
+          int v707 = v706;	// L920
+          o_re4[v707] = v705;	// L921
+          float v708 = a_im4;	// L922
+          float v709 = b_re4;	// L923
+          float v710 = v708 + v709;	// L924
+          #pragma HLS bind_op variable=v710 op=fadd impl=fabric
+          int32_t v711 = iu4;	// L925
+          int v712 = v711;	// L926
+          o_im4[v712] = v710;	// L927
         } else {
-          int32_t v716 = tw_k4;	// L926
-          int v717 = v716;	// L927
-          float v718 = twr[v717];	// L928
-          float tr4;	// L929
-          tr4 = v718;	// L930
-          int32_t v720 = tw_k4;	// L931
-          int v721 = v720;	// L932
-          float v722 = twi[v721];	// L933
-          float ti4;	// L934
-          ti4 = v722;	// L935
-          float v724 = b_re4;	// L936
-          float v725 = tr4;	// L937
-          float v726 = v724 * v725;	// L938
-          float v727 = b_im4;	// L939
-          float v728 = ti4;	// L940
-          float v729 = v727 * v728;	// L941
-          float v730 = v726 - v729;	// L942
-          float bw_re4;	// L943
-          bw_re4 = v730;	// L944
-          float v732 = b_re4;	// L945
-          float v733 = ti4;	// L946
-          float v734 = v732 * v733;	// L947
-          float v735 = b_im4;	// L948
-          float v736 = tr4;	// L949
-          float v737 = v735 * v736;	// L950
-          float v738 = v734 + v737;	// L951
-          float bw_im4;	// L952
-          bw_im4 = v738;	// L953
-          float v740 = a_re4;	// L954
-          float v741 = bw_re4;	// L955
-          float v742 = v740 + v741;	// L956
-          #pragma HLS bind_op variable=v742 op=fadd impl=fabric
-          int32_t v743 = il4;	// L957
-          int v744 = v743;	// L958
-          o_re4[v744] = v742;	// L959
-          float v745 = a_im4;	// L960
-          float v746 = bw_im4;	// L961
-          float v747 = v745 + v746;	// L962
-          #pragma HLS bind_op variable=v747 op=fadd impl=fabric
-          int32_t v748 = il4;	// L963
-          int v749 = v748;	// L964
-          o_im4[v749] = v747;	// L965
-          float v750 = a_re4;	// L966
-          float v751 = bw_re4;	// L967
-          float v752 = v750 - v751;	// L968
-          #pragma HLS bind_op variable=v752 op=fsub impl=fabric
-          int32_t v753 = iu4;	// L969
-          int v754 = v753;	// L970
-          o_re4[v754] = v752;	// L971
-          float v755 = a_im4;	// L972
-          float v756 = bw_im4;	// L973
-          float v757 = v755 - v756;	// L974
-          #pragma HLS bind_op variable=v757 op=fsub impl=fabric
-          int32_t v758 = iu4;	// L975
-          int v759 = v758;	// L976
-          o_im4[v759] = v757;	// L977
+          int32_t v713 = tw_k4;	// L929
+          int v714 = v713;	// L930
+          float v715 = twr[v714];	// L931
+          float tr4;	// L932
+          tr4 = v715;	// L933
+          int32_t v717 = tw_k4;	// L934
+          int v718 = v717;	// L935
+          float v719 = twi[v718];	// L936
+          float ti4;	// L937
+          ti4 = v719;	// L938
+          float v721 = b_re4;	// L939
+          float v722 = tr4;	// L940
+          float v723 = v721 * v722;	// L941
+          float v724 = b_im4;	// L942
+          float v725 = ti4;	// L943
+          float v726 = v724 * v725;	// L944
+          float v727 = v723 - v726;	// L945
+          float bw_re4;	// L946
+          bw_re4 = v727;	// L947
+          float v729 = b_re4;	// L948
+          float v730 = ti4;	// L949
+          float v731 = v729 * v730;	// L950
+          float v732 = b_im4;	// L951
+          float v733 = tr4;	// L952
+          float v734 = v732 * v733;	// L953
+          float v735 = v731 + v734;	// L954
+          float bw_im4;	// L955
+          bw_im4 = v735;	// L956
+          float v737 = a_re4;	// L957
+          float v738 = bw_re4;	// L958
+          float v739 = v737 + v738;	// L959
+          #pragma HLS bind_op variable=v739 op=fadd impl=fabric
+          int32_t v740 = il4;	// L960
+          int v741 = v740;	// L961
+          o_re4[v741] = v739;	// L962
+          float v742 = a_im4;	// L963
+          float v743 = bw_im4;	// L964
+          float v744 = v742 + v743;	// L965
+          #pragma HLS bind_op variable=v744 op=fadd impl=fabric
+          int32_t v745 = il4;	// L966
+          int v746 = v745;	// L967
+          o_im4[v746] = v744;	// L968
+          float v747 = a_re4;	// L969
+          float v748 = bw_re4;	// L970
+          float v749 = v747 - v748;	// L971
+          #pragma HLS bind_op variable=v749 op=fsub impl=fabric
+          int32_t v750 = iu4;	// L972
+          int v751 = v750;	// L973
+          o_re4[v751] = v749;	// L974
+          float v752 = a_im4;	// L975
+          float v753 = bw_im4;	// L976
+          float v754 = v752 - v753;	// L977
+          #pragma HLS bind_op variable=v754 op=fsub impl=fabric
+          int32_t v755 = iu4;	// L978
+          int v756 = v755;	// L979
+          o_im4[v756] = v754;	// L980
         }
       }
     }
@@ -1160,72 +1155,72 @@ void intra_4(
         #pragma HLS unroll
         _vec[_iv0] = o_re4[_iv0];
       }
-      v623.write(_vec);
-    }	// L981
+      v620.write(_vec);
+    }	// L984
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = o_im4[_iv0];
       }
-      v624.write(_vec);
-    }	// L982
+      v621.write(_vec);
+    }	// L985
   }
 }
 
 void inter_0(
-  hls::stream< hls::vector< float, 32 > >& v760,
-  hls::stream< hls::vector< float, 32 > >& v761,
-  hls::stream< hls::vector< float, 32 > >& v762,
-  hls::stream< hls::vector< float, 32 > >& v763
-) {	// L986
+  hls::stream< hls::vector< float, 32 > >& v757,
+  hls::stream< hls::vector< float, 32 > >& v758,
+  hls::stream< hls::vector< float, 32 > >& v759,
+  hls::stream< hls::vector< float, 32 > >& v760
+) {	// L989
   #pragma HLS dataflow disable_start_propagation
-  // placeholder for const float twr	// L994
+  // placeholder for const float twr	// L998
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L995
+  // placeholder for const float twi	// L999
   #pragma HLS array_partition variable=twi complete
-  float in_re[32][8];	// L996
+  float in_re[32][8];	// L1000
   #pragma HLS array_partition variable=in_re complete dim=1
 
   #pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re inter false
-  float in_im[32][8];	// L997
+  float in_im[32][8];	// L1001
   #pragma HLS array_partition variable=in_im complete dim=1
 
   #pragma HLS bind_storage variable=in_im type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im inter false
-  float out_re_b[32][8];	// L998
+  float out_re_b[32][8];	// L1002
   #pragma HLS array_partition variable=out_re_b complete dim=1
 
   #pragma HLS bind_storage variable=out_re_b type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b inter false
-  float out_im_b[32][8];	// L999
+  float out_im_b[32][8];	// L1003
   #pragma HLS array_partition variable=out_im_b complete dim=1
 
   #pragma HLS bind_storage variable=out_im_b type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b inter false
-  l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L1000
+  l_S_i_0_i: for (int i = 0; i < 8; i++) {	// L1004
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v771 = v760.read();
-    hls::vector< float, 32 > v772 = v761.read();
-    l_S_k_0_k5: for (int k5 = 0; k5 < 32; k5++) {	// L1003
+    hls::vector< float, 32 > v768 = v757.read();
+    hls::vector< float, 32 > v769 = v758.read();
+    l_S_k_0_k5: for (int k5 = 0; k5 < 32; k5++) {	// L1007
     #pragma HLS unroll
-      float v774 = v771[k5];	// L1004
-      int v775 = ((i * 32) + k5);	// L1005
-      int32_t v776 = v775;	// L1006
-      int32_t v777 = v776 & 31;	// L1008
-      int32_t v778 = v776 >> 5;	// L1010
-      int32_t v779 = v778 & 1;	// L1012
-      int32_t v780 = v779 << 4;	// L1014
-      int32_t v781 = v777 ^ v780;	// L1015
-      int v782 = v781;	// L1016
-      int v783 = v778;	// L1017
-      in_re[v782][v783] = v774;	// L1018
-      float v784 = v772[k5];	// L1019
-      in_im[v782][v783] = v784;	// L1020
+      float v771 = v768[k5];	// L1008
+      int v772 = ((i * 32) + k5);	// L1009
+      int32_t v773 = v772;	// L1010
+      int32_t v774 = v773 >> 5;	// L1012
+      int32_t v775 = v773 & 31;	// L1014
+      int32_t v776 = v774 & 1;	// L1016
+      int32_t v777 = v776 << 4;	// L1018
+      int32_t v778 = v775 ^ v777;	// L1019
+      int v779 = v778;	// L1020
+      int v780 = v774;	// L1021
+      in_re[v779][v780] = v771;	// L1022
+      float v781 = v769[k5];	// L1023
+      in_im[v779][v780] = v781;	// L1024
     }
   }
-  l_S_i_2_i1: for (int i1 = 0; i1 < 8; i1++) {	// L1023
+  l_S_i_2_i1: for (int i1 = 0; i1 < 8; i1++) {	// L1027
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=in_im inter false
   #pragma HLS dependence variable=in_im intra false
@@ -1235,210 +1230,217 @@ void inter_0(
   #pragma HLS dependence variable=out_im_b intra false
   #pragma HLS dependence variable=out_re_b inter false
   #pragma HLS dependence variable=out_re_b intra false
-    l_S_k_2_k6: for (int k6 = 0; k6 < 16; k6++) {	// L1024
+    l_S_k_2_k6: for (int k6 = 0; k6 < 16; k6++) {	// L1028
     #pragma HLS unroll
-      int v787 = i1 << 4;	// L1025
-      int v788 = v787 | k6;	// L1026
-      uint32_t v789 = v788;	// L1027
-      uint32_t bg;	// L1028
-      bg = v789;	// L1029
-      uint32_t stride5;	// L1030
-      stride5 = 32;	// L1031
-      int32_t v792 = bg;	// L1032
-      uint32_t v793 = v792 >> 5;	// L1033
-      uint32_t v794 = v793 << 6;	// L1034
-      int32_t v795 = stride5;	// L1035
-      int64_t v796 = v795;	// L1036
-      int64_t v797 = v796 - 1;	// L1037
-      int64_t v798 = v792;	// L1038
-      int64_t v799 = v798 & v797;	// L1039
-      int64_t v800 = v794;	// L1040
-      int64_t v801 = v800 | v799;	// L1041
-      uint32_t v802 = v801;	// L1042
-      uint32_t il5;	// L1043
-      il5 = v802;	// L1044
-      int32_t v804 = il5;	// L1045
-      int32_t v805 = stride5;	// L1046
-      uint64_t v806 = v804;	// L1047
-      uint64_t v807 = v805;	// L1048
-      uint64_t v808 = v806 + v807;	// L1049
-      uint32_t v809 = v808;	// L1050
-      uint32_t iu5;	// L1051
-      iu5 = v809;	// L1052
-      int32_t v811 = il5;	// L1053
-      int v812 = v811;	// L1054
-      int32_t v813 = v812;	// L1055
-      int32_t v814 = v813 & 31;	// L1057
-      int32_t v815 = v813 >> 5;	// L1059
-      int32_t v816 = v815 & 1;	// L1061
-      int32_t v817 = v816 << 4;	// L1063
-      int32_t v818 = v814 ^ v817;	// L1064
-      int v819 = v818;	// L1065
-      int v820 = v815;	// L1066
-      float v821 = in_re[v819][v820];	// L1067
-      float a_re5;	// L1068
-      a_re5 = v821;	// L1069
-      int32_t v823 = il5;	// L1070
-      int v824 = v823;	// L1071
-      int32_t v825 = v824;	// L1072
-      int32_t v826 = v825 & 31;	// L1073
-      int32_t v827 = v825 >> 5;	// L1074
-      int32_t v828 = v827 & 1;	// L1075
-      int32_t v829 = v828 << 4;	// L1076
-      int32_t v830 = v826 ^ v829;	// L1077
-      int v831 = v830;	// L1078
-      int v832 = v827;	// L1079
-      float v833 = in_im[v831][v832];	// L1080
-      float a_im5;	// L1081
-      a_im5 = v833;	// L1082
-      int32_t v835 = iu5;	// L1083
-      int v836 = v835;	// L1084
-      int32_t v837 = v836;	// L1085
-      int32_t v838 = v837 & 31;	// L1086
-      int32_t v839 = v837 >> 5;	// L1087
-      int32_t v840 = v839 & 1;	// L1088
-      int32_t v841 = v840 << 4;	// L1089
-      int32_t v842 = v838 ^ v841;	// L1090
-      int v843 = v842;	// L1091
-      int v844 = v839;	// L1092
-      float v845 = in_re[v843][v844];	// L1093
-      float b_re5;	// L1094
-      b_re5 = v845;	// L1095
-      int32_t v847 = iu5;	// L1096
-      int v848 = v847;	// L1097
-      int32_t v849 = v848;	// L1098
-      int32_t v850 = v849 & 31;	// L1099
-      int32_t v851 = v849 >> 5;	// L1100
-      int32_t v852 = v851 & 1;	// L1101
-      int32_t v853 = v852 << 4;	// L1102
-      int32_t v854 = v850 ^ v853;	// L1103
-      int v855 = v854;	// L1104
-      int v856 = v851;	// L1105
-      float v857 = in_im[v855][v856];	// L1106
-      float b_im5;	// L1107
-      b_im5 = v857;	// L1108
-      int32_t v859 = bg;	// L1109
-      int64_t v860 = v859;	// L1110
-      int64_t v861 = v860 & 31;	// L1111
-      int64_t v862 = v861 << 2;	// L1112
-      uint32_t v863 = v862;	// L1113
-      uint32_t tw_k5;	// L1114
-      tw_k5 = v863;	// L1115
-      int32_t v865 = tw_k5;	// L1116
-      int v866 = v865;	// L1117
-      float v867 = twr[v866];	// L1118
-      float tr5;	// L1119
-      tr5 = v867;	// L1120
-      int32_t v869 = tw_k5;	// L1121
-      int v870 = v869;	// L1122
-      float v871 = twi[v870];	// L1123
-      float ti5;	// L1124
-      ti5 = v871;	// L1125
-      float v873 = b_re5;	// L1126
-      float v874 = tr5;	// L1127
-      float v875 = v873 * v874;	// L1128
-      float v876 = b_im5;	// L1129
-      float v877 = ti5;	// L1130
-      float v878 = v876 * v877;	// L1131
-      float v879 = v875 - v878;	// L1132
-      float bw_re5;	// L1133
-      bw_re5 = v879;	// L1134
-      float v881 = b_re5;	// L1135
-      float v882 = ti5;	// L1136
-      float v883 = v881 * v882;	// L1137
-      float v884 = b_im5;	// L1138
-      float v885 = tr5;	// L1139
-      float v886 = v884 * v885;	// L1140
-      float v887 = v883 + v886;	// L1141
-      float bw_im5;	// L1142
-      bw_im5 = v887;	// L1143
-      float v889 = a_re5;	// L1144
-      float v890 = bw_re5;	// L1145
-      float v891 = v889 + v890;	// L1146
-      #pragma HLS bind_op variable=v891 op=fadd impl=fabric
-      int32_t v892 = il5;	// L1147
-      int v893 = v892;	// L1148
-      int32_t v894 = v893;	// L1149
-      int32_t v895 = v894 & 31;	// L1150
-      int32_t v896 = v894 >> 5;	// L1151
-      int32_t v897 = v896 & 1;	// L1152
-      int32_t v898 = v897 << 4;	// L1153
-      int32_t v899 = v895 ^ v898;	// L1154
-      int v900 = v899;	// L1155
-      int v901 = v896;	// L1156
-      out_re_b[v900][v901] = v891;	// L1157
-      float v902 = a_im5;	// L1158
-      float v903 = bw_im5;	// L1159
-      float v904 = v902 + v903;	// L1160
-      #pragma HLS bind_op variable=v904 op=fadd impl=fabric
-      int32_t v905 = il5;	// L1161
-      int v906 = v905;	// L1162
-      int32_t v907 = v906;	// L1163
-      int32_t v908 = v907 & 31;	// L1164
-      int32_t v909 = v907 >> 5;	// L1165
-      int32_t v910 = v909 & 1;	// L1166
-      int32_t v911 = v910 << 4;	// L1167
-      int32_t v912 = v908 ^ v911;	// L1168
-      int v913 = v912;	// L1169
-      int v914 = v909;	// L1170
-      out_im_b[v913][v914] = v904;	// L1171
-      float v915 = a_re5;	// L1172
-      float v916 = bw_re5;	// L1173
-      float v917 = v915 - v916;	// L1174
-      #pragma HLS bind_op variable=v917 op=fsub impl=fabric
-      int32_t v918 = iu5;	// L1175
-      int v919 = v918;	// L1176
-      int32_t v920 = v919;	// L1177
-      int32_t v921 = v920 & 31;	// L1178
-      int32_t v922 = v920 >> 5;	// L1179
-      int32_t v923 = v922 & 1;	// L1180
-      int32_t v924 = v923 << 4;	// L1181
-      int32_t v925 = v921 ^ v924;	// L1182
-      int v926 = v925;	// L1183
-      int v927 = v922;	// L1184
-      out_re_b[v926][v927] = v917;	// L1185
-      float v928 = a_im5;	// L1186
-      float v929 = bw_im5;	// L1187
-      float v930 = v928 - v929;	// L1188
-      #pragma HLS bind_op variable=v930 op=fsub impl=fabric
-      int32_t v931 = iu5;	// L1189
-      int v932 = v931;	// L1190
-      int32_t v933 = v932;	// L1191
-      int32_t v934 = v933 & 31;	// L1192
-      int32_t v935 = v933 >> 5;	// L1193
-      int32_t v936 = v935 & 1;	// L1194
-      int32_t v937 = v936 << 4;	// L1195
-      int32_t v938 = v934 ^ v937;	// L1196
-      int v939 = v938;	// L1197
-      int v940 = v935;	// L1198
-      out_im_b[v939][v940] = v930;	// L1199
+      int v784 = i1 << 4;	// L1029
+      int v785 = v784 | k6;	// L1030
+      uint32_t v786 = v785;	// L1031
+      uint32_t bg;	// L1032
+      bg = v786;	// L1033
+      int32_t v788 = i1;	// L1034
+      int32_t v789 = v788 & 1;	// L1035
+      int32_t v790 = v789 << 4;	// L1036
+      int32_t v791 = k6;	// L1037
+      int32_t v792 = v791 | v790;	// L1038
+      uint32_t raw_bank;	// L1039
+      raw_bank = v792;	// L1040
+      int v794 = i1 >> 1;	// L1041
+      uint32_t v795 = v794;	// L1042
+      uint32_t i_shr;	// L1043
+      i_shr = v795;	// L1044
+      uint32_t low_mask;	// L1045
+      low_mask = 0;	// L1046
+      int32_t v798 = i_shr;	// L1047
+      int32_t v799 = low_mask;	// L1048
+      uint32_t v800 = v798 & v799;	// L1049
+      uint32_t low_bits;	// L1050
+      low_bits = v800;	// L1051
+      int32_t v802 = i_shr;	// L1052
+      uint32_t high_bits;	// L1053
+      high_bits = v802;	// L1054
+      int32_t v804 = high_bits;	// L1055
+      uint32_t v805 = v804 << 1;	// L1056
+      int32_t v806 = low_bits;	// L1057
+      uint32_t v807 = v805 | v806;	// L1058
+      uint32_t off_il;	// L1059
+      off_il = v807;	// L1060
+      uint32_t stride_off;	// L1061
+      stride_off = 1;	// L1062
+      int32_t v810 = off_il;	// L1063
+      int32_t v811 = stride_off;	// L1064
+      uint32_t v812 = v810 | v811;	// L1065
+      uint32_t off_iu;	// L1066
+      off_iu = v812;	// L1067
+      int32_t v814 = off_il;	// L1068
+      uint32_t v815 = v814 << 5;	// L1069
+      int32_t v816 = raw_bank;	// L1070
+      uint32_t v817 = v815 | v816;	// L1071
+      uint32_t il5;	// L1072
+      il5 = v817;	// L1073
+      int32_t v819 = off_iu;	// L1074
+      uint32_t v820 = v819 << 5;	// L1075
+      int32_t v821 = raw_bank;	// L1076
+      uint32_t v822 = v820 | v821;	// L1077
+      uint32_t iu5;	// L1078
+      iu5 = v822;	// L1079
+      int32_t v824 = il5;	// L1080
+      int32_t v825 = v824 >> 5;	// L1082
+      int32_t v826 = v824 & 31;	// L1084
+      int32_t v827 = v825 & 1;	// L1086
+      int32_t v828 = v827 << 4;	// L1088
+      int32_t v829 = v826 ^ v828;	// L1089
+      int v830 = v829;	// L1090
+      int v831 = v825;	// L1091
+      float v832 = in_re[v830][v831];	// L1092
+      float a_re5;	// L1093
+      a_re5 = v832;	// L1094
+      int32_t v834 = il5;	// L1095
+      int32_t v835 = v834 >> 5;	// L1096
+      int32_t v836 = v834 & 31;	// L1097
+      int32_t v837 = v835 & 1;	// L1098
+      int32_t v838 = v837 << 4;	// L1099
+      int32_t v839 = v836 ^ v838;	// L1100
+      int v840 = v839;	// L1101
+      int v841 = v835;	// L1102
+      float v842 = in_im[v840][v841];	// L1103
+      float a_im5;	// L1104
+      a_im5 = v842;	// L1105
+      int32_t v844 = iu5;	// L1106
+      int32_t v845 = v844 >> 5;	// L1107
+      int32_t v846 = v844 & 31;	// L1108
+      int32_t v847 = v845 & 1;	// L1109
+      int32_t v848 = v847 << 4;	// L1110
+      int32_t v849 = v846 ^ v848;	// L1111
+      int v850 = v849;	// L1112
+      int v851 = v845;	// L1113
+      float v852 = in_re[v850][v851];	// L1114
+      float b_re5;	// L1115
+      b_re5 = v852;	// L1116
+      int32_t v854 = iu5;	// L1117
+      int32_t v855 = v854 >> 5;	// L1118
+      int32_t v856 = v854 & 31;	// L1119
+      int32_t v857 = v855 & 1;	// L1120
+      int32_t v858 = v857 << 4;	// L1121
+      int32_t v859 = v856 ^ v858;	// L1122
+      int v860 = v859;	// L1123
+      int v861 = v855;	// L1124
+      float v862 = in_im[v860][v861];	// L1125
+      float b_im5;	// L1126
+      b_im5 = v862;	// L1127
+      int32_t v864 = bg;	// L1128
+      int64_t v865 = v864;	// L1129
+      int64_t v866 = v865 & 31;	// L1130
+      int64_t v867 = v866 << 2;	// L1131
+      uint32_t v868 = v867;	// L1132
+      uint32_t tw_k5;	// L1133
+      tw_k5 = v868;	// L1134
+      int32_t v870 = tw_k5;	// L1135
+      int v871 = v870;	// L1136
+      float v872 = twr[v871];	// L1137
+      float tr5;	// L1138
+      tr5 = v872;	// L1139
+      int32_t v874 = tw_k5;	// L1140
+      int v875 = v874;	// L1141
+      float v876 = twi[v875];	// L1142
+      float ti5;	// L1143
+      ti5 = v876;	// L1144
+      float v878 = b_re5;	// L1145
+      float v879 = tr5;	// L1146
+      float v880 = v878 * v879;	// L1147
+      float v881 = b_im5;	// L1148
+      float v882 = ti5;	// L1149
+      float v883 = v881 * v882;	// L1150
+      float v884 = v880 - v883;	// L1151
+      float bw_re5;	// L1152
+      bw_re5 = v884;	// L1153
+      float v886 = b_re5;	// L1154
+      float v887 = ti5;	// L1155
+      float v888 = v886 * v887;	// L1156
+      float v889 = b_im5;	// L1157
+      float v890 = tr5;	// L1158
+      float v891 = v889 * v890;	// L1159
+      float v892 = v888 + v891;	// L1160
+      float bw_im5;	// L1161
+      bw_im5 = v892;	// L1162
+      float v894 = a_re5;	// L1163
+      float v895 = bw_re5;	// L1164
+      float v896 = v894 + v895;	// L1165
+      #pragma HLS bind_op variable=v896 op=fadd impl=fabric
+      int32_t v897 = il5;	// L1166
+      int32_t v898 = v897 >> 5;	// L1167
+      int32_t v899 = v897 & 31;	// L1168
+      int32_t v900 = v898 & 1;	// L1169
+      int32_t v901 = v900 << 4;	// L1170
+      int32_t v902 = v899 ^ v901;	// L1171
+      int v903 = v902;	// L1172
+      int v904 = v898;	// L1173
+      out_re_b[v903][v904] = v896;	// L1174
+      float v905 = a_im5;	// L1175
+      float v906 = bw_im5;	// L1176
+      float v907 = v905 + v906;	// L1177
+      #pragma HLS bind_op variable=v907 op=fadd impl=fabric
+      int32_t v908 = il5;	// L1178
+      int32_t v909 = v908 >> 5;	// L1179
+      int32_t v910 = v908 & 31;	// L1180
+      int32_t v911 = v909 & 1;	// L1181
+      int32_t v912 = v911 << 4;	// L1182
+      int32_t v913 = v910 ^ v912;	// L1183
+      int v914 = v913;	// L1184
+      int v915 = v909;	// L1185
+      out_im_b[v914][v915] = v907;	// L1186
+      float v916 = a_re5;	// L1187
+      float v917 = bw_re5;	// L1188
+      float v918 = v916 - v917;	// L1189
+      #pragma HLS bind_op variable=v918 op=fsub impl=fabric
+      int32_t v919 = iu5;	// L1190
+      int32_t v920 = v919 >> 5;	// L1191
+      int32_t v921 = v919 & 31;	// L1192
+      int32_t v922 = v920 & 1;	// L1193
+      int32_t v923 = v922 << 4;	// L1194
+      int32_t v924 = v921 ^ v923;	// L1195
+      int v925 = v924;	// L1196
+      int v926 = v920;	// L1197
+      out_re_b[v925][v926] = v918;	// L1198
+      float v927 = a_im5;	// L1199
+      float v928 = bw_im5;	// L1200
+      float v929 = v927 - v928;	// L1201
+      #pragma HLS bind_op variable=v929 op=fsub impl=fabric
+      int32_t v930 = iu5;	// L1202
+      int32_t v931 = v930 >> 5;	// L1203
+      int32_t v932 = v930 & 31;	// L1204
+      int32_t v933 = v931 & 1;	// L1205
+      int32_t v934 = v933 << 4;	// L1206
+      int32_t v935 = v932 ^ v934;	// L1207
+      int v936 = v935;	// L1208
+      int v937 = v931;	// L1209
+      out_im_b[v936][v937] = v929;	// L1210
     }
   }
-  l_S_i_4_i2: for (int i2 = 0; i2 < 8; i2++) {	// L1202
+  l_S_i_4_i2: for (int i2 = 0; i2 < 8; i2++) {	// L1213
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=out_im_b inter false
   #pragma HLS dependence variable=out_im_b intra false
   #pragma HLS dependence variable=out_re_b inter false
   #pragma HLS dependence variable=out_re_b intra false
-    float chunk_re_out[32];	// L1203
+    float chunk_re_out[32];	// L1214
     #pragma HLS array_partition variable=chunk_re_out complete
-    float chunk_im_out[32];	// L1204
+    float chunk_im_out[32];	// L1215
     #pragma HLS array_partition variable=chunk_im_out complete
-    l_S_k_4_k7: for (int k7 = 0; k7 < 32; k7++) {	// L1205
+    l_S_k_4_k7: for (int k7 = 0; k7 < 32; k7++) {	// L1216
     #pragma HLS unroll
-      int v945 = ((i2 * 32) + k7);	// L1206
-      int32_t v946 = v945;	// L1207
-      int32_t v947 = v946 & 31;	// L1209
-      int32_t v948 = v946 >> 5;	// L1211
-      int32_t v949 = v948 & 1;	// L1213
-      int32_t v950 = v949 << 4;	// L1215
-      int32_t v951 = v947 ^ v950;	// L1216
-      int v952 = v951;	// L1217
-      int v953 = v948;	// L1218
-      float v954 = out_re_b[v952][v953];	// L1219
-      chunk_re_out[k7] = v954;	// L1220
-      float v955 = out_im_b[v952][v953];	// L1221
-      chunk_im_out[k7] = v955;	// L1222
+      int v942 = ((i2 * 32) + k7);	// L1217
+      int32_t v943 = v942;	// L1218
+      int32_t v944 = v943 >> 5;	// L1220
+      int32_t v945 = v943 & 31;	// L1222
+      int32_t v946 = v944 & 1;	// L1224
+      int32_t v947 = v946 << 4;	// L1226
+      int32_t v948 = v945 ^ v947;	// L1227
+      int v949 = v948;	// L1228
+      int v950 = v944;	// L1229
+      float v951 = out_re_b[v949][v950];	// L1230
+      chunk_re_out[k7] = v951;	// L1231
+      float v952 = out_im_b[v949][v950];	// L1232
+      chunk_im_out[k7] = v952;	// L1233
     }
     {
       hls::vector< float, 32 > _vec;
@@ -1446,73 +1448,73 @@ void inter_0(
         #pragma HLS unroll
         _vec[_iv0] = chunk_re_out[_iv0];
       }
-      v762.write(_vec);
-    }	// L1224
+      v759.write(_vec);
+    }	// L1235
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = chunk_im_out[_iv0];
       }
-      v763.write(_vec);
-    }	// L1225
+      v760.write(_vec);
+    }	// L1236
   }
 }
 
 void inter_1(
-  hls::stream< hls::vector< float, 32 > >& v956,
-  hls::stream< hls::vector< float, 32 > >& v957,
-  hls::stream< hls::vector< float, 32 > >& v958,
-  hls::stream< hls::vector< float, 32 > >& v959
-) {	// L1229
+  hls::stream< hls::vector< float, 32 > >& v953,
+  hls::stream< hls::vector< float, 32 > >& v954,
+  hls::stream< hls::vector< float, 32 > >& v955,
+  hls::stream< hls::vector< float, 32 > >& v956
+) {	// L1240
   #pragma HLS dataflow disable_start_propagation
-  // placeholder for const float twr	// L1237
+  // placeholder for const float twr	// L1249
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L1238
+  // placeholder for const float twi	// L1250
   #pragma HLS array_partition variable=twi complete
-  float in_re1[32][8];	// L1239
+  float in_re1[32][8];	// L1251
   #pragma HLS array_partition variable=in_re1 complete dim=1
 
   #pragma HLS bind_storage variable=in_re1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re1 inter false
-  float in_im1[32][8];	// L1240
+  float in_im1[32][8];	// L1252
   #pragma HLS array_partition variable=in_im1 complete dim=1
 
   #pragma HLS bind_storage variable=in_im1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im1 inter false
-  float out_re_b1[32][8];	// L1241
+  float out_re_b1[32][8];	// L1253
   #pragma HLS array_partition variable=out_re_b1 complete dim=1
 
   #pragma HLS bind_storage variable=out_re_b1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b1 inter false
-  float out_im_b1[32][8];	// L1242
+  float out_im_b1[32][8];	// L1254
   #pragma HLS array_partition variable=out_im_b1 complete dim=1
 
   #pragma HLS bind_storage variable=out_im_b1 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b1 inter false
-  l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L1243
+  l_S_i_0_i3: for (int i3 = 0; i3 < 8; i3++) {	// L1255
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v967 = v956.read();
-    hls::vector< float, 32 > v968 = v957.read();
-    l_S_k_0_k8: for (int k8 = 0; k8 < 32; k8++) {	// L1246
+    hls::vector< float, 32 > v964 = v953.read();
+    hls::vector< float, 32 > v965 = v954.read();
+    l_S_k_0_k8: for (int k8 = 0; k8 < 32; k8++) {	// L1258
     #pragma HLS unroll
-      float v970 = v967[k8];	// L1247
-      int v971 = ((i3 * 32) + k8);	// L1248
-      int32_t v972 = v971;	// L1249
-      int32_t v973 = v972 & 31;	// L1251
-      int32_t v974 = v972 >> 6;	// L1253
-      int32_t v975 = v974 & 1;	// L1255
-      int32_t v976 = v975 << 4;	// L1257
-      int32_t v977 = v973 ^ v976;	// L1258
-      int32_t v978 = v972 >> 5;	// L1260
-      int v979 = v977;	// L1261
-      int v980 = v978;	// L1262
-      in_re1[v979][v980] = v970;	// L1263
-      float v981 = v968[k8];	// L1264
-      in_im1[v979][v980] = v981;	// L1265
+      float v967 = v964[k8];	// L1259
+      int v968 = ((i3 * 32) + k8);	// L1260
+      int32_t v969 = v968;	// L1261
+      int32_t v970 = v969 >> 5;	// L1263
+      int32_t v971 = v969 & 31;	// L1265
+      int32_t v972 = v970 >> 1;	// L1267
+      int32_t v973 = v972 & 1;	// L1268
+      int32_t v974 = v973 << 4;	// L1270
+      int32_t v975 = v971 ^ v974;	// L1271
+      int v976 = v975;	// L1272
+      int v977 = v970;	// L1273
+      in_re1[v976][v977] = v967;	// L1274
+      float v978 = v965[k8];	// L1275
+      in_im1[v976][v977] = v978;	// L1276
     }
   }
-  l_S_i_2_i4: for (int i4 = 0; i4 < 8; i4++) {	// L1268
+  l_S_i_2_i4: for (int i4 = 0; i4 < 8; i4++) {	// L1279
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=in_im1 inter false
   #pragma HLS dependence variable=in_im1 intra false
@@ -1522,219 +1524,227 @@ void inter_1(
   #pragma HLS dependence variable=out_im_b1 intra false
   #pragma HLS dependence variable=out_re_b1 inter false
   #pragma HLS dependence variable=out_re_b1 intra false
-    l_S_k_2_k9: for (int k9 = 0; k9 < 16; k9++) {	// L1269
+    l_S_k_2_k9: for (int k9 = 0; k9 < 16; k9++) {	// L1280
     #pragma HLS unroll
-      int v984 = i4 << 4;	// L1270
-      int v985 = v984 | k9;	// L1271
-      uint32_t v986 = v985;	// L1272
-      uint32_t bg1;	// L1273
-      bg1 = v986;	// L1274
-      uint32_t stride6;	// L1275
-      stride6 = 64;	// L1276
-      int32_t v989 = bg1;	// L1277
-      uint32_t v990 = v989 >> 6;	// L1278
-      uint32_t v991 = v990 << 7;	// L1279
-      int32_t v992 = stride6;	// L1280
-      int64_t v993 = v992;	// L1281
-      int64_t v994 = v993 - 1;	// L1282
-      int64_t v995 = v989;	// L1283
-      int64_t v996 = v995 & v994;	// L1284
-      int64_t v997 = v991;	// L1285
-      int64_t v998 = v997 | v996;	// L1286
-      uint32_t v999 = v998;	// L1287
-      uint32_t il6;	// L1288
-      il6 = v999;	// L1289
-      int32_t v1001 = il6;	// L1290
-      int32_t v1002 = stride6;	// L1291
-      uint64_t v1003 = v1001;	// L1292
-      uint64_t v1004 = v1002;	// L1293
-      uint64_t v1005 = v1003 + v1004;	// L1294
-      uint32_t v1006 = v1005;	// L1295
-      uint32_t iu6;	// L1296
-      iu6 = v1006;	// L1297
-      int32_t v1008 = il6;	// L1298
-      int v1009 = v1008;	// L1299
-      int32_t v1010 = v1009;	// L1300
-      int32_t v1011 = v1010 & 31;	// L1302
-      int32_t v1012 = v1010 >> 6;	// L1304
-      int32_t v1013 = v1012 & 1;	// L1306
-      int32_t v1014 = v1013 << 4;	// L1308
-      int32_t v1015 = v1011 ^ v1014;	// L1309
-      int32_t v1016 = v1010 >> 5;	// L1311
-      int v1017 = v1015;	// L1312
-      int v1018 = v1016;	// L1313
-      float v1019 = in_re1[v1017][v1018];	// L1314
-      float a_re6;	// L1315
-      a_re6 = v1019;	// L1316
-      int32_t v1021 = il6;	// L1317
-      int v1022 = v1021;	// L1318
-      int32_t v1023 = v1022;	// L1319
-      int32_t v1024 = v1023 & 31;	// L1320
-      int32_t v1025 = v1023 >> 6;	// L1321
-      int32_t v1026 = v1025 & 1;	// L1322
-      int32_t v1027 = v1026 << 4;	// L1323
-      int32_t v1028 = v1024 ^ v1027;	// L1324
-      int32_t v1029 = v1023 >> 5;	// L1325
-      int v1030 = v1028;	// L1326
-      int v1031 = v1029;	// L1327
-      float v1032 = in_im1[v1030][v1031];	// L1328
-      float a_im6;	// L1329
-      a_im6 = v1032;	// L1330
-      int32_t v1034 = iu6;	// L1331
-      int v1035 = v1034;	// L1332
-      int32_t v1036 = v1035;	// L1333
-      int32_t v1037 = v1036 & 31;	// L1334
-      int32_t v1038 = v1036 >> 6;	// L1335
-      int32_t v1039 = v1038 & 1;	// L1336
-      int32_t v1040 = v1039 << 4;	// L1337
-      int32_t v1041 = v1037 ^ v1040;	// L1338
-      int32_t v1042 = v1036 >> 5;	// L1339
-      int v1043 = v1041;	// L1340
-      int v1044 = v1042;	// L1341
-      float v1045 = in_re1[v1043][v1044];	// L1342
-      float b_re6;	// L1343
-      b_re6 = v1045;	// L1344
-      int32_t v1047 = iu6;	// L1345
-      int v1048 = v1047;	// L1346
-      int32_t v1049 = v1048;	// L1347
-      int32_t v1050 = v1049 & 31;	// L1348
-      int32_t v1051 = v1049 >> 6;	// L1349
-      int32_t v1052 = v1051 & 1;	// L1350
-      int32_t v1053 = v1052 << 4;	// L1351
-      int32_t v1054 = v1050 ^ v1053;	// L1352
-      int32_t v1055 = v1049 >> 5;	// L1353
-      int v1056 = v1054;	// L1354
-      int v1057 = v1055;	// L1355
-      float v1058 = in_im1[v1056][v1057];	// L1356
-      float b_im6;	// L1357
-      b_im6 = v1058;	// L1358
-      int32_t v1060 = bg1;	// L1359
-      int64_t v1061 = v1060;	// L1360
-      int64_t v1062 = v1061 & 63;	// L1361
-      int64_t v1063 = v1062 << 1;	// L1362
-      uint32_t v1064 = v1063;	// L1363
-      uint32_t tw_k6;	// L1364
-      tw_k6 = v1064;	// L1365
-      int32_t v1066 = tw_k6;	// L1366
-      int v1067 = v1066;	// L1367
-      float v1068 = twr[v1067];	// L1368
-      float tr6;	// L1369
-      tr6 = v1068;	// L1370
-      int32_t v1070 = tw_k6;	// L1371
-      int v1071 = v1070;	// L1372
-      float v1072 = twi[v1071];	// L1373
-      float ti6;	// L1374
-      ti6 = v1072;	// L1375
-      float v1074 = b_re6;	// L1376
-      float v1075 = tr6;	// L1377
-      float v1076 = v1074 * v1075;	// L1378
-      float v1077 = b_im6;	// L1379
-      float v1078 = ti6;	// L1380
-      float v1079 = v1077 * v1078;	// L1381
-      float v1080 = v1076 - v1079;	// L1382
-      float bw_re6;	// L1383
-      bw_re6 = v1080;	// L1384
-      float v1082 = b_re6;	// L1385
-      float v1083 = ti6;	// L1386
-      float v1084 = v1082 * v1083;	// L1387
-      float v1085 = b_im6;	// L1388
-      float v1086 = tr6;	// L1389
-      float v1087 = v1085 * v1086;	// L1390
-      float v1088 = v1084 + v1087;	// L1391
-      float bw_im6;	// L1392
-      bw_im6 = v1088;	// L1393
-      float v1090 = a_re6;	// L1394
-      float v1091 = bw_re6;	// L1395
-      float v1092 = v1090 + v1091;	// L1396
-      #pragma HLS bind_op variable=v1092 op=fadd impl=fabric
-      int32_t v1093 = il6;	// L1397
-      int v1094 = v1093;	// L1398
-      int32_t v1095 = v1094;	// L1399
-      int32_t v1096 = v1095 & 31;	// L1400
-      int32_t v1097 = v1095 >> 6;	// L1401
-      int32_t v1098 = v1097 & 1;	// L1402
-      int32_t v1099 = v1098 << 4;	// L1403
-      int32_t v1100 = v1096 ^ v1099;	// L1404
-      int32_t v1101 = v1095 >> 5;	// L1405
-      int v1102 = v1100;	// L1406
-      int v1103 = v1101;	// L1407
-      out_re_b1[v1102][v1103] = v1092;	// L1408
-      float v1104 = a_im6;	// L1409
-      float v1105 = bw_im6;	// L1410
-      float v1106 = v1104 + v1105;	// L1411
-      #pragma HLS bind_op variable=v1106 op=fadd impl=fabric
-      int32_t v1107 = il6;	// L1412
-      int v1108 = v1107;	// L1413
-      int32_t v1109 = v1108;	// L1414
-      int32_t v1110 = v1109 & 31;	// L1415
-      int32_t v1111 = v1109 >> 6;	// L1416
-      int32_t v1112 = v1111 & 1;	// L1417
-      int32_t v1113 = v1112 << 4;	// L1418
-      int32_t v1114 = v1110 ^ v1113;	// L1419
-      int32_t v1115 = v1109 >> 5;	// L1420
-      int v1116 = v1114;	// L1421
-      int v1117 = v1115;	// L1422
-      out_im_b1[v1116][v1117] = v1106;	// L1423
-      float v1118 = a_re6;	// L1424
-      float v1119 = bw_re6;	// L1425
-      float v1120 = v1118 - v1119;	// L1426
-      #pragma HLS bind_op variable=v1120 op=fsub impl=fabric
-      int32_t v1121 = iu6;	// L1427
-      int v1122 = v1121;	// L1428
-      int32_t v1123 = v1122;	// L1429
-      int32_t v1124 = v1123 & 31;	// L1430
-      int32_t v1125 = v1123 >> 6;	// L1431
-      int32_t v1126 = v1125 & 1;	// L1432
-      int32_t v1127 = v1126 << 4;	// L1433
-      int32_t v1128 = v1124 ^ v1127;	// L1434
-      int32_t v1129 = v1123 >> 5;	// L1435
-      int v1130 = v1128;	// L1436
-      int v1131 = v1129;	// L1437
-      out_re_b1[v1130][v1131] = v1120;	// L1438
-      float v1132 = a_im6;	// L1439
-      float v1133 = bw_im6;	// L1440
-      float v1134 = v1132 - v1133;	// L1441
+      int v981 = i4 << 4;	// L1281
+      int v982 = v981 | k9;	// L1282
+      uint32_t v983 = v982;	// L1283
+      uint32_t bg1;	// L1284
+      bg1 = v983;	// L1285
+      int32_t v985 = i4;	// L1286
+      int32_t v986 = v985 & 1;	// L1287
+      int32_t v987 = v986 << 4;	// L1288
+      int32_t v988 = k9;	// L1289
+      int32_t v989 = v988 | v987;	// L1290
+      uint32_t raw_bank1;	// L1291
+      raw_bank1 = v989;	// L1292
+      int v991 = i4 >> 1;	// L1293
+      uint32_t v992 = v991;	// L1294
+      uint32_t i_shr1;	// L1295
+      i_shr1 = v992;	// L1296
+      uint32_t low_mask1;	// L1297
+      low_mask1 = 1;	// L1298
+      int32_t v995 = i_shr1;	// L1299
+      int32_t v996 = low_mask1;	// L1300
+      uint32_t v997 = v995 & v996;	// L1301
+      uint32_t low_bits1;	// L1302
+      low_bits1 = v997;	// L1303
+      int32_t v999 = i_shr1;	// L1304
+      uint32_t v1000 = v999 >> 1;	// L1305
+      uint32_t high_bits1;	// L1306
+      high_bits1 = v1000;	// L1307
+      int32_t v1002 = high_bits1;	// L1308
+      uint32_t v1003 = v1002 << 2;	// L1309
+      int32_t v1004 = low_bits1;	// L1310
+      uint32_t v1005 = v1003 | v1004;	// L1311
+      uint32_t off_il1;	// L1312
+      off_il1 = v1005;	// L1313
+      uint32_t stride_off1;	// L1314
+      stride_off1 = 2;	// L1315
+      int32_t v1008 = off_il1;	// L1316
+      int32_t v1009 = stride_off1;	// L1317
+      uint32_t v1010 = v1008 | v1009;	// L1318
+      uint32_t off_iu1;	// L1319
+      off_iu1 = v1010;	// L1320
+      int32_t v1012 = off_il1;	// L1321
+      uint32_t v1013 = v1012 << 5;	// L1322
+      int32_t v1014 = raw_bank1;	// L1323
+      uint32_t v1015 = v1013 | v1014;	// L1324
+      uint32_t il6;	// L1325
+      il6 = v1015;	// L1326
+      int32_t v1017 = off_iu1;	// L1327
+      uint32_t v1018 = v1017 << 5;	// L1328
+      int32_t v1019 = raw_bank1;	// L1329
+      uint32_t v1020 = v1018 | v1019;	// L1330
+      uint32_t iu6;	// L1331
+      iu6 = v1020;	// L1332
+      int32_t v1022 = il6;	// L1333
+      int32_t v1023 = v1022 >> 5;	// L1335
+      int32_t v1024 = v1022 & 31;	// L1337
+      int32_t v1025 = v1023 >> 1;	// L1339
+      int32_t v1026 = v1025 & 1;	// L1340
+      int32_t v1027 = v1026 << 4;	// L1342
+      int32_t v1028 = v1024 ^ v1027;	// L1343
+      int v1029 = v1028;	// L1344
+      int v1030 = v1023;	// L1345
+      float v1031 = in_re1[v1029][v1030];	// L1346
+      float a_re6;	// L1347
+      a_re6 = v1031;	// L1348
+      int32_t v1033 = il6;	// L1349
+      int32_t v1034 = v1033 >> 5;	// L1350
+      int32_t v1035 = v1033 & 31;	// L1351
+      int32_t v1036 = v1034 >> 1;	// L1352
+      int32_t v1037 = v1036 & 1;	// L1353
+      int32_t v1038 = v1037 << 4;	// L1354
+      int32_t v1039 = v1035 ^ v1038;	// L1355
+      int v1040 = v1039;	// L1356
+      int v1041 = v1034;	// L1357
+      float v1042 = in_im1[v1040][v1041];	// L1358
+      float a_im6;	// L1359
+      a_im6 = v1042;	// L1360
+      int32_t v1044 = iu6;	// L1361
+      int32_t v1045 = v1044 >> 5;	// L1362
+      int32_t v1046 = v1044 & 31;	// L1363
+      int32_t v1047 = v1045 >> 1;	// L1364
+      int32_t v1048 = v1047 & 1;	// L1365
+      int32_t v1049 = v1048 << 4;	// L1366
+      int32_t v1050 = v1046 ^ v1049;	// L1367
+      int v1051 = v1050;	// L1368
+      int v1052 = v1045;	// L1369
+      float v1053 = in_re1[v1051][v1052];	// L1370
+      float b_re6;	// L1371
+      b_re6 = v1053;	// L1372
+      int32_t v1055 = iu6;	// L1373
+      int32_t v1056 = v1055 >> 5;	// L1374
+      int32_t v1057 = v1055 & 31;	// L1375
+      int32_t v1058 = v1056 >> 1;	// L1376
+      int32_t v1059 = v1058 & 1;	// L1377
+      int32_t v1060 = v1059 << 4;	// L1378
+      int32_t v1061 = v1057 ^ v1060;	// L1379
+      int v1062 = v1061;	// L1380
+      int v1063 = v1056;	// L1381
+      float v1064 = in_im1[v1062][v1063];	// L1382
+      float b_im6;	// L1383
+      b_im6 = v1064;	// L1384
+      int32_t v1066 = bg1;	// L1385
+      int64_t v1067 = v1066;	// L1386
+      int64_t v1068 = v1067 & 63;	// L1387
+      int64_t v1069 = v1068 << 1;	// L1388
+      uint32_t v1070 = v1069;	// L1389
+      uint32_t tw_k6;	// L1390
+      tw_k6 = v1070;	// L1391
+      int32_t v1072 = tw_k6;	// L1392
+      int v1073 = v1072;	// L1393
+      float v1074 = twr[v1073];	// L1394
+      float tr6;	// L1395
+      tr6 = v1074;	// L1396
+      int32_t v1076 = tw_k6;	// L1397
+      int v1077 = v1076;	// L1398
+      float v1078 = twi[v1077];	// L1399
+      float ti6;	// L1400
+      ti6 = v1078;	// L1401
+      float v1080 = b_re6;	// L1402
+      float v1081 = tr6;	// L1403
+      float v1082 = v1080 * v1081;	// L1404
+      float v1083 = b_im6;	// L1405
+      float v1084 = ti6;	// L1406
+      float v1085 = v1083 * v1084;	// L1407
+      float v1086 = v1082 - v1085;	// L1408
+      float bw_re6;	// L1409
+      bw_re6 = v1086;	// L1410
+      float v1088 = b_re6;	// L1411
+      float v1089 = ti6;	// L1412
+      float v1090 = v1088 * v1089;	// L1413
+      float v1091 = b_im6;	// L1414
+      float v1092 = tr6;	// L1415
+      float v1093 = v1091 * v1092;	// L1416
+      float v1094 = v1090 + v1093;	// L1417
+      float bw_im6;	// L1418
+      bw_im6 = v1094;	// L1419
+      float v1096 = a_re6;	// L1420
+      float v1097 = bw_re6;	// L1421
+      float v1098 = v1096 + v1097;	// L1422
+      #pragma HLS bind_op variable=v1098 op=fadd impl=fabric
+      int32_t v1099 = il6;	// L1423
+      int32_t v1100 = v1099 >> 5;	// L1424
+      int32_t v1101 = v1099 & 31;	// L1425
+      int32_t v1102 = v1100 >> 1;	// L1426
+      int32_t v1103 = v1102 & 1;	// L1427
+      int32_t v1104 = v1103 << 4;	// L1428
+      int32_t v1105 = v1101 ^ v1104;	// L1429
+      int v1106 = v1105;	// L1430
+      int v1107 = v1100;	// L1431
+      out_re_b1[v1106][v1107] = v1098;	// L1432
+      float v1108 = a_im6;	// L1433
+      float v1109 = bw_im6;	// L1434
+      float v1110 = v1108 + v1109;	// L1435
+      #pragma HLS bind_op variable=v1110 op=fadd impl=fabric
+      int32_t v1111 = il6;	// L1436
+      int32_t v1112 = v1111 >> 5;	// L1437
+      int32_t v1113 = v1111 & 31;	// L1438
+      int32_t v1114 = v1112 >> 1;	// L1439
+      int32_t v1115 = v1114 & 1;	// L1440
+      int32_t v1116 = v1115 << 4;	// L1441
+      int32_t v1117 = v1113 ^ v1116;	// L1442
+      int v1118 = v1117;	// L1443
+      int v1119 = v1112;	// L1444
+      out_im_b1[v1118][v1119] = v1110;	// L1445
+      float v1120 = a_re6;	// L1446
+      float v1121 = bw_re6;	// L1447
+      float v1122 = v1120 - v1121;	// L1448
+      #pragma HLS bind_op variable=v1122 op=fsub impl=fabric
+      int32_t v1123 = iu6;	// L1449
+      int32_t v1124 = v1123 >> 5;	// L1450
+      int32_t v1125 = v1123 & 31;	// L1451
+      int32_t v1126 = v1124 >> 1;	// L1452
+      int32_t v1127 = v1126 & 1;	// L1453
+      int32_t v1128 = v1127 << 4;	// L1454
+      int32_t v1129 = v1125 ^ v1128;	// L1455
+      int v1130 = v1129;	// L1456
+      int v1131 = v1124;	// L1457
+      out_re_b1[v1130][v1131] = v1122;	// L1458
+      float v1132 = a_im6;	// L1459
+      float v1133 = bw_im6;	// L1460
+      float v1134 = v1132 - v1133;	// L1461
       #pragma HLS bind_op variable=v1134 op=fsub impl=fabric
-      int32_t v1135 = iu6;	// L1442
-      int v1136 = v1135;	// L1443
-      int32_t v1137 = v1136;	// L1444
-      int32_t v1138 = v1137 & 31;	// L1445
-      int32_t v1139 = v1137 >> 6;	// L1446
-      int32_t v1140 = v1139 & 1;	// L1447
-      int32_t v1141 = v1140 << 4;	// L1448
-      int32_t v1142 = v1138 ^ v1141;	// L1449
-      int32_t v1143 = v1137 >> 5;	// L1450
-      int v1144 = v1142;	// L1451
-      int v1145 = v1143;	// L1452
-      out_im_b1[v1144][v1145] = v1134;	// L1453
+      int32_t v1135 = iu6;	// L1462
+      int32_t v1136 = v1135 >> 5;	// L1463
+      int32_t v1137 = v1135 & 31;	// L1464
+      int32_t v1138 = v1136 >> 1;	// L1465
+      int32_t v1139 = v1138 & 1;	// L1466
+      int32_t v1140 = v1139 << 4;	// L1467
+      int32_t v1141 = v1137 ^ v1140;	// L1468
+      int v1142 = v1141;	// L1469
+      int v1143 = v1136;	// L1470
+      out_im_b1[v1142][v1143] = v1134;	// L1471
     }
   }
-  l_S_i_4_i5: for (int i5 = 0; i5 < 8; i5++) {	// L1456
+  l_S_i_4_i5: for (int i5 = 0; i5 < 8; i5++) {	// L1474
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=out_im_b1 inter false
   #pragma HLS dependence variable=out_im_b1 intra false
   #pragma HLS dependence variable=out_re_b1 inter false
   #pragma HLS dependence variable=out_re_b1 intra false
-    float chunk_re_out1[32];	// L1457
+    float chunk_re_out1[32];	// L1475
     #pragma HLS array_partition variable=chunk_re_out1 complete
-    float chunk_im_out1[32];	// L1458
+    float chunk_im_out1[32];	// L1476
     #pragma HLS array_partition variable=chunk_im_out1 complete
-    l_S_k_4_k10: for (int k10 = 0; k10 < 32; k10++) {	// L1459
+    l_S_k_4_k10: for (int k10 = 0; k10 < 32; k10++) {	// L1477
     #pragma HLS unroll
-      int v1150 = ((i5 * 32) + k10);	// L1460
-      int32_t v1151 = v1150;	// L1461
-      int32_t v1152 = v1151 & 31;	// L1463
-      int32_t v1153 = v1151 >> 6;	// L1465
-      int32_t v1154 = v1153 & 1;	// L1467
-      int32_t v1155 = v1154 << 4;	// L1469
-      int32_t v1156 = v1152 ^ v1155;	// L1470
-      int32_t v1157 = v1151 >> 5;	// L1472
-      int v1158 = v1156;	// L1473
-      int v1159 = v1157;	// L1474
-      float v1160 = out_re_b1[v1158][v1159];	// L1475
-      chunk_re_out1[k10] = v1160;	// L1476
-      float v1161 = out_im_b1[v1158][v1159];	// L1477
-      chunk_im_out1[k10] = v1161;	// L1478
+      int v1148 = ((i5 * 32) + k10);	// L1478
+      int32_t v1149 = v1148;	// L1479
+      int32_t v1150 = v1149 >> 5;	// L1481
+      int32_t v1151 = v1149 & 31;	// L1483
+      int32_t v1152 = v1150 >> 1;	// L1485
+      int32_t v1153 = v1152 & 1;	// L1486
+      int32_t v1154 = v1153 << 4;	// L1488
+      int32_t v1155 = v1151 ^ v1154;	// L1489
+      int v1156 = v1155;	// L1490
+      int v1157 = v1150;	// L1491
+      float v1158 = out_re_b1[v1156][v1157];	// L1492
+      chunk_re_out1[k10] = v1158;	// L1493
+      float v1159 = out_im_b1[v1156][v1157];	// L1494
+      chunk_im_out1[k10] = v1159;	// L1495
     }
     {
       hls::vector< float, 32 > _vec;
@@ -1742,73 +1752,73 @@ void inter_1(
         #pragma HLS unroll
         _vec[_iv0] = chunk_re_out1[_iv0];
       }
-      v958.write(_vec);
-    }	// L1480
+      v955.write(_vec);
+    }	// L1497
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = chunk_im_out1[_iv0];
       }
-      v959.write(_vec);
-    }	// L1481
+      v956.write(_vec);
+    }	// L1498
   }
 }
 
 void inter_2(
+  hls::stream< hls::vector< float, 32 > >& v1160,
+  hls::stream< hls::vector< float, 32 > >& v1161,
   hls::stream< hls::vector< float, 32 > >& v1162,
-  hls::stream< hls::vector< float, 32 > >& v1163,
-  hls::stream< hls::vector< float, 32 > >& v1164,
-  hls::stream< hls::vector< float, 32 > >& v1165
-) {	// L1485
+  hls::stream< hls::vector< float, 32 > >& v1163
+) {	// L1502
   #pragma HLS dataflow disable_start_propagation
-  // placeholder for const float twr	// L1492
+  // placeholder for const float twr	// L1511
   #pragma HLS array_partition variable=twr complete
-  // placeholder for const float twi	// L1493
+  // placeholder for const float twi	// L1512
   #pragma HLS array_partition variable=twi complete
-  float in_re2[32][8];	// L1494
+  float in_re2[32][8];	// L1513
   #pragma HLS array_partition variable=in_re2 complete dim=1
 
   #pragma HLS bind_storage variable=in_re2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_re2 inter false
-  float in_im2[32][8];	// L1495
+  float in_im2[32][8];	// L1514
   #pragma HLS array_partition variable=in_im2 complete dim=1
 
   #pragma HLS bind_storage variable=in_im2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=in_im2 inter false
-  float out_re_b2[32][8];	// L1496
+  float out_re_b2[32][8];	// L1515
   #pragma HLS array_partition variable=out_re_b2 complete dim=1
 
   #pragma HLS bind_storage variable=out_re_b2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_re_b2 inter false
-  float out_im_b2[32][8];	// L1497
+  float out_im_b2[32][8];	// L1516
   #pragma HLS array_partition variable=out_im_b2 complete dim=1
 
   #pragma HLS bind_storage variable=out_im_b2 type=ram_2p impl=lutram
   #pragma HLS dependence variable=out_im_b2 inter false
-  l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L1498
+  l_S_i_0_i6: for (int i6 = 0; i6 < 8; i6++) {	// L1517
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v1173 = v1162.read();
-    hls::vector< float, 32 > v1174 = v1163.read();
-    l_S_k_0_k11: for (int k11 = 0; k11 < 32; k11++) {	// L1501
+    hls::vector< float, 32 > v1171 = v1160.read();
+    hls::vector< float, 32 > v1172 = v1161.read();
+    l_S_k_0_k11: for (int k11 = 0; k11 < 32; k11++) {	// L1520
     #pragma HLS unroll
-      float v1176 = v1173[k11];	// L1502
-      int v1177 = ((i6 * 32) + k11);	// L1503
-      int32_t v1178 = v1177;	// L1504
-      int32_t v1179 = v1178 & 31;	// L1506
-      int32_t v1180 = v1178 >> 7;	// L1508
-      int32_t v1181 = v1180 & 1;	// L1510
-      int32_t v1182 = v1181 << 4;	// L1512
-      int32_t v1183 = v1179 ^ v1182;	// L1513
-      int32_t v1184 = v1178 >> 5;	// L1515
-      int v1185 = v1183;	// L1516
-      int v1186 = v1184;	// L1517
-      in_re2[v1185][v1186] = v1176;	// L1518
-      float v1187 = v1174[k11];	// L1519
-      in_im2[v1185][v1186] = v1187;	// L1520
+      float v1174 = v1171[k11];	// L1521
+      int v1175 = ((i6 * 32) + k11);	// L1522
+      int32_t v1176 = v1175;	// L1523
+      int32_t v1177 = v1176 >> 5;	// L1525
+      int32_t v1178 = v1176 & 31;	// L1527
+      int32_t v1179 = v1177 >> 2;	// L1530
+      int32_t v1180 = v1179 & 1;	// L1531
+      int32_t v1181 = v1180 << 4;	// L1533
+      int32_t v1182 = v1178 ^ v1181;	// L1534
+      int v1183 = v1182;	// L1535
+      int v1184 = v1177;	// L1536
+      in_re2[v1183][v1184] = v1174;	// L1537
+      float v1185 = v1172[k11];	// L1538
+      in_im2[v1183][v1184] = v1185;	// L1539
     }
   }
-  l_S_i_2_i7: for (int i7 = 0; i7 < 8; i7++) {	// L1523
+  l_S_i_2_i7: for (int i7 = 0; i7 < 8; i7++) {	// L1542
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=in_im2 inter false
   #pragma HLS dependence variable=in_im2 intra false
@@ -1818,218 +1828,226 @@ void inter_2(
   #pragma HLS dependence variable=out_im_b2 intra false
   #pragma HLS dependence variable=out_re_b2 inter false
   #pragma HLS dependence variable=out_re_b2 intra false
-    l_S_k_2_k12: for (int k12 = 0; k12 < 16; k12++) {	// L1524
+    l_S_k_2_k12: for (int k12 = 0; k12 < 16; k12++) {	// L1543
     #pragma HLS unroll
-      int v1190 = i7 << 4;	// L1525
-      int v1191 = v1190 | k12;	// L1526
-      uint32_t v1192 = v1191;	// L1527
-      uint32_t bg2;	// L1528
-      bg2 = v1192;	// L1529
-      uint32_t stride7;	// L1530
-      stride7 = 128;	// L1531
-      int32_t v1195 = bg2;	// L1532
-      uint32_t v1196 = v1195 >> 7;	// L1533
-      uint32_t v1197 = v1196 << 8;	// L1534
-      int32_t v1198 = stride7;	// L1535
-      int64_t v1199 = v1198;	// L1536
-      int64_t v1200 = v1199 - 1;	// L1537
-      int64_t v1201 = v1195;	// L1538
-      int64_t v1202 = v1201 & v1200;	// L1539
-      int64_t v1203 = v1197;	// L1540
-      int64_t v1204 = v1203 | v1202;	// L1541
-      uint32_t v1205 = v1204;	// L1542
-      uint32_t il7;	// L1543
-      il7 = v1205;	// L1544
-      int32_t v1207 = il7;	// L1545
-      int32_t v1208 = stride7;	// L1546
-      uint64_t v1209 = v1207;	// L1547
-      uint64_t v1210 = v1208;	// L1548
-      uint64_t v1211 = v1209 + v1210;	// L1549
-      uint32_t v1212 = v1211;	// L1550
-      uint32_t iu7;	// L1551
-      iu7 = v1212;	// L1552
-      int32_t v1214 = il7;	// L1553
-      int v1215 = v1214;	// L1554
-      int32_t v1216 = v1215;	// L1555
-      int32_t v1217 = v1216 & 31;	// L1557
-      int32_t v1218 = v1216 >> 7;	// L1559
-      int32_t v1219 = v1218 & 1;	// L1561
-      int32_t v1220 = v1219 << 4;	// L1563
-      int32_t v1221 = v1217 ^ v1220;	// L1564
-      int32_t v1222 = v1216 >> 5;	// L1566
-      int v1223 = v1221;	// L1567
-      int v1224 = v1222;	// L1568
-      float v1225 = in_re2[v1223][v1224];	// L1569
-      float a_re7;	// L1570
-      a_re7 = v1225;	// L1571
-      int32_t v1227 = il7;	// L1572
-      int v1228 = v1227;	// L1573
-      int32_t v1229 = v1228;	// L1574
-      int32_t v1230 = v1229 & 31;	// L1575
-      int32_t v1231 = v1229 >> 7;	// L1576
-      int32_t v1232 = v1231 & 1;	// L1577
-      int32_t v1233 = v1232 << 4;	// L1578
-      int32_t v1234 = v1230 ^ v1233;	// L1579
-      int32_t v1235 = v1229 >> 5;	// L1580
-      int v1236 = v1234;	// L1581
-      int v1237 = v1235;	// L1582
-      float v1238 = in_im2[v1236][v1237];	// L1583
-      float a_im7;	// L1584
-      a_im7 = v1238;	// L1585
-      int32_t v1240 = iu7;	// L1586
-      int v1241 = v1240;	// L1587
-      int32_t v1242 = v1241;	// L1588
-      int32_t v1243 = v1242 & 31;	// L1589
-      int32_t v1244 = v1242 >> 7;	// L1590
-      int32_t v1245 = v1244 & 1;	// L1591
-      int32_t v1246 = v1245 << 4;	// L1592
-      int32_t v1247 = v1243 ^ v1246;	// L1593
-      int32_t v1248 = v1242 >> 5;	// L1594
-      int v1249 = v1247;	// L1595
-      int v1250 = v1248;	// L1596
-      float v1251 = in_re2[v1249][v1250];	// L1597
-      float b_re7;	// L1598
-      b_re7 = v1251;	// L1599
-      int32_t v1253 = iu7;	// L1600
-      int v1254 = v1253;	// L1601
-      int32_t v1255 = v1254;	// L1602
-      int32_t v1256 = v1255 & 31;	// L1603
-      int32_t v1257 = v1255 >> 7;	// L1604
-      int32_t v1258 = v1257 & 1;	// L1605
-      int32_t v1259 = v1258 << 4;	// L1606
-      int32_t v1260 = v1256 ^ v1259;	// L1607
-      int32_t v1261 = v1255 >> 5;	// L1608
-      int v1262 = v1260;	// L1609
-      int v1263 = v1261;	// L1610
-      float v1264 = in_im2[v1262][v1263];	// L1611
-      float b_im7;	// L1612
-      b_im7 = v1264;	// L1613
-      int32_t v1266 = bg2;	// L1614
-      int64_t v1267 = v1266;	// L1615
-      int64_t v1268 = v1267 & 127;	// L1616
-      uint32_t v1269 = v1268;	// L1617
-      uint32_t tw_k7;	// L1618
-      tw_k7 = v1269;	// L1619
-      int32_t v1271 = tw_k7;	// L1620
-      int v1272 = v1271;	// L1621
-      float v1273 = twr[v1272];	// L1622
-      float tr7;	// L1623
-      tr7 = v1273;	// L1624
-      int32_t v1275 = tw_k7;	// L1625
-      int v1276 = v1275;	// L1626
-      float v1277 = twi[v1276];	// L1627
-      float ti7;	// L1628
-      ti7 = v1277;	// L1629
-      float v1279 = b_re7;	// L1630
-      float v1280 = tr7;	// L1631
-      float v1281 = v1279 * v1280;	// L1632
-      float v1282 = b_im7;	// L1633
-      float v1283 = ti7;	// L1634
-      float v1284 = v1282 * v1283;	// L1635
-      float v1285 = v1281 - v1284;	// L1636
-      float bw_re7;	// L1637
-      bw_re7 = v1285;	// L1638
-      float v1287 = b_re7;	// L1639
-      float v1288 = ti7;	// L1640
-      float v1289 = v1287 * v1288;	// L1641
-      float v1290 = b_im7;	// L1642
-      float v1291 = tr7;	// L1643
-      float v1292 = v1290 * v1291;	// L1644
-      float v1293 = v1289 + v1292;	// L1645
-      float bw_im7;	// L1646
-      bw_im7 = v1293;	// L1647
-      float v1295 = a_re7;	// L1648
-      float v1296 = bw_re7;	// L1649
-      float v1297 = v1295 + v1296;	// L1650
-      #pragma HLS bind_op variable=v1297 op=fadd impl=fabric
-      int32_t v1298 = il7;	// L1651
-      int v1299 = v1298;	// L1652
-      int32_t v1300 = v1299;	// L1653
-      int32_t v1301 = v1300 & 31;	// L1654
-      int32_t v1302 = v1300 >> 7;	// L1655
-      int32_t v1303 = v1302 & 1;	// L1656
-      int32_t v1304 = v1303 << 4;	// L1657
-      int32_t v1305 = v1301 ^ v1304;	// L1658
-      int32_t v1306 = v1300 >> 5;	// L1659
-      int v1307 = v1305;	// L1660
-      int v1308 = v1306;	// L1661
-      out_re_b2[v1307][v1308] = v1297;	// L1662
-      float v1309 = a_im7;	// L1663
-      float v1310 = bw_im7;	// L1664
-      float v1311 = v1309 + v1310;	// L1665
-      #pragma HLS bind_op variable=v1311 op=fadd impl=fabric
-      int32_t v1312 = il7;	// L1666
-      int v1313 = v1312;	// L1667
-      int32_t v1314 = v1313;	// L1668
-      int32_t v1315 = v1314 & 31;	// L1669
-      int32_t v1316 = v1314 >> 7;	// L1670
-      int32_t v1317 = v1316 & 1;	// L1671
-      int32_t v1318 = v1317 << 4;	// L1672
-      int32_t v1319 = v1315 ^ v1318;	// L1673
-      int32_t v1320 = v1314 >> 5;	// L1674
-      int v1321 = v1319;	// L1675
-      int v1322 = v1320;	// L1676
-      out_im_b2[v1321][v1322] = v1311;	// L1677
-      float v1323 = a_re7;	// L1678
-      float v1324 = bw_re7;	// L1679
-      float v1325 = v1323 - v1324;	// L1680
-      #pragma HLS bind_op variable=v1325 op=fsub impl=fabric
-      int32_t v1326 = iu7;	// L1681
-      int v1327 = v1326;	// L1682
-      int32_t v1328 = v1327;	// L1683
-      int32_t v1329 = v1328 & 31;	// L1684
-      int32_t v1330 = v1328 >> 7;	// L1685
-      int32_t v1331 = v1330 & 1;	// L1686
-      int32_t v1332 = v1331 << 4;	// L1687
-      int32_t v1333 = v1329 ^ v1332;	// L1688
-      int32_t v1334 = v1328 >> 5;	// L1689
-      int v1335 = v1333;	// L1690
-      int v1336 = v1334;	// L1691
-      out_re_b2[v1335][v1336] = v1325;	// L1692
-      float v1337 = a_im7;	// L1693
-      float v1338 = bw_im7;	// L1694
-      float v1339 = v1337 - v1338;	// L1695
-      #pragma HLS bind_op variable=v1339 op=fsub impl=fabric
-      int32_t v1340 = iu7;	// L1696
-      int v1341 = v1340;	// L1697
-      int32_t v1342 = v1341;	// L1698
-      int32_t v1343 = v1342 & 31;	// L1699
-      int32_t v1344 = v1342 >> 7;	// L1700
-      int32_t v1345 = v1344 & 1;	// L1701
-      int32_t v1346 = v1345 << 4;	// L1702
-      int32_t v1347 = v1343 ^ v1346;	// L1703
-      int32_t v1348 = v1342 >> 5;	// L1704
-      int v1349 = v1347;	// L1705
-      int v1350 = v1348;	// L1706
-      out_im_b2[v1349][v1350] = v1339;	// L1707
+      int v1188 = i7 << 4;	// L1544
+      int v1189 = v1188 | k12;	// L1545
+      uint32_t v1190 = v1189;	// L1546
+      uint32_t bg2;	// L1547
+      bg2 = v1190;	// L1548
+      int32_t v1192 = i7;	// L1549
+      int32_t v1193 = v1192 & 1;	// L1550
+      int32_t v1194 = v1193 << 4;	// L1551
+      int32_t v1195 = k12;	// L1552
+      int32_t v1196 = v1195 | v1194;	// L1553
+      uint32_t raw_bank2;	// L1554
+      raw_bank2 = v1196;	// L1555
+      int v1198 = i7 >> 1;	// L1556
+      uint32_t v1199 = v1198;	// L1557
+      uint32_t i_shr2;	// L1558
+      i_shr2 = v1199;	// L1559
+      uint32_t low_mask2;	// L1560
+      low_mask2 = 3;	// L1561
+      int32_t v1202 = i_shr2;	// L1562
+      int32_t v1203 = low_mask2;	// L1563
+      uint32_t v1204 = v1202 & v1203;	// L1564
+      uint32_t low_bits2;	// L1565
+      low_bits2 = v1204;	// L1566
+      int32_t v1206 = i_shr2;	// L1567
+      uint32_t v1207 = v1206 >> 2;	// L1568
+      uint32_t high_bits2;	// L1569
+      high_bits2 = v1207;	// L1570
+      int32_t v1209 = high_bits2;	// L1571
+      uint32_t v1210 = v1209 << 3;	// L1572
+      int32_t v1211 = low_bits2;	// L1573
+      uint32_t v1212 = v1210 | v1211;	// L1574
+      uint32_t off_il2;	// L1575
+      off_il2 = v1212;	// L1576
+      uint32_t stride_off2;	// L1577
+      stride_off2 = 4;	// L1578
+      int32_t v1215 = off_il2;	// L1579
+      int32_t v1216 = stride_off2;	// L1580
+      uint32_t v1217 = v1215 | v1216;	// L1581
+      uint32_t off_iu2;	// L1582
+      off_iu2 = v1217;	// L1583
+      int32_t v1219 = off_il2;	// L1584
+      uint32_t v1220 = v1219 << 5;	// L1585
+      int32_t v1221 = raw_bank2;	// L1586
+      uint32_t v1222 = v1220 | v1221;	// L1587
+      uint32_t il7;	// L1588
+      il7 = v1222;	// L1589
+      int32_t v1224 = off_iu2;	// L1590
+      uint32_t v1225 = v1224 << 5;	// L1591
+      int32_t v1226 = raw_bank2;	// L1592
+      uint32_t v1227 = v1225 | v1226;	// L1593
+      uint32_t iu7;	// L1594
+      iu7 = v1227;	// L1595
+      int32_t v1229 = il7;	// L1596
+      int32_t v1230 = v1229 >> 5;	// L1598
+      int32_t v1231 = v1229 & 31;	// L1600
+      int32_t v1232 = v1230 >> 2;	// L1603
+      int32_t v1233 = v1232 & 1;	// L1604
+      int32_t v1234 = v1233 << 4;	// L1606
+      int32_t v1235 = v1231 ^ v1234;	// L1607
+      int v1236 = v1235;	// L1608
+      int v1237 = v1230;	// L1609
+      float v1238 = in_re2[v1236][v1237];	// L1610
+      float a_re7;	// L1611
+      a_re7 = v1238;	// L1612
+      int32_t v1240 = il7;	// L1613
+      int32_t v1241 = v1240 >> 5;	// L1614
+      int32_t v1242 = v1240 & 31;	// L1615
+      int32_t v1243 = v1241 >> 2;	// L1616
+      int32_t v1244 = v1243 & 1;	// L1617
+      int32_t v1245 = v1244 << 4;	// L1618
+      int32_t v1246 = v1242 ^ v1245;	// L1619
+      int v1247 = v1246;	// L1620
+      int v1248 = v1241;	// L1621
+      float v1249 = in_im2[v1247][v1248];	// L1622
+      float a_im7;	// L1623
+      a_im7 = v1249;	// L1624
+      int32_t v1251 = iu7;	// L1625
+      int32_t v1252 = v1251 >> 5;	// L1626
+      int32_t v1253 = v1251 & 31;	// L1627
+      int32_t v1254 = v1252 >> 2;	// L1628
+      int32_t v1255 = v1254 & 1;	// L1629
+      int32_t v1256 = v1255 << 4;	// L1630
+      int32_t v1257 = v1253 ^ v1256;	// L1631
+      int v1258 = v1257;	// L1632
+      int v1259 = v1252;	// L1633
+      float v1260 = in_re2[v1258][v1259];	// L1634
+      float b_re7;	// L1635
+      b_re7 = v1260;	// L1636
+      int32_t v1262 = iu7;	// L1637
+      int32_t v1263 = v1262 >> 5;	// L1638
+      int32_t v1264 = v1262 & 31;	// L1639
+      int32_t v1265 = v1263 >> 2;	// L1640
+      int32_t v1266 = v1265 & 1;	// L1641
+      int32_t v1267 = v1266 << 4;	// L1642
+      int32_t v1268 = v1264 ^ v1267;	// L1643
+      int v1269 = v1268;	// L1644
+      int v1270 = v1263;	// L1645
+      float v1271 = in_im2[v1269][v1270];	// L1646
+      float b_im7;	// L1647
+      b_im7 = v1271;	// L1648
+      int32_t v1273 = bg2;	// L1649
+      int64_t v1274 = v1273;	// L1650
+      int64_t v1275 = v1274 & 127;	// L1651
+      uint32_t v1276 = v1275;	// L1652
+      uint32_t tw_k7;	// L1653
+      tw_k7 = v1276;	// L1654
+      int32_t v1278 = tw_k7;	// L1655
+      int v1279 = v1278;	// L1656
+      float v1280 = twr[v1279];	// L1657
+      float tr7;	// L1658
+      tr7 = v1280;	// L1659
+      int32_t v1282 = tw_k7;	// L1660
+      int v1283 = v1282;	// L1661
+      float v1284 = twi[v1283];	// L1662
+      float ti7;	// L1663
+      ti7 = v1284;	// L1664
+      float v1286 = b_re7;	// L1665
+      float v1287 = tr7;	// L1666
+      float v1288 = v1286 * v1287;	// L1667
+      float v1289 = b_im7;	// L1668
+      float v1290 = ti7;	// L1669
+      float v1291 = v1289 * v1290;	// L1670
+      float v1292 = v1288 - v1291;	// L1671
+      float bw_re7;	// L1672
+      bw_re7 = v1292;	// L1673
+      float v1294 = b_re7;	// L1674
+      float v1295 = ti7;	// L1675
+      float v1296 = v1294 * v1295;	// L1676
+      float v1297 = b_im7;	// L1677
+      float v1298 = tr7;	// L1678
+      float v1299 = v1297 * v1298;	// L1679
+      float v1300 = v1296 + v1299;	// L1680
+      float bw_im7;	// L1681
+      bw_im7 = v1300;	// L1682
+      float v1302 = a_re7;	// L1683
+      float v1303 = bw_re7;	// L1684
+      float v1304 = v1302 + v1303;	// L1685
+      #pragma HLS bind_op variable=v1304 op=fadd impl=fabric
+      int32_t v1305 = il7;	// L1686
+      int32_t v1306 = v1305 >> 5;	// L1687
+      int32_t v1307 = v1305 & 31;	// L1688
+      int32_t v1308 = v1306 >> 2;	// L1689
+      int32_t v1309 = v1308 & 1;	// L1690
+      int32_t v1310 = v1309 << 4;	// L1691
+      int32_t v1311 = v1307 ^ v1310;	// L1692
+      int v1312 = v1311;	// L1693
+      int v1313 = v1306;	// L1694
+      out_re_b2[v1312][v1313] = v1304;	// L1695
+      float v1314 = a_im7;	// L1696
+      float v1315 = bw_im7;	// L1697
+      float v1316 = v1314 + v1315;	// L1698
+      #pragma HLS bind_op variable=v1316 op=fadd impl=fabric
+      int32_t v1317 = il7;	// L1699
+      int32_t v1318 = v1317 >> 5;	// L1700
+      int32_t v1319 = v1317 & 31;	// L1701
+      int32_t v1320 = v1318 >> 2;	// L1702
+      int32_t v1321 = v1320 & 1;	// L1703
+      int32_t v1322 = v1321 << 4;	// L1704
+      int32_t v1323 = v1319 ^ v1322;	// L1705
+      int v1324 = v1323;	// L1706
+      int v1325 = v1318;	// L1707
+      out_im_b2[v1324][v1325] = v1316;	// L1708
+      float v1326 = a_re7;	// L1709
+      float v1327 = bw_re7;	// L1710
+      float v1328 = v1326 - v1327;	// L1711
+      #pragma HLS bind_op variable=v1328 op=fsub impl=fabric
+      int32_t v1329 = iu7;	// L1712
+      int32_t v1330 = v1329 >> 5;	// L1713
+      int32_t v1331 = v1329 & 31;	// L1714
+      int32_t v1332 = v1330 >> 2;	// L1715
+      int32_t v1333 = v1332 & 1;	// L1716
+      int32_t v1334 = v1333 << 4;	// L1717
+      int32_t v1335 = v1331 ^ v1334;	// L1718
+      int v1336 = v1335;	// L1719
+      int v1337 = v1330;	// L1720
+      out_re_b2[v1336][v1337] = v1328;	// L1721
+      float v1338 = a_im7;	// L1722
+      float v1339 = bw_im7;	// L1723
+      float v1340 = v1338 - v1339;	// L1724
+      #pragma HLS bind_op variable=v1340 op=fsub impl=fabric
+      int32_t v1341 = iu7;	// L1725
+      int32_t v1342 = v1341 >> 5;	// L1726
+      int32_t v1343 = v1341 & 31;	// L1727
+      int32_t v1344 = v1342 >> 2;	// L1728
+      int32_t v1345 = v1344 & 1;	// L1729
+      int32_t v1346 = v1345 << 4;	// L1730
+      int32_t v1347 = v1343 ^ v1346;	// L1731
+      int v1348 = v1347;	// L1732
+      int v1349 = v1342;	// L1733
+      out_im_b2[v1348][v1349] = v1340;	// L1734
     }
   }
-  l_S_i_4_i8: for (int i8 = 0; i8 < 8; i8++) {	// L1710
+  l_S_i_4_i8: for (int i8 = 0; i8 < 8; i8++) {	// L1737
   #pragma HLS pipeline II=1
   #pragma HLS dependence variable=out_im_b2 inter false
   #pragma HLS dependence variable=out_im_b2 intra false
   #pragma HLS dependence variable=out_re_b2 inter false
   #pragma HLS dependence variable=out_re_b2 intra false
-    float chunk_re_out2[32];	// L1711
+    float chunk_re_out2[32];	// L1738
     #pragma HLS array_partition variable=chunk_re_out2 complete
-    float chunk_im_out2[32];	// L1712
+    float chunk_im_out2[32];	// L1739
     #pragma HLS array_partition variable=chunk_im_out2 complete
-    l_S_k_4_k13: for (int k13 = 0; k13 < 32; k13++) {	// L1713
+    l_S_k_4_k13: for (int k13 = 0; k13 < 32; k13++) {	// L1740
     #pragma HLS unroll
-      int v1355 = ((i8 * 32) + k13);	// L1714
-      int32_t v1356 = v1355;	// L1715
-      int32_t v1357 = v1356 & 31;	// L1717
-      int32_t v1358 = v1356 >> 7;	// L1719
-      int32_t v1359 = v1358 & 1;	// L1721
-      int32_t v1360 = v1359 << 4;	// L1723
-      int32_t v1361 = v1357 ^ v1360;	// L1724
-      int32_t v1362 = v1356 >> 5;	// L1726
-      int v1363 = v1361;	// L1727
-      int v1364 = v1362;	// L1728
-      float v1365 = out_re_b2[v1363][v1364];	// L1729
-      chunk_re_out2[k13] = v1365;	// L1730
-      float v1366 = out_im_b2[v1363][v1364];	// L1731
-      chunk_im_out2[k13] = v1366;	// L1732
+      int v1354 = ((i8 * 32) + k13);	// L1741
+      int32_t v1355 = v1354;	// L1742
+      int32_t v1356 = v1355 >> 5;	// L1744
+      int32_t v1357 = v1355 & 31;	// L1746
+      int32_t v1358 = v1356 >> 2;	// L1749
+      int32_t v1359 = v1358 & 1;	// L1750
+      int32_t v1360 = v1359 << 4;	// L1752
+      int32_t v1361 = v1357 ^ v1360;	// L1753
+      int v1362 = v1361;	// L1754
+      int v1363 = v1356;	// L1755
+      float v1364 = out_re_b2[v1362][v1363];	// L1756
+      chunk_re_out2[k13] = v1364;	// L1757
+      float v1365 = out_im_b2[v1362][v1363];	// L1758
+      chunk_im_out2[k13] = v1365;	// L1759
     }
     {
       hls::vector< float, 32 > _vec;
@@ -2037,119 +2055,119 @@ void inter_2(
         #pragma HLS unroll
         _vec[_iv0] = chunk_re_out2[_iv0];
       }
-      v1164.write(_vec);
-    }	// L1734
+      v1162.write(_vec);
+    }	// L1761
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = chunk_im_out2[_iv0];
       }
-      v1165.write(_vec);
-    }	// L1735
+      v1163.write(_vec);
+    }	// L1762
   }
 }
 
 void output_stage_0(
+  hls::stream< hls::vector< float, 32 > >& v1366,
   hls::stream< hls::vector< float, 32 > >& v1367,
   hls::stream< hls::vector< float, 32 > >& v1368,
-  hls::stream< hls::vector< float, 32 > >& v1369,
-  hls::stream< hls::vector< float, 32 > >& v1370
-) {	// L1739
-  l_S_i_0_i9: for (int i9 = 0; i9 < 8; i9++) {	// L1740
+  hls::stream< hls::vector< float, 32 > >& v1369
+) {	// L1766
+  l_S_i_0_i9: for (int i9 = 0; i9 < 8; i9++) {	// L1767
   #pragma HLS pipeline II=1
-    hls::vector< float, 32 > v1372 = v1367.read();
+    hls::vector< float, 32 > v1371 = v1366.read();
+    {
+      hls::vector< float, 32 > _vec;
+      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
+        #pragma HLS unroll
+        _vec[_iv0] = v1371[_iv0];
+      }
+      v1367.write(_vec);
+    }	// L1769
+    hls::vector< float, 32 > v1372 = v1368.read();
     {
       hls::vector< float, 32 > _vec;
       for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
         #pragma HLS unroll
         _vec[_iv0] = v1372[_iv0];
       }
-      v1368.write(_vec);
-    }	// L1742
-    hls::vector< float, 32 > v1373 = v1369.read();
-    {
-      hls::vector< float, 32 > _vec;
-      for (int _iv0 = 0; _iv0 < 32; ++_iv0) {
-        #pragma HLS unroll
-        _vec[_iv0] = v1373[_iv0];
-      }
-      v1370.write(_vec);
-    }	// L1744
+      v1369.write(_vec);
+    }	// L1771
   }
 }
 
 /// This is top function.
 void fft_256(
+  hls::stream< hls::vector< float, 32 > >& v1373,
   hls::stream< hls::vector< float, 32 > >& v1374,
   hls::stream< hls::vector< float, 32 > >& v1375,
-  hls::stream< hls::vector< float, 32 > >& v1376,
-  hls::stream< hls::vector< float, 32 > >& v1377
-) {	// L1748
+  hls::stream< hls::vector< float, 32 > >& v1376
+) {	// L1775
   #pragma HLS dataflow disable_start_propagation
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
+  hls::stream< hls::vector< float, 32 > > v1377;
+  #pragma HLS stream variable=v1377 depth=2	// L1776
+  // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1378;
-  #pragma HLS stream variable=v1378 depth=2	// L1749
+  #pragma HLS stream variable=v1378 depth=2	// L1777
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1379;
-  #pragma HLS stream variable=v1379 depth=2	// L1750
+  #pragma HLS stream variable=v1379 depth=2	// L1778
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1380;
-  #pragma HLS stream variable=v1380 depth=2	// L1751
+  #pragma HLS stream variable=v1380 depth=2	// L1779
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1381;
-  #pragma HLS stream variable=v1381 depth=2	// L1752
+  #pragma HLS stream variable=v1381 depth=2	// L1780
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1382;
-  #pragma HLS stream variable=v1382 depth=2	// L1753
+  #pragma HLS stream variable=v1382 depth=2	// L1781
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1383;
-  #pragma HLS stream variable=v1383 depth=2	// L1754
+  #pragma HLS stream variable=v1383 depth=2	// L1782
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1384;
-  #pragma HLS stream variable=v1384 depth=2	// L1755
+  #pragma HLS stream variable=v1384 depth=2	// L1783
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1385;
-  #pragma HLS stream variable=v1385 depth=2	// L1756
+  #pragma HLS stream variable=v1385 depth=2	// L1784
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1386;
-  #pragma HLS stream variable=v1386 depth=2	// L1757
+  #pragma HLS stream variable=v1386 depth=2	// L1785
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1387;
-  #pragma HLS stream variable=v1387 depth=2	// L1758
+  #pragma HLS stream variable=v1387 depth=2	// L1786
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1388;
-  #pragma HLS stream variable=v1388 depth=2	// L1759
+  #pragma HLS stream variable=v1388 depth=2	// L1787
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1389;
-  #pragma HLS stream variable=v1389 depth=2	// L1760
+  #pragma HLS stream variable=v1389 depth=2	// L1788
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1390;
-  #pragma HLS stream variable=v1390 depth=2	// L1761
+  #pragma HLS stream variable=v1390 depth=2	// L1789
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1391;
-  #pragma HLS stream variable=v1391 depth=2	// L1762
+  #pragma HLS stream variable=v1391 depth=2	// L1790
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1392;
-  #pragma HLS stream variable=v1392 depth=2	// L1763
+  #pragma HLS stream variable=v1392 depth=2	// L1791
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1393;
-  #pragma HLS stream variable=v1393 depth=2	// L1764
+  #pragma HLS stream variable=v1393 depth=2	// L1792
   // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
   hls::stream< hls::vector< float, 32 > > v1394;
-  #pragma HLS stream variable=v1394 depth=2	// L1765
-  // Stream of vectors: each vector packs float array[32] into hls::vector<float, 32>
-  hls::stream< hls::vector< float, 32 > > v1395;
-  #pragma HLS stream variable=v1395 depth=2	// L1766
-  bit_rev_stage_0(v1374, v1375, v1378, v1387);	// L1767
-  intra_0(v1378, v1387, v1379, v1388);	// L1768
-  intra_1(v1379, v1388, v1380, v1389);	// L1769
-  intra_2(v1380, v1389, v1381, v1390);	// L1770
-  intra_3(v1381, v1390, v1382, v1391);	// L1771
-  intra_4(v1382, v1391, v1383, v1392);	// L1772
-  inter_0(v1383, v1392, v1384, v1393);	// L1773
-  inter_1(v1384, v1393, v1385, v1394);	// L1774
-  inter_2(v1385, v1394, v1386, v1395);	// L1775
-  output_stage_0(v1386, v1376, v1395, v1377);	// L1776
+  #pragma HLS stream variable=v1394 depth=2	// L1793
+  bit_rev_stage_0(v1373, v1374, v1377, v1386);	// L1794
+  intra_0(v1377, v1386, v1378, v1387);	// L1795
+  intra_1(v1378, v1387, v1379, v1388);	// L1796
+  intra_2(v1379, v1388, v1380, v1389);	// L1797
+  intra_3(v1380, v1389, v1381, v1390);	// L1798
+  intra_4(v1381, v1390, v1382, v1391);	// L1799
+  inter_0(v1382, v1391, v1383, v1392);	// L1800
+  inter_1(v1383, v1392, v1384, v1393);	// L1801
+  inter_2(v1384, v1393, v1385, v1394);	// L1802
+  output_stage_0(v1385, v1375, v1394, v1376);	// L1803
 }
 

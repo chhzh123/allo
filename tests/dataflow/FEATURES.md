@@ -431,3 +431,132 @@ Per-stage breakdown:
 - `output_stage_0`: 10 cycles
 
 HLS project: `tests/dataflow/fft_hls_prj/fft_256_prj/`
+
+---
+
+## 11. Auto-F2: Automatic Bank-Conflict-Free Partitioning
+
+### Overview
+
+`s.auto_f2()` is a schedule primitive that **automatically detects** bank
+conflict patterns in 1D buffers and applies the correct F2 layout transform
+— eliminating the need for manual `s.f2_layout()` calls.
+
+The engine uses **symbolic execution over F2** (the binary field) to trace
+index expressions as affine functions of loop variables. This is a general
+technique that works for any kernel with power-of-2-sized buffers and bitwise
+index expressions (not limited to FFT).
+
+### Key Files
+
+| File | Description |
+|---|---|
+| `allo/transform/f2_symbolic.py` | F2Symbol class and conflict subspace builder |
+| `allo/transform/auto_f2.py` | MLIR SSA walker and auto-F2 analysis pass |
+| `allo/customize.py` | `s.auto_f2()` schedule primitive |
+
+### Usage
+
+```python
+s = df.customize(fft_256)
+
+# Before: 14+ manual calls
+# s.f2_layout("inter_0:in_re", n_bits=8, bank_bits=5, stride_bit=5)
+# s.f2_layout("inter_0:in_im", n_bits=8, bank_bits=5, stride_bit=5)
+# ... 12 more calls ...
+# s.f2_layout("bit_rev_stage_0:buf_re", n_bits=8, bank_bits=5, banking="block")
+# s.f2_layout("bit_rev_stage_0:buf_im", n_bits=8, bank_bits=5, banking="block")
+
+# After: single call
+s.auto_f2()  # analyzes all kernels, detects all 14 buffers automatically
+```
+
+### How It Works
+
+#### 1. F2 Symbolic Execution (`f2_symbolic.py`)
+
+Each value is represented as an affine function over F2:
+
+$$\text{addr\_bits}[i] = \bigoplus_j A[i][j] \cdot \text{input\_bits}[j] \oplus c[i]$$
+
+The `F2Symbol` class tracks this matrix `A` and constant `c` through
+operations:
+
+| Operation | F2 Linear? | Symbolic Handling |
+|---|---|---|
+| `a ^ b` (XOR) | Yes | Row-wise XOR of matrices |
+| `a << k` (constant shift) | Yes | Shift rows |
+| `a >> k` (constant shift) | Yes | Shift rows |
+| `a & constant` | Yes | Zero out rows |
+| `a \| b` (non-overlapping) | Yes | Same as XOR |
+| `a + b` (non-overlapping) | Yes | Same as XOR (no carries) |
+| `a * power_of_2` | Yes | Same as shift |
+| Non-linear ops | No | Conservative opaque fallback |
+
+#### 2. Conflict Subspace Construction
+
+Two sources of parallel accesses that cause bank conflicts:
+
+**Source 1 — Intra-iteration**: Multiple load/store ops in the same loop body
+are always simultaneous (even in pipelined loops). The XOR of their symbolic
+addresses gives conflict vectors.
+
+**Source 2 — Inter-iteration**: When a loop is unrolled, all iterations execute
+simultaneously. The columns of the access matrix at the unrolled variable's
+bit positions are conflict vectors.
+
+$$P = \text{span}(V_{\text{intra}} \cup V_{\text{inter}})$$
+
+#### 3. MLIR SSA Walker (`auto_f2.py`)
+
+`symbolize_mlir_index()` walks the MLIR SSA def-use chain backwards from each
+array index, building the F2Symbol. It handles:
+- `arith.constant`, `arith.xori`, `arith.shli`, `arith.shrui`, `arith.andi`
+- `arith.ori` (checks non-overlapping), `arith.addi` (checks non-overlapping)
+- `arith.muli` (power-of-2 constant), `arith.index_cast`, `arith.ext*`
+- Allo scalar variable pattern: `memref.alloc + affine.store + affine.load`
+  (traces through to the stored value)
+
+#### 4. Banking Mode Detection
+
+The banking mode emerges from the conflict subspace structure:
+- **Cyclic + XOR swizzle**: Conflict bits span lower bits plus one high stride
+  bit (e.g., FFT inter-stage buffers)
+- **Block**: All conflict bits are in the upper bit positions (e.g., bit-reversal
+  buffers)
+
+### Example: Auto-detection on FFT-256
+
+For `inter_0:in_re` (float32[256]), the engine:
+
+1. Finds `memref.load %buf[%il]` and `memref.load %buf[%iu]` in the compute loop
+2. Symbolizes: `il = (off_il << 5) | (k | ((i & 1) << 4))`, `iu = (off_iu << 5) | bank`
+   where `off_iu = off_il | (1 << s_rel)`
+3. V_inter from k bits (0-3): {e_0, e_1, e_2, e_3}
+4. V_intra from delta(il, iu): stride at bit 5 → {e_5}
+5. **P = span(e_0, e_1, e_2, e_3, e_5)**, dim=5 → needs 32 banks
+6. Solver: S with bank[4] = addr[4] XOR addr[5] → cyclic, stride_bit=5
+
+This matches the manual `s.f2_layout(..., stride_bit=5)` exactly.
+
+For `bit_rev_stage_0:buf_re`, the engine detects block banking (all conflict
+bits in upper positions) and applies `banking="block"` automatically.
+
+### Common Pattern: Cyclic Partition
+
+The engine also handles standard cyclic partition patterns:
+
+```python
+for i in range(N):        # pipelined, II=1
+    A[i * 2] = ...        # addr = i << 1
+    A[i * 2 + 1] = ...    # addr = (i << 1) | 1
+```
+
+Conflict subspace: P = span(e_0), dim=1 → bank = addr[0] = **cyclic factor 2**.
+
+### Tests
+
+| Test | What it checks |
+|---|---|
+| `test_fft_256_auto_f2` | Auto-F2 produces same HLS pragmas as manual f2_layout |
+| `f2_symbolic.py __main__` | 53 unit tests for F2Symbol operations and conflict subspace |

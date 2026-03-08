@@ -909,6 +909,41 @@ class Schedule:
         self.dependence(f"{func_name}:{buf_name}")
 
     @wrapped_apply
+    def auto_f2(self, kernel_names=None):
+        """Automatically detect and apply F2 bank-conflict-free layouts.
+
+        Analyzes all 1D buffers in specified kernels and automatically
+        determines the optimal partitioning scheme using F2 symbolic
+        execution of MLIR SSA chains. Replaces manual s.f2_layout() calls.
+
+        For each 1D buffer:
+        1. Walks all load/store accesses and their enclosing loops
+        2. Symbolically executes index expressions over F2
+        3. Builds the conflict subspace from parallel accesses
+        4. Solves for the partition matrix using F2LayoutSolver
+        5. Applies the 1D->2D layout transform with banking and pragmas
+
+        Args:
+            kernel_names: list of kernel function names to analyze,
+                or None for all kernels.
+        """
+        from allo.transform.auto_f2 import auto_apply_f2
+
+        applied = auto_apply_f2(
+            self.module, self.top_func_name, self.func_args,
+            kernel_names=kernel_names,
+        )
+
+        # Apply partition, bind_storage, and dependence on each transformed buffer
+        for func_name, buf_name, banking, bank_bits, stride in applied:
+            target_buf = MockBuffer(func_name, buf_name)
+            self.partition(target_buf, partition_type=Partition.Complete, dim=1)
+            self.bind_storage(
+                f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p"
+            )
+            self.dependence(f"{func_name}:{buf_name}")
+
+    @wrapped_apply
     def partition_global(self, name_prefix):
         """Mark all global constants whose sym_name starts with `name_prefix`
         for complete array partitioning.  Emits:

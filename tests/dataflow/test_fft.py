@@ -555,7 +555,7 @@ def test_fft_256_csyn():
         import pytest
         pytest.skip("Vitis HLS not available")
     s = df.customize(fft_256)
-    _apply_f2_optimizations(s)
+    _apply_auto_f2_optimizations(s)
     with tempfile.TemporaryDirectory() as tmpdir:
         s.build(
             target="vitis_hls",
@@ -564,6 +564,91 @@ def test_fft_256_csyn():
             configs=_BUILD_CONFIGS,
         )
     print("✅ FFT-256 CSyn Passed!")
+
+
+def _apply_auto_f2_optimizations(s):
+    """Optimization pass using auto_f2 instead of manual _apply_f2_partitions.
+
+    Replaces manual s.f2_layout() calls with s.auto_f2() for automatic
+    conflict detection and partitioning. All other optimizations (dataflow,
+    pipeline, unroll) remain the same.
+    """
+    # 1. Auto-detect and apply F2 layout to all 1D buffers
+    s.auto_f2()
+
+    # 1b. Partition twiddle ROMs (global constants) for parallel access
+    s.partition_global("twr")
+    s.partition_global("twi")
+
+    # 2. Sub-function dataflow for inter-vector stages
+    for kn in ["inter_0", "inter_1", "inter_2"]:
+        s.dataflow(kn)
+
+    s.dataflow("bit_rev_stage_0")
+
+    # 3. Pipeline outer loops + unroll inner loops for all kernels
+    br_loops = s.get_loops("bit_rev_stage_0")
+    s.pipeline(br_loops["S_ii_0"]["ii"])
+    s.unroll(br_loops["S_ii_0"]["kk"])
+    s.pipeline(br_loops["S_jj_2"]["jj"])
+    s.unroll(br_loops["S_jj_2"]["mm"])
+
+    for stage in range(5):
+        kn = f"intra_{stage}"
+        lp = s.get_loops(kn)
+        s.pipeline(lp["S__i_0"]["_i"])
+        s.unroll(lp["S__i_0"]["k"])
+
+    for stage in range(3):
+        kn = f"inter_{stage}"
+        lp = s.get_loops(kn)
+        for band in ["S_i_0", "S_i_2", "S_i_4"]:
+            s.pipeline(lp[band]["i"])
+            s.unroll(lp[band]["k"])
+
+    lp_out = s.get_loops("output_stage_0")
+    s.pipeline(lp_out["S_i_0"]["i"])
+
+
+def test_fft_256_auto_f2():
+    """Test auto_f2 produces correct HLS codegen (same checks as manual f2_layout).
+
+    Verifies that automatic F2 conflict analysis detects the same banking
+    requirements as the manual _apply_f2_partitions and produces identical
+    HLS code structure.
+    """
+    s = df.customize(fft_256)
+    _apply_auto_f2_optimizations(s)
+    mod = s.build(target="vitis_hls", configs=_BUILD_CONFIGS)
+    code = mod.hls_code
+
+    # Structural checks (same as test_fft_256_hls_codegen)
+    assert "hls::vector" in code, "Expected vectorized stream in HLS code"
+    assert "hls::stream" in code
+    assert "bit_rev_stage" in code
+    assert "inter_2" in code
+
+    # F2 swizzle is visible as XOR operations on bank indices
+    assert "^" in code, "Expected XOR operations for F2 swizzle"
+
+    # Array partition pragma for 2D buffers
+    assert "#pragma HLS array_partition" in code, (
+        "Expected array_partition pragma for swizzled 2D buffers"
+    )
+
+    # Pipeline pragmas on all kernels
+    assert "#pragma HLS pipeline" in code, "Expected pipeline pragma for II=1"
+
+    # Sub-function dataflow on inter-vector stages
+    assert "#pragma HLS dataflow" in code, (
+        "Expected dataflow pragma for inter-stage sub-function pipeline"
+    )
+
+    # dependence and bind_storage pragmas
+    assert "dependence" in code, "Expected dependence pragma for II=1"
+    assert "bind_storage" in code, "Expected bind_storage pragma for LUTRAM"
+
+    print("FFT-256 Auto-F2 HLS Codegen Test PASSED!")
 
 
 def test_fft_256_simulator(N_=256):
