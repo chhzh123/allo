@@ -651,9 +651,10 @@ def separate_header(hls_code, top=None, extern_c=True):
                 pattern = r"^ap_(u?)int<(\d+)>$"
                 match = re.match(pattern, ele_type)
                 if not match:
-                    raise ValueError(f"Fail to resolve ctype {ele_type}")
-                unsigned_flag, width = match.groups()
-                allo_type = f"{'u' if unsigned_flag else ''}int{int(width)}"
+                    allo_type = "stream"
+                else:
+                    unsigned_flag, width = match.groups()
+                    allo_type = f"{'u' if unsigned_flag else ''}int{int(width)}"
             shape = tuple(s.split("]")[0] for s in arg_type.split("[")[1:])
             args.append((allo_type, shape))
             if "[" in var:  # array

@@ -331,10 +331,9 @@ def fft_256(
         for i in range(NUM_VECS):
             for k in range(16):
                 bg: uint32 = (i << 4) | k
-                tw_k: uint32 = (bg & (((1 << s_rel) << 5) - 1)) << (2 - s_rel)
                 bank_il: uint32 = k | ((i & 1) << 4)
                 bank_iu: uint32 = bank_il ^ 16
-                
+
                 i_shr: uint32 = i >> 1
                 low_mask: uint32 = (1 << s_rel) - 1
                 low_bits: uint32 = i_shr & low_mask
@@ -342,31 +341,21 @@ def fft_256(
                 off_il: uint32 = (high_bits << (s_rel + 1)) | low_bits
                 stride_off: uint32 = 1 << s_rel
                 off_iu: uint32 = off_il | stride_off
-                
+
                 a_re = in_re[bank_il, off_il]
                 a_im = in_im[bank_il, off_il]
                 b_re = in_re[bank_iu, off_iu]
                 b_im = in_im[bank_iu, off_iu]
-                
-                if tw_k == 0:
-                    out_re_b[bank_il, off_il] = a_re + b_re
-                    out_im_b[bank_il, off_il] = a_im + b_im
-                    out_re_b[bank_iu, off_iu] = a_re - b_re
-                    out_im_b[bank_iu, off_iu] = a_im - b_im
-                elif tw_k == 64:
-                    out_re_b[bank_il, off_il] = a_re + b_im
-                    out_im_b[bank_il, off_il] = a_im - b_re
-                    out_re_b[bank_iu, off_iu] = a_re - b_im
-                    out_im_b[bank_iu, off_iu] = a_im + b_re
-                else:
-                    tr = twr[tw_k]
-                    ti = twi[tw_k]
-                    bw_re: float32 = b_re * tr - b_im * ti
-                    bw_im: float32 = b_re * ti + b_im * tr
-                    out_re_b[bank_il, off_il] = a_re + bw_re
-                    out_im_b[bank_il, off_il] = a_im + bw_im
-                    out_re_b[bank_iu, off_iu] = a_re - bw_re
-                    out_im_b[bank_iu, off_iu] = a_im - bw_im
+
+                tw_k: uint32 = (bg & (((1 << s_rel) << 5) - 1)) << (2 - s_rel)
+                tr = twr[tw_k]
+                ti = twi[tw_k]
+                bw_re: float32 = b_re * tr - b_im * ti
+                bw_im: float32 = b_re * ti + b_im * tr
+                out_re_b[bank_il, off_il] = a_re + bw_re
+                out_im_b[bank_il, off_il] = a_im + bw_im
+                out_re_b[bank_iu, off_iu] = a_re - bw_re
+                out_im_b[bank_iu, off_iu] = a_im - bw_im
 
         for i in range(NUM_VECS):
             chunk_re_out: float32[WIDTH]
