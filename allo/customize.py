@@ -861,11 +861,11 @@ class Schedule:
             mlir_target.attributes["dependence_inter_false"] = UnitAttr.get()
 
     @wrapped_apply
-    def f2_layout(self, target, n_bits, bank_bits, stride_bit):
-        """Apply F2 conflict-free bank swizzle to a 1D buffer.
+    def f2_layout(self, target, n_bits, bank_bits, stride_bit=None, banking="cyclic"):
+        """Apply conflict-free bank partitioning to a 1D buffer.
 
-        Transforms a 1D buffer to 2D [num_banks, depth] with F2-computed
-        XOR-swizzle indexing for conflict-free bank access.
+        Transforms a 1D buffer to 2D [num_banks, depth] with computed
+        bank/offset indexing for conflict-free parallel access.
 
         Also applies ARRAY_PARTITION complete dim=1, BIND_STORAGE ram_2p lutram,
         and DEPENDENCE inter false automatically.
@@ -878,8 +878,12 @@ class Schedule:
             Total address bits (= log2(array_size)).
         bank_bits: int
             Bank selection bits (= log2(num_banks)).
-        stride_bit: int
-            Butterfly stride bit for F2 swizzle.
+        stride_bit: int or None
+            For banking="cyclic": butterfly stride bit for F2 XOR swizzle.
+            Ignored for banking="block".
+        banking: str
+            "cyclic" (default): bank = lower bits with F2 XOR swizzle.
+            "block": bank = upper bits, offset = lower bits.
         """
         from allo.transform.f2_layout import apply_f2_layout
 
@@ -888,9 +892,14 @@ class Schedule:
         else:
             func_name, buf_name = target.func, target.name
 
+        # For block banking, pass offset_bits (= n_bits - bank_bits) via stride_bit
+        effective_stride_bit = stride_bit
+        if banking == "block":
+            effective_stride_bit = n_bits - bank_bits
+
         apply_f2_layout(
             self.module, func_name, buf_name, self.func_args,
-            n_bits, bank_bits, stride_bit,
+            n_bits, bank_bits, effective_stride_bit, banking=banking,
         )
 
         # Apply partition, bind_storage, and dependence on the new 2D buffer

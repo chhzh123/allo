@@ -207,48 +207,45 @@ def fft_256(
     # ------------------------------------------------------------------
     @df.kernel(mapping=[1])
     def bit_rev_stage():
-        """Bit-reversal stage: rearranges N=256 inputs for DIT FFT with II=1.
+        """Bit-reversal stage: rearranges N=256 inputs for DIT FFT.
 
-        Uses a 2D swizzled buffer [WIDTH, NUM_VECS] = [32, 8] with complete dim=1:
-          LOAD (8 iters, II=1): read WIDTH=32 elements from stream, write to 32 distinct banks.
-            bank  = bit_rev5(kk):  5-bit reversal of lane → unique bank per lane (no conflicts)
-            offset = bit_rev3(ii): 3-bit reversal of vector index
+        Uses 1D buffers with plain linear indexing.  The compiler's f2_layout
+        transform (banking="block") automatically partitions into 32 banks
+        of 8 elements for conflict-free II=1 access.
 
-          WRITE (8 iters, II=1): read back in sequential (jj, mm) order.
-            buf_re[(jj*32+mm)/8][(jj*32+mm)%8] = input[bit_rev(jj*32+mm)]  (verified)
+          LOAD: write input element (ii,kk) to bit_rev8(ii*32+kk)
+          WRITE: read sequentially as jj*32+mm
         """
-        # 2D buffer: dim-0 = WIDTH banks (complete partition), dim-1 = NUM_VECS depth
-        buf_re: float32[WIDTH, NUM_VECS]
-        buf_im: float32[WIDTH, NUM_VECS]
+        buf_re: float32[N]
+        buf_im: float32[N]
 
-        # LOAD: read WIDTH-element chunks from input streams, then swizzle into 2D buffer.
-        # bit_rev5(kk) is unique per kk → 32 parallel writes to 32 distinct banks
+        # LOAD: read WIDTH-element chunks, store at bit-reversed addresses
         for ii in range(NUM_VECS):
             chunk_in_re: float32[WIDTH] = inp_re.get()
             chunk_in_im: float32[WIDTH] = inp_im.get()
             for kk in range(WIDTH):
-                bank: int32 = (
-                    ((kk & 1) << 4)
-                    | ((kk & 2) << 2)
-                    | (kk & 4)
-                    | ((kk & 8) >> 2)
-                    | ((kk & 16) >> 4)
+                # 8-bit reversal of (ii * WIDTH + kk)
+                idx: uint32 = (ii << LOG2_WIDTH) | kk
+                rev: uint32 = (
+                    ((idx & 1) << 7)
+                    | ((idx & 2) << 5)
+                    | ((idx & 4) << 3)
+                    | ((idx & 8) << 1)
+                    | ((idx & 16) >> 1)
+                    | ((idx & 32) >> 3)
+                    | ((idx & 64) >> 5)
+                    | ((idx & 128) >> 7)
                 )
-                offset: int32 = ((ii & 4) >> 2) | (ii & 2) | ((ii & 1) << 2)
-                buf_re[bank, offset] = chunk_in_re[kk]
-                buf_im[bank, offset] = chunk_in_im[kk]
+                buf_re[rev] = chunk_in_re[kk]
+                buf_im[rev] = chunk_in_im[kk]
 
-        # WRITE: sequential 2D read order produces the bit-reversed permutation
+        # WRITE: sequential read produces the bit-reversed permutation
         for jj in range(NUM_VECS):
             chunk_re: float32[WIDTH]
             chunk_im: float32[WIDTH]
             for mm in range(WIDTH):
-                # rd_bank = (jj*32+mm) >> 3 = (jj<<2) | (mm>>3)
-                # rd_off  = (jj*32+mm) &  7 = mm & 7  (jj*32 divisible by 8)
-                rd_bank: int32 = (jj << 2) | (mm >> LOG2_NUM_VECS)
-                rd_off: int32 = mm & 7
-                chunk_re[mm] = buf_re[rd_bank, rd_off]
-                chunk_im[mm] = buf_im[rd_bank, rd_off]
+                chunk_re[mm] = buf_re[jj * WIDTH + mm]
+                chunk_im[mm] = buf_im[jj * WIDTH + mm]
             s_re[0].put(chunk_re)
             s_im[0].put(chunk_im)
 
@@ -319,7 +316,7 @@ def fft_256(
         out_re_b: float32[N]
         out_im_b: float32[N]
 
-        # LOAD: read WIDTH-element chunks from streams into 1D buffer
+        # LOAD: read WIDTH-element chunks from streams into 1D buffer.
         for i in range(NUM_VECS):
             chunk_re: float32[WIDTH] = s_re[s_rel + 5].get()
             chunk_im: float32[WIDTH] = s_im[s_rel + 5].get()
@@ -327,13 +324,26 @@ def fft_256(
                 in_re[i * WIDTH + k] = chunk_re[k]
                 in_im[i * WIDTH + k] = chunk_im[k]
 
-        # COMPUTE: butterflies with linear indexing
+        # COMPUTE: butterflies with 1D linear indexing.
+        # Index decomposed as (offset << LOG2_WIDTH) | raw_bank where
+        # raw_bank = k | ((i & 1) << 4).  This makes idx & 31 = raw_bank
+        # a trivial bitwise identity, so HLS can prove bank distinctness
+        # for unrolled k.
         for i in range(NUM_VECS):
             for k in range(16):
                 bg: uint32 = (i << 4) | k
-                stride: uint32 = 1 << (s_rel + 5)
-                il: uint32 = ((bg >> (s_rel + 5)) << (s_rel + 6)) | (bg & (stride - 1))
-                iu: uint32 = il + stride
+                raw_bank: uint32 = k | ((i & 1) << 4)
+
+                i_shr: uint32 = i >> 1
+                low_mask: uint32 = (1 << s_rel) - 1
+                low_bits: uint32 = i_shr & low_mask
+                high_bits: uint32 = i_shr >> s_rel
+                off_il: uint32 = (high_bits << (s_rel + 1)) | low_bits
+                stride_off: uint32 = 1 << s_rel
+                off_iu: uint32 = off_il | stride_off
+
+                il: uint32 = (off_il << LOG2_WIDTH) | raw_bank
+                iu: uint32 = (off_iu << LOG2_WIDTH) | raw_bank
 
                 a_re = in_re[il]
                 a_im = in_im[il]
@@ -350,7 +360,7 @@ def fft_256(
                 out_re_b[iu] = a_re - bw_re
                 out_im_b[iu] = a_im - bw_im
 
-        # WRITE: read from 1D buffer, output to stream
+        # WRITE: sequential read from 1D buffer, output to stream.
         for i in range(NUM_VECS):
             chunk_re_out: float32[WIDTH]
             chunk_im_out: float32[WIDTH]
@@ -369,12 +379,12 @@ def fft_256(
 
 
 def _apply_f2_partitions(s):
-    """Apply F2 bank-conflict-free layout to all inter-stage 1D buffers.
+    """Apply F2 bank-conflict-free layout to all 1D buffers.
 
-    Transforms 1D buffers to 2D with F2 XOR-swizzle indexing and applies
-    ARRAY_PARTITION complete dim=1, BIND_STORAGE ram_2p lutram, and
-    DEPENDENCE inter false automatically.
+    Inter stages: cyclic F2 XOR swizzle (bank = lower bits with XOR).
+    Bit-rev stage: block banking (bank = upper bits).
     """
+    # Inter stages: 1D buffers → 2D with F2 XOR swizzle
     for stage in range(3):
         stride_bit = stage + 5
         for buf in ["in_re", "in_im", "out_re_b", "out_im_b"]:
@@ -382,6 +392,13 @@ def _apply_f2_partitions(s):
                 f"inter_{stage}:{buf}",
                 n_bits=LOG2_N, bank_bits=LOG2_WIDTH, stride_bit=stride_bit,
             )
+
+    # Bit-rev stage: 1D buffers → 2D with block banking
+    for bn in ["buf_re", "buf_im"]:
+        s.f2_layout(
+            f"bit_rev_stage_0:{bn}",
+            n_bits=LOG2_N, bank_bits=LOG2_WIDTH, banking="block",
+        )
 
 
 def _apply_f2_optimizations(s):
@@ -394,9 +411,8 @@ def _apply_f2_optimizations(s):
       - PIPELINE II=1 on all outer i/_i/src loops
       - UNROLL on all inner k loops
     """
-    # 1. Apply F2 layout transform to inter-stage buffers
-    #    This transforms 1D buffers to 2D with F2 swizzle indexing and
-    #    automatically applies partition, bind_storage, and dependence.
+    # 1. Apply F2 layout transform to all 1D buffers (inter + bit_rev).
+    #    f2_layout automatically applies partition, bind_storage, and dependence.
     _apply_f2_partitions(s)
 
     # 1b. Partition twiddle ROMs (global constants) for parallel access
@@ -409,13 +425,6 @@ def _apply_f2_optimizations(s):
     #    achieving II=N/WIDTH instead of 3*(N/WIDTH) cycles per inter stage.
     for kn in ["inter_0", "inter_1", "inter_2"]:
         s.dataflow(kn)
-
-    # 4a. Partition and annotate bit_rev_stage 2D buffers (complete dim=1 for
-    #     32 parallel banks, enabling II=1 for the vectorized LOAD/WRITE phases)
-    for bn in ["buf_re", "buf_im"]:
-        s.partition("bit_rev_stage_0:" + bn, partition_type=Partition.Complete, dim=1)
-        s.bind_storage("bit_rev_stage_0:" + bn, impl="lutram", storage_type="ram_2p")
-        s.dependence("bit_rev_stage_0:" + bn)
 
     # 4b. Enable DATAFLOW within bit_rev_stage so LOAD and WRITE overlap
     #     (achieves II=8 for the stage instead of II=16 sequential)

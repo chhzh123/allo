@@ -340,11 +340,12 @@ def fft_swizzle(N: int, WIDTH: int, stride_bit: int) -> SwizzleHelper:
 # ---------------------------------------------------------------------------
 
 
-def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, stride_bit):
-    """Transform a 1D buffer to 2D with F2 bank-swizzle indexing.
+def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits,
+                    stride_bit=None, banking="cyclic"):
+    """Transform a 1D buffer to 2D with bank-conflict-free indexing.
 
     Rewrites memref<N x f32> -> memref<num_banks x depth x f32>
-    and replaces all load/store accesses with swizzled bank/offset indices.
+    and replaces all load/store accesses with computed bank/offset indices.
 
     Parameters
     ----------
@@ -356,8 +357,15 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
         Total address bits (= log2(array_size)).
     bank_bits : int
         Bank selection bits (= log2(num_banks)).
-    stride_bit : int
-        Butterfly stride bit for F2 swizzle.
+    stride_bit : int or None
+        Butterfly stride bit for F2 swizzle. Required when banking="cyclic".
+    banking : str
+        Banking mode:
+        - "cyclic": bank = (addr & (W-1)) ^ (((addr >> stride_bit) & 1) << (bank_bits-1)),
+                    offset = addr >> bank_bits.  (F2 XOR swizzle for butterfly strides)
+        - "block":  bank = addr >> offset_bits, offset = addr & (depth-1).
+                    (Upper bits select bank; conflict-free when writes are spread
+                    across all N addresses and reads are sequential.)
     """
     from .._mlir.ir import (
         InsertionPoint,
@@ -413,8 +421,9 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
                 idx = load_op.indices[0]
                 ip = InsertionPoint(op)
 
-                bank_idx, offset_idx = _compute_f2_indices(
-                    idx, num_banks, bank_bits, stride_bit, i32, index_type, ip
+                bank_idx, offset_idx = _compute_bank_indices(
+                    idx, num_banks, bank_bits, stride_bit, banking,
+                    i32, index_type, ip,
                 )
 
                 new_load = memref_d.LoadOp(new_alloc.result, [bank_idx, offset_idx], ip=ip)
@@ -429,8 +438,9 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
                 value = store_op.value
                 ip = InsertionPoint(op)
 
-                bank_idx, offset_idx = _compute_f2_indices(
-                    idx, num_banks, bank_bits, stride_bit, i32, index_type, ip
+                bank_idx, offset_idx = _compute_bank_indices(
+                    idx, num_banks, bank_bits, stride_bit, banking,
+                    i32, index_type, ip,
                 )
 
                 memref_d.StoreOp(value, new_alloc.result, [bank_idx, offset_idx], ip=ip)
@@ -445,8 +455,8 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
                 map_operands = list(load_op.indices)
                 linear_idx = affine_d.AffineApplyOp(amap, map_operands, ip=ip)
 
-                bank_idx, offset_idx = _compute_f2_indices(
-                    linear_idx.result, num_banks, bank_bits, stride_bit,
+                bank_idx, offset_idx = _compute_bank_indices(
+                    linear_idx.result, num_banks, bank_bits, stride_bit, banking,
                     i32, index_type, ip,
                 )
 
@@ -465,8 +475,8 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
                 map_operands = list(store_op.indices)
                 linear_idx = affine_d.AffineApplyOp(amap, map_operands, ip=ip)
 
-                bank_idx, offset_idx = _compute_f2_indices(
-                    linear_idx.result, num_banks, bank_bits, stride_bit,
+                bank_idx, offset_idx = _compute_bank_indices(
+                    linear_idx.result, num_banks, bank_bits, stride_bit, banking,
                     i32, index_type, ip,
                 )
 
@@ -480,40 +490,75 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, s
         old_alloc.operation.erase()
 
 
-def _compute_f2_indices(idx, num_banks, bank_bits, stride_bit, i32, index_type, ip):
-    """Emit arith ops for F2 bank/offset computation.
+def _compute_bank_indices(idx, num_banks, bank_bits, stride_bit, banking,
+                          i32, index_type, ip):
+    """Emit arith ops for bank/offset index computation.
 
-    bank(idx) = (idx & (num_banks-1)) ^ (((idx >> stride_bit) & 1) << (bank_bits-1))
-    offset(idx) = idx >> bank_bits
+    banking="cyclic" (F2 XOR swizzle):
+        bank = (idx & (num_banks-1)) ^ (((idx >> stride_bit) & 1) << (bank_bits-1))
+        offset = idx >> bank_bits
+
+    banking="block":
+        offset_bits = n_bits - bank_bits  (passed via stride_bit)
+        bank = idx >> offset_bits
+        offset = idx & (2^offset_bits - 1)
     """
     from .._mlir.dialects import arith as arith_d
     from .._mlir.ir import IntegerAttr
 
-    # index -> i32
-    idx_i32 = arith_d.IndexCastOp(i32, idx, ip=ip)
+    # Avoid redundant index → i32 cast if idx is already from i32 → index cast
+    defining_op = idx.owner
+    if defining_op is not None and defining_op.name == "arith.index_cast":
+        src = defining_op.operands[0]
+        if str(src.type) == "i32":
+            idx_i32_val = src
+        else:
+            idx_i32_val = arith_d.IndexCastOp(i32, idx, ip=ip).result
+    else:
+        idx_i32_val = arith_d.IndexCastOp(i32, idx, ip=ip).result
 
-    # bank_low = idx & (num_banks - 1)
-    mask_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, num_banks - 1), ip=ip)
-    bank_low = arith_d.AndIOp(idx_i32.result, mask_val.result, ip=ip)
+    if banking == "block":
+        offset_bits = stride_bit  # caller passes n_bits - bank_bits here
+        depth = 1 << offset_bits
 
-    # bit = (idx >> stride_bit) & 1
-    s_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, stride_bit), ip=ip)
-    shifted = arith_d.ShRUIOp(idx_i32.result, s_const.result, ip=ip)
-    one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)
-    bit = arith_d.AndIOp(shifted.result, one_val.result, ip=ip)
+        shr_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, offset_bits), ip=ip)
+        bank_i32 = arith_d.ShRUIOp(idx_i32_val, shr_const.result, ip=ip)
 
-    # shifted_bit = bit << (bank_bits - 1)
-    shift_amt = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits - 1), ip=ip)
-    shifted_bit = arith_d.ShLIOp(bit.result, shift_amt.result, ip=ip)
+        depth_mask = arith_d.ConstantOp(i32, IntegerAttr.get(i32, depth - 1), ip=ip)
+        offset_i32 = arith_d.AndIOp(idx_i32_val, depth_mask.result, ip=ip)
+    else:
+        # Compute offset first, then derive xor_bit from offset (not from
+        # full idx).  This helps HLS because:
+        #   idx = (offset << bank_bits) | raw_bank
+        #   raw_bank = idx & (W-1)  → trivial when idx is composed via shift|or
+        #   xor_bit  = (offset >> (stride_bit - bank_bits)) & 1
+        #   bank     = raw_bank ^ (xor_bit << (bank_bits-1))
+        # The lower bank_bits-1 bits of bank are always raw_bank[bank_bits-2:0],
+        # making bank distinctness on the unrolled variable k trivially provable.
 
-    # bank = bank_low ^ shifted_bit
-    bank_i32 = arith_d.XOrIOp(bank_low.result, shifted_bit.result, ip=ip)
+        # offset = idx >> bank_bits
+        bank_bits_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits), ip=ip)
+        offset_i32 = arith_d.ShRUIOp(idx_i32_val, bank_bits_const.result, ip=ip)
 
-    # offset = idx >> bank_bits
-    bank_bits_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits), ip=ip)
-    offset_i32 = arith_d.ShRUIOp(idx_i32.result, bank_bits_const.result, ip=ip)
+        # raw_bank = idx & (num_banks - 1)
+        mask_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, num_banks - 1), ip=ip)
+        bank_low = arith_d.AndIOp(idx_i32_val, mask_val.result, ip=ip)
 
-    # Cast back to index type
+        # xor_bit = (offset >> (stride_bit - bank_bits)) & 1
+        rel_shift = stride_bit - bank_bits
+        one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)
+        if rel_shift > 0:
+            rel_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, rel_shift), ip=ip)
+            shifted_off = arith_d.ShRUIOp(offset_i32.result, rel_const.result, ip=ip)
+            bit = arith_d.AndIOp(shifted_off.result, one_val.result, ip=ip)
+        else:
+            bit = arith_d.AndIOp(offset_i32.result, one_val.result, ip=ip)
+
+        # bank = raw_bank ^ (xor_bit << (bank_bits - 1))
+        shift_amt = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits - 1), ip=ip)
+        shifted_bit = arith_d.ShLIOp(bit.result, shift_amt.result, ip=ip)
+        bank_i32 = arith_d.XOrIOp(bank_low.result, shifted_bit.result, ip=ip)
+
     bank_idx = arith_d.IndexCastOp(index_type, bank_i32.result, ip=ip)
     offset_idx = arith_d.IndexCastOp(index_type, offset_i32.result, ip=ip)
 
