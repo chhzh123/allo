@@ -9,7 +9,7 @@
 - Run `python3 -m pytest --ignore=tests/dataflow tests -v` for tests
   - Prefer running a single test file instead of the full suite (full suite is slow)
   - Use only software simulators (`target="llvm"` or `target="simulator"`)
-  - If Vitis HLS tests are needed, ask the user to run them manually
+  - If Vitis HLS tests are needed, run `source /opt/xilinx/Vitis_HLS/2023.2/settings64.sh` first
 
 # Code style
 - Make small, targeted diffs rather than large refactors, and always be concise

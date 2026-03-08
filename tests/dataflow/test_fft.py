@@ -312,58 +312,51 @@ def fft_256(
     @df.kernel(mapping=[3])
     def inter():
         s_rel = df.get_pid()
-        # s = s_rel + 5
         twr: float32[N // 2] = full_twr
         twi: float32[N // 2] = full_twi
-        in_re: float32[WIDTH, NUM_VECS]
-        in_im: float32[WIDTH, NUM_VECS]
-        out_re_b: float32[WIDTH, NUM_VECS]
-        out_im_b: float32[WIDTH, NUM_VECS]
+        in_re: float32[N]
+        in_im: float32[N]
+        out_re_b: float32[N]
+        out_im_b: float32[N]
 
+        # LOAD: read WIDTH-element chunks from streams into 1D buffer
         for i in range(NUM_VECS):
             chunk_re: float32[WIDTH] = s_re[s_rel + 5].get()
             chunk_im: float32[WIDTH] = s_im[s_rel + 5].get()
             for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> s_rel) & 1)) << 4)
-                in_re[bank, i] = chunk_re[k]
-                in_im[bank, i] = chunk_im[k]
+                in_re[i * WIDTH + k] = chunk_re[k]
+                in_im[i * WIDTH + k] = chunk_im[k]
 
+        # COMPUTE: butterflies with linear indexing
         for i in range(NUM_VECS):
             for k in range(16):
                 bg: uint32 = (i << 4) | k
-                bank_il: uint32 = k | ((i & 1) << 4)
-                bank_iu: uint32 = bank_il ^ 16
+                stride: uint32 = 1 << (s_rel + 5)
+                il: uint32 = ((bg >> (s_rel + 5)) << (s_rel + 6)) | (bg & (stride - 1))
+                iu: uint32 = il + stride
 
-                i_shr: uint32 = i >> 1
-                low_mask: uint32 = (1 << s_rel) - 1
-                low_bits: uint32 = i_shr & low_mask
-                high_bits: uint32 = i_shr >> s_rel
-                off_il: uint32 = (high_bits << (s_rel + 1)) | low_bits
-                stride_off: uint32 = 1 << s_rel
-                off_iu: uint32 = off_il | stride_off
-
-                a_re = in_re[bank_il, off_il]
-                a_im = in_im[bank_il, off_il]
-                b_re = in_re[bank_iu, off_iu]
-                b_im = in_im[bank_iu, off_iu]
+                a_re = in_re[il]
+                a_im = in_im[il]
+                b_re = in_re[iu]
+                b_im = in_im[iu]
 
                 tw_k: uint32 = (bg & (((1 << s_rel) << 5) - 1)) << (2 - s_rel)
                 tr = twr[tw_k]
                 ti = twi[tw_k]
                 bw_re: float32 = b_re * tr - b_im * ti
                 bw_im: float32 = b_re * ti + b_im * tr
-                out_re_b[bank_il, off_il] = a_re + bw_re
-                out_im_b[bank_il, off_il] = a_im + bw_im
-                out_re_b[bank_iu, off_iu] = a_re - bw_re
-                out_im_b[bank_iu, off_iu] = a_im - bw_im
+                out_re_b[il] = a_re + bw_re
+                out_im_b[il] = a_im + bw_im
+                out_re_b[iu] = a_re - bw_re
+                out_im_b[iu] = a_im - bw_im
 
+        # WRITE: read from 1D buffer, output to stream
         for i in range(NUM_VECS):
             chunk_re_out: float32[WIDTH]
             chunk_im_out: float32[WIDTH]
             for k in range(WIDTH):
-                bank: int32 = (k & 15) | (((k >> 4) ^ ((i >> s_rel) & 1)) << 4)
-                chunk_re_out[k] = out_re_b[bank, i]
-                chunk_im_out[k] = out_im_b[bank, i]
+                chunk_re_out[k] = out_re_b[i * WIDTH + k]
+                chunk_im_out[k] = out_im_b[i * WIDTH + k]
             s_re[s_rel + 6].put(chunk_re_out)
             s_im[s_rel + 6].put(chunk_im_out)
 
@@ -376,20 +369,19 @@ def fft_256(
 
 
 def _apply_f2_partitions(s):
-    """Apply F2-computed ARRAY_PARTITION pragmas to all inter-stage 2D buffers.
+    """Apply F2 bank-conflict-free layout to all inter-stage 1D buffers.
 
-    Called after df.customize() to annotate the 2D swizzled buffers in
-    inter_5, inter_6, inter_7 with  #pragma HLS array_partition complete dim=1
-    so Vitis HLS instantiates WIDTH separate LUTRAM banks enabling II=1.
-
-    # The kernel names are suffixed by the mapping ID: "_0", "_1", "_2"
+    Transforms 1D buffers to 2D with F2 XOR-swizzle indexing and applies
+    ARRAY_PARTITION complete dim=1, BIND_STORAGE ram_2p lutram, and
+    DEPENDENCE inter false automatically.
     """
-    # The kernel names are suffixed by the mapping ID: "_0", "_1", "_2"
-    inter_kernels = ["inter_0", "inter_1", "inter_2"]
-    bufs = ["in_re", "in_im", "out_re_b", "out_im_b"]
-    for kn in inter_kernels:
-        for bn in bufs:
-            s.partition(f"{kn}:{bn}", partition_type=Partition.Complete, dim=1)
+    for stage in range(3):
+        stride_bit = stage + 5
+        for buf in ["in_re", "in_im", "out_re_b", "out_im_b"]:
+            s.f2_layout(
+                f"inter_{stage}:{buf}",
+                n_bits=LOG2_N, bank_bits=LOG2_WIDTH, stride_bit=stride_bit,
+            )
 
 
 def _apply_f2_optimizations(s):
@@ -402,7 +394,9 @@ def _apply_f2_optimizations(s):
       - PIPELINE II=1 on all outer i/_i/src loops
       - UNROLL on all inner k loops
     """
-    # 1. Partition inter-stage 2D buffers
+    # 1. Apply F2 layout transform to inter-stage buffers
+    #    This transforms 1D buffers to 2D with F2 swizzle indexing and
+    #    automatically applies partition, bind_storage, and dependence.
     _apply_f2_partitions(s)
 
     # 1b. Partition twiddle ROMs (global constants) for parallel access
@@ -415,16 +409,6 @@ def _apply_f2_optimizations(s):
     #    achieving II=N/WIDTH instead of 3*(N/WIDTH) cycles per inter stage.
     for kn in ["inter_0", "inter_1", "inter_2"]:
         s.dataflow(kn)
-
-    # 3. BIND_STORAGE ram_2p lutram + DEPENDENCE inter false on all inter-stage buffers
-    #    ram_2p enables dual-port access needed for HLS DATAFLOW ping-pong buffering.
-    #    DEPENDENCE inter false removes conservative false dependencies for II=1.
-    inter_kernels = ["inter_0", "inter_1", "inter_2"]
-    bufs = ["in_re", "in_im", "out_re_b", "out_im_b"]
-    for kn in inter_kernels:
-        for bn in bufs:
-            s.bind_storage(f"{kn}:{bn}", impl="lutram", storage_type="ram_2p")
-            s.dependence(f"{kn}:{bn}")
 
     # 4a. Partition and annotate bit_rev_stage 2D buffers (complete dim=1 for
     #     32 parallel banks, enabling II=1 for the vectorized LOAD/WRITE phases)

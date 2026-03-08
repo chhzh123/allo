@@ -333,3 +333,188 @@ def fft_swizzle(N: int, WIDTH: int, stride_bit: int) -> SwizzleHelper:
     )
     solver = F2LayoutSolver(n_bits=n_bits, bank_bits=bank_bits)
     return solver.solve(stride_bits=[stride_bit])
+
+
+# ---------------------------------------------------------------------------
+# MLIR transform: rewrite 1D buffer to 2D with F2 bank-swizzle indexing
+# ---------------------------------------------------------------------------
+
+
+def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits, stride_bit):
+    """Transform a 1D buffer to 2D with F2 bank-swizzle indexing.
+
+    Rewrites memref<N x f32> -> memref<num_banks x depth x f32>
+    and replaces all load/store accesses with swizzled bank/offset indices.
+
+    Parameters
+    ----------
+    module : MLIR Module
+    func_name : str
+    buf_name : str
+    func_args : dict
+    n_bits : int
+        Total address bits (= log2(array_size)).
+    bank_bits : int
+        Bank selection bits (= log2(num_banks)).
+    stride_bit : int
+        Butterfly stride bit for F2 swizzle.
+    """
+    from .._mlir.ir import (
+        InsertionPoint,
+        StringAttr,
+        IndexType,
+        IntegerType,
+        IntegerAttr,
+        MemRefType,
+        Location,
+        AffineMapAttr,
+    )
+    from .._mlir.dialects import (
+        memref as memref_d,
+        affine as affine_d,
+        arith as arith_d,
+        func as func_d,
+    )
+    from ..ir.utils import MockBuffer
+    from ..ir.transform import find_buffer
+
+    num_banks = 1 << bank_bits
+    depth = 1 << (n_bits - bank_bits)
+
+    with module.context, Location.unknown():
+        # 1. Find the old AllocOp
+        target = MockBuffer(func_name, buf_name)
+        func_op, _, old_alloc = find_buffer(module, target, func_args)
+
+        # old_alloc should be a memref_d.AllocOp (not a MockArg)
+        old_result = old_alloc.result
+        elem_type = MemRefType(old_result.type).element_type
+
+        # 2. Create new 2D memref type: memref<num_banks x depth x elem_type>
+        new_memref_type = MemRefType.get([num_banks, depth], elem_type)
+
+        # 3. Create new AllocOp right after the old one
+        ip = InsertionPoint.after(old_alloc.operation)
+        new_alloc = memref_d.AllocOp(new_memref_type, [], [], ip=ip)
+        new_alloc.attributes["name"] = StringAttr.get(buf_name)
+
+        # 4. Collect all uses of old alloc result before modifying
+        uses = list(old_result.uses)
+
+        i32 = IntegerType.get_signless(32)
+        index_type = IndexType.get()
+
+        for use in uses:
+            op = use.owner
+            op_name = op.name
+
+            if op_name == "memref.load":
+                load_op = op.opview
+                idx = load_op.indices[0]
+                ip = InsertionPoint(op)
+
+                bank_idx, offset_idx = _compute_f2_indices(
+                    idx, num_banks, bank_bits, stride_bit, i32, index_type, ip
+                )
+
+                new_load = memref_d.LoadOp(new_alloc.result, [bank_idx, offset_idx], ip=ip)
+                load_op.result.replace_all_uses_with(new_load.result)
+                op.erase()
+
+            elif op_name == "memref.store":
+                if use.operand_number < 1:
+                    continue
+                store_op = op.opview
+                idx = store_op.indices[0]
+                value = store_op.value
+                ip = InsertionPoint(op)
+
+                bank_idx, offset_idx = _compute_f2_indices(
+                    idx, num_banks, bank_bits, stride_bit, i32, index_type, ip
+                )
+
+                memref_d.StoreOp(value, new_alloc.result, [bank_idx, offset_idx], ip=ip)
+                op.erase()
+
+            elif op_name == "affine.load":
+                load_op = op.opview
+                ip = InsertionPoint(op)
+
+                # Compute linear index using affine.apply with the same map
+                amap = AffineMapAttr(op.attributes["map"]).value
+                map_operands = list(load_op.indices)
+                linear_idx = affine_d.AffineApplyOp(amap, map_operands, ip=ip)
+
+                bank_idx, offset_idx = _compute_f2_indices(
+                    linear_idx.result, num_banks, bank_bits, stride_bit,
+                    i32, index_type, ip,
+                )
+
+                new_load = memref_d.LoadOp(new_alloc.result, [bank_idx, offset_idx], ip=ip)
+                load_op.result.replace_all_uses_with(new_load.result)
+                op.erase()
+
+            elif op_name == "affine.store":
+                if use.operand_number < 1:
+                    continue
+                store_op = op.opview
+                value = store_op.value
+                ip = InsertionPoint(op)
+
+                amap = AffineMapAttr(op.attributes["map"]).value
+                map_operands = list(store_op.indices)
+                linear_idx = affine_d.AffineApplyOp(amap, map_operands, ip=ip)
+
+                bank_idx, offset_idx = _compute_f2_indices(
+                    linear_idx.result, num_banks, bank_bits, stride_bit,
+                    i32, index_type, ip,
+                )
+
+                memref_d.StoreOp(value, new_alloc.result, [bank_idx, offset_idx], ip=ip)
+                op.erase()
+
+            elif op_name == "allo.partition":
+                op.erase()
+
+        # 5. Remove old alloc
+        old_alloc.operation.erase()
+
+
+def _compute_f2_indices(idx, num_banks, bank_bits, stride_bit, i32, index_type, ip):
+    """Emit arith ops for F2 bank/offset computation.
+
+    bank(idx) = (idx & (num_banks-1)) ^ (((idx >> stride_bit) & 1) << (bank_bits-1))
+    offset(idx) = idx >> bank_bits
+    """
+    from .._mlir.dialects import arith as arith_d
+    from .._mlir.ir import IntegerAttr
+
+    # index -> i32
+    idx_i32 = arith_d.IndexCastOp(i32, idx, ip=ip)
+
+    # bank_low = idx & (num_banks - 1)
+    mask_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, num_banks - 1), ip=ip)
+    bank_low = arith_d.AndIOp(idx_i32.result, mask_val.result, ip=ip)
+
+    # bit = (idx >> stride_bit) & 1
+    s_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, stride_bit), ip=ip)
+    shifted = arith_d.ShRUIOp(idx_i32.result, s_const.result, ip=ip)
+    one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)
+    bit = arith_d.AndIOp(shifted.result, one_val.result, ip=ip)
+
+    # shifted_bit = bit << (bank_bits - 1)
+    shift_amt = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits - 1), ip=ip)
+    shifted_bit = arith_d.ShLIOp(bit.result, shift_amt.result, ip=ip)
+
+    # bank = bank_low ^ shifted_bit
+    bank_i32 = arith_d.XOrIOp(bank_low.result, shifted_bit.result, ip=ip)
+
+    # offset = idx >> bank_bits
+    bank_bits_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits), ip=ip)
+    offset_i32 = arith_d.ShRUIOp(idx_i32.result, bank_bits_const.result, ip=ip)
+
+    # Cast back to index type
+    bank_idx = arith_d.IndexCastOp(index_type, bank_i32.result, ip=ip)
+    offset_idx = arith_d.IndexCastOp(index_type, offset_i32.result, ip=ip)
+
+    return bank_idx.result, offset_idx.result
