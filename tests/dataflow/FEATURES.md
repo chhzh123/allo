@@ -8,7 +8,7 @@ generation targeting Vitis HLS, guided by the F2 linear layout synthesis plan.
 ## 1. F2 Linear Layout Solver (`allo/transform/f2_layout.py`)
 
 **What it does:**
-Implements Phases 1–3 of `plan.md`: given an FFT size N, vector width W, and a
+Implements Phases 1-3 of `plan.md`: given an FFT size N, vector width W, and a
 set of butterfly stride bits, automatically synthesizes a conflict-free memory
 bank swizzle matrix S over GF(2).
 
@@ -30,13 +30,14 @@ bank swizzle matrix S over GF(2).
 | `F2LayoutSolver(n_bits, bank_bits)` | Main solver; call `.solve(stride_bits)` |
 | `SwizzleHelper` | Wraps solved S; provides `bank_expr`, `offset_expr`, `dims`, `swizzle_bank` |
 | `fft_swizzle(N, WIDTH, stride_bit)` | Convenience factory for FFT inter-vector stages |
+| `apply_f2_layout(module, ...)` | MLIR pass: rewrites 1D memref to 2D with computed bank/offset indices |
 
 **Example (N=256, WIDTH=32, STRIDE=32):**
 ```python
 from allo.transform.f2_layout import fft_swizzle
 
 helper = fft_swizzle(N=256, WIDTH=32, stride_bit=5)
-print(helper.dims())        # (32, 8) → 2D buffer shape [32][8]
+print(helper.dims())        # (32, 8) -> 2D buffer shape [32][8]
 print(helper.bank_expr("i"))
 # ((i >> 0) & 1) | (((i >> 1) & 1) << 1) | ... | (((i >> 4) & 1) ^ ((i >> 5) & 1)) << 4)
 ```
@@ -47,15 +48,159 @@ Resulting swizzle matrix S for stride_bit=5:
  [0 1 0 0 0 0 0 0]
  [0 0 1 0 0 0 0 0]
  [0 0 0 1 0 0 0 0]
- [0 0 0 0 1 1 0 0]]   ← bank bit 4 = addr[4] XOR addr[5]
+ [0 0 0 0 1 1 0 0]]   <- bank bit 4 = addr[4] XOR addr[5]
 ```
 
 This eliminates bank conflicts for STRIDE=32 butterflies: elements `idx` and
 `idx XOR 32` map to different banks.
 
+### `apply_f2_layout`: Automatic 1D-to-2D Buffer Transform
+
+The MLIR pass `apply_f2_layout()` rewrites a 1D `memref<N x f32>` allocation
+and all its uses to a 2D `memref<num_banks x depth x f32>` with computed
+bank/offset indices.  Two banking modes are supported:
+
+| Mode | Bank formula | Offset formula | Use case |
+|---|---|---|---|
+| `"cyclic"` | `(idx & (W-1)) ^ (xor_bit << (bank_bits-1))` | `idx >> bank_bits` | Inter-vector butterfly stages |
+| `"block"` | `idx >> offset_bits` | `idx & (depth-1)` | Bit-reversal stage |
+
+**Cyclic mode optimization:** The pass computes `xor_bit` from the offset
+(`offset >> (stride_bit - bank_bits)) & 1`) instead of from the full index,
+avoiding a redundant shift chain.
+
+**Redundant index_cast elimination:** When the MLIR index value comes from an
+`arith.index_cast(i32 -> index)`, the pass reuses the original i32 SSA value
+instead of casting back `index -> i32`, eliminating double-cast overhead that
+can confuse HLS optimization.
+
 ---
 
-## 2. `_build_top` Deduplication Fix (`allo/dataflow.py`)
+## 2. `s.f2_layout()` Schedule Primitive (`allo/customize.py`)
+
+**What it does:**
+A single schedule call that applies the full F2 bank-conflict-free transform
+to a 1D buffer: rewrites to 2D, then automatically applies `partition`,
+`bind_storage`, and `dependence` pragmas.
+
+```python
+@wrapped_apply
+def f2_layout(self, target, n_bits, bank_bits, stride_bit=None, banking="cyclic"):
+    """Apply conflict-free bank partitioning to a 1D buffer."""
+    apply_f2_layout(self.module, func_name, buf_name, self.func_args,
+                    n_bits, bank_bits, stride_bit, banking=banking)
+    self.partition(target_buf, partition_type=Partition.Complete, dim=1)
+    self.bind_storage(f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p")
+    self.dependence(f"{func_name}:{buf_name}")
+```
+
+**Usage in test_fft.py:**
+```python
+def _apply_f2_partitions(s):
+    # Inter stages: cyclic F2 XOR swizzle
+    for stage in range(3):
+        stride_bit = stage + 5
+        for buf in ["in_re", "in_im", "out_re_b", "out_im_b"]:
+            s.f2_layout(f"inter_{stage}:{buf}",
+                n_bits=LOG2_N, bank_bits=LOG2_WIDTH, stride_bit=stride_bit)
+
+    # Bit-rev stage: block banking
+    for bn in ["buf_re", "buf_im"]:
+        s.f2_layout(f"bit_rev_stage_0:{bn}",
+            n_bits=LOG2_N, bank_bits=LOG2_WIDTH, banking="block")
+```
+
+The generated HLS pragmas per buffer:
+```cpp
+#pragma HLS array_partition variable=in_re complete dim=1
+#pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram
+#pragma HLS dependence variable=in_re inter false
+```
+
+---
+
+## 3. Writing HLS-Friendly Index Expressions
+
+**This is the most critical performance consideration for achieving II=1.**
+
+When a loop is unrolled (`#pragma HLS unroll`), HLS must statically prove that
+each unrolled iteration accesses a **different bank**. If it cannot, it
+serializes the accesses and II degrades (e.g., II=16 instead of II=1).
+
+### The problem: opaque index chains
+
+A generic F2 swizzle applied to a complex linear index produces:
+
+```
+bank = (il & 31) ^ (((il >> stride_bit) & 1) << 4)
+```
+
+where `il` involves multiple shifts, masks, and ORs of loop variables. HLS sees
+a long chain of dependent bit operations and **cannot simplify** this to prove
+that `bank(k=0) != bank(k=1) != ... != bank(k=15)`.
+
+### The solution: expose the unrolled variable in bank-select bits
+
+Restructure the index so the unrolled loop variable `k` directly occupies the
+lower bank-select bits **by construction**:
+
+```python
+# COMPUTE loop: k is unrolled (0..15), i is the pipelined outer loop
+raw_bank: uint32 = k | ((i & 1) << 4)    # bits [4:0] = {i&1, k[3:0]}
+il: uint32 = (offset << LOG2_WIDTH) | raw_bank
+```
+
+Now when the F2 transform computes `bank = il & 31`:
+
+```
+il & 31 = ((offset << 5) | raw_bank) & 31
+        = raw_bank & 31
+        = raw_bank
+        = k | ((i & 1) << 4)
+```
+
+Since `k` is the unrolled variable (0..15), the lower 4 bits are just `k` --
+**trivially distinct** across unrolled iterations. HLS proves this with basic
+bit-level reasoning.
+
+The XOR swizzle only flips bit 4: `bank = raw_bank ^ (xor_bit << 4)`.
+Bits [3:0] remain `k`, so distinctness is preserved:
+
+```
+bank[3:0] = k            <- distinct for k=0..15
+bank[4]   = (i&1) ^ xor_bit  <- same across all k values
+```
+
+### Rules for writing bank-conflict-free kernels
+
+1. **The unrolled loop variable must be the bank index (lower bits).**
+   Write `idx = (offset << LOG2_WIDTH) | k`, not `idx = offset * WIDTH + k`
+   followed by `bank = idx & (WIDTH-1)`.
+
+2. **Separate offset computation from bank computation.** Compute the offset
+   from the outer loop variable, then OR in the bank bits. Don't mix them into
+   a single arithmetic expression.
+
+3. **Use `uint32` types for bitwise index expressions.** This forces the Allo
+   builder to use `memref.load/store` (non-affine) instead of `affine.load/store`,
+   which is required for `<<`, `|`, `&`, `^` operations. The LOAD/WRITE loops
+   can still use affine-compatible `i * WIDTH + k` since they access sequentially.
+
+4. **Avoid redundant temporaries.** Each `x: int32 = expr` in Allo creates a
+   `memref<i32>` alloca + store + load. Subsequent operations on the loaded
+   value may get sign-extended to `i64` by MLIR. Minimize intermediate variables
+   and prefer direct expressions with loop variables where possible.
+
+### Performance impact
+
+| Index pattern | HLS bank proof | Achieved II |
+|---|---|---|
+| `bank = (complex_linear_idx & 31) ^ (...)` | Cannot prove | II=16 |
+| `bank = k \| ((i & 1) << 4)` (k in lower bits) | Trivially provable | II=1 |
+
+---
+
+## 4. `_build_top` Deduplication Fix (`allo/dataflow.py`)
 
 **Problem fixed:**
 When a dataflow region had shared I/O arrays used by multiple kernels (e.g.,
@@ -71,7 +216,7 @@ Changed the deduplication key in `_build_top` from `dtensor.name` to
 
 ---
 
-## 3. New Schedule Primitives (`allo/customize.py`)
+## 5. Other Schedule Primitives (`allo/customize.py`)
 
 ### `s.bind_storage(target, impl, storage_type="")`
 
@@ -82,13 +227,7 @@ Emits `#pragma HLS bind_storage variable=<buf> type=<storage_type> impl=<impl>`.
 | `impl` | `"bram"`, `"uram"`, `"lutram"`, `"srl"` |
 | `storage_type` | `""` (auto), `"ram_1p"`, `"ram_2p"`, `"ram_t2p"`, `"ram_s2p"` |
 
-**Example:**
-```python
-s.bind_storage("inter_5_0:in_re", impl="lutram", storage_type="ram_2p")
-```
-Emits: `#pragma HLS bind_storage variable=in_re type=ram_2p impl=lutram`
-
-`ram_2p` enables dual-port access, which is required for HLS DATAFLOW ping-pong
+`ram_2p` enables dual-port access, required for HLS DATAFLOW ping-pong
 buffering (one port writes new data while another reads previous call's data).
 
 ### `s.dependence(target, dep_type="inter", direction="false")`
@@ -99,15 +238,14 @@ Suppresses conservative false loop-carried dependency analysis by HLS, enabling
 II=1 for loops that compute butterfly indices via XOR expressions that HLS cannot
 easily prove are conflict-free.
 
-**Example:**
-```python
-s.dependence("inter_5_0:out_re_b")
-```
-Emits: `#pragma HLS dependence variable=out_re_b inter false`
+### `s.partition_global(name_prefix)`
+
+Marks all `memref.GlobalOp` constants whose `sym_name` starts with the given
+prefix for complete array partitioning.  Used for twiddle ROMs (`twr`, `twi`).
 
 ---
 
-## 4. `pipeline_outer` Mode in `create_data_movement` (`allo/ir/transform.py`)
+## 6. `pipeline_outer` Mode in `create_data_movement` (`allo/ir/transform.py`)
 
 **Problem:**
 The default `create_data_movement` emits a single loop nest where the innermost
@@ -120,259 +258,176 @@ A 4-element mapping tuple `(loop_bounds, src_pattern, dst_pattern, True)` enable
 `pipeline_outer` mode: the outer loop gets `pipeline_ii=1 rewind` and the
 innermost loop gets `unroll` (full unroll, factor=0).
 
-```python
-# In allo/ir/transform.py:
-pipeline_outer = False
-if mapping is not None:
-    if len(mapping) == 4:
-        loop_bounds, src_pattern, dst_pattern, pipeline_outer = mapping
-    else:
-        loop_bounds, src_pattern, dst_pattern = mapping
-...
-if pipeline_outer and len(for_loops) >= 2:
-    for_loops[0].attributes["pipeline_ii"] = IntegerAttr.get(UInt32, 1)
-    for_loops[0].attributes["rewind"] = UnitAttr.get()
-    for_loops[-1].attributes["unroll"] = IntegerAttr.get(UInt32, 0)
-else:
-    for_loops[-1].attributes["pipeline_ii"] = IntegerAttr.get(UInt32, 1)
-    for_loops[-1].attributes["rewind"] = UnitAttr.get()
-```
-
 **Important:** `unroll` must be `IntegerAttr(UInt32, 0)`, **not** `UnitAttr`.
-`EmitVivadoHLS.cpp` calls `dyn_cast<IntegerAttr>(factor).getValue()` — a
-`UnitAttr` causes a null-dereference segfault.  Value `0` emits
-`#pragma HLS unroll` (no factor) per the `if (val == 0)` branch in
-`emitLoopDirectives`.
-
-**Result:**
-```cpp
-void load_buf0(float v0[256], float v1[8][32]) {
-  #pragma HLS array_partition variable=v1 complete dim=2
-  for (int i = 0; i < 8; i++) {
-    #pragma HLS pipeline II=1 rewind
-    for (int k = 0; k < 32; k++) {
-      #pragma HLS unroll
-      v1[i][k] = v0[i * 32 + k];
-    }
-  }
-}
-```
-Reduces load_buf latency from 256 to 8 cycles.
+`EmitVivadoHLS.cpp` calls `dyn_cast<IntegerAttr>(factor).getValue()` -- a
+`UnitAttr` causes a null-dereference segfault.
 
 ---
 
-## 5. Vectorized FFT-256 with F2 Swizzle (`tests/dataflow/test_fft.py`)
+## 7. Vectorized FFT-256 (`tests/dataflow/test_fft.py`)
 
-### 5a. Vectorized I/O Interface
+### Architecture
 
-Top-level I/O uses `float32[NUM_VECS, WIDTH]` = `float32[8, 32]` instead of flat
-`float32[N]`. This enables vectorized load_buf (8 × II=1 outer loop with 32-way
-unrolled inner) instead of a flat 256-iteration loop. Configured via:
-
-```python
-_IO_MAPPINGS = [
-    ([NUM_VECS, WIDTH], None, None, True),  # inp_re (pipeline_outer mode)
-    ...
-]
-```
-
-The `True` flag triggers `pipeline_outer` mode in `create_data_movement`
-(`allo/ir/transform.py`): outer loop gets `pipeline_ii=1` + `rewind`, inner loop
-gets `unroll` attribute = 0 (full unroll).
-
-### 5b. Vectorized bit_rev_stage
-
-Restructured from a flat 256-iteration loop to a 2-phase 8-iteration structure:
-
-**LOAD phase** (`ii` outer, `kk` inner, II=1):
-- 2D buffer `buf_re[32][8]` with `array_partition complete dim=1`
-- Writes `buf_re[bit_rev5(kk)][bit_rev3(ii)] = local_re[ii][kk]`
-- bit_rev5 is a bijection on kk → 32 distinct banks → no conflicts
-
-**WRITE phase** (`jj` outer, `mm` inner, II=1):
-- Reads sequentially: `buf_re[rd_bank][rd_off]` where
-  `rd_bank = (jj << 2) | (mm >> 3)`, `rd_off = mm & 7`
-- Packs 32-element chunks into block streams
-
-Key insight: uses loop variables directly (native `int`) instead of `int32`
-temporaries to avoid MLIR sign-extension widening to `i64`.
-
-`s.dataflow("bit_rev_stage_0")` enables LOAD and WRITE to overlap as concurrent
-sub-functions, halving the latency from 16 to 8 cycles.
-
-### 5c. Bit arithmetic rule: use loop variables, not int32 temporaries
-
-MLIR loads from `memref<i32>` allocas produce SSA values that get sign-extended
-to `i64` when combined with integer constants in `&` or arithmetic ops. Loop
-induction variables are direct i32 SSA values and avoid this.
-
-**Pattern to avoid:**
-```python
-out_idx: int32 = (jj << LOG2_WIDTH) | mm  # stored in memref<i32>
-rd_off: int32 = out_idx & 7               # sext → int64_t in HLS!
-```
-
-**Correct pattern:**
-```python
-rd_bank: int32 = (jj << 2) | (mm >> LOG2_NUM_VECS)  # loop vars → stays int32
-rd_off: int32 = mm & 7                               # loop var → stays int32
-```
-
-**What it is:**
-A complete, annotated Allo dataflow implementation of a radix-2 DIT FFT for
-N=256 with WIDTH=32 SIMD parallelism, producing HLS code equivalent to
-`gemini-fft.prj/kernel.cpp`.
+The frontend uses **plain 1D arrays** (`float32[N]`) inside kernels. The
+compiler's `s.f2_layout()` transform automatically rewrites them to 2D
+bank-conflict-free layouts for HLS.
 
 ### Pipeline structure
 
 ```
-bit_rev_stage → intra_0 → intra_1 → intra_2 → intra_3 → intra_4
-              → inter_5 → inter_6 → inter_7 → output_stage
+bit_rev_stage -> intra_0 -> intra_1 -> intra_2 -> intra_3 -> intra_4
+              -> inter_0 -> inter_1 -> inter_2 -> output_stage
 ```
 
-- **`bit_rev_stage`**: Loads input in bit-reversed order into block streams
-  of width 32.
-- **`intra_0..4`** (5 stages): Intra-vector butterfly stages (STRIDE < WIDTH).
-  Operate entirely within each 32-element SIMD block; no bank conflicts.
-- **`inter_5..7`** (3 stages): Inter-vector butterfly stages (STRIDE >= WIDTH).
-  Use F2-swizzled 2D buffers to avoid bank conflicts.
-- **`output_stage`**: Drains block streams to the output arrays.
+- **`bit_rev_stage`**: 1D `float32[N]` buffers, inline 8-bit reversal.
+  Compiler transforms to 2D block-banked layout (`bank = addr >> 3`).
+- **`intra_0..4`** (5 stages): Intra-vector butterflies (STRIDE < WIDTH).
+  Operate within each 32-element chunk; no bank conflicts.
+  Trivial/minus-j butterfly elimination (`tw_k == 0` / `tw_k == 64`) saves
+  35 DSPs across intra stages.
+- **`inter_0..2`** (3 stages): Inter-vector butterflies (STRIDE >= WIDTH).
+  1D `float32[N]` buffers with restructured index expressions (see Section 3).
+  Compiler transforms to 2D cyclic F2 XOR-swizzled layout.
+- **`output_stage`**: Drains final stream to output.
 
-### Memory layout for inter-vector stages
+### I/O interface
 
-Each inter-vector kernel uses four 2D local buffers:
+Top-level uses `Stream[float32[WIDTH], 2]` (block streams of 32 floats).
+No `load_buf`/`store_res` wrappers needed.
+
+### Inter-vector kernel structure (1D frontend code)
+
 ```python
-in_re:   float32[32, 8]   # [num_banks=WIDTH, depth=N/WIDTH]
-in_im:   float32[32, 8]
-out_re_b: float32[32, 8]
-out_im_b: float32[32, 8]
+@df.kernel(mapping=[3])
+def inter():
+    s_rel = df.get_pid()
+    in_re: float32[N]       # 1D -- compiler transforms to float32[32, 8]
+    out_re_b: float32[N]
+
+    # LOAD: affine-compatible indexing (i * WIDTH + k)
+    for i in range(NUM_VECS):
+        for k in range(WIDTH):
+            in_re[i * WIDTH + k] = chunk_re[k]
+
+    # COMPUTE: restructured index with k in lower bits
+    for i in range(NUM_VECS):
+        for k in range(16):
+            raw_bank: uint32 = k | ((i & 1) << 4)
+            il: uint32 = (off_il << LOG2_WIDTH) | raw_bank
+            iu: uint32 = (off_iu << LOG2_WIDTH) | raw_bank
+            # ... butterfly using in_re[il], in_re[iu], etc.
+
+    # WRITE: affine-compatible indexing (i * WIDTH + k)
+    for i in range(NUM_VECS):
+        for k in range(WIDTH):
+            chunk_re_out[k] = out_re_b[i * WIDTH + k]
 ```
-With HLS pragma (injected via `s.partition`):
-```cpp
-#pragma HLS array_partition variable=in_re complete dim=1
-```
 
-This matches the structure in `gemini-fft.prj/kernel.cpp`.
+Key design choices:
+- LOAD/WRITE use `i * WIDTH + k` (affine-compatible: `*` and `+` are valid
+  affine ops in MLIR). This avoids `AffineDimExpr` errors from `<<` and `|`.
+- COMPUTE uses `uint32` types with `<<`, `|`, `&` (forces non-affine
+  `memref.load/store` fallback), with `k` in the lower bits for bank
+  distinctness.
 
-### XOR swizzle formulas (inline in kernel)
+### Bit-reversal kernel (1D frontend code)
 
-For each inter-vector stage with stride bit `s`:
 ```python
-bank = (idx & (WIDTH - 1)) ^ (((idx >> s) & 1) << (LOG2_WIDTH - 1))
-offset = idx >> LOG2_WIDTH
+@df.kernel(mapping=[1])
+def bit_rev_stage():
+    buf_re: float32[N]      # 1D -- compiler transforms to float32[32, 8]
+
+    for ii in range(NUM_VECS):
+        for kk in range(WIDTH):
+            idx: uint32 = (ii << LOG2_WIDTH) | kk
+            rev: uint32 = <8-bit reversal of idx>
+            buf_re[rev] = chunk_in_re[kk]
+
+    for jj in range(NUM_VECS):
+        for mm in range(WIDTH):
+            chunk_re[mm] = buf_re[jj * WIDTH + mm]
 ```
 
-Stage-specific:
-- `inter_5`: `bank = k ^ ((i & 1) << 4)`         (stride_bit=5, STRIDE=32)
-- `inter_6`: `bank = k ^ (((i >> 1) & 1) << 4)`  (stride_bit=6, STRIDE=64)
-- `inter_7`: `bank = k ^ (((i >> 2) & 1) << 4)`  (stride_bit=7, STRIDE=128)
-
-### HLS codegen verification
-
-The generated HLS C++ code includes:
-- `hls::vector<float, 32>` block-stream types
-- `#pragma HLS array_partition variable=... complete dim=1`
-- XOR arithmetic for conflict-free bank indexing
-- `#pragma HLS pipeline II=1` on inner loops
+Block banking (`bank = addr >> 3`, `offset = addr & 7`) works because
+bit-reversal scatters writes across all 32 banks (a bijection), and the
+sequential read phase accesses contiguous blocks.
 
 ### Tests
 
 | Test | What it checks |
 |---|---|
 | `test_fft_8` | Scalar HP-FFT correctness (N=8) via simulator |
-| `test_fft_256_vectorized` | Vectorized N=256 FFT correctness via simulator |
-| `test_fft_256_hls_codegen` | HLS codegen has `array_partition`, `hls::vector`, XOR ops |
+| `test_fft_256_vectorized` | HLS codegen: streams, vectors, partitions, XOR ops |
+| `test_fft_256_hls_codegen` | Full HLS pragma verification (all pragmas present) |
+| `test_fft_256_simulator` | Functional correctness via LLVM simulator |
 | `test_fft_256_csyn` | Full Vitis HLS C-synthesis (skipped if HLS not available) |
 
 ---
 
-## 6. Scalar HP-FFT (`tests/dataflow/test_fft.py`)
-
-A simple reference implementation using the Allo dataflow `mapping` API:
-- `input_loader`: `mapping=[N]` — one PE per element, handles bit-reversal
-- `butterfly`: `mapping=[LOG2_N, HALF_N]` — one PE per butterfly instance
-- `output_store`: `mapping=[N]`
-
-This serves as the functional baseline for the vectorized implementation.
-
----
-
-## 7. Full Optimization Pass (`_apply_f2_optimizations`)
+## 8. Full Optimization Pass (`_apply_f2_optimizations`)
 
 ```python
 def _apply_f2_optimizations(s):
-    # 1. ARRAY_PARTITION complete dim=1 on all inter-stage 2D buffers
+    # 1. F2 layout: 1D -> 2D with partition + bind_storage + dependence
     _apply_f2_partitions(s)
-    # 2. BIND_STORAGE ram_2p lutram + DEPENDENCE inter false on buffers
-    for kn in inter_kernels:
-        for bn in bufs:
-            s.bind_storage(f"{kn}:{bn}", impl="lutram", storage_type="ram_2p")
-            s.dependence(f"{kn}:{bn}")
-    # 3. DATAFLOW on inter-stage kernels (sub-function pipeline, II=8)
-    for kn in inter_kernels:
+    # 2. Partition twiddle ROMs for parallel access from unrolled k-loops
+    s.partition_global("twr")
+    s.partition_global("twi")
+    # 3. DATAFLOW on inter stages + bit_rev (sub-function pipeline)
+    for kn in ["inter_0", "inter_1", "inter_2"]:
         s.dataflow(kn)
-    # 4. PIPELINE II=1 on all outer loops + UNROLL on all inner k loops
-    # (bit_rev, intra_0..4, inter_5..7, output_stage)
+    s.dataflow("bit_rev_stage_0")
+    # 4. PIPELINE II=1 on outer loops + UNROLL on inner k loops
+    # (bit_rev, intra_0..4, inter_0..2, output_stage)
 ```
-
-This achieves:
-- Intra stages: II=1 (8 cycles per call, pipeline on outer `_i` loop)
-- Inter stages: II=8 (dataflow sub-pipelining of load/compute/write)
-- Bit-rev stage: II=256 (load) + II=8 (write)
-- Overall throughput: 1 FFT per ~N*LOG2_N/WIDTH = 64 cycles
 
 ---
 
-## 8. HLS Codegen Fixes (Closing the Performance Gap)
+## 9. HLS Codegen Fixes
 
-### `ap_int<65>` → `int64_t` (`mlir/lib/Translation/EmitVivadoHLS.cpp`)
+### `ap_int<65>` -> `int64_t` (`mlir/lib/Translation/EmitVivadoHLS.cpp`)
 
 MLIR conservatively widens signed integer arithmetic: `i64 + i32` produces an
 `i65` result type to prevent overflow.  The previous HLS emitter mapped any
 non-standard-width integer to `ap_int<N>`, generating `ap_int<65>` for all
-index arithmetic — expensive in HLS (uses 2 DSPs and is slow to synthesize).
+index arithmetic -- expensive in HLS (uses 2 DSPs and is slow to synthesize).
 
-**Fix**: integers with width 33–65 are now emitted as `int64_t`/`uint64_t`.
-This eliminates all 72 `ap_int<65>` occurrences in the FFT-256 HLS output.
+**Fix**: integers with width 33-65 are now emitted as `int64_t`/`uint64_t`.
 
 ### `disable_start_propagation` on DATAFLOW functions
 
 Function-level `#pragma HLS dataflow` now always includes
-`disable_start_propagation`, matching the reference `kernel.cpp` behavior for
-all inter-stage sub-function pipelines.
+`disable_start_propagation`, matching the reference `kernel.cpp` behavior.
 
-### `s.partition_global(name_prefix)` schedule primitive
-
-Marks all `memref.GlobalOp` constants whose `sym_name` starts with the given
-prefix for complete array partitioning.  `EmitVivadoHLS.cpp` emits:
-```cpp
-#pragma HLS array_partition variable=twr_3 complete
-```
-after the global declaration.  Used in `_apply_f2_optimizations` to partition
-all twiddle ROM copies (`twr`, `twr_0`…`twr_3`, `twi`, `twi_0`…`twi_3`),
-enabling parallel lookup from unrolled k-loops.
-
-### Redundant zero-initializer removal (test_fft.py)
+### Redundant zero-initializer removal
 
 All `= 0` initializers on arrays that are fully written before being read have
-been removed:
-
-| Location | Arrays | Reason safe to remove |
-|---|---|---|
-| `bit_rev_stage` | `buf_re[256]`, `buf_im[256]` | Bit-reversal loop is a bijection |
-| `intra_0..4` | `o_re[32]`, `o_im[32]` | k loop writes all 32 elements |
-| `inter_5..7` write | `chunk_re[32]`, `chunk_im[32]` | k loop writes all 32 elements |
-| `bit_rev_stage` write | `chunk_re[32]`, `chunk_im[32]` | k loop writes all 32 elements |
-
-Removing these eliminates init loops that appeared _inside_ `#pragma HLS pipeline`
-loops, which would prevent II=1.
+been removed. These create init loops inside `#pragma HLS pipeline` loops,
+preventing II=1.
 
 ---
 
-## Performance Target
+## 10. Synthesis Results (Vitis HLS 2023.2)
 
-The goal is HLS output matching `gemini-fft.prj/kernel.cpp`:
-- Throughput: 1 FFT per `N * LOG2_N / WIDTH` cycles = 256 * 8 / 32 = 64 cycles
-- II = 1 for all pipelined inner loops
-- No bank conflicts (verified by F2 solver)
-- Full `complete dim=1` partitioning on all inter-vector buffers
+Target device: `xcvp1802-lsvc4072-3HP-e-S` (Versal Premium)
+
+| Metric | Value |
+|---|---|
+| **Latency** | **94 cycles** |
+| **Interval** | **19 cycles** |
+| **DSP** | 328 (2%) |
+| **BRAM** | 0 |
+| **FF** | 262,072 (3%) |
+| **LUT** | 276,402 (8%) |
+
+All pipelined loops achieve II=1. Inter-stage compute loops achieve II=1
+thanks to the restructured index expressions (Section 3) and F2 XOR swizzle.
+
+Per-stage breakdown:
+- `bit_rev_stage_0`: 26 cycles (dataflow: load 10 + write 10, overlapped)
+- `intra_0..1`: 14 cycles each (no twiddle multiply)
+- `intra_2..4`: 18 cycles each (with twiddle multiply, 32/48/56 DSPs)
+- `inter_0..2`: 40 cycles each (dataflow: load 10 + compute 18 + write 10)
+- `output_stage_0`: 10 cycles
+
+HLS project: `tests/dataflow/fft_hls_prj/fft_256_prj/`
