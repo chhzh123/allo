@@ -112,6 +112,73 @@ class ASTBuilder(ASTVisitor):
                 return res
 
 
+class _FoldInfo:
+    """Marker for a folded PE dimension.
+
+    Stored in ``ctx.global_vars["df.p{axis}"]`` so that ``get_pid()`` can
+    emit dynamic MLIR ops (outer * factor + fold_iv) instead of a constant.
+    """
+
+    __slots__ = ("outer_val", "factor", "fold_var_name")
+
+    def __init__(self, outer_val, factor, fold_var_name):
+        self.outer_val = outer_val
+        self.factor = factor
+        self.fold_var_name = fold_var_name
+
+
+def _is_array_decl(stmt):
+    """Check if a statement is an uninitialized array declaration.
+
+    Array declarations like ``buf: float32[N]`` (AnnAssign with no value
+    and a subscript annotation) should be hoisted outside fold loops so
+    the buffer is shared across all fold iterations.
+    """
+    if not isinstance(stmt, ast.AnnAssign):
+        return False
+    if stmt.value is not None:
+        return False
+    # Subscript annotation means array type (e.g., float32[N])
+    return isinstance(stmt.annotation, ast.Subscript)
+
+
+def _wrap_body_with_fold_loops(body, fold):
+    """Wrap kernel body AST in ``for _fold_{axis} in range(factor, unroll=True)``
+    loops for each folded dimension.
+
+    Array declarations (uninitialized ``AnnAssign`` with subscript type) are
+    hoisted outside the fold loop so the buffer is shared across iterations.
+    This is necessary for auto_f2 to detect bank conflicts from the
+    unrolled access pattern.
+    """
+    # Separate array declarations from the rest of the body
+    hoisted = [s for s in body if _is_array_decl(s)]
+    inner = [s for s in body if not _is_array_decl(s)]
+
+    wrapped = inner
+    for axis in sorted(fold.keys(), reverse=True):
+        factor = fold[axis]
+        fold_var = f"_fold_{axis}"
+        fold_loop = ast.For(
+            target=ast.Name(id=fold_var, ctx=ast.Store()),
+            iter=ast.Call(
+                func=ast.Name(id="range", ctx=ast.Load()),
+                args=[ast.Constant(value=factor)],
+                keywords=[
+                    ast.keyword(arg="unroll", value=ast.Constant(value=True))
+                ],
+            ),
+            body=wrapped,
+            orelse=[],
+            lineno=body[0].lineno if body else 0,
+            col_offset=body[0].col_offset if body else 0,
+            end_lineno=None,
+            end_col_offset=None,
+        )
+        wrapped = [fold_loop]
+    return hoisted + wrapped
+
+
 # pylint: disable=too-many-public-methods
 class ASTTransformer(ASTBuilder):
     # to resolve global variable naming conflict
@@ -1174,9 +1241,34 @@ class ASTTransformer(ASTBuilder):
                 and node.value.func.attr == "get_pid"
             ):
                 for i, target in enumerate(targets):
-                    # TODO: add target symbol for pid?? # pid = MockConstant(ctx.global_vars[f"df.p{i}"], ctx, dtype=Index())
-                    ctx.global_vars[ast.unparse(target)] = ctx.global_vars[f"df.p{i}"]
-                    ctx.symbolic[ast.unparse(target)] = f"p{i}"
+                    target_name = ast.unparse(target)
+                    val = ctx.global_vars[f"df.p{i}"]
+                    if isinstance(val, _FoldInfo):
+                        # Folded dimension: pid = outer * factor + fold_iv
+                        fold_iv_mock = ctx.get_symbol(val.fold_var_name)
+                        fold_iv = fold_iv_mock.val  # index-typed MLIR SSA value
+                        idx_type = fold_iv.type
+                        offset = val.outer_val * val.factor
+                        const_op = arith_d.ConstantOp(
+                            idx_type,
+                            IntegerAttr.get(idx_type, offset),
+                            ip=ctx.get_ip(),
+                        )
+                        add_op = arith_d.AddIOp(
+                            const_op.result, fold_iv, ip=ctx.get_ip()
+                        )
+                        # Cast from index to i32 to match MockConstant behavior
+                        i32 = IntegerType.get_signless(32)
+                        cast_op = arith_d.IndexCastOp(
+                            i32, add_op.result, ip=ctx.get_ip()
+                        )
+                        ctx.put_symbol(
+                            target_name,
+                            MockArg(cast_op.result, is_affine=True),
+                        )
+                    else:
+                        ctx.global_vars[target_name] = val
+                    ctx.symbolic[target_name] = f"p{i}"
                 return None
             rhs = build_stmt(ctx, node.value)
             rhs_visited = True
@@ -1871,16 +1963,28 @@ class ASTTransformer(ASTBuilder):
                     f"ConstExpr variable '{node.target.id}' must be initialized"
                 )
             try:
-                # We need to evaluate the expression in the context of global_vars
-                # Construct an expression from node.value
                 expr = ast.Expression(node.value)
                 code = compile(expr, filename="<string>", mode="eval")
                 val = eval(code, ctx.global_vars)
                 ctx.global_vars[node.target.id] = val
-                # Also put in current scope to avoid lookup failure if shadowed?
-                # But builder prefers get_symbol.
-                # Types/Values in global_vars are handled by build_Name.
                 return None
+            except NameError as e:
+                # Check if this is caused by a folded pid dimension
+                has_fold = any(
+                    isinstance(v, _FoldInfo)
+                    for v in ctx.global_vars.values()
+                )
+                hint = (
+                    " Folded pid dimensions are dynamic values and "
+                    "cannot be used in ConstExpr. Use runtime "
+                    "expressions instead."
+                    if has_fold
+                    else ""
+                )
+                raise RuntimeError(
+                    f"Failed to evaluate ConstExpr "
+                    f"'{node.target.id}': {e}.{hint}"
+                ) from e
             except Exception as e:
                 raise RuntimeError(
                     f"Failed to evaluate ConstExpr '{node.target.id}': {e}"
@@ -2027,13 +2131,54 @@ class ASTTransformer(ASTBuilder):
                                 ast.unparse(decorator.keywords[0].value),
                                 ctx.global_vars,
                             )
+                            # Parse fold keyword: fold={axis: factor}
+                            # Use eval (not get_kwarg_value) to resolve variables
+                            fold = None
+                            for kw in decorator.keywords:
+                                if kw.arg == "fold":
+                                    fold = eval(
+                                        ast.unparse(kw.value),
+                                        ctx.global_vars,
+                                    )
+                                    break
+                            if fold is not None:
+                                # Validate fold config
+                                assert isinstance(fold, dict), (
+                                    "fold must be a dict, e.g. fold={1: 32}"
+                                )
+                                for axis, factor in fold.items():
+                                    assert isinstance(axis, int) and isinstance(
+                                        factor, int
+                                    ), "fold keys and values must be ints"
+                                    assert 0 <= axis < len(mapping), (
+                                        f"fold axis {axis} out of range"
+                                    )
+                                    assert mapping[axis] % factor == 0, (
+                                        f"fold factor {factor} must divide "
+                                        f"mapping[{axis}]={mapping[axis]}"
+                                    )
+                            # Compute reduced mapping for folded dimensions
+                            reduced_mapping = list(mapping)
+                            if fold:
+                                for axis, factor in fold.items():
+                                    reduced_mapping[axis] = (
+                                        mapping[axis] // factor
+                                    )
                             orig_name = node.name
                             if orig_name not in ctx.func_tag2instance:
                                 ctx.func_tag2instance[orig_name] = {}
                             # Initialize dict to store kernel instance names for call insertion
                             if not hasattr(ctx, "_kernel_instance_names"):
                                 ctx._kernel_instance_names = {}
-                            for dim in np.ndindex(*mapping):
+                            # Store fold info on ctx for call insertion
+                            if fold:
+                                if not hasattr(ctx, "_kernel_fold_info"):
+                                    ctx._kernel_fold_info = {}
+                                ctx._kernel_fold_info[orig_name] = (
+                                    fold,
+                                    reduced_mapping,
+                                )
+                            for dim in np.ndindex(*reduced_mapping):
                                 if not ctx.unroll:
                                     # If not unrolled, assign tag to each instance.
                                     # Different tags indeicate different execution (control flow only)
@@ -2053,9 +2198,18 @@ class ASTTransformer(ASTBuilder):
                                 new_ctx.scopes = old_ctx.scopes
                                 new_ctx.global_vars = old_ctx.global_vars.copy()
                                 for axis, val in enumerate(dim):
-                                    new_ctx.global_vars.update(
-                                        {"df.p" + str(axis): val}
-                                    )
+                                    if fold and axis in fold:
+                                        # For folded dims, store FoldInfo
+                                        # so get_pid() emits dynamic MLIR ops
+                                        new_ctx.global_vars[
+                                            "df.p" + str(axis)
+                                        ] = _FoldInfo(
+                                            val, fold[axis], f"_fold_{axis}"
+                                        )
+                                    else:
+                                        new_ctx.global_vars.update(
+                                            {"df.p" + str(axis): val}
+                                        )
                                 # Set the current rank for np_values_for_pid lookup
                                 new_ctx.rank = dim
                                 node.name = construct_kernel_name(orig_name, dim)
@@ -2087,6 +2241,12 @@ class ASTTransformer(ASTBuilder):
                                         and d.func.attr == "kernel"
                                     )
                                 ]
+
+                                # For folded dimensions, wrap body in fold loops
+                                if fold:
+                                    new_node.body = _wrap_body_with_fold_loops(
+                                        new_node.body, fold
+                                    )
 
                                 func_op = ASTTransformer.build_FunctionDef(
                                     new_ctx, new_node
@@ -2231,6 +2391,15 @@ class ASTTransformer(ASTBuilder):
                                     ast.unparse(decorator.keywords[0].value),
                                     ctx.global_vars,
                                 )
+                                # Use reduced mapping if fold was applied
+                                call_mapping = mapping
+                                if (
+                                    hasattr(ctx, "_kernel_fold_info")
+                                    and stmt.name in ctx._kernel_fold_info
+                                ):
+                                    _, call_mapping = ctx._kernel_fold_info[
+                                        stmt.name
+                                    ]
                                 # Get arguments
                                 args_kw = get_kwarg_value(decorator.keywords, "args")
                                 if args_kw is not None:
@@ -2242,7 +2411,7 @@ class ASTTransformer(ASTBuilder):
                                 else:
                                     arg_values = []
                                 # Insert calls
-                                for dim in np.ndindex(*mapping):
+                                for dim in np.ndindex(*call_mapping):
                                     # Use stored kernel name from ctx (set during kernel definition)
                                     # This ensures call uses the exact same name as definition
                                     key = (stmt.name, dim)
@@ -3143,11 +3312,30 @@ class ASTTransformer(ASTBuilder):
                 res = []
                 for i in range(3):
                     if f"df.p{i}" in ctx.global_vars:
-                        res.append(
-                            MockConstant(
-                                ctx.global_vars[f"df.p{i}"], ctx, dtype=Index()
+                        val = ctx.global_vars[f"df.p{i}"]
+                        if isinstance(val, _FoldInfo):
+                            # Folded dimension: build dynamic pid
+                            fold_iv_mock = ctx.get_symbol(val.fold_var_name)
+                            fold_iv = fold_iv_mock.val
+                            idx_type = fold_iv.type
+                            offset = val.outer_val * val.factor
+                            const_op = arith_d.ConstantOp(
+                                idx_type,
+                                IntegerAttr.get(idx_type, offset),
+                                ip=ctx.get_ip(),
                             )
-                        )
+                            add_op = arith_d.AddIOp(
+                                const_op.result,
+                                fold_iv,
+                                ip=ctx.get_ip(),
+                            )
+                            res.append(
+                                MockArg(add_op.result, is_affine=True)
+                            )
+                        else:
+                            res.append(
+                                MockConstant(val, ctx, dtype=Index())
+                            )
                 return tuple(res)
             arg_types = []
             if isinstance(new_args[0].result, OpResultList):

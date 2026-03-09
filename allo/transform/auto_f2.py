@@ -597,6 +597,9 @@ def _determine_banking_mode(P, n_addr_bits, bank_bits):
     return ("cyclic", None)
 
 
+_debug_auto_f2 = False
+
+
 def auto_apply_f2(module, func_name, func_args, bank_bits=None,
                   kernel_names=None):
     """Analyze all 1D buffers in a function and apply F2 layouts automatically.
@@ -639,7 +642,11 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None,
     for fn_name, func_op in target_funcs:
         # Skip if not in func_args
         if fn_name not in func_args:
+            _debug_auto_f2 and print(
+                f"[auto_f2] skip {fn_name}: not in func_args"
+            )
             continue
+        _debug_auto_f2 and print(f"[auto_f2] analyzing {fn_name}")
 
         # Find all 1D alloc ops in this function
         allocs = []
@@ -669,6 +676,10 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None,
             has_unhandled_use = False
             for use in alloc_op.result.uses:
                 if use.owner.name not in _handled_ops:
+                    _debug_auto_f2 and print(
+                        f"  [auto_f2] {fn_name}:{buf_name} skip: "
+                        f"unhandled use {use.owner.name}"
+                    )
                     has_unhandled_use = True
                     break
             if has_unhandled_use:
@@ -677,6 +688,10 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None,
             n_addr_bits = int(math.log2(buf_size))
             P, parallel_var_bits, loop_info = analyze_buffer_conflicts(
                 func_op, alloc_op, n_addr_bits
+            )
+            _debug_auto_f2 and print(
+                f"  [auto_f2] {fn_name}:{buf_name} P={P.tolist()}, "
+                f"parallel_var_bits={parallel_var_bits}"
             )
 
             if P.shape[1] == 0:
@@ -696,11 +711,17 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None,
                 P, n_addr_bits, effective_bank_bits
             )
 
-            # Skip buffers where cyclic banking has no high stride bit.
-            # These are cases where all conflicts are in the low bank_bits
-            # (resolved by standard cyclic partition without XOR swizzle).
+            _debug_auto_f2 and print(
+                f"  [auto_f2] {fn_name}:{buf_name} mode={banking_mode} "
+                f"stride_bit={stride_bit} bank_bits={effective_bank_bits}"
+            )
+
+            # When all conflicts are in the lower bank_bits (no high
+            # stride bit), standard cyclic partition suffices (no XOR
+            # swizzle).  Use stride_bit=0 which produces an identity
+            # swizzle in apply_f2_layout.
             if banking_mode == "cyclic" and stride_bit is None:
-                continue
+                stride_bit = 0
 
             # For block banking, stride_bit holds offset_bits = n_bits - bank_bits
             effective_stride = stride_bit
@@ -717,10 +738,12 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None,
                                 effective_bank_bits, effective_stride))
             except Exception as e:
                 # If layout application fails, skip this buffer
-                import warnings
+                import warnings, traceback
                 warnings.warn(
                     f"auto_f2: failed to apply F2 layout to "
                     f"{fn_name}:{buf_name}: {e}"
                 )
+                if _debug_auto_f2:
+                    traceback.print_exc()
 
     return applied

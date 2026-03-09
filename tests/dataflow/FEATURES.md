@@ -560,3 +560,80 @@ Conflict subspace: P = span(e_0), dim=1 → bank = addr[0] = **cyclic factor 2**
 |---|---|
 | `test_fft_256_auto_f2` | Auto-F2 produces same HLS pragmas as manual f2_layout |
 | `f2_symbolic.py __main__` | 53 unit tests for F2Symbol operations and conflict subspace |
+
+---
+
+## 12. Grid Folding (`@df.kernel fold={...}`)
+
+**What it does:**
+Reduces PE count by converting spatial PEs into temporal (unrolled) loops.
+Users write simple fully-spatial kernels with large mappings, then specify
+which dimensions to fold and by what factor. The compiler automatically:
+
+1. Reduces the PE grid (fewer kernel function instances)
+2. Inserts unrolled loops inside each PE for the folded dimensions
+3. Computes dynamic `get_pid()` values as `outer * factor + loop_var`
+
+**Example:**
+```python
+# Without fold: 8 * 128 = 1024 PEs
+@df.kernel(mapping=[8, 128])
+def butterfly():
+    s, b = df.get_pid()
+    ...
+
+# With fold: 8 * 4 = 32 PEs, each with 32-iteration unrolled loop
+@df.kernel(mapping=[8, 128], fold={1: 32})
+def butterfly():
+    s, b = df.get_pid()  # s=constant, b=outer*32+loop_var
+    ...
+```
+
+**Key implementation details:**
+
+| Component | Description |
+|---|---|
+| `_FoldInfo` class | Marker stored in `ctx.global_vars["df.p{axis}"]` for folded dims |
+| `_wrap_body_with_fold_loops()` | Synthesizes `for _fold_{axis} in range(factor, unroll=True)` AST |
+| `get_pid()` assignment handler | Emits `arith.addi(outer*factor, fold_iv)` for folded dims |
+| `get_pid()` call handler | Same dynamic pid computation for call-form usage |
+| `_ast_to_value()` dict support | Enables `fold={1: 32}` dict literal parsing in decorators |
+
+**How it works:**
+
+1. **Parse**: Extract `fold={axis: factor}` from `@df.kernel` decorator keywords
+2. **Reduce**: Compute `reduced_mapping[axis] = mapping[axis] // factor`
+3. **Iterate**: `np.ndindex(*reduced_mapping)` creates fewer PE functions
+4. **Wrap**: Synthesize fold loop AST around the kernel body
+5. **Dynamic pid**: `get_pid()` emits MLIR ops (`arith.constant + arith.addi`)
+   instead of a compile-time constant for folded dimensions
+6. **Unroll**: Fold loops carry `unroll = 0 : ui32` attribute for full unrolling
+
+**Files modified:**
+- `allo/ir/builder.py` — PE expansion, `_FoldInfo`, `_wrap_body_with_fold_loops`
+- `allo/ir/infer.py` — fold-aware type inference
+- `allo/ir/utils.py` — `_ast_to_value` dict support
+
+### Tests
+
+| Test | What it checks |
+|---|---|
+| `test_fold_basic_compile` | 1D fold: 8 PEs → 2 PEs with 4-iter unrolled loop |
+| `test_fold_2d_compile` | 2D fold on dim 1: 4×8 → 4×2 PEs |
+| `test_fold_with_bitwise_ops` | XOR-based index patterns work with fold |
+| `test_fold_constexpr_guard` | ConstExpr on folded dim raises clear error |
+| `test_fold_with_auto_f2` | fold + auto_f2: 32-elem buf → 8×4 partitioned |
+
+**Declaration hoisting:**
+Array declarations (`buf: float32[N]`) inside folded kernels are automatically
+hoisted outside the fold loop. This ensures buffers are shared across unrolled
+iterations, which is essential for auto_f2 conflict detection.
+
+**ConstExpr guard:**
+Folded pid dimensions are dynamic values and cannot be used in `ConstExpr`
+(compile-time constant expressions). The compiler raises a clear error with
+a hint to use runtime expressions instead.
+
+**Streams inside folded kernels:**
+Folded kernels may not use streams inside the kernel body. Streams inside
+become normal arrays eligible for auto-partition via `s.auto_f2()`.

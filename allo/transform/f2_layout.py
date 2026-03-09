@@ -383,7 +383,7 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits,
         arith as arith_d,
         func as func_d,
     )
-    from ..ir.utils import MockBuffer
+    from ..ir.utils import MockBuffer, MockArg
     from ..ir.transform import find_buffer
 
     num_banks = 1 << bank_bits
@@ -395,6 +395,8 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits,
         func_op, _, old_alloc = find_buffer(module, target, func_args)
 
         # old_alloc should be a memref_d.AllocOp (not a MockArg)
+        if isinstance(old_alloc, MockArg):
+            return
         old_result = old_alloc.result
         elem_type = MemRefType(old_result.type).element_type
 
@@ -414,6 +416,8 @@ def apply_f2_layout(module, func_name, buf_name, func_args, n_bits, bank_bits,
 
         for use in uses:
             op = use.owner
+            if not hasattr(op, 'name'):
+                continue
             op_name = op.name
 
             if op_name == "memref.load":
@@ -508,7 +512,11 @@ def _compute_bank_indices(idx, num_banks, bank_bits, stride_bit, banking,
 
     # Avoid redundant index → i32 cast if idx is already from i32 → index cast
     defining_op = idx.owner
-    if defining_op is not None and defining_op.name == "arith.index_cast":
+    if (
+        defining_op is not None
+        and hasattr(defining_op, "name")
+        and defining_op.name == "arith.index_cast"
+    ):
         src = defining_op.operands[0]
         if str(src.type) == "i32":
             idx_i32_val = src
@@ -544,20 +552,25 @@ def _compute_bank_indices(idx, num_banks, bank_bits, stride_bit, banking,
         mask_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, num_banks - 1), ip=ip)
         bank_low = arith_d.AndIOp(idx_i32_val, mask_val.result, ip=ip)
 
-        # xor_bit = (offset >> (stride_bit - bank_bits)) & 1
-        rel_shift = stride_bit - bank_bits
-        one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)
-        if rel_shift > 0:
-            rel_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, rel_shift), ip=ip)
-            shifted_off = arith_d.ShRUIOp(offset_i32.result, rel_const.result, ip=ip)
-            bit = arith_d.AndIOp(shifted_off.result, one_val.result, ip=ip)
-        else:
-            bit = arith_d.AndIOp(offset_i32.result, one_val.result, ip=ip)
+        if stride_bit is not None and stride_bit >= bank_bits:
+            # XOR swizzle: xor_bit = (offset >> (stride_bit - bank_bits)) & 1
+            rel_shift = stride_bit - bank_bits
+            one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)
+            if rel_shift > 0:
+                rel_const = arith_d.ConstantOp(i32, IntegerAttr.get(i32, rel_shift), ip=ip)
+                shifted_off = arith_d.ShRUIOp(offset_i32.result, rel_const.result, ip=ip)
+                bit = arith_d.AndIOp(shifted_off.result, one_val.result, ip=ip)
+            else:
+                bit = arith_d.AndIOp(offset_i32.result, one_val.result, ip=ip)
 
-        # bank = raw_bank ^ (xor_bit << (bank_bits - 1))
-        shift_amt = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits - 1), ip=ip)
-        shifted_bit = arith_d.ShLIOp(bit.result, shift_amt.result, ip=ip)
-        bank_i32 = arith_d.XOrIOp(bank_low.result, shifted_bit.result, ip=ip)
+            # bank = raw_bank ^ (xor_bit << (bank_bits - 1))
+            shift_amt = arith_d.ConstantOp(i32, IntegerAttr.get(i32, bank_bits - 1), ip=ip)
+            shifted_bit = arith_d.ShLIOp(bit.result, shift_amt.result, ip=ip)
+            bank_i32 = arith_d.XOrIOp(bank_low.result, shifted_bit.result, ip=ip)
+        else:
+            # No XOR swizzle: plain cyclic partition
+            # bank = idx & (num_banks - 1)
+            bank_i32 = bank_low
 
     bank_idx = arith_d.IndexCastOp(index_type, bank_i32.result, ip=ip)
     offset_idx = arith_d.IndexCastOp(index_type, offset_i32.result, ip=ip)

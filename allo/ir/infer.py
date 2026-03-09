@@ -765,10 +765,22 @@ class TypeInferer(ASTVisitor):
                                     top_arg.dtype == dtype and top_arg.shape == shape
                                 ), f"df.kernel argument {arg.arg} do not match {top_arg_name.id}."
                                 arg.top_arg = top_arg_name.id
+                            # Parse fold keyword for reduced mapping
+                            fold = None
+                            for kw in decorator.keywords:
+                                if kw.arg == "fold":
+                                    fold = eval(
+                                        ast.unparse(kw.value),
+                                        ctx.global_vars,
+                                    )
+                            reduced_mapping = list(mapping)
+                            if fold:
+                                for ax, fac in fold.items():
+                                    reduced_mapping[ax] = mapping[ax] // fac
                             orig_name = node.name
                             old_ctx.func_predicate_tags[orig_name] = {}
                             if ctx.unroll:
-                                for dim in np.ndindex(*mapping):
+                                for dim in np.ndindex(*reduced_mapping):
                                     new_ctx = old_ctx.copy()
                                     new_ctx.rank = dim
                                     new_ctx.scopes = old_ctx.scopes
@@ -808,7 +820,7 @@ class TypeInferer(ASTVisitor):
                                             results.append(None)
                                     return results
 
-                                sample_dim = (0,) * len(mapping)
+                                sample_dim = (0,) * len(reduced_mapping)
                                 new_ctx = old_ctx.copy()
                                 new_ctx.rank = sample_dim
                                 new_ctx.scopes = old_ctx.scopes
@@ -821,7 +833,7 @@ class TypeInferer(ASTVisitor):
                                 # check on a specific df.kernel instance
                                 TypeInferer.visit_FunctionDef(new_ctx, node)
                                 node.name = orig_name
-                                for dim in np.ndindex(*mapping):
+                                for dim in np.ndindex(*reduced_mapping):
                                     pid_map = {
                                         f"p{idx}": value
                                         for idx, value in enumerate(dim)

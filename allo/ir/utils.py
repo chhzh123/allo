@@ -85,6 +85,11 @@ def _ast_to_value(node):
         return [_ast_to_value(elt) for elt in node.elts]
     if isinstance(node, ast.Tuple):
         return tuple(_ast_to_value(elt) for elt in node.elts)
+    if isinstance(node, ast.Dict):
+        return {
+            _ast_to_value(k): _ast_to_value(v)
+            for k, v in zip(node.keys, node.values)
+        }
     return node
 
 
