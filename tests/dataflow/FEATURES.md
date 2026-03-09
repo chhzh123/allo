@@ -637,3 +637,34 @@ a hint to use runtime expressions instead.
 **Streams inside folded kernels:**
 Folded kernels may not use streams inside the kernel body. Streams inside
 become normal arrays eligible for auto-partition via `s.auto_f2()`.
+
+### Folded FFT-256 Example (`get_fft_256_folded`)
+
+Demonstrates the fold mechanism on a real FFT-256 using the same simple
+butterfly pattern as the scalar HP-FFT:
+
+```python
+top = get_fft_256_folded(FOLD=128)  # 1 PE per stage (fully temporal)
+top = get_fft_256_folded(FOLD=16)   # 8 PEs per stage
+top = get_fft_256_folded(FOLD=1)    # 128 PEs per stage (fully spatial)
+```
+
+**Architecture**: `mapping=[LOG2_N, N//2], fold={1: FOLD}` — stage dimension
+stays spatial (ConstExpr-compatible), butterfly dimension is folded (dynamic).
+Inter-stage communication uses `float32[N]` arrays (not streams).
+
+The butterfly body mirrors the scalar FFT, with ConstExpr helpers for
+stage-dependent constants and runtime ops for the folded butterfly index:
+
+```python
+s, b = df.get_pid()
+# s: ConstExpr (non-folded stage), b: dynamic (folded butterfly)
+stride: ConstExpr[int32] = _stride(s)      # 1 << s
+mask: ConstExpr[int32] = _mask(s)           # (1 << s) - 1
+upper: int32 = ((b >> s) << _s_plus_1(s)) | (b & mask)
+lower: int32 = upper | stride
+```
+
+| Test | What it checks |
+|---|---|
+| `test_fft_256_folded` | Folded FFT-256 compiles, fold loops + auto_f2 work |

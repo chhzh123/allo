@@ -674,6 +674,150 @@ def test_fft_256_simulator(N_=256):
     print("✅ Simulator Passed!")
 
 
+# ---------------------------------------------------------------------------
+# Part 3: Folded FFT-256 — simple spatial butterfly with configurable PE count
+#
+# Same butterfly pattern as the scalar HP-FFT but for N=256:
+#   mapping=[LOG2_N, N//2], fold={1: FOLD}
+#
+# Stage dimension (s) stays spatial → ConstExpr for stride, mask, twiddle shift.
+# Butterfly dimension (b) is folded → dynamic index, user controls PE count.
+#
+# Uses arrays (not streams) since fold wraps the entire kernel body.
+# ---------------------------------------------------------------------------
+
+# ConstExpr helpers — evaluated at compile time from the non-folded stage index
+def _stride(s):
+    return 1 << s
+
+def _mask(s):
+    return (1 << s) - 1
+
+def _s_plus_1(s):
+    return s + 1
+
+def _tw_shift(s):
+    return LOG2_N - 1 - s
+
+
+def get_fft_256_folded(FOLD=128):
+    """Generate a folded 256-point FFT with configurable PE count.
+
+    Architecture mirrors the scalar HP-FFT:
+      - bit_rev: N PEs (folded), each permutes one element
+      - butterfly: LOG2_N * N//2 PEs (dim 1 folded), each does one butterfly
+
+    PE count = LOG2_N * (N//2 / FOLD) + N/FOLD.
+
+    Args:
+        FOLD: fold factor for butterfly dimension.
+              128 → 8 butterfly PEs (1 per stage), fully temporal.
+              16  → 64 butterfly PEs, 16-iter unrolled loop.
+              1   → 1024 butterfly PEs, fully spatial.
+    """
+    HALF_N = N // 2
+
+    @df.region()
+    def top(
+        inp_re: float32[N],
+        inp_im: float32[N],
+        out_re: float32[N],
+        out_im: float32[N],
+    ):
+        rev_re: float32[N]
+        rev_im: float32[N]
+
+        @df.kernel(mapping=[N], fold={0: FOLD}, args=[inp_re, inp_im, rev_re, rev_im])
+        def bit_rev(
+            local_in_re: float32[N],
+            local_in_im: float32[N],
+            local_rev_re: float32[N],
+            local_rev_im: float32[N],
+        ):
+            idx = df.get_pid()
+            # Runtime 8-bit reversal (idx is dynamic due to fold)
+            rev: int32 = (
+                ((idx & 1) << 7)
+                | ((idx & 2) << 5)
+                | ((idx & 4) << 3)
+                | ((idx & 8) << 1)
+                | ((idx & 16) >> 1)
+                | ((idx & 32) >> 3)
+                | ((idx & 64) >> 5)
+                | ((idx & 128) >> 7)
+            )
+            local_rev_re[rev] = local_in_re[idx]
+            local_rev_im[rev] = local_in_im[idx]
+
+        @df.kernel(
+            mapping=[LOG2_N, HALF_N],
+            fold={1: FOLD},
+            args=[rev_re, rev_im, out_re, out_im],
+        )
+        def butterfly(
+            buf_re: float32[N],
+            buf_im: float32[N],
+            res_re: float32[N],
+            res_im: float32[N],
+        ):
+            s, b = df.get_pid()
+            # s is ConstExpr (non-folded stage), b is dynamic (folded butterfly)
+            stride: ConstExpr[int32] = _stride(s)
+            mask: ConstExpr[int32] = _mask(s)
+            s1: ConstExpr[int32] = _s_plus_1(s)
+            tw_sh: ConstExpr[int32] = _tw_shift(s)
+
+            twr_l: float32[N // 2] = full_twr
+            twi_l: float32[N // 2] = full_twi
+
+            upper: int32 = ((b >> s) << s1) | (b & mask)
+            lower: int32 = upper | stride
+            tw_idx: int32 = (b & mask) << tw_sh
+
+            a_re: float32 = buf_re[upper]
+            a_im: float32 = buf_im[upper]
+            b_re: float32 = buf_re[lower]
+            b_im: float32 = buf_im[lower]
+
+            tr: float32 = twr_l[tw_idx]
+            ti: float32 = twi_l[tw_idx]
+            bw_re: float32 = b_re * tr - b_im * ti
+            bw_im: float32 = b_re * ti + b_im * tr
+
+            res_re[upper] = a_re + bw_re
+            res_im[upper] = a_im + bw_im
+            res_re[lower] = a_re - bw_re
+            res_im[lower] = a_im - bw_im
+
+    return top
+
+
+def test_fft_256_folded():
+    """Test folded FFT-256 compiles with correct MLIR structure."""
+    top = get_fft_256_folded(FOLD=128)
+    s = df.customize(top)
+    mlir_str = str(s.module)
+
+    # Verify kernels exist
+    assert "bit_rev" in mlir_str, "Expected bit_rev kernel"
+    assert "butterfly" in mlir_str, "Expected butterfly kernel"
+
+    # 8 stage PEs (dim 0 not folded), 1 butterfly PE per stage (128/128=1)
+    assert "butterfly_0_0" in mlir_str
+    assert "butterfly_7_0" in mlir_str
+
+    # Verify fold loops with unroll annotation
+    assert "unroll" in mlir_str, "Expected unroll annotation from fold"
+
+    # Verify butterfly index computation (shifts for upper/lower)
+    assert "arith.shrsi" in mlir_str or "arith.shrui" in mlir_str
+
+    # Apply auto_f2 for bank-conflict-free partitioning
+    s.auto_f2()
+
+    print("FFT-256 Folded Compile Test PASSED!")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -685,6 +829,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1] == "csyn":
         test_fft_256_csyn()
+    elif len(sys.argv) > 1 and sys.argv[1] == "folded":
+        test_fft_256_folded()
     else:
         test_fft_256_simulator()
 
