@@ -12,11 +12,13 @@ from ._mlir.ir import (
     Location,
     UnitAttr,
     StringAttr,
+    IntegerAttr,
+    IntegerType,
     FunctionType,
     MemRefType,
     Type,
 )
-from ._mlir.dialects import func as func_d, allo as allo_d
+from ._mlir.dialects import func as func_d, allo as allo_d, memref as memref_d
 from ._mlir.passmanager import PassManager as mlir_pass_manager
 from .customize import customize as _customize, Schedule
 from .utils import parse_kernel_name, construct_kernel_name
@@ -466,6 +468,12 @@ def _build_top(s, stream_info, enable_layout=False):
     input_signed = ""
     arg_mapping = {}
     used_args = {}  # {arg_name: arg_idx in top_func}
+    # Determine which names are region I/O (formal params) vs region-local
+    region_param_names = set()
+    if s.top_func_name in s.func_args:
+        for d in s.func_args[s.top_func_name]:
+            region_param_names.add(d.top_name)
+    local_args = set()  # {top_name} for region-local arrays
     for func in funcs:
         func_name = func.attributes["sym_name"].value
         arg_mapping[func_name] = []
@@ -476,6 +484,11 @@ def _build_top(s, stream_info, enable_layout=False):
                 # kernels with the same formal parameter names but different
                 # region args (e.g. both using "local_re") are not merged.
                 arg_name = dtensor.top_name
+                if arg_name not in region_param_names:
+                    # Region-local variable: will be resolved to alloc later
+                    local_args.add(arg_name)
+                    arg_mapping[func_name].append(("local", arg_name))
+                    continue
                 if arg_name not in used_args:
                     used_args[arg_name] = len(input_types)
                     input_types.append((dtensor.shape, dtensor.dtype))
@@ -524,6 +537,28 @@ def _build_top(s, stream_info, enable_layout=False):
         for j, (_, old_arg) in enumerate(region_stream_args):
             old_arg.replace_all_uses_with(new_top.arguments[n_non_stream + j])
         top_func.operation.erase()
+        # Allocate fresh memrefs for region-local variables.
+        # These were declared in the region body (e.g., rev_re: float32[N])
+        # but are not top-level I/O — they serve as intermediates between kernels.
+        local_alloc_map = {}  # {name: alloc_result}
+        if local_args:
+            # Collect types from kernel func_args
+            local_arg_types = {}  # {name: (shape, dtype)}
+            for func in funcs:
+                fn = func.attributes["sym_name"].value
+                for i, arg in enumerate(func.arguments):
+                    if "!allo.stream" not in str(arg.type):
+                        dt = s.func_args[fn][i]
+                        if dt.top_name in local_args and dt.top_name not in local_arg_types:
+                            local_arg_types[dt.top_name] = (dt.shape, dt.dtype)
+            ip_local = InsertionPoint.at_block_begin(new_top.entry_block)
+            for name in local_args:
+                if name in local_arg_types:
+                    shape, dtype = local_arg_types[name]
+                    mtype = MemRefType.get(shape, dtype.build())
+                    alloc = memref_d.AllocOp(mtype, [], [], ip=ip_local)
+                    alloc.attributes["name"] = StringAttr.get(name)
+                    local_alloc_map[name] = alloc.result
         # get all global streams
         stream_map = {}
         for op in new_top.entry_block.operations:
@@ -533,10 +568,74 @@ def _build_top(s, stream_info, enable_layout=False):
         # Add region-level stream args to stream_map so kernel CallOps can use them.
         for j, (name, _) in enumerate(region_stream_args):
             stream_map[name] = new_top.arguments[n_non_stream + j]
+        # Build chain intermediate arrays for chained kernel groups.
+        # chain_info maps kernel_instance_name → chain_dim (set by builder.py).
+        chain_info = getattr(s, "chain_info", {})
+        chain_groups = {}  # {orig_name: (chain_dim, [(dim_tuple, func_name)])}
+        for func in funcs:
+            fn = func.attributes["sym_name"].value
+            if fn in chain_info:
+                cd = chain_info[fn]
+                orig, dim = parse_kernel_name(fn)
+                if orig not in chain_groups:
+                    chain_groups[orig] = (cd, [])
+                chain_groups[orig][1].append((dim, fn))
+        # Helper to resolve arg_mapping entries to MLIR values
+        def _resolve_arg(entry):
+            if isinstance(entry, tuple) and entry[0] == "local":
+                return local_alloc_map[entry[1]]
+            return new_top.arguments[entry]
+
+        # Sort chain groups by chain dim index and allocate intermediates
+        chain_call_args = {}  # {func_name: [MLIR values]}
+        for orig, (cd, instances) in chain_groups.items():
+            instances.sort(key=lambda x: x[0][cd])
+            chain_size = max(d[cd] for d, _ in instances) + 1
+            # Split args: first half = inputs, second half = outputs
+            sample_fn = instances[0][1]
+            n_total = len(arg_mapping[sample_fn])
+            n_inputs = n_total // 2
+            # Get output memref types for intermediate allocation
+            out_types = [
+                _resolve_arg(arg_mapping[sample_fn][n_inputs + j]).type
+                for j in range(n_inputs)
+            ]
+            # Allocate (chain_size - 1) intermediate array sets
+            intermediates = {}  # {step: [alloc results]}
+            ip_alloc = InsertionPoint.at_block_begin(new_top.entry_block)
+            for step in range(chain_size - 1):
+                inter = []
+                for j in range(n_inputs):
+                    alloc = memref_d.AllocOp(out_types[j], [], [], ip=ip_alloc)
+                    alloc.attributes["name"] = StringAttr.get(
+                        f"chain_{orig}_{step}_{j}"
+                    )
+                    inter.append(alloc.result)
+                intermediates[step] = inter
+            # Build call args for each instance
+            for dim, fn in instances:
+                s_idx = dim[cd]
+                base = arg_mapping[fn]
+                if s_idx == 0:
+                    ins = [_resolve_arg(base[j]) for j in range(n_inputs)]
+                else:
+                    ins = intermediates[s_idx - 1]
+                if s_idx == chain_size - 1:
+                    outs = [
+                        _resolve_arg(base[n_inputs + j])
+                        for j in range(n_inputs)
+                    ]
+                else:
+                    outs = intermediates[s_idx]
+                chain_call_args[fn] = list(ins) + list(outs)
+
         # add call functions
         for i, func in enumerate(funcs):
             func_name = func.attributes["sym_name"].value
-            arg_lst = [new_top.arguments[idx] for idx in arg_mapping[func_name]]
+            if func_name in chain_call_args:
+                arg_lst = chain_call_args[func_name]
+            else:
+                arg_lst = [_resolve_arg(e) for e in arg_mapping[func_name]]
             stream_lst = [
                 stream_map[stream_name] for stream_name, _ in stream_info[func_name]
             ]

@@ -668,3 +668,85 @@ lower: int32 = upper | stride
 | Test | What it checks |
 |---|---|
 | `test_fft_256_folded` | Folded FFT-256 compiles, fold loops + auto_f2 work |
+
+### Synthesis Results (Folded vs Reference)
+
+The folded FFT-256 (FOLD=128, no dataflow) was synthesized on Vitis HLS 2023.2
+(xcu280). The reference fft_256 was synthesized on xcvp1802 (Versal Premium).
+
+| Metric | Reference (fft_256) | Folded (no dataflow) |
+|--------|-------------------|---------------------|
+| Latency | 99 cycles | 2,264 cycles |
+| Interval | 19 cycles | 2,265 cycles |
+| DSP | 328 (2%) | 32 (~0%) |
+| FF | 257,407 (3%) | 95,158 (3%) |
+| LUT | 277,125 (8%) | 109,192 (8%) |
+
+The folded design uses 10× fewer DSPs but has 23× higher latency because all
+8 butterfly stages share the same region arrays, violating HLS dataflow's
+single-writer/single-reader constraint. Stages run sequentially instead of
+overlapping.
+
+**Root cause**: The builder wires all butterfly instances to the same 4 region
+arrays. HLS dataflow requires each buffer to have exactly one writer and one
+reader. The fix requires **buffer chain insertion** (see Section 13).
+
+---
+
+## 13. Buffer Chain Insertion (`chain=dim`) — Planned
+
+### Problem
+
+When `mapping=[S, B], fold={1: F}` creates S instances along the stage dimension,
+the builder wires ALL instances to the same region arrays:
+
+```
+butterfly_0_0(rev_re, rev_im, out_re, out_im)
+butterfly_1_0(rev_re, rev_im, out_re, out_im)  ← SAME arrays
+...
+butterfly_7_0(rev_re, rev_im, out_re, out_im)  ← SAME arrays
+```
+
+This violates HLS dataflow (multiple writers to `out_re/out_im`) and prevents
+stage pipelining.
+
+### Solution: `chain=dim` keyword
+
+```python
+@df.kernel(
+    mapping=[LOG2_N, HALF_N],
+    fold={1: FOLD},
+    chain=0,                    # ← chain along stage dimension
+    args=[rev_re, rev_im, out_re, out_im],
+)
+def butterfly(buf_re, buf_im, res_re, res_im):
+    s, b = df.get_pid()
+    ...
+```
+
+`chain=0` tells the builder to insert intermediate arrays between consecutive
+stage instances along dimension 0:
+
+```
+butterfly_0_0(rev_re,      rev_im,      inter_01_re, inter_01_im)
+butterfly_1_0(inter_01_re, inter_01_im, inter_12_re, inter_12_im)
+...
+butterfly_7_0(inter_67_re, inter_67_im, out_re,      out_im)
+```
+
+Each intermediate array has exactly one writer and one reader → HLS dataflow
+works → stages pipeline → interval ≈ max(stage latency).
+
+### Implementation
+
+1. **Parse**: `chain=dim` in `@df.kernel` decorator
+2. **Allocate**: Create (S-1) intermediate array sets during PE expansion
+3. **Wire**: Connect consecutive stage instances through intermediates
+4. **Optimize**: auto_f2 + dataflow + pipeline/unroll apply automatically
+
+### Expected Performance
+
+With proper chaining and auto_f2, the folded design should achieve performance
+comparable to the reference: interval ≈ 19-30 cycles with DSP ≈ 300-500.
+
+See `tests/dataflow/folded_fft_plan.md` for detailed plan and progress.

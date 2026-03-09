@@ -21,6 +21,7 @@ PART_NUMBER = {
     # Versal
     "vck190": "xcvc1902-vsva2197-2MP-e-S",
     "vhk158": "xcvh1582-vsva3697-2MP-e-S-es1",
+    "vp1802": "xcvp1802-lsvc4072-3HP-e-S",
     # Alveo
     # https://github.com/Xilinx/XilinxBoardStore/pull/434
     "u200": "xcu200-fsgd2104-2-e",

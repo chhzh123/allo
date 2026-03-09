@@ -2134,13 +2134,18 @@ class ASTTransformer(ASTBuilder):
                             # Parse fold keyword: fold={axis: factor}
                             # Use eval (not get_kwarg_value) to resolve variables
                             fold = None
+                            chain = None
                             for kw in decorator.keywords:
                                 if kw.arg == "fold":
                                     fold = eval(
                                         ast.unparse(kw.value),
                                         ctx.global_vars,
                                     )
-                                    break
+                                elif kw.arg == "chain":
+                                    chain = eval(
+                                        ast.unparse(kw.value),
+                                        ctx.global_vars,
+                                    )
                             if fold is not None:
                                 # Validate fold config
                                 assert isinstance(fold, dict), (
@@ -2156,6 +2161,18 @@ class ASTTransformer(ASTBuilder):
                                     assert mapping[axis] % factor == 0, (
                                         f"fold factor {factor} must divide "
                                         f"mapping[{axis}]={mapping[axis]}"
+                                    )
+                            # Validate chain keyword
+                            if chain is not None:
+                                assert isinstance(chain, int), (
+                                    "chain must be an int (dimension index)"
+                                )
+                                assert 0 <= chain < len(mapping), (
+                                    f"chain dim {chain} out of range"
+                                )
+                                if fold:
+                                    assert chain not in fold, (
+                                        "chain dim must not be folded"
                                     )
                             # Compute reduced mapping for folded dimensions
                             reduced_mapping = list(mapping)
@@ -2178,6 +2195,11 @@ class ASTTransformer(ASTBuilder):
                                     fold,
                                     reduced_mapping,
                                 )
+                            # Store chain info on ctx for call insertion
+                            if chain is not None:
+                                if not hasattr(ctx, "_kernel_chain_info"):
+                                    ctx._kernel_chain_info = {}
+                                ctx._kernel_chain_info[orig_name] = chain
                             for dim in np.ndindex(*reduced_mapping):
                                 if not ctx.unroll:
                                     # If not unrolled, assign tag to each instance.
@@ -2252,6 +2274,14 @@ class ASTTransformer(ASTBuilder):
                                     new_ctx, new_node
                                 )
                                 func_op.attributes["df.kernel"] = UnitAttr.get()
+                                # Store chain dimension on the ORIGINAL context
+                                # (old_ctx), not the copy, so customize.py
+                                # can access it on the Schedule.
+                                if chain is not None:
+                                    target_ctx = old_ctx if old_ctx is not None else ctx
+                                    if not hasattr(target_ctx, "_kernel_chain_dim"):
+                                        target_ctx._kernel_chain_dim = {}
+                                    target_ctx._kernel_chain_dim[node.name] = chain
                                 # Mark kernels inside sub-regions so they aren't called from top
                                 if hasattr(ctx, "func_suffix"):
                                     func_op.attributes["df.nested_kernel"] = (

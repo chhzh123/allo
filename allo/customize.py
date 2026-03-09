@@ -991,11 +991,13 @@ class Schedule:
         ii = IntegerAttr.get(i32, initiation_interval)
         func, axis = self._get_func_and_axis(axis)
         band_name, axis = find_loop_in_bands(func, axis)
+        loop = self.get_loops(func)[band_name][axis].loop
+        # Remove conflicting unroll attribute (e.g. from fold loops)
+        if "unroll" in loop.attributes:
+            del loop.attributes["unroll"]
         if rewind:
-            self.get_loops(func)[band_name][axis].loop.attributes[
-                "rewind"
-            ] = UnitAttr.get()
-        self.get_loops(func)[band_name][axis].loop.attributes["pipeline_ii"] = ii
+            loop.attributes["rewind"] = UnitAttr.get()
+        loop.attributes["pipeline_ii"] = ii
 
     @wrapped_apply
     def parallel(self, axis):
@@ -1600,6 +1602,7 @@ def customize(
         func_instances=func_instances,
     )
     sch.stateful_var_map = getattr(ctx, "stateful_var_map", {})
+    sch.chain_info = getattr(ctx, "_kernel_chain_dim", {})
     # Attach buffers to schedule:
     # The reason why we do not attach buffers to function is that
     # we may have multiple schedules referring to the same function,
