@@ -591,11 +591,33 @@ def _receiver_port(receiver, ctx_name):
     return None
 
 
+def _collect_port_aliases(tree, ctx_name):
+    """Local variables bound to a port handle: ``h = ctx.<port>`` or ``h = ctx.port("...")``.
+
+    Maps each such name to the set of port names (or the dynamic sentinel) it was bound to; a name
+    bound to anything that is not a port handle never enters the map, so ``d.get(...)`` on an
+    unrelated object is left alone.
+    """
+    aliases = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        port = _receiver_port(node.value, ctx_name)
+        if port is None:
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                aliases.setdefault(target.id, set()).add(port)
+    return aliases
+
+
 def _check_body_ports(label, fn, ports):
     """Reject stream I/O on an undeclared port inside a work-unit or role body.
 
     Bodies are scanned by source, never executed: a real body holds loops and arithmetic that a
     bare ``ctx`` cannot run. When source is unavailable the scan is skipped rather than failing.
+    Stream I/O is recognized directly (``ctx.<port>.put(...)`` / ``ctx.port("p").get()``) and
+    through a local alias (``h = ctx.<port>`` then ``h.get()``).
     """
     try:
         source = textwrap.dedent(inspect.getsource(fn))
@@ -608,14 +630,9 @@ def _check_body_ports(label, fn, ports):
     ctx_name = _ctx_param_name(fn)
     if ctx_name is None:
         return
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
-            continue
-        if node.func.attr not in _STREAM_METHODS:
-            continue
-        port = _receiver_port(node.func.value, ctx_name)
-        if port is None:
-            continue
+    aliases = _collect_port_aliases(tree, ctx_name)
+
+    def reject(port):
         if port is _DYNAMIC_PORT:
             raise SPMWError(
                 f"{label}: ctx.port(...) needs a string-literal port name so it can be "
@@ -626,6 +643,19 @@ def _check_body_ports(label, fn, ports):
                 f"{label}: stream I/O on undeclared port {port!r}; declared ports: "
                 f"{sorted(ports)}"
             )
+
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr not in _STREAM_METHODS:
+            continue
+        receiver = node.func.value
+        port = _receiver_port(receiver, ctx_name)
+        if port is not None:
+            reject(port)
+        elif isinstance(receiver, ast.Name) and receiver.id in aliases:
+            for aliased in aliases[receiver.id]:
+                reject(aliased)
 
 
 def _validate_collection(collection):
@@ -645,14 +675,23 @@ def _validate_collection(collection):
         for edges, body in decl.unit.roles:
             _check_body_ports(f"role {edges} on unit {decl.unit.name!r}", body, ports)
     for stream in collection.streams:
+        # Flow spelling is checked regardless of the target so a typo never slips through.
+        if stream.flow is not None and stream.flow not in _FLOW_PORTS:
+            raise SPMWError(
+                f"unknown stream flow {stream.flow!r}; supported flows: "
+                f"{sorted(_FLOW_PORTS)}"
+            )
         target = stream.unit
         if target is None:
             raise SPMWError(
                 f"stream_{stream.direction} needs a target unit (into=/from_=)"
             )
         if not isinstance(target, Unit):
-            # A named stage target (key-form streaming) is validated when that path lands.
-            continue
+            # Named-stage / key-form streaming has no lowering path yet; reject it early.
+            raise SPMWError(
+                f"stream_{stream.direction} target must be an @spmw.unit (into=/from_=); "
+                f"got {target!r}"
+            )
         decl = _find_map(collection, target)
         if decl is None:
             raise SPMWError(
@@ -661,11 +700,6 @@ def _validate_collection(collection):
             )
         ports = decl.topology.port_names()
         if stream.flow is not None:
-            if stream.flow not in _FLOW_PORTS:
-                raise SPMWError(
-                    f"unknown stream flow {stream.flow!r}; supported flows: "
-                    f"{sorted(_FLOW_PORTS)}"
-                )
             for port in _FLOW_PORTS[stream.flow]:
                 if port not in ports:
                     raise SPMWError(

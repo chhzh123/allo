@@ -308,3 +308,137 @@ def test_default_port_depth_is_two_with_override():
         "north": 2,
         "south": 2,
     }
+
+
+def test_aliased_undeclared_port_io_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        handle = ctx.not_a_port  # alias to an undeclared port
+        handle.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_aliased_literal_port_io_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        handle = ctx.port("bogus")
+        handle.put(1)
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_aliased_dynamic_port_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        name = "east"
+        handle = ctx.port(name)  # dynamic alias cannot be statically resolved
+        handle.put(1)
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="string-literal"):
+        spmw.validate(r)
+
+
+def test_valid_aliased_ports_pass():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        src = ctx.west
+        sink = ctx.east
+        sink.put(src.get())
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    spmw.validate(r)  # aliases resolve to real ports
+
+
+def test_aliased_undeclared_port_in_role_body_rejected():
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @pe.role("west")
+    def pe_load(ctx):
+        handle = ctx.nope
+        handle.put(1)
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_non_unit_stream_target_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into="pe", flow="W->E")  # a string, not the unit
+
+    with pytest.raises(spmw.SPMWError, match="must be an @spmw.unit"):
+        spmw.validate(r)
+
+
+def test_non_unit_target_with_unknown_flow_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=object(), flow="W=>E")
+
+    # flow spelling is checked before the target, so this is caught either way
+    with pytest.raises(spmw.SPMWError, match="unknown stream flow"):
+        spmw.validate(r)
+
+
+def test_get_on_plain_local_not_flagged():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        table = {}
+        table.get("x")  # unrelated .get must not be treated as port I/O
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    spmw.validate(r)
