@@ -1,7 +1,9 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import re
+import tempfile
 
 import allo.spmw as spmw
 from allo.spmw_hls import emit_role_hls, emit_rolled_hls
@@ -71,3 +73,19 @@ def test_rolled_body_count_is_constant_across_grid_sizes():
     assert _role_bodies(small) == _role_bodies(large)
     assert len(_role_bodies(small)) == 5
     assert "#define M 4" in small and "#define M 8" in large
+
+
+def test_rolled_build_target_emits_csynth_ready_project():
+    # the rolled O(#roles) synthesis path is reachable through the public build API
+    with tempfile.TemporaryDirectory() as tmp:
+        project = spmw.build(_systolic_twin(4, 4, 4), target="rolled", project=tmp)
+        assert project.hls_code == emit_rolled_hls(_systolic_twin(4, 4, 4))
+        kernel = os.path.join(tmp, "kernel.cpp")
+        tcl = os.path.join(tmp, "run.tcl")
+        assert os.path.exists(kernel) and os.path.exists(tcl)
+        with open(tcl, encoding="utf-8") as handle:
+            script = handle.read()
+        # the script csynths the single rolled top, not one project per grid point
+        assert "csynth_design" in script
+        assert "set_top top" in script
+        assert "add_files kernel.cpp" in script

@@ -1,5 +1,6 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+# pylint: disable=cyclic-import
 
 """HLS role emission for SPMW: transcribe a work-unit body to a synthesizable HLS C++ role.
 
@@ -19,7 +20,12 @@ It handles the constructs the systolic PE uses; anything else raises ``NotImplem
 
 import ast
 import inspect
+import os
 import textwrap
+
+# The default synthesis target for a stand-alone rolled project (matches the flagship's U280 runs).
+_DEFAULT_PART = "xcu280-fsvh2892-2L-e"
+_DEFAULT_FREQUENCY_MHZ = 300
 
 _CPP_TYPE = {
     "float32": "float",
@@ -32,7 +38,7 @@ _CPP_TYPE = {
 _CPP_OP = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/"}
 
 
-def _cpp(node):  # pylint: disable=too-many-return-statements
+def _cpp(node):
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Constant):
@@ -207,3 +213,44 @@ def emit_rolled_hls(region):
         "  }\n"
         "}\n"
     )
+
+
+def _rolled_csynth_tcl(part, frequency):
+    """A Vitis HLS csynth script for a stand-alone rolled ``top`` project."""
+    return (
+        "open_project rolled.prj\n"
+        "set_top top\n"
+        "add_files kernel.cpp\n"
+        "open_solution solution1\n"
+        f"set_part {part}\n"
+        f"create_clock -period {1000 / frequency:.2f} -name default\n"
+        "csynth_design\n"
+        "exit\n"
+    )
+
+
+class RolledHLSProject:
+    """A rolled O(#roles) systolic top emitted as a self-contained Vitis HLS project.
+
+    ``hls_code`` is the synthesizable C++; when a ``project`` directory is given it also holds
+    ``kernel.cpp`` and a ``run.tcl`` that csynth it (``vitis_hls -f run.tcl``), so the rolled
+    synthesis path is reproducible through ``spmw.build`` rather than hand-assembled.
+    """
+
+    def __init__(self, hls_code, project=None):
+        self.hls_code = hls_code
+        self.project = project
+
+
+def emit_rolled_project(
+    region, project=None, part=_DEFAULT_PART, frequency=_DEFAULT_FREQUENCY_MHZ
+):
+    """Emit the rolled systolic top for ``region`` as a :class:`RolledHLSProject`."""
+    hls_code = emit_rolled_hls(region)
+    if project is not None:
+        os.makedirs(project, exist_ok=True)
+        with open(os.path.join(project, "kernel.cpp"), "w", encoding="utf-8") as handle:
+            handle.write(hls_code)
+        with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as handle:
+            handle.write(_rolled_csynth_tcl(part, frequency))
+    return RolledHLSProject(hls_code, project)

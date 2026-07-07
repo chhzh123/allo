@@ -1077,15 +1077,26 @@ def build(program, target="simulator", **kwargs):
     """Validate and build an SPMW program for a target.
 
     ``target="ir"`` returns the rolled ``spmw.map`` module and ``target="unroll"`` the per-PID
-    module. ``target="simulator"`` and the HLS targets (``"vitis_hls"`` etc., with ``mode=``)
-    desugar a recognized systolic-mesh region to ``allo.dataflow`` and build it through the existing
-    backend.
+    module. ``target="rolled"`` emits the rolled O(#roles) systolic top as a self-contained Vitis
+    HLS project (``kernel.cpp`` + ``run.tcl``). ``target="simulator"`` and the HLS targets
+    (``"vitis_hls"`` etc., with ``mode=``) desugar a recognized systolic-mesh region to
+    ``allo.dataflow`` and build it through the existing backend.
     """
     validate(program)
     if target == "ir":
         return lower(program)
     if target == "unroll":
         return unroll(program)
+    if target == "rolled":
+        # pylint: disable=import-outside-toplevel
+        from .spmw_hls import _DEFAULT_FREQUENCY_MHZ, _DEFAULT_PART, emit_rolled_project
+
+        return emit_rolled_project(
+            program,
+            project=kwargs.get("project"),
+            part=kwargs.get("part", _DEFAULT_PART),
+            frequency=kwargs.get("frequency", _DEFAULT_FREQUENCY_MHZ),
+        )
     if target in _DATAFLOW_TARGETS:
         # pylint: disable=import-outside-toplevel
         from .spmw_datapath import build_dataflow
@@ -1093,5 +1104,5 @@ def build(program, target="simulator", **kwargs):
         return build_dataflow(program, target=target, **kwargs)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"target='simulator'/'vitis_hls'/'ir'/'unroll'"
+        f"target='simulator'/'vitis_hls'/'ir'/'unroll'/'rolled'"
     )
