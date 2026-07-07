@@ -1067,24 +1067,31 @@ def unroll(program):
     return _parse_module(_unrolled_text(program, collection))
 
 
+# Targets served by desugaring a recognized region to allo.dataflow (simulator + the HLS toolchain).
+_DATAFLOW_TARGETS = frozenset(
+    {"simulator", "vitis_hls", "vivado_hls", "tapa", "ihls", "catapult"}
+)
+
+
 def build(program, target="simulator", **kwargs):
     """Validate and build an SPMW program for a target.
 
     ``target="ir"`` returns the rolled ``spmw.map`` module and ``target="unroll"`` the per-PID
-    module. ``target="simulator"`` desugars a recognized systolic-mesh region to ``allo.dataflow``
-    and returns a runnable simulator module.
+    module. ``target="simulator"`` and the HLS targets (``"vitis_hls"`` etc., with ``mode=``)
+    desugar a recognized systolic-mesh region to ``allo.dataflow`` and build it through the existing
+    backend.
     """
     validate(program)
     if target == "ir":
         return lower(program)
     if target == "unroll":
         return unroll(program)
-    if target == "simulator":
+    if target in _DATAFLOW_TARGETS:
         # pylint: disable=import-outside-toplevel
-        from .spmw_datapath import build_simulator
+        from .spmw_datapath import build_dataflow
 
-        return build_simulator(program)
+        return build_dataflow(program, target=target, **kwargs)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"target='simulator'/'ir'/'unroll'"
+        f"target='simulator'/'vitis_hls'/'ir'/'unroll'"
     )

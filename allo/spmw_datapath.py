@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # pylint: disable=cyclic-import
 
-"""Datapath lowering for SPMW: run a systolic-mesh region on the dataflow simulator.
+"""Datapath lowering for SPMW: run a systolic-mesh region on the dataflow backend.
 
 This is the first datapath slice. It recognizes the systolic-mesh-GEMM pattern -- a single work
 unit mapped over a 2-D mesh, with two ``stream_in`` operands flowing ``W->E`` and ``N->S`` and a
 local ``stream_out`` -- and desugars it to the equivalent ``allo.dataflow`` program so the existing
-simulator can run it. The work-unit body's arithmetic is transcribed verbatim (via AST), so the
-float accumulation order matches its hand-written ``df`` twin and the result is bit-identical.
-Other patterns raise ``NotImplementedError`` rather than silently mis-lowering.
+backend can build it (the LLVM/OMP simulator, or the Vitis HLS toolchain via ``target="vitis_hls"``).
+The work-unit body's arithmetic is transcribed verbatim (via AST), so the float accumulation order
+matches its hand-written ``df`` twin and the result is bit-identical. Other patterns raise
+``NotImplementedError`` rather than silently mis-lowering.
 """
 
 import ast
@@ -158,11 +159,14 @@ def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
 """
 
 
-def build_simulator(region):
-    """Desugar a systolic-mesh region to allo.dataflow and build it for the simulator.
+def build_dataflow(region, target="simulator", **kwargs):
+    """Desugar a systolic-mesh region to allo.dataflow and build it for a dataflow target.
 
-    The generated program is written to a temporary module and imported (rather than ``exec``'d) so
-    the dataflow builder can read the kernel's source with ``inspect.getsource`` while walking it.
+    ``target`` and ``kwargs`` pass straight through to ``allo.dataflow.build`` -- so ``"simulator"``
+    runs the LLVM/OMP simulator, and ``"vitis_hls"`` (with ``mode="csim"``/``"csyn"``/``"hw_emu"``)
+    drives the real HLS toolchain. The generated program is written to a temporary module and
+    imported (rather than ``exec``'d) so the dataflow builder can read the kernel's source with
+    ``inspect.getsource`` while walking it.
     """
     # pylint: disable=import-outside-toplevel
     import importlib.util
@@ -184,4 +188,4 @@ def build_simulator(region):
 
     import allo.dataflow as df
 
-    return df.build(getattr(generated, f"{region.name}_df"), target="simulator")
+    return df.build(getattr(generated, f"{region.name}_df"), target=target, **kwargs)
