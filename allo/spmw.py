@@ -1,0 +1,582 @@
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+# pylint: disable=redefined-builtin, too-few-public-methods, unused-argument, global-statement
+
+"""Single-program multiple-work-unit frontend for Allo.
+
+SPMW lets a spatial accelerator be described by writing one *work unit*, declaring
+the *topology* that wires copies of it together, and declaring *boundary roles* that
+specialize the copies at the edges of the grid. It is an evolution of ``allo.dataflow``:
+where dataflow spells out every processing element and every FIFO by hand (``meta_if``
+chains over the PID plus absolute grid arithmetic such as ``fifo_A[i, j + 1].put(...)``),
+SPMW makes replication, interconnect, and boundary specialization first-class.
+
+This module provides the Python surface and a static topology checker. A topology is a
+pure description: a ``grid`` shape plus a ``link`` function that, for each grid point,
+maps a local *port* name either to a neighbor (peer form) or to a rendezvous key (key
+form). The checker validates a program before any code is generated:
+
+* peer links are symmetric (``east`` at ``(i, j)`` pairs with ``west`` at ``(i, j + 1)``);
+* the grid rank matches the topology's dimensionality;
+* every key-form channel has exactly one source and one sink;
+* roles and stream flows only reference declared ports.
+"""
+
+import inspect
+import itertools
+
+__all__ = [
+    "SPMWError",
+    "Topology",
+    "Grid",
+    "mesh",
+    "ring",
+    "unit",
+    "region",
+    "map",
+    "stream_in",
+    "stream_out",
+    "PortContext",
+    "PortHandle",
+    "validate",
+    "build",
+]
+
+
+class SPMWError(Exception):
+    """Raised when an SPMW program or topology is statically invalid."""
+
+
+# A key-form link value is ``(key, "src" | "sink")``; a peer-form link value is
+# ``(peer_coordinate, peer_port_name)``. The direction string disambiguates the two.
+_SRC = "src"
+_SINK = "sink"
+_DIRECTIONS = (_SRC, _SINK)
+
+
+def _is_key_form(value):
+    return isinstance(value, tuple) and len(value) == 2 and value[1] in _DIRECTIONS
+
+
+class Topology:
+    """A grid of work units plus the links that connect them.
+
+    Parameters
+    ----------
+    grid:
+        The extent of the grid along each dimension, e.g. ``(rows, cols)``.
+    link:
+        A callable taking one integer per grid dimension and returning a dict mapping
+        a local port name to either ``(peer_coordinate, peer_port)`` (peer form) or
+        ``(channel_key, "src" | "sink")`` (key form). ``None`` means replication only,
+        with no interconnect.
+    """
+
+    def __init__(self, grid, link=None):
+        if not isinstance(grid, (tuple, list)) or len(grid) == 0:
+            raise SPMWError(f"grid must be a non-empty shape; got {grid!r}")
+        self.grid = tuple(int(n) for n in grid)
+        if any(n <= 0 for n in self.grid):
+            raise SPMWError(f"grid extents must be positive; got {self.grid}")
+        self._link = link
+
+    @property
+    def dims(self):
+        """The dimensionality of the grid (its rank)."""
+        return len(self.grid)
+
+    def coords(self):
+        """Yield every grid coordinate as a tuple."""
+        return itertools.product(*(range(n) for n in self.grid))
+
+    def in_bounds(self, coord):
+        """Whether ``coord`` lies inside the grid."""
+        return len(coord) == self.dims and all(
+            0 <= c < n for c, n in zip(coord, self.grid)
+        )
+
+    def links_at(self, coord):
+        """The link dict the topology declares at ``coord``."""
+        if self._link is None:
+            return {}
+        try:
+            result = self._link(*coord)
+        except TypeError as exc:
+            raise SPMWError(
+                f"topology link expects {self.dims} coordinate argument(s) to match "
+                f"grid rank {self.dims}, but invoking it failed: {exc}"
+            ) from exc
+        if not isinstance(result, dict):
+            raise SPMWError(
+                "topology link must return a dict mapping port name to a peer or key; "
+                f"got {type(result).__name__}"
+            )
+        return result
+
+    def port_names(self):
+        """The union of declared port names across the whole grid."""
+        names = set()
+        for coord in self.coords():
+            names.update(self.links_at(coord).keys())
+        return names
+
+    def context(self, coord=None):
+        """A work-unit context bound to this topology (optionally placed at ``coord``)."""
+        return PortContext(self, coord)
+
+    def boundary_ports_at(self, coord):
+        """Peer-form ports at ``coord`` whose peer falls outside the grid."""
+        boundary = set()
+        for port, target in self.links_at(coord).items():
+            if _is_key_form(target):
+                continue
+            peer_coord, _ = self._parse_peer(port, target)
+            if not self.in_bounds(peer_coord):
+                boundary.add(port)
+        return boundary
+
+    def _parse_peer(self, port, target):
+        if not (isinstance(target, tuple) and len(target) == 2):
+            raise SPMWError(
+                f"port {port!r}: a peer link must be (peer_coordinate, peer_port); "
+                f"got {target!r}"
+            )
+        peer_coord, peer_port = target
+        if not isinstance(peer_coord, (tuple, list)):
+            raise SPMWError(
+                f"port {port!r}: peer coordinate must be a tuple; got {peer_coord!r}"
+            )
+        peer_coord = tuple(peer_coord)
+        if len(peer_coord) != self.dims:
+            raise SPMWError(
+                f"port {port!r}: peer coordinate {peer_coord} has rank "
+                f"{len(peer_coord)}, but the grid rank is {self.dims}"
+            )
+        if not isinstance(peer_port, str):
+            raise SPMWError(
+                f"port {port!r}: peer port name must be a string; got {peer_port!r}"
+            )
+        return peer_coord, peer_port
+
+    def validate(self):
+        """Run every static check; raise :class:`SPMWError` on the first violation."""
+        self._validate_grid_rank()
+        self._validate_peer_symmetry()
+        self._validate_key_channels()
+        return self
+
+    def _validate_grid_rank(self):
+        representative = tuple(0 for _ in self.grid)
+        for port, target in self.links_at(representative).items():
+            if _is_key_form(target):
+                continue
+            self._parse_peer(port, target)
+
+    def _validate_peer_symmetry(self):
+        for coord in self.coords():
+            for port, target in self.links_at(coord).items():
+                if _is_key_form(target):
+                    continue
+                peer_coord, peer_port = self._parse_peer(port, target)
+                if not self.in_bounds(peer_coord):
+                    # An out-of-range peer marks a boundary port; it drives a role or an
+                    # auto-halo loader/drain and needs no reciprocal.
+                    continue
+                peer_targets = self.links_at(peer_coord)
+                if peer_port not in peer_targets:
+                    raise SPMWError(
+                        f"asymmetric link: {coord}.{port} -> "
+                        f"{peer_coord}.{peer_port}, but {peer_coord} declares no port "
+                        f"{peer_port!r}"
+                    )
+                back = peer_targets[peer_port]
+                if _is_key_form(back):
+                    raise SPMWError(
+                        f"asymmetric link: {coord}.{port} points to peer-form "
+                        f"{peer_coord}.{peer_port}, which is a key-form port"
+                    )
+                back_coord, back_port = self._parse_peer(peer_port, back)
+                if back_coord != tuple(coord) or back_port != port:
+                    raise SPMWError(
+                        f"asymmetric link: {coord}.{port} -> "
+                        f"{peer_coord}.{peer_port}, but {peer_coord}.{peer_port} -> "
+                        f"{back_coord}.{back_port} (expected it to point back to "
+                        f"{tuple(coord)}.{port})"
+                    )
+
+    def _validate_key_channels(self):
+        sources = {}
+        sinks = {}
+        for coord in self.coords():
+            for port, target in self.links_at(coord).items():
+                if not _is_key_form(target):
+                    continue
+                key, direction = target
+                bucket = sources if direction == _SRC else sinks
+                bucket.setdefault(key, []).append((coord, port))
+        for key in set(sources) | set(sinks):
+            n_src, n_sink = len(sources.get(key, [])), len(sinks.get(key, []))
+            if n_src != 1 or n_sink != 1:
+                raise SPMWError(
+                    f"channel key {key!r} must have exactly one source and one sink; "
+                    f"got {n_src} source(s) and {n_sink} sink(s) (fan-out/fan-in is a "
+                    f"collective extension)"
+                )
+
+    def __repr__(self):
+        return f"Topology(grid={self.grid})"
+
+
+class Grid(Topology):
+    """A replication-only grid with no declared interconnect."""
+
+    def __init__(self, shape):
+        super().__init__(grid=shape, link=None)
+
+
+def mesh(shape):
+    """A nearest-neighbor mesh topology (1-D chain or 2-D grid)."""
+    shape = tuple(shape)
+    if len(shape) == 2:
+
+        def link_2d(i, j):
+            return {
+                "east": ((i, j + 1), "west"),
+                "west": ((i, j - 1), "east"),
+                "south": ((i + 1, j), "north"),
+                "north": ((i - 1, j), "south"),
+            }
+
+        return Topology(grid=shape, link=link_2d)
+    if len(shape) == 1:
+
+        def link_1d(i):
+            return {"next": ((i + 1,), "prev"), "prev": ((i - 1,), "next")}
+
+        return Topology(grid=shape, link=link_1d)
+    raise SPMWError(f"mesh currently supports 1-D and 2-D grids; got rank {len(shape)}")
+
+
+def ring(n):
+    """A 1-D ring topology (a chain with wrap-around)."""
+    n = int(n)
+
+    def link(i):
+        return {
+            "next": (((i + 1) % n,), "prev"),
+            "prev": (((i - 1) % n,), "next"),
+        }
+
+    return Topology(grid=(n,), link=link)
+
+
+class PortHandle:
+    """A handle to one port of a placed work unit.
+
+    ``put``/``get`` are realized when an SPMW program is lowered; on the bare surface
+    the handle exists only so the topology can bind and validate port names.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+    def _unrealized(self):
+        raise NotImplementedError(
+            f"port {self.name!r} I/O is realized during SPMW lowering"
+        )
+
+    def put(self, *args, **kwargs):
+        self._unrealized()
+
+    def get(self, *args, **kwargs):
+        self._unrealized()
+
+    def get_or(self, *args, **kwargs):
+        self._unrealized()
+
+    def __repr__(self):
+        return f"PortHandle({self.name!r})"
+
+
+class PortContext:
+    """The ``ctx`` handed to a work-unit body: its rank plus its ports."""
+
+    def __init__(self, topology, coord=None):
+        self._topology = topology
+        self._coord = tuple(coord) if coord is not None else None
+        self._ports = topology.port_names()
+
+    def rank(self):
+        """This unit's grid coordinate (a scalar for a 1-D grid, else a tuple)."""
+        if self._coord is None:
+            raise SPMWError("ctx.rank() is only defined for a placed work unit")
+        return self._coord[0] if len(self._coord) == 1 else self._coord
+
+    def port(self, name):
+        """The handle for a declared port; error on an undeclared name."""
+        if name not in self._ports:
+            raise SPMWError(
+                f"port {name!r} is not declared in the topology; declared ports: "
+                f"{sorted(self._ports)}"
+            )
+        return PortHandle(name)
+
+    def __getattr__(self, name):
+        # Directional sugar: ctx.east is ctx.port("east"). Attributes that are not
+        # declared ports fall through to a normal AttributeError.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        ports = self.__dict__.get("_ports", set())
+        if name in ports:
+            return PortHandle(name)
+        raise AttributeError(
+            f"{name!r} is not a declared port; declared ports: {sorted(ports)}"
+        )
+
+
+class Unit:
+    """A single program replicated at each grid point, with optional boundary roles."""
+
+    def __init__(self, fn):
+        self.fn = fn
+        self.name = fn.__name__
+        self.__name__ = fn.__name__
+        self.__doc__ = fn.__doc__
+        self.interior = fn
+        # Each role is (edge_names, body); it specializes the units missing those links.
+        self.roles = []
+        # A unit may carry its own topology (e.g. a permutation network defined with it).
+        self.topo = None
+
+    def role(self, *edges):
+        """Register a boundary-role body selected by the given missing-link edges."""
+        if not edges:
+            raise SPMWError("a role requires at least one boundary edge name")
+
+        def register(body):
+            self.roles.append((tuple(edges), body))
+            return body
+
+        return register
+
+    def __repr__(self):
+        return f"<spmw.unit {self.name!r} roles={[edges for edges, _ in self.roles]}>"
+
+
+def unit(fn):
+    """Decorator marking ``fn`` as the interior work-unit body."""
+    return Unit(fn)
+
+
+class Region:
+    """A composition scope: it holds tensors, declares maps, and wires them together."""
+
+    def __init__(self, fn):
+        self.fn = fn
+        self.name = fn.__name__
+        self.__name__ = fn.__name__
+        self.__doc__ = fn.__doc__
+
+    def __repr__(self):
+        return f"<spmw.region {self.name!r}>"
+
+
+def region():
+    """Decorator factory marking a function as an SPMW composition scope."""
+
+    def decorator(fn):
+        return Region(fn)
+
+    return decorator
+
+
+class _MapDecl:
+    """A recorded ``spmw.map`` call: a unit placed over a topology."""
+
+    def __init__(self, work_unit, topology, depths):
+        self.unit = work_unit
+        self.topology = topology
+        self.depths = dict(depths) if depths else {}
+
+
+class _StreamDecl:
+    """A recorded auto-halo ``stream_in``/``stream_out`` declaration."""
+
+    def __init__(self, tensor, work_unit, flow, direction, **extra):
+        self.tensor = tensor
+        self.unit = work_unit
+        self.flow = flow
+        self.direction = direction
+        self.extra = extra
+
+
+class _RegionCollection:
+    """The maps and streams gathered from one pass over a region body."""
+
+    def __init__(self):
+        self.maps = []
+        self.streams = []
+
+
+# The collector active while a region body is being traced (None outside a trace).
+_active_collector = None
+
+
+def _resolve_topology(work_unit, grid, topo):
+    topology = None
+    if topo is not None:
+        topology = topo
+    elif isinstance(grid, Topology):
+        topology = grid
+    elif getattr(work_unit, "topo", None) is not None:
+        topology = work_unit.topo
+    if topology is None:
+        if grid is None:
+            raise SPMWError("spmw.map needs a grid= or topo=")
+        topology = Grid(grid)
+    if not isinstance(topology, Topology):
+        raise SPMWError(
+            f"topology must be an spmw.Topology; got {type(topology).__name__}"
+        )
+    if grid is not None and not isinstance(grid, Topology):
+        if tuple(grid) != topology.grid:
+            raise SPMWError(
+                f"grid shape {tuple(grid)} does not match topology grid {topology.grid}"
+            )
+    return topology
+
+
+def map(work_unit, grid=None, topo=None, depths=None):
+    """Replicate a work unit over a grid, wired by a topology."""
+    if not isinstance(work_unit, Unit):
+        raise SPMWError("spmw.map expects an @spmw.unit as its first argument")
+    topology = _resolve_topology(work_unit, grid, topo)
+    if depths:
+        ports = topology.port_names()
+        for port in depths:
+            if port not in ports:
+                raise SPMWError(
+                    f"depths references undeclared port {port!r}; declared ports: "
+                    f"{sorted(ports)}"
+                )
+    decl = _MapDecl(work_unit, topology, depths)
+    if _active_collector is not None:
+        _active_collector.maps.append(decl)
+    return decl
+
+
+def stream_in(tensor, into=None, flow=None, **kwargs):
+    """Declare an operand that streams into the grid across a flow direction."""
+    decl = _StreamDecl(tensor, into, flow, "in", **kwargs)
+    if _active_collector is not None:
+        _active_collector.streams.append(decl)
+    return decl
+
+
+def stream_out(tensor, from_=None, flow=None, **kwargs):
+    """Declare a result that streams out of the grid."""
+    decl = _StreamDecl(tensor, from_, flow, "out", **kwargs)
+    if _active_collector is not None:
+        _active_collector.streams.append(decl)
+    return decl
+
+
+# Flow shorthands map a direction across a mesh to the (entry, exit) port pair it uses.
+# pylint: disable-next=consider-using-namedtuple-or-dataclass
+_FLOW_PORTS = {
+    "W->E": ("west", "east"),
+    "E->W": ("east", "west"),
+    "N->S": ("north", "south"),
+    "S->N": ("south", "north"),
+}
+
+
+class _TensorPlaceholder:
+    """Stands in for a region's tensor argument while its body is traced."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return f"<tensor {self.name}>"
+
+
+def _make_arguments(fn):
+    args, kwargs = [], {}
+    for name, param in inspect.signature(fn).parameters.items():
+        if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+            continue
+        placeholder = _TensorPlaceholder(name)
+        if param.kind == param.KEYWORD_ONLY:
+            kwargs[name] = placeholder
+        else:
+            args.append(placeholder)
+    return args, kwargs
+
+
+def _collect(program):
+    global _active_collector
+    collection = _RegionCollection()
+    args, kwargs = _make_arguments(program.fn)
+    previous = _active_collector
+    _active_collector = collection
+    try:
+        program.fn(*args, **kwargs)
+    finally:
+        _active_collector = previous
+    return collection
+
+
+def _find_map(collection, work_unit):
+    for decl in collection.maps:
+        if decl.unit is work_unit:
+            return decl
+    return None
+
+
+def _validate_collection(collection):
+    if not collection.maps:
+        raise SPMWError("region declares no spmw.map")
+    for decl in collection.maps:
+        decl.topology.validate()
+        ports = decl.topology.port_names()
+        for edges, _ in decl.unit.roles:
+            for edge in edges:
+                if edge not in ports:
+                    raise SPMWError(
+                        f"role on unit {decl.unit.name!r} references undeclared port "
+                        f"{edge!r}; declared ports: {sorted(ports)}"
+                    )
+    for stream in collection.streams:
+        decl = _find_map(collection, stream.unit)
+        if decl is None:
+            continue
+        ports = decl.topology.port_names()
+        if stream.flow in _FLOW_PORTS:
+            for port in _FLOW_PORTS[stream.flow]:
+                if port not in ports:
+                    raise SPMWError(
+                        f"stream flow {stream.flow!r} needs port {port!r}, which is "
+                        f"not declared in the topology; declared ports: {sorted(ports)}"
+                    )
+    return collection
+
+
+def validate(program):
+    """Trace a region and run every static check; return the gathered declarations."""
+    if not isinstance(program, Region):
+        raise SPMWError("spmw.validate expects an @spmw.region")
+    return _validate_collection(_collect(program))
+
+
+def build(program, target="simulator", **kwargs):
+    """Validate an SPMW program for a target.
+
+    Topology validation runs here, so a malformed program is rejected at build time.
+    Code generation for each target is not yet wired up.
+    """
+    validate(program)
+    raise NotImplementedError(
+        f"SPMW code generation for target={target!r} is not yet implemented; the "
+        f"frontend surface and topology validation are in place"
+    )
