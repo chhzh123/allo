@@ -47,6 +47,7 @@ __all__ = [
     "role_partition",
     "role_count",
     "resolve_channels",
+    "halo_roles",
     "lower",
     "unroll",
     "build",
@@ -779,6 +780,30 @@ def resolve_channels(topology):
                 (src[0], src[1], sink[0], sink[1])
             )
     return families
+
+
+def halo_roles(program):
+    """The boundary roles synthesized from a region's auto-halo stream declarations.
+
+    A ``stream_in`` with a flow direction makes an operand stream across the array: units on the
+    entry edge load it (a ``"loader"`` role), units on the exit edge drain it (a ``"drain"`` role),
+    and interior units forward it via the unit body; a ``stream_out`` with a flow collects at its
+    exit edge. Returns a list of ``(edge_port, kind, tensor_name)`` for each synthesized boundary
+    role, so the loaders/drains are derived from the declared flow rather than hand-written.
+    """
+    collection = _validate_collection(_collect(program))
+    roles = []
+    for stream in collection.streams:
+        if stream.flow is None:
+            continue
+        entry, exit_edge = _FLOW_PORTS[stream.flow]
+        name = getattr(stream.tensor, "name", str(stream.tensor))
+        if stream.direction == "in":
+            roles.append((entry, "loader", name))
+            roles.append((exit_edge, "drain", name))
+        else:
+            roles.append((exit_edge, "collector", name))
+    return roles
 
 
 def validate(program):
