@@ -71,6 +71,18 @@ def test_halo_loader_drain_datapaths_are_separate_boundary_funcs():
     assert text.count("spmw.map") == 1
 
 
+def test_map_carries_real_tensor_operands():
+    # spmw.map now passes the region's real A/B/C memrefs (matching the role tensor ABI), not a
+    # memref<1xf32> placeholder
+    text = str(spmw.lower(_systolic_twin(2, 2, 2)))
+    assert (
+        "func.func @gemm(%arg0: memref<2x2xf32>, %arg1: memref<2x2xf32>, "
+        "%arg2: memref<2x2xf32>)" in text
+    )
+    assert "spmw.map(%arg0, %arg1, %arg2)" in text
+    assert "memref<1xf32>" not in text
+
+
 def test_untranscribable_systolic_body_fails_closed():
     # a systolic region whose interior uses a construct the transcriber does not handle must raise,
     # not silently lower to an empty stub

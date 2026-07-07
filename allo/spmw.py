@@ -1019,10 +1019,29 @@ def _halo_role_funcs(program, decl, collection):
     return out
 
 
+def _tensor_operands(program):
+    """The region's shaped memref args as ``(ssa, memref type)`` pairs -- the map's ``$tensors``."""
+    annotations = getattr(program.fn, "__annotations__", {})
+    operands = []
+    for name, typ in annotations.items():
+        if getattr(typ, "shape", None):
+            dims = "x".join(str(d) for d in typ.shape)
+            operands.append((f"%{name}", f"memref<{dims}x{repr(typ.dtype)}>"))
+    return operands
+
+
 def _module_text(program, collection):
     """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
     role_funcs = []
     map_ops = []
+    operands = _tensor_operands(program)
+    if not operands:
+        # the map's assembly format needs at least one tensor operand; a topology-only region
+        # (no memref args, e.g. the dialect tests) keeps a benign placeholder.
+        operands = [("%arg0", "memref<1xf32>")]
+    operand_ssa = ", ".join(ssa for ssa, _ in operands)
+    operand_types = ", ".join(ty for _, ty in operands)
+    top_params = ", ".join(f"{ssa}: {ty}" for ssa, ty in operands)
     for decl in collection.maps:
         role_attrs = []
         for name, missing in _roles_of(decl):
@@ -1039,13 +1058,13 @@ def _module_text(program, collection):
             role_funcs.append(func_text)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
         map_ops.append(
-            f"    spmw.map (%arg0)\n"
+            f"    spmw.map ({operand_ssa})\n"
             f"      topology = {_topology_text(decl)}\n"
             f"      roles = {roles_text}\n"
-            f"      : memref<1xf32>"
+            f"      : {operand_types}"
         )
     top = (
-        f"  func.func @{program.name}(%arg0: memref<1xf32>) {{\n"
+        f"  func.func @{program.name}({top_params}) {{\n"
         + "\n".join(map_ops)
         + "\n    return\n  }"
     )
