@@ -35,7 +35,13 @@ def test_interior_role_func_carries_real_datapath():
     # body into the same allo ops the dataflow frontend emits, once, parameterized by the writer PID
     text = str(spmw.lower(_systolic_twin(2, 2, 2)))
     assert "func.func @gemm_pe_interior(" in text
-    for op in ("allo.stream_get", "arith.mulf", "arith.addf", "allo.stream_put", "memref.store"):
+    for op in (
+        "allo.stream_get",
+        "arith.mulf",
+        "arith.addf",
+        "allo.stream_put",
+        "memref.store",
+    ):
         assert op in text
     # parameterized by the writer position (index args) and streaming over typed FIFOs
     assert "index" in text
@@ -43,6 +49,24 @@ def test_interior_role_func_carries_real_datapath():
     # still one rolled map and one interior func regardless -- no per-PID clones
     assert text.count("spmw.map") == 1
     assert text.count("func.func @gemm_pe_interior(") == 1
+
+
+def test_halo_loader_drain_roles_carry_real_datapath():
+    # the boundary roles implied by the stream flows are synthesized as real datapath, not stubs:
+    # a loader reads its operand row/col and streams it in, a drain consumes at the exit edge
+    text = str(spmw.lower(_systolic_twin(2, 2, 2)))
+    for sym in (
+        "gemm_pe_load_A",
+        "gemm_pe_load_B",
+        "gemm_pe_drain_A",
+        "gemm_pe_drain_B",
+    ):
+        assert f"@{sym}(" in text
+    assert text.count("memref.load") == 2  # exactly the two loaders read an operand
+    assert "allo.stream_get" in text and "allo.stream_put" in text
+    # interior + 2 loaders + 2 drains, all roles on the single rolled map
+    assert text.count("spmw.role") == 5
+    assert text.count("spmw.map") == 1
 
 
 def _mesh_region_with_roles(shape):

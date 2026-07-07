@@ -980,6 +980,52 @@ def _interior_role_func(program, decl, sym):
         return None
 
 
+def _halo_role_funcs(program, decl, collection):
+    """Synthesize the loader/drain role funcs implied by the region's stream flows.
+
+    Each ``stream_in`` with a flow makes an operand stream across the array: a loader at the entry
+    edge reads the operand row/col and streams it in, a drain at the exit edge consumes it. Returns
+    ``(func_text, #spmw.role attr)`` pairs, empty when the region is not the two-operand systolic
+    shape the datapath handles.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw_mlir import drain_role_func, loader_role_func
+
+    annotations = getattr(program.fn, "__annotations__", {})
+    tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
+    if len(tensors) < 3:
+        return []
+    a_shape, b_shape = tensors[0].shape, tensors[1].shape
+    elem = repr(tensors[0].dtype)
+    trip = a_shape[1]  # the operand streams K elements
+    prefix = f"{program.name}_{decl.unit.name}"
+    out = []
+    for stream in collection.streams:
+        if stream.direction != "in" or stream.flow is None:
+            continue
+        entry, exit_edge = _FLOW_PORTS[stream.flow]
+        horizontal = stream.flow in {"W->E", "E->W"}
+        operand, shape, tag = (
+            ("%A", a_shape, "A") if horizontal else ("%B", b_shape, "B")
+        )
+        load_sym, drain_sym = f"{prefix}_load_{tag}", f"{prefix}_drain_{tag}"
+        out.append(
+            (
+                loader_role_func(
+                    load_sym, elem, trip, 4, operand, shape, exit_edge, horizontal
+                ),
+                f'#spmw.role<unit = @{load_sym}, missing = ["{entry}"]>',
+            )
+        )
+        out.append(
+            (
+                drain_role_func(drain_sym, elem, trip, 4, entry),
+                f'#spmw.role<unit = @{drain_sym}, missing = ["{exit_edge}"]>',
+            )
+        )
+    return out
+
+
 def _module_text(program, collection):
     """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
     role_funcs = []
@@ -994,6 +1040,9 @@ def _module_text(program, collection):
             role_funcs.append(func or f"  func.func @{sym}() {{\n    return\n  }}")
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
             role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
+        for func_text, role_attr in _halo_role_funcs(program, decl, collection):
+            role_funcs.append(func_text)
+            role_attrs.append(role_attr)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
         map_ops.append(
             f"    spmw.map (%arg0)\n"

@@ -216,6 +216,39 @@ class _Datapath:
             self.stmt(node)
 
 
+def loader_role_func(
+    sym, elem, trip, stream_depth, operand, shape, forward_port, p_first
+):
+    """Synthesize a halo loader role: read the operand row/col and stream it into the array.
+
+    ``p_first`` selects ``operand[%p, %k]`` (a horizontal W->E flow reading A row ``%p``) versus
+    ``operand[%k, %p]`` (a vertical N->S flow reading B column ``%p``); ``forward_port`` is the port
+    it streams into the array.
+    """
+    rows, cols = shape
+    index = "%p, %k" if p_first else "%k, %p"
+    stream_ty = f"!allo.stream<{elem}, {stream_depth}>"
+    signature = f"{operand}: memref<{rows}x{cols}x{elem}>, %p: index, %{forward_port}: {stream_ty}"
+    body = (
+        f"    affine.for %k = 0 to {trip} {{\n"
+        f"      %v = memref.load {operand}[{index}] : memref<{rows}x{cols}x{elem}>\n"
+        f"      allo.stream_put(%{forward_port}, [], %v) : {stream_ty} contains {elem}\n"
+        "    }"
+    )
+    return f"  func.func @{sym}({signature}) {{\n{body}\n    return\n  }}"
+
+
+def drain_role_func(sym, elem, trip, stream_depth, in_port):
+    """Synthesize a halo drain role: consume the streamed operand at the exit edge."""
+    stream_ty = f"!allo.stream<{elem}, {stream_depth}>"
+    body = (
+        f"    affine.for %k = 0 to {trip} {{\n"
+        f"      %v = allo.stream_get(%{in_port}, []) : {stream_ty} -> {elem}\n"
+        "    }"
+    )
+    return f"  func.func @{sym}(%{in_port}: {stream_ty}) {{\n{body}\n    return\n  }}"
+
+
 def _accumulators(body):
     """Names that are AugAssign targets (loop-carried) -- these need a memref, not an SSA value."""
     names = set()
