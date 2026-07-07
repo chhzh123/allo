@@ -118,8 +118,18 @@ def _transcribe_interior(unit, locals_):
 
 def generate_source(region, collection):
     """The equivalent allo.dataflow source for a recognized systolic-mesh region."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
     decl = _recognize(collection)
     rows, cols, depth, dtype = _resolve_dims(region)
+    # The declared mesh must match the operand-derived PE grid, or a stale spmw.mesh((...)) would
+    # silently compile a different topology than the one the tensors imply.
+    if tuple(decl.topology.grid) != (rows, cols):
+        raise SPMWError(
+            f"declared mesh grid {tuple(decl.topology.grid)} does not match the operand-derived "
+            f"PE grid {(rows, cols)}: A is [M, K] and B is [K, N], so the mesh must be M x N"
+        )
     out = [s for s in collection.streams if s.direction == "out"][0]
     locals_ = {out.extra.get("as_", "c_local"): ("local_C", "i - 1", "j - 1")}
     interior = _transcribe_interior(decl.unit, locals_)

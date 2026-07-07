@@ -85,6 +85,33 @@ def test_systolic_runs_for_int32():
     np.testing.assert_array_equal(C, A @ B)
 
 
+def test_grid_tensor_mismatch_rejected():
+    # a declared mesh that disagrees with the operand-derived M x N grid must not silently compile
+    M, N, K = 3, 3, 3
+    grid = spmw.mesh((M + 1, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="grid"):
+        spmw.build(gemm, target="simulator")
+
+
 def test_non_systolic_region_rejected():
     grid = spmw.mesh((3, 3))
 
