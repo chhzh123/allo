@@ -46,6 +46,7 @@ __all__ = [
     "validate",
     "role_partition",
     "role_count",
+    "resolve_channels",
     "lower",
     "unroll",
     "build",
@@ -735,6 +736,49 @@ def role_partition(topology):
 def role_count(topology):
     """The number of distinct link-presence roles in a topology (the O(#roles) count)."""
     return len(role_partition(topology))
+
+
+def resolve_channels(topology):
+    """Enumerate the distinct channels of a topology, grouped into per-port-pair FIFO families.
+
+    A peer link and its reciprocal are one channel, so directed edges are deduplicated into
+    undirected channels (each counted once via its canonical, lexicographically smaller endpoint)
+    and grouped by the unordered pair of port names they connect (e.g. ``east/west``). Key-form
+    endpoints sharing a key form one channel, grouped under that key. Returns an ordered dict
+    mapping a family name to the list of channels ``(src_coord, src_port, sink_coord, sink_port)``.
+    The number of families is constant as the grid scales even though the channel count is
+    O(P0*P1) — the FIFO arrays HLS declares.
+    """
+    if not isinstance(topology, Topology):
+        raise SPMWError("spmw.resolve_channels expects an spmw.Topology")
+    families = {}
+    seen = set()
+    key_endpoints = {}
+    for coord in topology.coords():
+        for port, target in topology.links_at(coord).items():
+            if _is_key_form(target):
+                key, direction = target
+                key_endpoints.setdefault(key, {})[direction] = (tuple(coord), port)
+                continue
+            peer_coord, peer_port = topology._parse_peer(port, target)
+            if not topology.in_bounds(peer_coord):
+                continue  # a boundary port carries no channel
+            here = (tuple(coord), port)
+            there = (peer_coord, peer_port)
+            channel_id = frozenset((here, there))
+            if channel_id in seen:
+                continue
+            seen.add(channel_id)
+            src, sink = sorted((here, there))
+            family = "/".join(sorted((port, peer_port)))
+            families.setdefault(family, []).append((src[0], src[1], sink[0], sink[1]))
+    for key, endpoints in key_endpoints.items():
+        if _SRC in endpoints and _SINK in endpoints:
+            src, sink = endpoints[_SRC], endpoints[_SINK]
+            families.setdefault(f"key:{key!r}", []).append(
+                (src[0], src[1], sink[0], sink[1])
+            )
+    return families
 
 
 def validate(program):
