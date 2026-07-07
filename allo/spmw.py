@@ -974,19 +974,20 @@ def _interior_role_func(program, decl, sym):
     shapes = (tensors[0].shape, tensors[1].shape, tensors[2].shape)
     elem = repr(tensors[0].dtype)
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
-    try:
-        return interior_role_func(sym, decl.unit, elem, trip, 4, shapes)
-    except SPMWError:
-        return None
+    # A systolic region fails closed: an untranscribable interior body raises rather than silently
+    # becoming an empty stub. (Genuinely topology-only regions already returned None above.)
+    return interior_role_func(sym, decl.unit, elem, trip, 4, shapes)
 
 
 def _halo_role_funcs(program, decl, collection):
     """Synthesize the loader/drain role funcs implied by the region's stream flows.
 
     Each ``stream_in`` with a flow makes an operand stream across the array: a loader at the entry
-    edge reads the operand row/col and streams it in, a drain at the exit edge consumes it. Returns
-    ``(func_text, #spmw.role attr)`` pairs, empty when the region is not the two-operand systolic
-    shape the datapath handles.
+    edge reads the operand row/col and streams it in, a drain at the exit edge consumes it. These
+    are boundary tasks *around* the compute grid, not compute-grid roles -- an edge PE still runs
+    the interior compute -- so they are emitted as separate funcs and are never assigned to a grid
+    point. Returns a list of func texts, empty when the region is not the two-operand systolic shape
+    the datapath handles.
     """
     # pylint: disable=import-outside-toplevel
     from .spmw_mlir import drain_role_func, loader_role_func
@@ -1010,19 +1011,11 @@ def _halo_role_funcs(program, decl, collection):
         )
         load_sym, drain_sym = f"{prefix}_load_{tag}", f"{prefix}_drain_{tag}"
         out.append(
-            (
-                loader_role_func(
-                    load_sym, elem, trip, 4, operand, shape, exit_edge, horizontal
-                ),
-                f'#spmw.role<unit = @{load_sym}, missing = ["{entry}"]>',
+            loader_role_func(
+                load_sym, elem, trip, 4, operand, shape, exit_edge, horizontal
             )
         )
-        out.append(
-            (
-                drain_role_func(drain_sym, elem, trip, 4, entry),
-                f'#spmw.role<unit = @{drain_sym}, missing = ["{exit_edge}"]>',
-            )
-        )
+        out.append(drain_role_func(drain_sym, elem, trip, 4, entry))
     return out
 
 
@@ -1040,9 +1033,10 @@ def _module_text(program, collection):
             role_funcs.append(func or f"  func.func @{sym}() {{\n    return\n  }}")
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
             role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
-        for func_text, role_attr in _halo_role_funcs(program, decl, collection):
+        # auto-halo loader/drain datapaths are boundary tasks around the grid, emitted as sibling
+        # funcs -- deliberately not added to the compute map's roles
+        for func_text in _halo_role_funcs(program, decl, collection):
             role_funcs.append(func_text)
-            role_attrs.append(role_attr)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
         map_ops.append(
             f"    spmw.map (%arg0)\n"

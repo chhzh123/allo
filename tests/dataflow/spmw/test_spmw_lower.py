@@ -51,8 +51,8 @@ def test_interior_role_func_carries_real_datapath():
     assert text.count("func.func @gemm_pe_interior(") == 1
 
 
-def test_halo_loader_drain_roles_carry_real_datapath():
-    # the boundary roles implied by the stream flows are synthesized as real datapath, not stubs:
+def test_halo_loader_drain_datapaths_are_separate_boundary_funcs():
+    # the boundary datapaths implied by the stream flows are synthesized as real funcs:
     # a loader reads its operand row/col and streams it in, a drain consumes at the exit edge
     text = str(spmw.lower(_systolic_twin(2, 2, 2)))
     for sym in (
@@ -64,9 +64,40 @@ def test_halo_loader_drain_roles_carry_real_datapath():
         assert f"@{sym}(" in text
     assert text.count("memref.load") == 2  # exactly the two loaders read an operand
     assert "allo.stream_get" in text and "allo.stream_put" in text
-    # interior + 2 loaders + 2 drains, all roles on the single rolled map
-    assert text.count("spmw.role") == 5
+    # but they are boundary tasks around the grid, NOT compute-grid roles: the map carries only the
+    # interior compute role, so no edge PE loses its compute and corners stay unambiguous
+    assert text.count("spmw.role") == 1
+    assert "@gemm_pe_interior" in text
     assert text.count("spmw.map") == 1
+
+
+def test_untranscribable_systolic_body_fails_closed():
+    # a systolic region whose interior uses a construct the transcriber does not handle must raise,
+    # not silently lower to an empty stub
+    M, N, K = 2, 2, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            if a:  # a control-flow construct the datapath transcriber does not handle
+                c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError):
+        spmw.lower(gemm)
 
 
 def _mesh_region_with_roles(shape):
