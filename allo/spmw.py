@@ -44,6 +44,8 @@ __all__ = [
     "PortContext",
     "PortHandle",
     "validate",
+    "role_partition",
+    "role_count",
     "lower",
     "unroll",
     "build",
@@ -709,6 +711,30 @@ def _validate_collection(collection):
                         f"declared in the topology; declared ports: {sorted(ports)}"
                     )
     return collection
+
+
+def role_partition(topology):
+    """Group grid points by their missing-link signature (link-presence classification).
+
+    Two grid points share a role when the same set of links is missing at them. For a mesh, a
+    point's missing links are its out-of-range neighbors, so the interior, the four edges, and the
+    four corners each form one role — a 2-D mesh with both extents >= 3 partitions into exactly
+    nine roles, independent of the grid size, while a degenerate grid (1-D, or an extent < 3)
+    yields the correct smaller set. Returns an insertion-ordered dict mapping each signature (a
+    sorted tuple of missing port names) to the list of coordinates that share it.
+    """
+    if not isinstance(topology, Topology):
+        raise SPMWError("spmw.role_partition expects an spmw.Topology")
+    groups = {}
+    for coord in topology.coords():
+        signature = tuple(sorted(topology.boundary_ports_at(coord)))
+        groups.setdefault(signature, []).append(coord)
+    return groups
+
+
+def role_count(topology):
+    """The number of distinct link-presence roles in a topology (the O(#roles) count)."""
+    return len(role_partition(topology))
 
 
 def validate(program):
