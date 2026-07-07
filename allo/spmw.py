@@ -45,6 +45,7 @@ __all__ = [
     "PortHandle",
     "validate",
     "lower",
+    "unroll",
     "build",
 ]
 
@@ -816,18 +817,7 @@ def _module_text(program, collection):
     return "module {\n" + "\n".join(role_funcs + [top]) + "\n}"
 
 
-def lower(program):
-    """Lower an SPMW region to the rolled ``spmw.map`` IR and return the parsed module.
-
-    The module carries one ``spmw.map`` op per mapped unit (with a typed ``#spmw.topology`` and
-    one ``#spmw.role`` per predicate tag) and one ``func.func`` per role — never ``P0*P1``
-    per-grid-point functions. Role bodies are signature-only here; compiling the work-unit
-    datapath into them is the next step.
-    """
-    if not isinstance(program, Region):
-        raise SPMWError("spmw.lower expects an @spmw.region")
-    collection = _validate_collection(_collect(program))
-    text = _module_text(program, collection)
+def _parse_module(text):
     # Imported lazily so the surface does not require the compiled backend to be present.
     # pylint: disable=import-outside-toplevel,no-name-in-module
     from ._mlir.ir import Context, Location, Module
@@ -839,16 +829,90 @@ def lower(program):
         return Module.parse(text)
 
 
+def lower(program):
+    """Lower an SPMW region to the rolled ``spmw.map`` IR and return the parsed module.
+
+    The module carries one ``spmw.map`` op per mapped unit (with a typed ``#spmw.topology`` and
+    one ``#spmw.role`` per predicate tag) and one ``func.func`` per role — never ``P0*P1``
+    per-grid-point functions. Role bodies are signature-only here; compiling the work-unit
+    datapath into them is the next step.
+    """
+    if not isinstance(program, Region):
+        raise SPMWError("spmw.lower expects an @spmw.region")
+    collection = _validate_collection(_collect(program))
+    return _parse_module(_module_text(program, collection))
+
+
+def _role_specs(decl):
+    """The predicate tags of a mapped unit as ``(name, missing_port_set)`` pairs."""
+    specs = [("interior", frozenset())]
+    for edges, _ in decl.unit.roles:
+        specs.append(("_".join(edges), frozenset(edges)))
+    return specs
+
+
+def _assign_role(boundary, specs):
+    """Pick the role for a grid point given the set of links missing at its boundary.
+
+    A role applies where all of its declared missing links are actually missing, so the
+    candidates are the roles whose missing set is a subset of the boundary; the most specific
+    (largest missing set) wins. Interior (empty missing set) is the always-available fallback;
+    two incomparable roles that both fit are a genuine ambiguity and are rejected.
+    """
+    fits = [(name, missing) for name, missing in specs if missing <= boundary]
+    best_size = max(len(missing) for _, missing in fits)
+    best = [name for name, missing in fits if len(missing) == best_size]
+    if len(best) > 1:
+        raise SPMWError(
+            f"ambiguous role for boundary {sorted(boundary)}: {best}; declare a role "
+            f"for that exact boundary"
+        )
+    return best[0]
+
+
+def _unrolled_text(program, collection):
+    """Assemble the per-PID IR: O(#roles) role funcs plus one func.call per grid point."""
+    role_funcs = []
+    calls = []
+    for decl in collection.maps:
+        specs = _role_specs(decl)
+        for name, _ in specs:
+            sym = f"{program.name}_{decl.unit.name}_{name}"
+            role_funcs.append(f"  func.func @{sym}() {{\n    return\n  }}")
+        for coord in decl.topology.coords():
+            role_name = _assign_role(decl.topology.boundary_ports_at(coord), specs)
+            sym = f"{program.name}_{decl.unit.name}_{role_name}"
+            calls.append(f"    func.call @{sym}() : () -> ()")
+    top = f"  func.func @{program.name}() {{\n" + "\n".join(calls) + "\n    return\n  }"
+    return "module {\n" + "\n".join(role_funcs + [top]) + "\n}"
+
+
+def unroll(program):
+    """Expand the rolled map into the per-PID simulator form and return the parsed module.
+
+    Every grid point becomes a ``func.call`` to the ``func.func`` of the role it is assigned
+    (by which links are missing at its boundary). The call count is ``O(P0*P1)`` — the simulator
+    form — but the role ``func.func`` count stays ``O(#roles)``: the bodies are never cloned per
+    grid point. Role bodies are signature-only until the datapath lowering lands.
+    """
+    if not isinstance(program, Region):
+        raise SPMWError("spmw.unroll expects an @spmw.region")
+    collection = _validate_collection(_collect(program))
+    return _parse_module(_unrolled_text(program, collection))
+
+
 def build(program, target="simulator", **kwargs):
     """Validate and build an SPMW program for a target.
 
-    ``target="ir"`` returns the rolled ``spmw.map`` module. Execution targets need the work-unit
-    datapath lowering, which is not wired up yet.
+    ``target="ir"`` returns the rolled ``spmw.map`` module and ``target="unroll"`` the per-PID
+    module. Execution targets need the work-unit datapath lowering, which is not wired up yet.
     """
     validate(program)
     if target == "ir":
         return lower(program)
+    if target == "unroll":
+        return unroll(program)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"spmw.lower(region) or target='ir' for the rolled spmw.map module"
+        f"spmw.lower/spmw.unroll (target='ir'/'unroll') for the rolled/per-PID modules"
     )
