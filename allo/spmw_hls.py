@@ -215,17 +215,70 @@ def emit_rolled_hls(region):
     )
 
 
-def _rolled_csynth_tcl(part, frequency):
-    """A Vitis HLS csynth script for a stand-alone rolled ``top`` project."""
+def _rolled_csynth_tcl(part, frequency, with_testbench=False):
+    """A Vitis HLS script for a stand-alone rolled ``top`` project.
+
+    With ``with_testbench`` it registers ``tb.cpp`` and runs ``csim_design`` (the correctness gate:
+    does the rolled top compute A@B); otherwise it runs ``csynth_design`` (the synthesis gate).
+    """
+    if with_testbench:
+        action = "add_files -tb tb.cpp\n"
+        design = "csim_design\n"
+    else:
+        action = ""
+        design = "csynth_design\n"
     return (
         "open_project rolled.prj\n"
         "set_top top\n"
         "add_files kernel.cpp\n"
+        f"{action}"
         "open_solution solution1\n"
         f"set_part {part}\n"
         f"create_clock -period {1000 / frequency:.2f} -name default\n"
-        "csynth_design\n"
+        f"{design}"
         "exit\n"
+    )
+
+
+def _rolled_testbench(region):
+    """A self-checking C++ testbench that runs the rolled ``top`` and compares against A@B."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _resolve_dims
+
+    rows, cols, depth, dtype = _resolve_dims(region)
+    elem = _CPP_TYPE[dtype]
+    check = (
+        "if (std::fabs(ref - C[i][j]) > 1e-3) bad = 1;"
+        if dtype.startswith("float")
+        else "if (ref != C[i][j]) bad = 1;"
+    )
+    return (
+        "#include <cmath>\n"
+        "#include <cstdio>\n"
+        f"#define M {rows}\n"
+        f"#define N {cols}\n"
+        f"#define K {depth}\n"
+        f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]);\n"
+        "int main() {\n"
+        f"  {elem} A[M][K], B[K][N], C[M][N];\n"
+        "  for (int i = 0; i < M; i++)\n"
+        "    for (int k = 0; k < K; k++)\n"
+        f"      A[i][k] = ({elem})((i + 1) + k);\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    for (int j = 0; j < N; j++)\n"
+        f"      B[k][j] = ({elem})((j + 1) - k);\n"
+        "  top(A, B, C);\n"
+        "  int bad = 0;\n"
+        "  for (int i = 0; i < M; i++)\n"
+        "    for (int j = 0; j < N; j++) {\n"
+        f"      {elem} ref = 0;\n"
+        "      for (int k = 0; k < K; k++)\n"
+        "        ref += A[i][k] * B[k][j];\n"
+        f"      {check}\n"
+        "    }\n"
+        '  printf(bad ? "CSIM MISMATCH\\n" : "CSIM MATCH\\n");\n'
+        "  return bad;\n"
+        "}\n"
     )
 
 
@@ -243,14 +296,25 @@ class RolledHLSProject:
 
 
 def emit_rolled_project(
-    region, project=None, part=_DEFAULT_PART, frequency=_DEFAULT_FREQUENCY_MHZ
+    region,
+    project=None,
+    part=_DEFAULT_PART,
+    frequency=_DEFAULT_FREQUENCY_MHZ,
+    testbench=False,
 ):
-    """Emit the rolled systolic top for ``region`` as a :class:`RolledHLSProject`."""
+    """Emit the rolled systolic top for ``region`` as a :class:`RolledHLSProject`.
+
+    With ``testbench`` the project also holds a self-checking ``tb.cpp`` and its ``run.tcl`` runs
+    ``csim_design`` (correctness vs A@B) before ``csynth_design``.
+    """
     hls_code = emit_rolled_hls(region)
     if project is not None:
         os.makedirs(project, exist_ok=True)
         with open(os.path.join(project, "kernel.cpp"), "w", encoding="utf-8") as handle:
             handle.write(hls_code)
         with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as handle:
-            handle.write(_rolled_csynth_tcl(part, frequency))
+            handle.write(_rolled_csynth_tcl(part, frequency, with_testbench=testbench))
+        if testbench:
+            with open(os.path.join(project, "tb.cpp"), "w", encoding="utf-8") as handle:
+                handle.write(_rolled_testbench(region))
     return RolledHLSProject(hls_code, project)

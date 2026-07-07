@@ -3,6 +3,7 @@
 
 import os
 import re
+import subprocess
 import tempfile
 
 import numpy as np
@@ -103,3 +104,25 @@ def test_systolic_twin_hw_emu_emits_emulation_project():
         )
         for artifact in ("kernel.cpp", "host.cpp", "Makefile"):
             assert os.path.exists(os.path.join(tmp, artifact))
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_rolled_top_csim_matches_reference():
+    # the rolled O(#roles) top is not just synthesizable but numerically correct: its csim output
+    # matches A@B. The build emits a self-checking tb.cpp and a csim run.tcl.
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(
+            _systolic_twin(4, 4, 4), target="rolled", project=tmp, testbench=True
+        )
+        assert os.path.exists(os.path.join(tmp, "tb.cpp"))
+        result = subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=True,
+        )
+        assert "CSIM MATCH" in result.stdout, result.stdout[-2000:]

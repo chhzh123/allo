@@ -1096,6 +1096,7 @@ def build(program, target="simulator", **kwargs):
             project=kwargs.get("project"),
             part=kwargs.get("part", _DEFAULT_PART),
             frequency=kwargs.get("frequency", _DEFAULT_FREQUENCY_MHZ),
+            testbench=kwargs.get("testbench", False),
         )
     if target in _DATAFLOW_TARGETS:
         # pylint: disable=import-outside-toplevel
