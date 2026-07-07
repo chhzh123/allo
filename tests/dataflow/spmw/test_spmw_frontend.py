@@ -20,7 +20,8 @@ def _systolic_twin():
             c += a * b
             ctx.east.put(a)
             ctx.south.put(b)
-        ctx.c_local.put(c)
+        # c_local is a local result buffer (bound by stream_out), written by index, not a port
+        ctx.c_local[0] = c
 
     @spmw.region()
     def gemm(A, B, C):
@@ -170,3 +171,140 @@ def test_region_without_map_rejected():
 
     with pytest.raises(spmw.SPMWError, match="no spmw.map"):
         spmw.validate(r)
+
+
+def test_undeclared_port_io_in_body_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.not_a_port.get()  # not a declared mesh port
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_undeclared_port_io_in_role_body_rejected():
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @pe.role("west")
+    def pe_load(ctx):
+        ctx.eastward.put(1)  # not a declared mesh port
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_literal_ctx_port_in_body_checked():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.port("bogus").get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="undeclared port"):
+        spmw.validate(r)
+
+
+def test_dynamic_ctx_port_in_body_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        name = "east"
+        ctx.port(name).put(1)  # non-literal port name cannot be statically checked
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="string-literal"):
+        spmw.validate(r)
+
+
+def test_stream_target_none_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=None, flow="W->E")
+
+    with pytest.raises(spmw.SPMWError, match="needs a target"):
+        spmw.validate(r)
+
+
+def test_stream_into_unmapped_unit_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.unit
+    def other(ctx):
+        pass
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=other, flow="W->E")  # 'other' is never mapped
+
+    with pytest.raises(spmw.SPMWError, match="not mapped"):
+        spmw.validate(r)
+
+
+def test_unknown_flow_rejected():
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W=>E")  # typo, not a known flow
+
+    with pytest.raises(spmw.SPMWError, match="unknown stream flow"):
+        spmw.validate(r)
+
+
+def test_default_port_depth_is_two_with_override():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid, depths={"east": 4})
+
+    collection = spmw.validate(r)
+    assert collection.maps[0].port_depths == {
+        "east": 4,
+        "west": 2,
+        "north": 2,
+        "south": 2,
+    }

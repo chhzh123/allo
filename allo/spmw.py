@@ -19,11 +19,16 @@ form). The checker validates a program before any code is generated:
 * peer links are symmetric (``east`` at ``(i, j)`` pairs with ``west`` at ``(i, j + 1)``);
 * the grid rank matches the topology's dimensionality;
 * every key-form channel has exactly one source and one sink;
-* roles and stream flows only reference declared ports.
+* roles, stream flows, and work-unit/role bodies only reference declared ports.
+
+``"src"`` and ``"sink"`` are reserved as key-form direction tags, so a peer link cannot use them
+as peer-port names.
 """
 
+import ast
 import inspect
 import itertools
+import textwrap
 
 __all__ = [
     "SPMWError",
@@ -390,6 +395,10 @@ def region():
     return decorator
 
 
+# Every channel defaults to this FIFO depth unless a ``depths={...}`` override says otherwise.
+DEFAULT_DEPTH = 2
+
+
 class _MapDecl:
     """A recorded ``spmw.map`` call: a unit placed over a topology."""
 
@@ -397,6 +406,10 @@ class _MapDecl:
         self.unit = work_unit
         self.topology = topology
         self.depths = dict(depths) if depths else {}
+        # Resolved per-port FIFO depth: the default for every declared port, overridden per the
+        # user's request. This materializes the default so callers do not read the raw override.
+        self.port_depths = {port: DEFAULT_DEPTH for port in topology.port_names()}
+        self.port_depths.update(self.depths)
 
 
 class _StreamDecl:
@@ -534,6 +547,87 @@ def _find_map(collection, work_unit):
     return None
 
 
+# Stream port I/O in a body looks like ``ctx.<port>.put/get/get_or(...)`` or
+# ``ctx.port("<port>").put/get/get_or(...)``. The sentinel marks a port name that a body names
+# through a non-literal ``ctx.port(expr)``, which cannot be resolved statically.
+_STREAM_METHODS = {"put", "get", "get_or"}
+_DYNAMIC_PORT = object()
+
+
+def _ctx_param_name(fn):
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return None
+    for param in params:
+        if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
+            return param.name
+    return None
+
+
+def _receiver_port(receiver, ctx_name):
+    # ``ctx.<port>`` -> the port name.
+    if (
+        isinstance(receiver, ast.Attribute)
+        and isinstance(receiver.value, ast.Name)
+        and receiver.value.id == ctx_name
+    ):
+        return receiver.attr
+    # ``ctx.port("literal")`` -> the literal, else the dynamic sentinel.
+    if (
+        isinstance(receiver, ast.Call)
+        and isinstance(receiver.func, ast.Attribute)
+        and receiver.func.attr == "port"
+        and isinstance(receiver.func.value, ast.Name)
+        and receiver.func.value.id == ctx_name
+    ):
+        if (
+            len(receiver.args) == 1
+            and isinstance(receiver.args[0], ast.Constant)
+            and isinstance(receiver.args[0].value, str)
+        ):
+            return receiver.args[0].value
+        return _DYNAMIC_PORT
+    return None
+
+
+def _check_body_ports(label, fn, ports):
+    """Reject stream I/O on an undeclared port inside a work-unit or role body.
+
+    Bodies are scanned by source, never executed: a real body holds loops and arithmetic that a
+    bare ``ctx`` cannot run. When source is unavailable the scan is skipped rather than failing.
+    """
+    try:
+        source = textwrap.dedent(inspect.getsource(fn))
+    except (OSError, TypeError):
+        return
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return
+    ctx_name = _ctx_param_name(fn)
+    if ctx_name is None:
+        return
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr not in _STREAM_METHODS:
+            continue
+        port = _receiver_port(node.func.value, ctx_name)
+        if port is None:
+            continue
+        if port is _DYNAMIC_PORT:
+            raise SPMWError(
+                f"{label}: ctx.port(...) needs a string-literal port name so it can be "
+                f"statically checked"
+            )
+        if port not in ports:
+            raise SPMWError(
+                f"{label}: stream I/O on undeclared port {port!r}; declared ports: "
+                f"{sorted(ports)}"
+            )
+
+
 def _validate_collection(collection):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
@@ -547,17 +641,36 @@ def _validate_collection(collection):
                         f"role on unit {decl.unit.name!r} references undeclared port "
                         f"{edge!r}; declared ports: {sorted(ports)}"
                     )
+        _check_body_ports(f"unit {decl.unit.name!r}", decl.unit.interior, ports)
+        for edges, body in decl.unit.roles:
+            _check_body_ports(f"role {edges} on unit {decl.unit.name!r}", body, ports)
     for stream in collection.streams:
-        decl = _find_map(collection, stream.unit)
-        if decl is None:
+        target = stream.unit
+        if target is None:
+            raise SPMWError(
+                f"stream_{stream.direction} needs a target unit (into=/from_=)"
+            )
+        if not isinstance(target, Unit):
+            # A named stage target (key-form streaming) is validated when that path lands.
             continue
+        decl = _find_map(collection, target)
+        if decl is None:
+            raise SPMWError(
+                f"stream_{stream.direction} targets unit {target.name!r}, which is not "
+                f"mapped in this region"
+            )
         ports = decl.topology.port_names()
-        if stream.flow in _FLOW_PORTS:
+        if stream.flow is not None:
+            if stream.flow not in _FLOW_PORTS:
+                raise SPMWError(
+                    f"unknown stream flow {stream.flow!r}; supported flows: "
+                    f"{sorted(_FLOW_PORTS)}"
+                )
             for port in _FLOW_PORTS[stream.flow]:
                 if port not in ports:
                     raise SPMWError(
-                        f"stream flow {stream.flow!r} needs port {port!r}, which is "
-                        f"not declared in the topology; declared ports: {sorted(ports)}"
+                        f"stream flow {stream.flow!r} needs port {port!r}, which is not "
+                        f"declared in the topology; declared ports: {sorted(ports)}"
                     )
     return collection
 
