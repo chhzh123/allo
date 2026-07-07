@@ -87,3 +87,19 @@ def test_systolic_twin_csyn_emits_synthesizable_project():
         )
         assert os.path.exists(os.path.join(tmp, "run.tcl"))
         assert os.path.exists(os.path.join(tmp, "kernel.cpp"))
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_systolic_twin_hw_emu_emits_emulation_project():
+    # mode="hw_emu" desugars, complete-partitions the operands, and emits a full v++ emulation
+    # project (kernel + OpenCL host + Makefile). The RTL hardware-emulation run itself is done out
+    # of band -- on Vitis 2023.2/u280 it exits cleanly and its output matches numpy (see round 16
+    # report), the top rung of the L1->L4 ladder for the twin.
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(
+            _systolic_twin(2, 2, 2), target="vitis_hls", mode="hw_emu", project=tmp
+        )
+        for artifact in ("kernel.cpp", "host.cpp", "Makefile"):
+            assert os.path.exists(os.path.join(tmp, artifact))
