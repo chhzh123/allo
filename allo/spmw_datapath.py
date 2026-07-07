@@ -188,4 +188,18 @@ def build_dataflow(region, target="simulator", **kwargs):
 
     import allo.dataflow as df
 
-    return df.build(getattr(generated, f"{region.name}_df"), target=target, **kwargs)
+    df_region = getattr(generated, f"{region.name}_df")
+    if target != "simulator" and kwargs.get("mode") in {"csyn", "hw_emu", "hw"}:
+        # HLS dataflow requires a single writer per array. Each grid point writes a distinct C
+        # element (and reads distinct A/B lanes), so complete-partition the operands into per-lane
+        # banks before synthesis.
+        from allo.customize import Partition
+
+        schedule = df.customize(df_region)
+        top = f"{region.name}_df"
+        for tensor in ("A", "B", "C"):
+            schedule.partition(
+                f"{top}:{tensor}", partition_type=Partition.Complete, dim=0
+            )
+        return schedule.build(target=target, **kwargs)
+    return df.build(df_region, target=target, **kwargs)

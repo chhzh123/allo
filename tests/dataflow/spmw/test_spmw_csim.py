@@ -1,6 +1,8 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import re
 import tempfile
 
 import numpy as np
@@ -42,6 +44,21 @@ def test_systolic_twin_emits_vitis_hls_code():
     assert "hls::stream" in module.hls_code
 
 
+def _per_pid_body_count(M, N, K):
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(_systolic_twin(M, N, K), target="vitis_hls", project=tmp)
+    return len(set(re.findall(r"gemm_\d+_\d+", module.hls_code)))
+
+
+def test_synthesis_time_win_df_grows_but_rolled_stays_constant():
+    # the df-desugaring path clones one HLS function body per grid point (the O(P0*P1) blow-up):
+    # a bigger grid emits strictly more per-PID `gemm_i_j` bodies for the synthesizer to schedule.
+    assert _per_pid_body_count(6, 6, 4) > _per_pid_body_count(4, 4, 4) > 0
+    # the rolled spmw HLS emitter instead stays O(#roles) = 9 regardless of grid size.
+    assert spmw.role_body_count(_systolic_twin(4, 4, 4)) == 9
+    assert spmw.role_body_count(_systolic_twin(6, 6, 4)) == 9
+
+
 @pytest.mark.skipif(
     not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
 )
@@ -56,3 +73,17 @@ def test_systolic_twin_vitis_hls_csim():
         )
         module(A, B, C)
     np.testing.assert_allclose(C, np.dot(A, B), atol=1e-5)
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_systolic_twin_csyn_emits_synthesizable_project():
+    # mode="csyn" applies complete partitioning so HLS dataflow sees a single writer per bank, and
+    # emits a synthesizable Vitis project (csynth itself is run out of band; see round 12 report).
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(
+            _systolic_twin(2, 2, 2), target="vitis_hls", mode="csyn", project=tmp
+        )
+        assert os.path.exists(os.path.join(tmp, "run.tcl"))
+        assert os.path.exists(os.path.join(tmp, "kernel.cpp"))
