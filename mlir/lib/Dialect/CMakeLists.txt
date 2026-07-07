@@ -16,6 +16,7 @@ add_mlir_dialect_library(MLIRAllo
         MLIRAlloAttrsIncGen
         MLIRAlloEnumsIncGen
         MLIRSPMWOpsIncGen
+        MLIRSPMWAttrsIncGen
 
 	LINK_LIBS PUBLIC
 	MLIRIR

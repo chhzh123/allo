@@ -23,14 +23,20 @@ def SPMW_Dialect : Dialect {
         rolled description that survives to code generation instead of being
         expanded to one function per grid point.
     }];
+    let useDefaultAttributePrinterParser = 1;
     let cppNamespace = "::mlir::spmw";
 }
 
 //===----------------------------------------------------------------------===//
-// Base spmw operation definition.
+// Base spmw operation / attribute definitions.
 //===----------------------------------------------------------------------===//
 
 class SPMW_Op<string mnemonic, list<Trait> traits = []> :
         Op<SPMW_Dialect, mnemonic, traits>;
+
+class SPMW_Attr<string name, string attrMnemonic, list<Trait> traits = []> :
+        AttrDef<SPMW_Dialect, name, traits> {
+    let mnemonic = attrMnemonic;
+}
 
 #endif // SPMW_DIALECT

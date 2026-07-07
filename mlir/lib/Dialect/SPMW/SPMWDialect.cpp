@@ -12,12 +12,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "allo/Dialect/SPMW/SPMWDialect.h"
+#include "allo/Dialect/SPMW/SPMWAttrs.h"
 #include "allo/Dialect/SPMW/SPMWOps.h"
+
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 using namespace mlir::spmw;
 
 #include "allo/Dialect/SPMW/SPMWDialect.cpp.inc"
+
+//===----------------------------------------------------------------------===//
+// Tablegen attribute definitions
+//===----------------------------------------------------------------------===//
+
+#define GET_ATTRDEF_CLASSES
+#include "allo/Dialect/SPMW/SPMWAttrs.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Dialect initialize method.
@@ -26,5 +38,9 @@ void SPMWDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
 #include "allo/Dialect/SPMW/SPMWOps.cpp.inc"
+      >();
+  addAttributes<
+#define GET_ATTRDEF_LIST
+#include "allo/Dialect/SPMW/SPMWAttrs.cpp.inc"
       >();
 }
