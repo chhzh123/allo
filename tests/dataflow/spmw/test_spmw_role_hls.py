@@ -1,8 +1,10 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import re
+
 import allo.spmw as spmw
-from allo.spmw_hls import emit_role_hls
+from allo.spmw_hls import emit_role_hls, emit_rolled_hls
 from allo.ir.types import float32
 
 
@@ -41,3 +43,31 @@ def test_emit_role_hls_transcribes_the_datapath():
     assert "c += (a * b)" in cpp
     # one role body -- not one per grid point
     assert cpp.count("void pe_interior(") == 1
+
+
+def _role_bodies(cpp):
+    """The set of function names defined in an emitted HLS file."""
+    return set(re.findall(r"\bvoid\s+(\w+)\s*\(", cpp))
+
+
+def test_emit_rolled_hls_is_a_dataflow_top():
+    cpp = emit_rolled_hls(_systolic_twin(4, 4, 4))
+    # the rolled top calls each role in unrolled grid loops under a dataflow region
+    assert "#pragma HLS dataflow" in cpp
+    assert "#pragma HLS unroll" in cpp
+    assert "void top(" in cpp
+    # the four roles plus top are each defined exactly once
+    for name in ("pe_interior", "load_a", "load_b", "drain", "top"):
+        assert cpp.count(f"void {name}(") == 1
+    # no per-grid-point function names leaked in
+    assert not re.search(r"void \w+_\d+_\d+\(", cpp)
+
+
+def test_rolled_body_count_is_constant_across_grid_sizes():
+    small = emit_rolled_hls(_systolic_twin(4, 4, 4))
+    large = emit_rolled_hls(_systolic_twin(8, 8, 4))
+    # the synthesizer sees the same distinct function bodies at 4x4 and 8x8 -- O(#roles),
+    # not O(P0*P1). Only the compile-time grid extents (the #define lines) differ.
+    assert _role_bodies(small) == _role_bodies(large)
+    assert len(_role_bodies(small)) == 5
+    assert "#define M 4" in small and "#define M 8" in large

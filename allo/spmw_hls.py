@@ -3,12 +3,18 @@
 
 """HLS role emission for SPMW: transcribe a work-unit body to a synthesizable HLS C++ role.
 
-The synthesis-time win is that each role is synthesized *once*, so a 32x32 mesh csynths 9 role
-bodies rather than 1024 cloned ones. This module makes that concrete: a small Python-to-C++
-transpiler turns the systolic PE body into a synthesizable ``pe_interior`` function
-(``ctx.<port>.get/put`` -> ``stream.read()/write()``, the ``c += a*b`` MAC), which Vitis can csynth
-on its own to one role's resources. It handles the constructs the systolic PE uses; anything else
-raises ``NotImplementedError``.
+The synthesis-time win is that each role is synthesized *once*, so a 32x32 mesh csynths a handful
+of role bodies rather than 1024 cloned ones. This module makes that concrete with a small
+Python-to-C++ transpiler that turns the systolic PE body into a synthesizable ``pe_interior``
+function (``ctx.<port>.get/put`` -> ``stream.read()/write()``, the ``c += a*b`` MAC):
+
+- ``emit_role_hls`` emits that one role, which Vitis can csynth on its own to one role's resources.
+- ``emit_rolled_hls`` emits a whole *rolled* systolic top -- ``pe_interior`` plus the
+  ``load_a``/``load_b``/``drain`` boundary roles, each called in a ``#pragma HLS unroll`` grid loop
+  over per-key FIFO arrays -- so a single csynth sees a constant number of distinct bodies (one per
+  role) no matter the grid size.
+
+It handles the constructs the systolic PE uses; anything else raises ``NotImplementedError``.
 """
 
 import ast
@@ -26,7 +32,7 @@ _CPP_TYPE = {
 _CPP_OP = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/"}
 
 
-def _cpp(node):
+def _cpp(node):  # pylint: disable=too-many-return-statements
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Constant):
@@ -79,16 +85,23 @@ def transcribe_pe_cpp(unit):
     return [_cpp_stmt(stmt) for stmt in tree.body[0].body]
 
 
-def emit_role_hls(region):
-    """A synthesizable single-role HLS C++ file (the interior PE) for a systolic-mesh region."""
-    # pylint: disable=import-outside-toplevel
-    from .spmw import _collect, _validate_collection
-    from .spmw_datapath import _resolve_dims
+# The rolled top wires each PE port to a per-key FIFO array element: A streams west->east
+# along a row, B streams north->south down a column. Anything but this systolic port set is
+# out of scope for the rolled emitter (as with the single-role emitter).
+_ROLLED_WIRING = {
+    "west": "fa[i][j]",
+    "east": "fa[i][j + 1]",
+    "north": "fb[i][j]",
+    "south": "fb[i + 1][j]",
+}
 
-    collection = _validate_collection(_collect(region))
-    decl = collection.maps[0]
-    _rows, _cols, depth, dtype = _resolve_dims(region)
-    elem = _CPP_TYPE[dtype]
+
+def _pe_interior_fn(decl, elem):
+    """(sorted port names, ``pe_interior`` function text) for a systolic work unit.
+
+    ``inline off`` keeps the interior a distinct synthesized module so one role datapath is
+    scheduled once and stamped across the grid, rather than inlined per grid point.
+    """
     ports = sorted(decl.topology.port_names())
     body = "\n".join(
         "  " + line
@@ -99,8 +112,98 @@ def emit_role_hls(region):
         ", ".join(f"hls::stream<{elem}> &{port}" for port in ports)
         + f", {elem} c_local[1]"
     )
+    return ports, (f"void pe_interior({args}) {{\n#pragma HLS inline off\n{body}\n}}\n")
+
+
+def emit_role_hls(region):
+    """A synthesizable single-role HLS C++ file (the interior PE) for a systolic-mesh region."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _collect, _validate_collection
+    from .spmw_datapath import _resolve_dims
+
+    collection = _validate_collection(_collect(region))
+    decl = collection.maps[0]
+    _rows, _cols, depth, dtype = _resolve_dims(region)
+    elem = _CPP_TYPE[dtype]
+    _ports, pe_fn = _pe_interior_fn(decl, elem)
+    return "#include <hls_stream.h>\n" f"#define K {depth}\n\n" + pe_fn
+
+
+def emit_rolled_hls(region):
+    """A synthesizable *rolled* systolic HLS top: role bodies called in unrolled grid loops.
+
+    The interior ``pe_interior`` and the ``load_a``/``load_b``/``drain`` boundary roles are each
+    defined once; ``top`` instantiates them across the grid with ``#pragma HLS unroll`` over
+    per-key FIFO arrays under ``#pragma HLS dataflow``. So a single csynth of ``top`` schedules a
+    number of distinct function bodies that is constant in the grid size (one per role), not one
+    per grid point -- the synthesis-time win, made visible to the tool in one design.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _collect, _validate_collection
+    from .spmw_datapath import _resolve_dims
+
+    collection = _validate_collection(_collect(region))
+    decl = collection.maps[0]
+    rows, cols, depth, dtype = _resolve_dims(region)
+    elem = _CPP_TYPE[dtype]
+    ports, pe_fn = _pe_interior_fn(decl, elem)
+    if set(ports) != set(_ROLLED_WIRING):
+        raise NotImplementedError(
+            f"rolled emitter handles the systolic port set {sorted(_ROLLED_WIRING)}; "
+            f"got {ports}"
+        )
+    wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
     return (
         "#include <hls_stream.h>\n"
+        f"#define M {rows}\n"
+        f"#define N {cols}\n"
         f"#define K {depth}\n\n"
-        f"void pe_interior({args}) {{\n{body}\n}}\n"
+        f"{pe_fn}\n"
+        f"void load_a({elem} A[M][K], int i, hls::stream<{elem}> &out) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    out.write(A[i][k]);\n"
+        "}\n\n"
+        f"void load_b({elem} B[K][N], int j, hls::stream<{elem}> &out) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    out.write(B[k][j]);\n"
+        "}\n\n"
+        f"void drain(hls::stream<{elem}> &in) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    in.read();\n"
+        "}\n\n"
+        f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
+        "#pragma HLS dataflow\n"
+        # Each boundary role reads a distinct slice of A/B and each PE writes one C element;
+        # complete partition gives every element its own memory so no interface is read by more
+        # than one dataflow process.
+        "#pragma HLS array_partition variable=A complete dim=0\n"
+        "#pragma HLS array_partition variable=B complete dim=0\n"
+        "#pragma HLS array_partition variable=C complete dim=0\n"
+        f"  hls::stream<{elem}> fa[M][N + 1];\n"
+        f"  hls::stream<{elem}> fb[M + 1][N];\n"
+        "#pragma HLS stream variable=fa depth=K\n"
+        "#pragma HLS stream variable=fb depth=K\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    load_a(A, i, fa[i][0]);\n"
+        "  }\n"
+        "  for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        "    load_b(B, j, fb[0][j]);\n"
+        "  }\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "    for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        f"      pe_interior({wired}, &C[i][j]);\n"
+        "    }\n"
+        "  }\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    drain(fa[i][N]);\n"
+        "  }\n"
+        "  for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        "    drain(fb[M][j]);\n"
+        "  }\n"
+        "}\n"
     )
