@@ -48,6 +48,8 @@ __all__ = [
     "role_count",
     "resolve_channels",
     "halo_roles",
+    "emit_hls",
+    "role_body_count",
     "lower",
     "unroll",
     "build",
@@ -780,6 +782,75 @@ def resolve_channels(topology):
                 (src[0], src[1], sink[0], sink[1])
             )
     return families
+
+
+def _hls_role_name(signature):
+    return "interior" if not signature else "_".join(signature)
+
+
+def emit_hls(program):
+    """Emit HLS C++ for a nearest-neighbor mesh region: one function body per link-presence role.
+
+    The number of role function bodies is bounded by the role count and stays constant as the grid
+    scales -- the synthesis re-schedules once per role, never once per grid point -- with a rolled
+    ``#pragma HLS unroll`` instantiation loop over per-key FIFO arrays. The role bodies are
+    signature-level here; the datapath and Vitis synthesis are a later step. This demonstrates the
+    hard metric (the count of distinct synthesized function bodies), not the wall-clock trend.
+    """
+    collection = _validate_collection(_collect(program))
+    if len(collection.maps) != 1:
+        raise SPMWError("HLS emission currently handles exactly one mapped unit")
+    topology = collection.maps[0].topology
+    ports = topology.port_names()
+    if ports != {"east", "west", "north", "south"}:
+        raise SPMWError("HLS emission currently handles a 2-D nearest-neighbor mesh")
+    stream = "hls::stream<float>"
+    signature = ", ".join(f"{stream} &{port}" for port in sorted(ports))
+
+    roles = role_partition(topology)
+    bodies = [
+        f"// role {_hls_role_name(sig)}: {len(points)} instance(s)\n"
+        f"void {program.name}_pe_{_hls_role_name(sig)}({signature}) {{\n"
+        f"  // work-unit datapath\n"
+        f"}}"
+        for sig, points in roles.items()
+    ]
+
+    rows, cols = topology.grid
+    fifos = [
+        f"  {stream} fifo_{family.replace('/', '_')}[{rows + 1}][{cols + 1}];"
+        for family in resolve_channels(topology)
+    ]
+    call = ", ".join(
+        {
+            "west": "fifo_east_west[i][j]",
+            "east": "fifo_east_west[i][j + 1]",
+            "north": "fifo_north_south[i][j]",
+            "south": "fifo_north_south[i + 1][j]",
+        }[port]
+        for port in sorted(ports)
+    )
+    top = (
+        f"void {program.name}_top() {{\n"
+        f"#pragma HLS dataflow\n" + "\n".join(fifos) + "\n"
+        f"  for (int i = 0; i < {rows}; i++) {{\n"
+        f"    #pragma HLS unroll\n"
+        f"    for (int j = 0; j < {cols}; j++) {{\n"
+        f"      #pragma HLS unroll\n"
+        f"      {program.name}_pe_interior({call});\n"
+        f"    }}\n"
+        f"  }}\n"
+        f"}}"
+    )
+    return "#include <hls_stream.h>\n\n" + "\n\n".join(bodies) + "\n\n" + top
+
+
+def role_body_count(program):
+    """The number of distinct HLS role function bodies emitted for a region (the O(#roles) count)."""
+    collection = _validate_collection(_collect(program))
+    if len(collection.maps) != 1:
+        raise SPMWError("role_body_count currently handles exactly one mapped unit")
+    return len(role_partition(collection.maps[0].topology))
 
 
 def halo_roles(program):
