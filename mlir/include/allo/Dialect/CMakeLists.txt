@@ -40,3 +40,5 @@ add_custom_target(MLIRAlloIncGen
 
 add_mlir_doc(AlloDialect AlloDialect Allo/ -gen-dialect-doc)
 add_mlir_doc(AlloOps AlloOps Allo/ -gen-op-doc)
+
+add_subdirectory(SPMW)

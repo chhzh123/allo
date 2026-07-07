@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(ALLO, allo);
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(SPMW, spmw);
 
 #ifdef __cplusplus
 }

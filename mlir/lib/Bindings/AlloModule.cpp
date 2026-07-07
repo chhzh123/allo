@@ -280,10 +280,13 @@ NB_MODULE(_allo, m) {
       "register_dialect",
       [](MlirContext context) {
         MlirDialectHandle allo = mlirGetDialectHandle__allo__();
+        MlirDialectHandle spmw = mlirGetDialectHandle__spmw__();
         mlir::DialectRegistry registry;
         unwrap(context)->appendDialectRegistry(registry);
         mlirDialectHandleRegisterDialect(allo, context);
         mlirDialectHandleLoadDialect(allo, context);
+        mlirDialectHandleRegisterDialect(spmw, context);
+        mlirDialectHandleLoadDialect(spmw, context);
       },
       nb::arg("context") = nb::none());
 
