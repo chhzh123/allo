@@ -957,6 +957,29 @@ def _topology_text(decl):
     )
 
 
+def _interior_role_func(program, decl, sym):
+    """The interior role ``func.func`` with the real transcribed datapath, or ``None``.
+
+    ``None`` when the region is not the systolic A/B/C operand shape the datapath transcriber
+    handles (e.g. the minimal regions used by the dialect tests), so the caller falls back to the
+    signature-only stub.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw_mlir import interior_role_func
+
+    annotations = getattr(program.fn, "__annotations__", {})
+    tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
+    if len(tensors) < 3:
+        return None
+    shapes = (tensors[0].shape, tensors[1].shape, tensors[2].shape)
+    elem = repr(tensors[0].dtype)
+    trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
+    try:
+        return interior_role_func(sym, decl.unit, elem, trip, 4, shapes)
+    except SPMWError:
+        return None
+
+
 def _module_text(program, collection):
     """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
     role_funcs = []
@@ -965,7 +988,10 @@ def _module_text(program, collection):
         role_attrs = []
         for name, missing in _roles_of(decl):
             sym = f"{program.name}_{decl.unit.name}_{name}"
-            role_funcs.append(f"  func.func @{sym}() {{\n    return\n  }}")
+            func = None
+            if not missing:
+                func = _interior_role_func(program, decl, sym)
+            role_funcs.append(func or f"  func.func @{sym}() {{\n    return\n  }}")
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
             role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"

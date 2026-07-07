@@ -3,6 +3,46 @@
 
 import pytest
 import allo.spmw as spmw
+from allo.ir.types import float32
+
+
+def _systolic_twin(M, N, K):
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+def test_interior_role_func_carries_real_datapath():
+    # the rolled spmw.map interior role is no longer an empty stub: lower() transcribes the unit
+    # body into the same allo ops the dataflow frontend emits, once, parameterized by the writer PID
+    text = str(spmw.lower(_systolic_twin(2, 2, 2)))
+    assert "func.func @gemm_pe_interior(" in text
+    for op in ("allo.stream_get", "arith.mulf", "arith.addf", "allo.stream_put", "memref.store"):
+        assert op in text
+    # parameterized by the writer position (index args) and streaming over typed FIFOs
+    assert "index" in text
+    assert "!allo.stream<f32, 4>" in text
+    # still one rolled map and one interior func regardless -- no per-PID clones
+    assert text.count("spmw.map") == 1
+    assert text.count("func.func @gemm_pe_interior(") == 1
 
 
 def _mesh_region_with_roles(shape):
