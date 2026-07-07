@@ -85,12 +85,16 @@ Key top-level modules: `allo/primitives/` (relay, unify), `allo/autoscheduler/`,
 ssh brg-zhang-xcel
 ```
 
-**Environment on the remote:**
+**Environment on the remote.** `conda` is not on hc676's PATH, so activate the prebuilt env by putting its `bin` on PATH directly (equivalent to `conda activate`). `LLVM_BUILD_DIR` must be set at runtime too — the LLVM/simulator backend loads its shared runtime lib from there, or tests fail with `AssertionError: LLVM_BUILD_DIR is not set`:
 
 ```bash
-conda activate /scratch/hc676/allo-agent          # the prebuilt Allo conda env
-source /work/shared/common/allo/vitis_2023.2_u280.sh   # Vivado/Vitis 2023.2 + U280 platform
+export PATH=/scratch/hc676/allo-agent/bin:$PATH        # the prebuilt Allo conda env
+export LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build
+source /work/shared/common/allo/vitis_2023.2_u280.sh   # Vivado/Vitis 2023.2 + U280 platform (only for HLS/FPGA)
 ```
+
+Non-interactive SSH does not run `~/.bashrc`, so set these each session, e.g.
+`ssh brg-zhang-xcel 'bash -lc "export PATH=/scratch/hc676/allo-agent/bin:\$PATH; export LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build; cd /scratch/hc676/allo; python3 -m pytest tests/test_schedule_compute.py -v"'`.
 
 **Sync local changes → remote** (run locally, from the repo root). Push before every remote build so the remote reflects your working tree:
 
@@ -107,7 +111,8 @@ rsync -avz --delete \
 
 ```bash
 ssh brg-zhang-xcel
-conda activate /scratch/hc676/allo-agent
+export PATH=/scratch/hc676/allo-agent/bin:$PATH
+export LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build
 cd /scratch/hc676/allo
 pip install -e .
 ```
