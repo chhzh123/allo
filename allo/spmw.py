@@ -44,6 +44,7 @@ __all__ = [
     "PortContext",
     "PortHandle",
     "validate",
+    "lower",
     "build",
 ]
 
@@ -716,14 +717,138 @@ def validate(program):
     return _validate_collection(_collect(program))
 
 
-def build(program, target="simulator", **kwargs):
-    """Validate an SPMW program for a target.
+def _translation_offset(topology, port):
+    """The constant ``peer - self`` offset of a peer-form port across the whole grid.
 
-    Topology validation runs here, so a malformed program is rejected at build time.
-    Code generation for each target is not yet wired up.
+    Returns the offset tuple for a pure-translation link (meshes, chains), or ``None`` if the
+    port is key-form or its offset is not constant (e.g. a cyclic ring wraps at the boundary).
+    """
+    offset = None
+    for coord in topology.coords():
+        target = topology.links_at(coord).get(port)
+        if target is None or _is_key_form(target):
+            return None
+        peer_coord, _ = topology._parse_peer(port, target)
+        here = tuple(p - c for p, c in zip(peer_coord, coord))
+        if offset is None:
+            offset = here
+        elif here != offset:
+            return None
+    return offset
+
+
+def _affine_map_text(offset):
+    dims = len(offset)
+    ins = ", ".join(f"d{k}" for k in range(dims))
+    outs = []
+    for k, step in enumerate(offset):
+        if step == 0:
+            outs.append(f"d{k}")
+        elif step > 0:
+            outs.append(f"d{k} + {step}")
+        else:
+            outs.append(f"d{k} - {-step}")
+    return f"affine_map<({ins}) -> ({', '.join(outs)})>"
+
+
+def _roles_of(decl):
+    """The predicate tags for a mapped unit: the interior body plus each declared role."""
+    roles = [("interior", [])]
+    for edges, _ in decl.unit.roles:
+        roles.append(("_".join(edges), list(edges)))
+    return roles
+
+
+def _topology_text(decl):
+    topology = decl.topology
+    rep = tuple(0 for _ in topology.grid)
+    links = []
+    for port, target in sorted(topology.links_at(rep).items()):
+        if _is_key_form(target):
+            raise SPMWError(
+                f"port {port!r}: key-form link lowering is not yet implemented"
+            )
+        offset = _translation_offset(topology, port)
+        if offset is None:
+            raise SPMWError(
+                f"port {port!r}: only affine-translation peer links are lowerable so far"
+            )
+        _, peer_port = topology._parse_peer(port, target)
+        depth = decl.port_depths.get(port, DEFAULT_DEPTH)
+        links.append(
+            f'#spmw.peer_link<port = "{port}", map = {_affine_map_text(offset)}, '
+            f'peer = "{peer_port}", depth = {depth}>'
+        )
+    grid_text = ", ".join(str(n) for n in topology.grid)
+    if links:
+        links_text = "[\n      " + ",\n      ".join(links) + "\n    ]"
+    else:
+        links_text = "[]"
+    return (
+        f"#spmw.topology<grid = [{grid_text}], dims = {topology.dims}, "
+        f"links = {links_text}>"
+    )
+
+
+def _module_text(program, collection):
+    """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
+    role_funcs = []
+    map_ops = []
+    for decl in collection.maps:
+        role_attrs = []
+        for name, missing in _roles_of(decl):
+            sym = f"{program.name}_{decl.unit.name}_{name}"
+            role_funcs.append(f"  func.func @{sym}() {{\n    return\n  }}")
+            missing_text = ", ".join(f'"{edge}"' for edge in missing)
+            role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
+        roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
+        map_ops.append(
+            f"    spmw.map (%arg0)\n"
+            f"      topology = {_topology_text(decl)}\n"
+            f"      roles = {roles_text}\n"
+            f"      : memref<1xf32>"
+        )
+    top = (
+        f"  func.func @{program.name}(%arg0: memref<1xf32>) {{\n"
+        + "\n".join(map_ops)
+        + "\n    return\n  }"
+    )
+    return "module {\n" + "\n".join(role_funcs + [top]) + "\n}"
+
+
+def lower(program):
+    """Lower an SPMW region to the rolled ``spmw.map`` IR and return the parsed module.
+
+    The module carries one ``spmw.map`` op per mapped unit (with a typed ``#spmw.topology`` and
+    one ``#spmw.role`` per predicate tag) and one ``func.func`` per role — never ``P0*P1``
+    per-grid-point functions. Role bodies are signature-only here; compiling the work-unit
+    datapath into them is the next step.
+    """
+    if not isinstance(program, Region):
+        raise SPMWError("spmw.lower expects an @spmw.region")
+    collection = _validate_collection(_collect(program))
+    text = _module_text(program, collection)
+    # Imported lazily so the surface does not require the compiled backend to be present.
+    # pylint: disable=import-outside-toplevel,no-name-in-module
+    from ._mlir.ir import Context, Location, Module
+    from ._mlir.dialects import allo as allo_d
+
+    context = Context()
+    allo_d.register_dialect(context)
+    with context, Location.unknown():
+        return Module.parse(text)
+
+
+def build(program, target="simulator", **kwargs):
+    """Validate and build an SPMW program for a target.
+
+    ``target="ir"`` returns the rolled ``spmw.map`` module. Execution targets need the work-unit
+    datapath lowering, which is not wired up yet.
     """
     validate(program)
+    if target == "ir":
+        return lower(program)
     raise NotImplementedError(
-        f"SPMW code generation for target={target!r} is not yet implemented; the "
-        f"frontend surface and topology validation are in place"
+        f"SPMW code generation for target={target!r} is not yet implemented; use "
+        f"spmw.lower(region) or target='ir' for the rolled spmw.map module"
     )

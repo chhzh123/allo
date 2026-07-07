@@ -62,9 +62,9 @@ def SPMW_TopologyAttr : SPMW_Attr<"Topology", "topology"> {
   }];
   let parameters = (ins ArrayRefParameter<"int64_t">:$grid,
                         "int64_t":$dims,
-                        ArrayRefParameter<"::mlir::Attribute">:$links);
+                        "::mlir::ArrayAttr":$links);
   let assemblyFormat = [{
-    `<` `grid` `=` `[` $grid `]` `,` `dims` `=` $dims `,` `links` `=` `[` $links `]` `>`
+    `<` `grid` `=` `[` $grid `]` `,` `dims` `=` $dims `,` `links` `=` $links `>`
   }];
 }
 
