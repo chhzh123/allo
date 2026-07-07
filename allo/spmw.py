@@ -1000,14 +1000,20 @@ def build(program, target="simulator", **kwargs):
     """Validate and build an SPMW program for a target.
 
     ``target="ir"`` returns the rolled ``spmw.map`` module and ``target="unroll"`` the per-PID
-    module. Execution targets need the work-unit datapath lowering, which is not wired up yet.
+    module. ``target="simulator"`` desugars a recognized systolic-mesh region to ``allo.dataflow``
+    and returns a runnable simulator module.
     """
     validate(program)
     if target == "ir":
         return lower(program)
     if target == "unroll":
         return unroll(program)
+    if target == "simulator":
+        # pylint: disable=import-outside-toplevel
+        from .spmw_datapath import build_simulator
+
+        return build_simulator(program)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"spmw.lower/spmw.unroll (target='ir'/'unroll') for the rolled/per-PID modules"
+        f"target='simulator'/'ir'/'unroll'"
     )

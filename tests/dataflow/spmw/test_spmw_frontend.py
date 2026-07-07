@@ -44,8 +44,9 @@ def test_systolic_twin_validates():
 
 def test_build_validates_then_defers_codegen():
     gemm, _, _ = _systolic_twin()
+    # target="simulator"/"ir"/"unroll" are wired up; an unimplemented backend still defers
     with pytest.raises(NotImplementedError, match="not yet implemented"):
-        spmw.build(gemm, target="simulator")
+        spmw.build(gemm, target="vitis_hls")
 
 
 def test_roles_reference_declared_ports():
