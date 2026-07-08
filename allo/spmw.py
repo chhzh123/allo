@@ -45,6 +45,7 @@ __all__ = [
     "shared",
     "banked",
     "view",
+    "place",
     "LogicalBuffer",
     "PortContext",
     "PortHandle",
@@ -445,13 +446,22 @@ class _ChannelDecl:
         self.depth = depth
 
 
+class _PlacementDecl:
+    """A recorded ``spmw.place``: a region tensor operand pinned to a logical memory buffer."""
+
+    def __init__(self, tensor, buffer):
+        self.tensor = tensor
+        self.buffer = buffer
+
+
 class _RegionCollection:
-    """The maps, streams, and inter-unit channels gathered from one pass over a region body."""
+    """The maps, streams, channels, and memory placements gathered from one pass over a region."""
 
     def __init__(self):
         self.maps = []
         self.streams = []
         self.channels = []
+        self.placements = []
 
 
 # The collector active while a region body is being traced (None outside a trace).
@@ -531,6 +541,26 @@ def channel(name, dtype, depth=DEFAULT_DEPTH):
     decl = _ChannelDecl(name, dtype, depth)
     if _active_collector is not None:
         _active_collector.channels.append(decl)
+    return decl
+
+
+def place(tensor, buffer):
+    """Pin a region tensor operand to a logical memory buffer (``spmw.shared``/``banked``/``view``).
+
+    ``tensor`` is the operand name (a string) or the operand placeholder; ``buffer`` is a
+    :class:`LogicalBuffer`. The resolved ``Memory`` resource (and banking axis) is carried on the
+    rolled IR so the target honors it.
+    """
+    if not isinstance(buffer, LogicalBuffer):
+        raise SPMWError("spmw.place expects a spmw.shared/banked/view buffer")
+    name = tensor if isinstance(tensor, str) else getattr(tensor, "name", None)
+    if not isinstance(name, str):
+        raise SPMWError(
+            "spmw.place expects a tensor operand name (a string) as its first argument"
+        )
+    decl = _PlacementDecl(name, buffer)
+    if _active_collector is not None:
+        _active_collector.placements.append(decl)
     return decl
 
 
@@ -1270,6 +1300,32 @@ def _channel_endpoints(program, collection):
     return endpoints
 
 
+def _memory_attrs(program, collection):
+    """``#spmw.memory`` attrs for the region's ``spmw.place`` buffers, carrying the resolved resource.
+
+    Each placement pins a region tensor operand to a logical buffer; the resolved ``Memory``
+    resource (and banking axis, ``-1`` when unbanked) rides on the rolled IR. A placement on an
+    operand the region does not declare is rejected.
+    """
+    annotations = getattr(program.fn, "__annotations__", {})
+    tensor_names = {
+        name for name, typ in annotations.items() if getattr(typ, "shape", None)
+    }
+    attrs = []
+    for decl in collection.placements:
+        if decl.tensor not in tensor_names:
+            raise SPMWError(
+                f"spmw.place target {decl.tensor!r} is not a shaped operand of region "
+                f"{program.name!r}"
+            )
+        bank_axis = decl.buffer.bank_axis if decl.buffer.bank_axis is not None else -1
+        attrs.append(
+            f'#spmw.memory<tensor = "{decl.tensor}", '
+            f'resource = "{decl.buffer.memory.resource}", bank_axis = {bank_axis}>'
+        )
+    return attrs
+
+
 def _channel_attrs(program, collection):
     """``#spmw.channel`` attrs for the region's inter-unit channels, preserving them in the rolled IR.
 
@@ -1391,16 +1447,20 @@ def _module_text(program, collection):
             f"{halo_text}\n"
             f"      : {operand_types}"
         )
+    func_attrs = []
     channel_attrs = _channel_attrs(program, collection)
-    channels_text = ""
     if channel_attrs:
-        channels_text = (
-            " attributes {spmw.channels = [\n      "
-            + ",\n      ".join(channel_attrs)
-            + "\n    ]}"
+        func_attrs.append(
+            "spmw.channels = [\n      " + ",\n      ".join(channel_attrs) + "\n    ]"
         )
+    memory_attrs = _memory_attrs(program, collection)
+    if memory_attrs:
+        func_attrs.append(
+            "spmw.memory = [\n      " + ",\n      ".join(memory_attrs) + "\n    ]"
+        )
+    attrs_text = " attributes {" + ", ".join(func_attrs) + "}" if func_attrs else ""
     top = (
-        f"  func.func @{program.name}({top_params}){channels_text} {{\n"
+        f"  func.func @{program.name}({top_params}){attrs_text} {{\n"
         + "\n".join(map_ops)
         + "\n    return\n  }"
     )

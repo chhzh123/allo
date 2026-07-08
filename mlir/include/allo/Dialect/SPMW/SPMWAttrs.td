@@ -127,4 +127,21 @@ def SPMW_ChannelAttr : SPMW_Attr<"Channel", "channel"> {
   }];
 }
 
+def SPMW_MemoryAttr : SPMW_Attr<"Memory", "memory"> {
+  let summary = "A tensor operand pinned to a logical memory resource.";
+  let description = [{
+    `tensor` is the operand name; `resource` is the concrete memory resource the
+    logical `space=` level resolved to (e.g. "URAM", "BRAM", "AUTO"). `bankAxis`,
+    when non-negative, is the tensor axis the buffer is banked along. This carries
+    the resolved logical-memory model to the target so it can honor `resource=`.
+  }];
+  let parameters = (ins StringRefParameter<>:$tensor,
+                        StringRefParameter<>:$resource,
+                        "int64_t":$bankAxis);
+  let assemblyFormat = [{
+    `<` `tensor` `=` $tensor `,` `resource` `=` $resource
+    `,` `bank_axis` `=` $bankAxis `>`
+  }];
+}
+
 #endif // SPMW_ATTRS

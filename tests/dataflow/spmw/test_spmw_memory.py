@@ -72,3 +72,49 @@ def test_banked_unknown_axis_rejected():
 def test_view_of_non_buffer_rejected():
     with pytest.raises(spmw.SPMWError, match="expects a spmw.shared"):
         spmw.view(float32)
+
+
+def _mesh_region_with_placement():
+    grid = spmw.mesh((1, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def top(A: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+        spmw.place("A", spmw.banked(float32, on="col", space="L2"))
+
+    return top
+
+
+def test_place_carries_memory_in_rolled_ir():
+    # a placed logical buffer's resolved resource + banking axis rides on the rolled spmw.map IR so
+    # the target honors it (AC-7 round-trip)
+    text = str(spmw.lower(_mesh_region_with_placement()))
+    assert "spmw.memory" in text
+    assert '#spmw.memory<tensor = "A"' in text
+    assert 'resource = "URAM"' in text  # space="L2" -> URAM
+    assert "bank_axis = 1" in text  # on="col" -> axis 1
+
+
+def test_place_on_unknown_tensor_rejected():
+    grid = spmw.mesh((1, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def top(A: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+        spmw.place("Z", spmw.shared(float32, space="L2"))  # Z is not an operand
+
+    with pytest.raises(spmw.SPMWError, match="not a shaped operand"):
+        spmw.lower(top)
+
+
+def test_place_requires_buffer():
+    with pytest.raises(spmw.SPMWError, match="expects a spmw.shared"):
+        spmw.place("A", float32)
