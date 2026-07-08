@@ -198,8 +198,15 @@ class _PipelineRewriter(ast.NodeTransformer):
         self.ctx = ctx_name
         self.tensors = tensors
         self.channels = channels
-        # When the units are replicated, the pid variable indexes rank() and the channels.
+        # For a replicated (extent>1) grid, ``pid_var`` names the df.get_pid() variable that indexes
+        # rank() and the channel arrays. For a size-1 grid it is None: rank() is the constant 0 and
+        # channels are scalar.
         self.pid_var = pid_var
+
+    def _rank_node(self):
+        if self.pid_var is not None:
+            return ast.Name(id=self.pid_var, ctx=ast.Load())
+        return ast.Constant(value=0)
 
     def _ctx_attr(self, node):
         if (
@@ -221,9 +228,9 @@ class _PipelineRewriter(ast.NodeTransformer):
         self.generic_visit(node)
         func = node.func
         if isinstance(func, ast.Attribute):
-            # ctx.rank() -> this replica's pid variable.
-            if self._ctx_attr(func) == "rank" and self.pid_var is not None:
-                return ast.Name(id=self.pid_var, ctx=ast.Load())
+            # ctx.rank() -> this replica's pid (a variable when replicated, else the constant 0).
+            if self._ctx_attr(func) == "rank":
+                return self._rank_node()
             # ctx.<channel>.put/get(...) -> <channel>[pid].put/get(...) (or scalar).
             if func.attr in {"put", "get", "get_or"}:
                 chan = self._ctx_attr(func.value)

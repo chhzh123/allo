@@ -211,3 +211,30 @@ def test_multi_dim_replication_rejected():
 
     with pytest.raises(Exception, match="1-D replication only"):
         spmw.build(top, target="simulator")
+
+
+def test_singleton_rank_is_zero():
+    # a size-1 unit's ctx.rank() resolves to the constant 0 (not left as an undefined ctx.rank())
+    @spmw.unit
+    def producer(ctx):
+        for i, j in allo.grid(M, N):
+            out: float32 = ctx.A[i, j]
+            ctx.pipe.put(out)
+
+    @spmw.unit
+    def consumer(ctx):
+        pi = ctx.rank()
+        for i, j in allo.grid(M, N):
+            data: float32 = ctx.pipe.get()
+            ctx.B[i, j] = data + pi  # pi == 0, so B == A
+
+    @spmw.region()
+    def top(A: float32[M, N], B: float32[M, N]):
+        spmw.map(producer, grid=(1,))
+        spmw.map(consumer, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    A = np.random.rand(M, N).astype(np.float32)
+    B = np.zeros((M, N), dtype=np.float32)
+    spmw.build(top, target="simulator")(A, B)
+    np.testing.assert_array_equal(B, A)
