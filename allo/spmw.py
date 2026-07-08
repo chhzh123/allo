@@ -41,6 +41,7 @@ __all__ = [
     "map",
     "stream_in",
     "stream_out",
+    "channel",
     "shared",
     "banked",
     "view",
@@ -435,12 +436,22 @@ class _StreamDecl:
         self.extra = extra
 
 
+class _ChannelDecl:
+    """A recorded region-level inter-unit channel: a named FIFO one unit puts to and another gets."""
+
+    def __init__(self, name, dtype, depth):
+        self.name = name
+        self.dtype = dtype
+        self.depth = depth
+
+
 class _RegionCollection:
-    """The maps and streams gathered from one pass over a region body."""
+    """The maps, streams, and inter-unit channels gathered from one pass over a region body."""
 
     def __init__(self):
         self.maps = []
         self.streams = []
+        self.channels = []
 
 
 # The collector active while a region body is being traced (None outside a trace).
@@ -503,6 +514,23 @@ def stream_out(tensor, from_=None, flow=None, **kwargs):
     decl = _StreamDecl(tensor, from_, flow, "out", **kwargs)
     if _active_collector is not None:
         _active_collector.streams.append(decl)
+    return decl
+
+
+def channel(name, dtype, depth=DEFAULT_DEPTH):
+    """Declare a region-level FIFO channel connecting one producer unit to one consumer unit.
+
+    A unit body puts to / gets from it as a named port (``ctx.<name>.put(...)`` /
+    ``ctx.<name>.get()``). Unlike ``stream_in``/``stream_out`` (operand flow across one grid), a
+    channel links two *different* mapped units, so a region can express a producer/consumer pipeline.
+    """
+    if _active_collector is not None:
+        for existing in _active_collector.channels:
+            if existing.name == name:
+                raise SPMWError(f"channel {name!r} is declared more than once")
+    decl = _ChannelDecl(name, dtype, depth)
+    if _active_collector is not None:
+        _active_collector.channels.append(decl)
     return decl
 
 
@@ -758,6 +786,8 @@ def _check_body_ports(label, fn, ports):
 def _validate_collection(collection):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
+    # A region-level channel is a valid port name in any unit body (a unit puts to / gets from it).
+    channel_ports = {ch.name for ch in collection.channels}
     for decl in collection.maps:
         decl.topology.validate()
         ports = decl.topology.port_names()
@@ -768,9 +798,12 @@ def _validate_collection(collection):
                         f"role on unit {decl.unit.name!r} references undeclared port "
                         f"{edge!r}; declared ports: {sorted(ports)}"
                     )
-        _check_body_ports(f"unit {decl.unit.name!r}", decl.unit.interior, ports)
+        body_ports = ports | channel_ports
+        _check_body_ports(f"unit {decl.unit.name!r}", decl.unit.interior, body_ports)
         for edges, body in decl.unit.roles:
-            _check_body_ports(f"role {edges} on unit {decl.unit.name!r}", body, ports)
+            _check_body_ports(
+                f"role {edges} on unit {decl.unit.name!r}", body, body_ports
+            )
     for stream in collection.streams:
         # Flow spelling is checked regardless of the target so a typo never slips through.
         if stream.flow is not None and stream.flow not in _FLOW_PORTS:
