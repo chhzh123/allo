@@ -375,8 +375,16 @@ def generate_pipeline_source(region, collection):
 
     dtypes_used = {dt for _, _, dt in tensors}
 
-    # Replication: a unit mapped over a grid of size P>1 becomes a mapping=[P] kernel whose channels
-    # are P-wide arrays indexed by df.get_pid(); a size-1 grid is a plain singleton.
+    # Replication: a unit mapped over a 1-D grid of extent P>1 becomes a mapping=[P] kernel whose
+    # channels are P-wide arrays indexed by df.get_pid(); a size-1 grid is a plain singleton. A
+    # multi-dimensional grid would give a tuple pid (not the scalar the channel indexing assumes), so
+    # the pipeline path handles 1-D replication only -- multi-D systolic arrays are the mesh family.
+    for decl in collection.maps:
+        if decl.topology.dims != 1:
+            raise NotImplementedError(
+                "pipeline datapath handles 1-D replication only; "
+                f"unit {decl.unit.name!r} has a {decl.topology.dims}-D grid"
+            )
     sizes = {_map_size(decl) for decl in collection.maps}
     if sizes == {1}:
         replicated, pid_extent, pid_var = False, 1, None

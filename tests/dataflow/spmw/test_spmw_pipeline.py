@@ -188,3 +188,26 @@ def test_channel_alias_form_fails_closed():
 
     with pytest.raises(Exception):
         spmw.build(top, target="simulator")
+
+
+def test_multi_dim_replication_rejected():
+    # a multi-D replicated grid would give a tuple pid, which the scalar channel indexing does not
+    # handle -- the pipeline path rejects it (multi-D systolic arrays are the mesh family)
+    @spmw.unit
+    def producer(ctx):
+        pi = ctx.rank()
+        ctx.pipe.put(1)
+
+    @spmw.unit
+    def consumer(ctx):
+        pi = ctx.rank()
+        x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(producer, grid=(2, 2))
+        spmw.map(consumer, grid=(2, 2))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(Exception, match="1-D replication only"):
+        spmw.build(top, target="simulator")
