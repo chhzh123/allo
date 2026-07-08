@@ -173,6 +173,14 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
     sortedPorts.push_back(peer.getPort());
   llvm::sort(sortedPorts);
 
+  // key_link channels are resolved by rendezvous key, not by grid neighbor, so
+  // this grid-expansion pass cannot wire them. Fail closed rather than silently
+  // drop them (channel-resolution will own key links).
+  for (Attribute link : topology.getLinks())
+    if (llvm::isa<spmw::KeyLinkAttr>(link))
+      return map.emitOpError(
+          "spmw-unroll does not yet lower key_link channels");
+
   SmallVector<RoleInfo> roles;
   for (Attribute roleAttr : map.getRoles()) {
     auto role = llvm::dyn_cast<spmw::RoleAttr>(roleAttr);
@@ -249,22 +257,33 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
         operands.push_back(
             builder.create<arith::ConstantIndexOp>(loc, coord[pidIdx++]));
       } else if (llvm::isa<StreamType>(input)) {
-        if (streamIdx >= ports.size())
+        if (streamIdx >= sortedPorts.size())
           return map.emitOpError("role '")
                  << role->unit.getValue()
                  << "' has more stream parameters than the topology has ports";
-        const PortPeer &info = ports[streamIdx++];
+        // Stream params bind to ports in sorted local-port-name order -- the
+        // order the role transcriber lists them -- independent of how the
+        // topology links happen to be declared.
+        StringRef portName = sortedPorts[streamIdx++];
+        const PortPeer *info = nullptr;
+        for (const PortPeer &candidate : ports)
+          if (candidate.port == portName) {
+            info = &candidate;
+            break;
+          }
+        if (!info)
+          return map.emitOpError("no peer link for port '") << portName << "'";
         int64_t self = linearIndex(coord, grid);
         std::string key;
-        if (info.onGrid) {
+        if (info->onGrid) {
           // Canonical undirected key: the smaller of the two endpoints, so the
           // neighbor resolves to the same allo.stream_construct.
-          std::string a = std::to_string(self) + ":" + info.port.str();
+          std::string a = std::to_string(self) + ":" + info->port.str();
           std::string b =
-              std::to_string(info.peerIndex) + ":" + info.peerPort.str();
+              std::to_string(info->peerIndex) + ":" + info->peerPort.str();
           key = std::min(a, b);
         } else {
-          key = std::to_string(self) + ":" + info.port.str();
+          key = std::to_string(self) + ":" + info->port.str();
         }
         Value &channel = channels[key];
         if (!channel)

@@ -186,3 +186,14 @@ module {
 """
     with pytest.raises(Exception):
         _parse(bad)
+
+
+def test_spmw_unroll_rejects_key_links():
+    # key_link channels are resolved by rendezvous key, not by grid neighbor, so
+    # the grid-expansion pass fails closed rather than silently dropping them.
+    from allo._mlir.passmanager import PassManager
+
+    module = _parse(VALID_KEY)
+    with module.context:
+        with pytest.raises(Exception, match="key_link"):
+            PassManager.parse("builtin.module(spmw-unroll)").run(module.operation)
