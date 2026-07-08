@@ -957,6 +957,22 @@ def _topology_text(decl):
     )
 
 
+def _common_depth(decl):
+    """The single FIFO depth the transcribed datapath uses, from the topology's port depths.
+
+    The transcribed interior/halo streams and the topology's peer links must agree on FIFO depth;
+    both read it from ``decl.port_depths`` (default 2, overridable per port). The datapath transcriber
+    emits one depth per stream, so a non-uniform set of port depths is rejected until per-port depth
+    threading lands.
+    """
+    depths = set(decl.port_depths.values())
+    if len(depths) > 1:
+        raise SPMWError(
+            f"the transcribed datapath needs a uniform port depth; got {sorted(depths)}"
+        )
+    return depths.pop() if depths else DEFAULT_DEPTH
+
+
 def _interior_role_func(program, decl, sym):
     """The interior role ``func.func`` with the real transcribed datapath, or ``None``.
 
@@ -976,7 +992,7 @@ def _interior_role_func(program, decl, sym):
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
     # A systolic region fails closed: an untranscribable interior body raises rather than silently
     # becoming an empty stub. (Genuinely topology-only regions already returned None above.)
-    return interior_role_func(sym, decl.unit, elem, trip, 4, shapes)
+    return interior_role_func(sym, decl.unit, elem, trip, _common_depth(decl), shapes)
 
 
 def _stream_operand_info(program, stream):
@@ -1028,13 +1044,14 @@ def _halo_role_funcs(program, decl, collection):
         trip = (
             shape[1] if horizontal else shape[0]
         )  # the streamed (contraction) dimension
+        depth = _common_depth(decl)
         load_sym, drain_sym = f"{prefix}_load_{tag}", f"{prefix}_drain_{tag}"
         out.append(
             loader_role_func(
-                load_sym, elem, trip, 4, operand_ssa, shape, exit_edge, horizontal
+                load_sym, elem, trip, depth, operand_ssa, shape, exit_edge, horizontal
             )
         )
-        out.append(drain_role_func(drain_sym, elem, trip, 4, entry))
+        out.append(drain_role_func(drain_sym, elem, trip, depth, entry))
     return out
 
 

@@ -43,9 +43,10 @@ def test_interior_role_func_carries_real_datapath():
         "memref.store",
     ):
         assert op in text
-    # parameterized by the writer position (index args) and streaming over typed FIFOs
+    # parameterized by the writer position (index args) and streaming over typed FIFOs whose depth
+    # matches the topology's port depth (default 2), not a hard-coded constant
     assert "index" in text
-    assert "!allo.stream<f32, 4>" in text
+    assert "!allo.stream<f32, 2>" in text
     # still one rolled map and one interior func regardless -- no per-PID clones
     assert text.count("spmw.map") == 1
     assert text.count("func.func @gemm_pe_interior(") == 1
