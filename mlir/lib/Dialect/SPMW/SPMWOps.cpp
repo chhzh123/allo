@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "allo/Dialect/SPMW/SPMWOps.h"
+#include "allo/Dialect/AlloTypes.h"
 #include "allo/Dialect/SPMW/SPMWAttrs.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -19,6 +20,8 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -40,6 +43,7 @@ LogicalResult MapOp::verify() {
 
   // Each channel key must have exactly one source and one sink.
   llvm::DenseMap<Attribute, std::pair<int, int>> keyCounts;
+  llvm::StringSet<> peerPorts;
   for (Attribute linkAttr : topology.getLinks()) {
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr)) {
       AffineMap map = peer.getPeerMap().getAffineMap();
@@ -51,6 +55,7 @@ LogicalResult MapOp::verify() {
       if (peer.getDepth() <= 0)
         return emitOpError("peer link '")
                << peer.getPort() << "' has non-positive depth";
+      peerPorts.insert(peer.getPort());
     } else if (auto key = llvm::dyn_cast<KeyLinkAttr>(linkAttr)) {
       StringRef endpoint = key.getEndpoint();
       if (endpoint != "src" && endpoint != "sink")
@@ -84,6 +89,7 @@ LogicalResult MapOp::verify() {
 
   if (ArrayAttr halo = getHaloAttr()) {
     int64_t numTensors = static_cast<int64_t>(getTensors().size());
+    llvm::StringSet<> seenHalo;
     for (Attribute haloAttr : halo) {
       auto task = llvm::dyn_cast<HaloAttr>(haloAttr);
       if (!task)
@@ -99,6 +105,18 @@ LogicalResult MapOp::verify() {
         return emitOpError("halo operand (")
                << task.getOperand() << ") out of range for " << numTensors
                << " tensor operands";
+      // A halo task attaches where its port is off-grid, so the port must be a
+      // real peer-link port of the topology.
+      if (!peerPorts.contains(task.getPort()))
+        return emitOpError("halo port '")
+               << task.getPort() << "' is not a declared peer-link port";
+      // At most one loader and one drain per port: two would create multiple
+      // producers/consumers on the same boundary channel.
+      std::string tag =
+          (llvm::Twine(task.getPort()) + ":" + task.getKind()).str();
+      if (!seenHalo.insert(tag).second)
+        return emitOpError("duplicate halo task for port '")
+               << task.getPort() << "' kind '" << task.getKind() << "'";
     }
   }
 
@@ -166,6 +184,29 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
       if (!fn)
         return emitOpError("halo task references undefined function '")
                << task.getUnit().getValue() << "'";
+      ArrayRef<Type> inputs = fn.getFunctionType().getInputs();
+      // A loader reads a tensor row/column and streams it in: (memref, index,
+      // stream). A drain consumes the exit edge: (stream).
+      if (task.getKind() == "load") {
+        int64_t operand = task.getOperand();
+        if (inputs.size() != 3 || !llvm::isa<MemRefType>(inputs[0]) ||
+            !llvm::isa<IndexType>(inputs[1]) ||
+            !llvm::isa<allo::StreamType>(inputs[2]))
+          return emitOpError("halo loader '")
+                 << task.getUnit().getValue()
+                 << "' must take (memref, index, stream)";
+        if (operand >= 0 &&
+            operand < static_cast<int64_t>(tensorTypes.size()) &&
+            inputs[0] != tensorTypes[operand])
+          return emitOpError("halo loader '")
+                 << task.getUnit().getValue() << "' memref argument ("
+                 << inputs[0] << ") does not match map tensor operand "
+                 << operand << " (" << tensorTypes[operand] << ")";
+      } else if (task.getKind() == "drain") {
+        if (inputs.size() != 1 || !llvm::isa<allo::StreamType>(inputs[0]))
+          return emitOpError("halo drain '")
+                 << task.getUnit().getValue() << "' must take exactly (stream)";
+      }
     }
   }
   return success();

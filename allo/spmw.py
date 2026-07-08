@@ -979,6 +979,27 @@ def _interior_role_func(program, decl, sym):
     return interior_role_func(sym, decl.unit, elem, trip, 4, shapes)
 
 
+def _stream_operand_info(program, stream):
+    """``(index, ssa, shape, elem, tag)`` for the tensor a ``stream_in`` declares.
+
+    Derived from the streamed tensor's identity (``stream.tensor.name``) and its position among the
+    region's shaped operands -- not from the flow direction -- so the halo operand tracks the actual
+    declaration rather than an A/B position convention.
+    """
+    name = getattr(stream.tensor, "name", None)
+    annotations = getattr(program.fn, "__annotations__", {})
+    index = 0
+    for pname, typ in annotations.items():
+        if not getattr(typ, "shape", None):
+            continue
+        if pname == name:
+            return index, f"%{pname}", typ.shape, repr(typ.dtype), pname
+        index += 1
+    raise SPMWError(
+        f"stream_in tensor {name!r} is not a shaped operand of region {program.name!r}"
+    )
+
+
 def _halo_role_funcs(program, decl, collection):
     """Synthesize the loader/drain role funcs implied by the region's stream flows.
 
@@ -996,9 +1017,6 @@ def _halo_role_funcs(program, decl, collection):
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return []
-    a_shape, b_shape = tensors[0].shape, tensors[1].shape
-    elem = repr(tensors[0].dtype)
-    trip = a_shape[1]  # the operand streams K elements
     prefix = f"{program.name}_{decl.unit.name}"
     out = []
     for stream in collection.streams:
@@ -1006,13 +1024,14 @@ def _halo_role_funcs(program, decl, collection):
             continue
         entry, exit_edge = _FLOW_PORTS[stream.flow]
         horizontal = stream.flow in {"W->E", "E->W"}
-        operand, shape, tag = (
-            ("%A", a_shape, "A") if horizontal else ("%B", b_shape, "B")
-        )
+        _, operand_ssa, shape, elem, tag = _stream_operand_info(program, stream)
+        trip = (
+            shape[1] if horizontal else shape[0]
+        )  # the streamed (contraction) dimension
         load_sym, drain_sym = f"{prefix}_load_{tag}", f"{prefix}_drain_{tag}"
         out.append(
             loader_role_func(
-                load_sym, elem, trip, 4, operand, shape, exit_edge, horizontal
+                load_sym, elem, trip, 4, operand_ssa, shape, exit_edge, horizontal
             )
         )
         out.append(drain_role_func(drain_sym, elem, trip, 4, entry))
@@ -1039,8 +1058,7 @@ def _halo_tasks(program, decl, collection):
             continue
         entry, exit_edge = _FLOW_PORTS[stream.flow]
         horizontal = stream.flow in {"W->E", "E->W"}
-        tag = "A" if horizontal else "B"
-        operand = 0 if horizontal else 1
+        operand, _, _, _, tag = _stream_operand_info(program, stream)
         axis = (
             0 if horizontal else 1
         )  # horizontal loaders index by row, vertical by column

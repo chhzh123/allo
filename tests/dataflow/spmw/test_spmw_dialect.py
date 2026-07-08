@@ -197,3 +197,59 @@ def test_spmw_unroll_rejects_key_links():
     with module.context:
         with pytest.raises(Exception, match="key_link"):
             PassManager.parse("builtin.module(spmw-unroll)").run(module.operation)
+
+
+# A valid map with a west peer link, an interior role, and a west loader halo task.
+VALID_HALO = """
+module {
+  func.func @pe(%a: memref<2x2xf32>, %pi: index, %pj: index, %w: !allo.stream<f32, 4>) {
+    return
+  }
+  func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 4>) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = [
+        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>
+      ]>
+      roles = [#spmw.role<unit = @pe, missing = []>]
+      {halo = [#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+
+
+def test_valid_halo_round_trips():
+    assert "spmw.halo" in str(_parse(VALID_HALO))
+
+
+def test_halo_loader_wrong_abi_rejected():
+    # a load halo must take (memref, index, stream); drop the index arg
+    bad = VALID_HALO.replace(
+        "func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 4>)",
+        "func.func @load_a(%a: memref<2x2xf32>, %s: !allo.stream<f32, 4>)",
+    )
+    with pytest.raises(Exception, match="memref, index, stream"):
+        _parse(bad)
+
+
+def test_halo_port_not_peer_rejected():
+    # "north" is not a declared peer-link port of the topology
+    bad = VALID_HALO.replace(
+        'port = "west", kind = "load"', 'port = "north", kind = "load"'
+    )
+    with pytest.raises(Exception, match="not a declared peer-link port"):
+        _parse(bad)
+
+
+def test_duplicate_halo_task_rejected():
+    bad = VALID_HALO.replace(
+        '{halo = [#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}',
+        '{halo = [#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>, '
+        '#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}',
+    )
+    with pytest.raises(Exception, match="duplicate halo task"):
+        _parse(bad)
