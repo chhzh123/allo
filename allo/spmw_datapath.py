@@ -187,6 +187,137 @@ def _region_tensors(region):
     return out
 
 
+class _StripeRewriter(ast.NodeTransformer):
+    """Rewrite a 1-D systolic compute body to its dataflow-kernel form.
+
+    ``ctx.west.get()`` reads this column's A fifo, ``ctx.east.put(a)`` forwards A to the next column,
+    ``ctx.north.get()`` reads this column's B fifo, and ``ctx.<local>[m]`` stores to
+    ``local_C[m, j - 1]`` (this column's output column).
+    """
+
+    def __init__(self, ctx_name, out_attr):
+        self.ctx = ctx_name
+        self.out_attr = out_attr
+
+    @staticmethod
+    def _expr(text):
+        return ast.parse(text, mode="eval").body
+
+    def _ctx_port(self, node):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == self.ctx
+        ):
+            return node.attr
+        return None
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in {"get", "put", "get_or"}:
+            port = self._ctx_port(func.value)
+            if port == "west" and func.attr in {"get", "get_or"}:
+                func.value = self._expr("fifo_A[i, j]")
+            elif port == "north" and func.attr in {"get", "get_or"}:
+                func.value = self._expr("fifo_B[i, j]")
+            elif port == "east" and func.attr == "put":
+                func.value = self._expr("fifo_A[i, j + 1]")
+        return node
+
+    def visit_Subscript(self, node):
+        self.generic_visit(node)
+        if self._ctx_port(node.value) == self.out_attr:
+            node.value = ast.Name("local_C", ast.Load())
+            node.slice = ast.Tuple([node.slice, self._expr("j - 1")], ast.Load())
+        return node
+
+
+def _recognize_1d_systolic(collection):
+    """Detect a 1-D systolic stripe: a single unit on a 1-row mesh, A flowing W->E, B fed N->S.
+
+    Returns ``(decl, out_attr)`` or raises ``NotImplementedError``. The unit reads A west / B north,
+    forwards A east, and stores per output row -- the output-stationary GEMM stripe.
+    """
+    if len(collection.maps) != 1:
+        raise NotImplementedError("1-D systolic expects exactly one mapped unit")
+    decl = collection.maps[0]
+    grid = tuple(decl.topology.grid)
+    if len(grid) != 2 or grid[0] != 1:
+        raise NotImplementedError("1-D systolic expects a 1-row (1 x cols) mesh")
+    in_flows = sorted(
+        s.flow for s in collection.streams if s.direction == "in" and s.flow
+    )
+    if in_flows != ["N->S", "W->E"]:
+        raise NotImplementedError(
+            "1-D systolic expects stream_in flowing W->E and N->S"
+        )
+    outs = [s for s in collection.streams if s.direction == "out"]
+    if len(outs) != 1:
+        raise NotImplementedError("1-D systolic expects exactly one stream_out")
+    return decl, outs[0].extra.get("as_", "c_local")
+
+
+def generate_1d_systolic_source(region, collection):
+    """The allo.dataflow source for a 1-D output-stationary systolic stripe.
+
+    The compute PE body is transcribed verbatim into the ``2 x (K + 2)`` stripe: row 0 feeds B down
+    each column, column 0 feeds A across, the last column drains A, and the interior columns compute
+    -- so the float accumulation order matches the hand-written df stripe and the result is
+    bit-identical.
+    """
+    decl, out_attr = _recognize_1d_systolic(collection)
+    tensors = _region_tensors(region)
+    shape_of = {name: shape for name, shape, _ in tensors}
+    if "A" not in shape_of or "B" not in shape_of or "C" not in shape_of:
+        raise NotImplementedError("1-D systolic needs A, B, C tensor operands")
+    rows, depth = shape_of["A"]  # A is [M, K]
+    cols = shape_of["B"][1]  # B is [K, N]
+    dtype = tensors[0][2]
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(decl.unit.interior)))
+    func = tree.body[0]
+    ctx_name = func.args.args[0].arg
+    _StripeRewriter(ctx_name, out_attr).visit(func)
+    ast.fix_missing_locations(func)
+    body = "\n".join(
+        " " * 12 + line for stmt in func.body for line in ast.unparse(stmt).splitlines()
+    )
+    return f"""import allo
+from allo.ir.types import {dtype}, Stream
+import allo.dataflow as df
+
+M, N, K = {rows}, {cols}, {depth}
+P0 = K + 2
+
+
+@df.region()
+def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
+    fifo_A: Stream[{dtype}, 4][2, P0]
+    fifo_B: Stream[{dtype}, 4][2, P0]
+
+    @df.kernel(mapping=[2, P0], args=[A, B, C])
+    def gemm(local_A: {dtype}[M, K], local_B: {dtype}[K, N], local_C: {dtype}[M, N]):
+        i, j = df.get_pid()
+        with allo.meta_if(i == 0 and (j == 0 or j == P0 - 1)):
+            pass
+        with allo.meta_elif(i == 0):
+            for _ in range(N):
+                for k in range(K):
+                    fifo_B[i + 1, j].put(local_B[k, j - 1])
+        with allo.meta_elif(j == 0):
+            for m in range(M):
+                for k in range(K):
+                    fifo_A[i, j + 1].put(local_A[m, k])
+        with allo.meta_elif(j == P0 - 1):
+            for m in range(M):
+                for _ in range(K):
+                    _a: {dtype} = fifo_A[i, j].get()
+        with allo.meta_else():
+{body}
+"""
+
+
 class _PipelineRewriter(ast.NodeTransformer):
     """Rewrite a pipeline unit body to its dataflow-kernel form.
 
@@ -484,14 +615,18 @@ def build_dataflow(region, target="simulator", **kwargs):
     from .spmw import _collect, _validate_collection
 
     collection = _validate_collection(_collect(region))
-    # The systolic mesh is one desugar family; a producer/consumer pipeline (units joined by
-    # spmw.channel) is another. Try the mesh recognizer, then fall back to the pipeline path.
+    # Three desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
+    # systolic mesh, and a producer/consumer pipeline (units joined by spmw.channel).
     try:
-        source = generate_source(region, collection)
+        source = generate_1d_systolic_source(region, collection)
         systolic = True
     except NotImplementedError:
-        source = generate_pipeline_source(region, collection)
-        systolic = False
+        try:
+            source = generate_source(region, collection)
+            systolic = True
+        except NotImplementedError:
+            source = generate_pipeline_source(region, collection)
+            systolic = False
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
