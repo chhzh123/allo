@@ -65,3 +65,23 @@ def test_role_partition_interior_only_is_full_grid():
     module = spmw.lower(top)
     spmw._run_module_pass(module, "spmw-role-partition")
     assert "spmw.partition = array<i64: 9>" in str(module)
+
+
+def _resolved(shape):
+    module = spmw.lower(_mesh_region_with_roles(shape))
+    spmw._run_module_pass(module, "spmw-resolve-channels")
+    return str(module)
+
+
+def test_resolve_channels_pass_groups_peer_families():
+    # a 2-D mesh's peer links resolve into two undirected channel families: east/west and
+    # north/south (a link and its reciprocal collapse into one family)
+    text = _resolved((4, 4))
+    assert 'spmw.channel_families = ["east/west", "north/south"]' in text
+
+
+def test_resolve_channels_family_count_constant_across_grid():
+    # the family count (the FIFO arrays HLS declares) is constant as the grid scales, even though the
+    # channel instance count is O(P0*P1)
+    assert 'spmw.channel_families = ["east/west", "north/south"]' in _resolved((4, 4))
+    assert 'spmw.channel_families = ["east/west", "north/south"]' in _resolved((8, 8))

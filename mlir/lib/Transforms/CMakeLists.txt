@@ -14,6 +14,7 @@ add_mlir_library(MLIRAlloPasses
     UnifyKernels.cpp
     SPMWUnroll.cpp
     SPMWRolePartition.cpp
+    SPMWResolveChannels.cpp
     TransformationUtils.cpp
 
     ADDITIONAL_HEADER_DIRS

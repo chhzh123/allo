@@ -58,4 +58,9 @@ def SPMWRolePartition : Pass<"spmw-role-partition", "ModuleOp"> {
   let constructor = "mlir::allo::createSPMWRolePartitionPass()";
 }
 
+def SPMWResolveChannels : Pass<"spmw-resolve-channels", "ModuleOp"> {
+  let summary = "Group a spmw.map's peer links into channel families (attach spmw.channel_families)";
+  let constructor = "mlir::allo::createSPMWResolveChannelsPass()";
+}
+
 #endif // ALLO_MLIR_PASSES
