@@ -28,7 +28,8 @@ module {
   func.func @top(%A: memref<2x2xf32>, %B: memref<2x2xf32>) {
     spmw.map (%A, %B)
       topology = #spmw.topology<grid = [2, 2], dims = 2, links = [
-        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>
+        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>,
+        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>
       ]>
       roles = [#spmw.role<unit = @pe_interior, missing = []>]
       : memref<2x2xf32>, memref<2x2xf32>
@@ -211,7 +212,8 @@ module {
   func.func @top(%A: memref<2x2xf32>) {
     spmw.map (%A)
       topology = #spmw.topology<grid = [2, 2], dims = 2, links = [
-        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>
+        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>,
+        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>
       ]>
       roles = [#spmw.role<unit = @pe, missing = []>]
       {halo = [#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}
@@ -252,4 +254,49 @@ def test_duplicate_halo_task_rejected():
         '#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}',
     )
     with pytest.raises(Exception, match="duplicate halo task"):
+        _parse(bad)
+
+
+_ASYMMETRIC_PEER = """
+module {
+  func.func @pe(%a: memref<2x2xf32>) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = [
+        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>
+      ]>
+      roles = [#spmw.role<unit = @pe, missing = []>]
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+
+
+def test_asymmetric_peer_link_rejected():
+    # a one-way "east" peer with no reciprocal "west" link back
+    with pytest.raises(Exception, match="no reciprocal"):
+        _parse(_ASYMMETRIC_PEER)
+
+
+def test_duplicate_peer_port_rejected():
+    bad = VALID_PEER.replace(
+        'port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east"',
+        'port = "east", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east"',
+    )
+    with pytest.raises(Exception, match="duplicate peer link port"):
+        _parse(bad)
+
+
+def test_non_positive_grid_rejected():
+    bad = VALID_PEER.replace("grid = [2, 2]", "grid = [0, 2]")
+    with pytest.raises(Exception, match="grid extent must be positive"):
+        _parse(bad)
+
+
+def test_role_missing_non_peer_port_rejected():
+    bad = VALID_PEER.replace("missing = []", 'missing = ["bogus"]')
+    with pytest.raises(Exception, match="not a declared peer-link port"):
         _parse(bad)

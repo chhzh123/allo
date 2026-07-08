@@ -16,10 +16,12 @@
 #include "allo/Dialect/SPMW/SPMWAttrs.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -40,10 +42,13 @@ LogicalResult MapOp::verify() {
   if (static_cast<int64_t>(grid.size()) != dims)
     return emitOpError("grid rank (")
            << grid.size() << ") does not match topology dims (" << dims << ")";
+  for (int64_t extent : grid)
+    if (extent <= 0)
+      return emitOpError("grid extent must be positive; got ") << extent;
 
   // Each channel key must have exactly one source and one sink.
   llvm::DenseMap<Attribute, std::pair<int, int>> keyCounts;
-  llvm::StringSet<> peerPorts;
+  llvm::StringMap<PeerLinkAttr> peerByPort;
   for (Attribute linkAttr : topology.getLinks()) {
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr)) {
       AffineMap map = peer.getPeerMap().getAffineMap();
@@ -55,7 +60,9 @@ LogicalResult MapOp::verify() {
       if (peer.getDepth() <= 0)
         return emitOpError("peer link '")
                << peer.getPort() << "' has non-positive depth";
-      peerPorts.insert(peer.getPort());
+      if (!peerByPort.insert({peer.getPort(), peer}).second)
+        return emitOpError("duplicate peer link port '")
+               << peer.getPort() << "'";
     } else if (auto key = llvm::dyn_cast<KeyLinkAttr>(linkAttr)) {
       StringRef endpoint = key.getEndpoint();
       if (endpoint != "src" && endpoint != "sink")
@@ -83,9 +90,50 @@ LogicalResult MapOp::verify() {
              << numSrc << " src and " << numSink << " sink";
   }
 
-  for (Attribute roleAttr : getRoles())
-    if (!llvm::isa<RoleAttr>(roleAttr))
+  // Peer links must be reciprocal: the link reached by following `port` must
+  // point back on `peerPort` with an inverse map and matching depth. The
+  // unroll pass shares one FIFO between the two endpoints and relies on this.
+  AffineMap identity = AffineMap::getMultiDimIdentityMap(
+      static_cast<unsigned>(dims), getContext());
+  for (const auto &entry : peerByPort) {
+    PeerLinkAttr link = entry.second;
+    auto peerIt = peerByPort.find(link.getPeerPort());
+    if (peerIt == peerByPort.end())
+      return emitOpError("peer link '")
+             << link.getPort() << "' has no reciprocal link on peer port '"
+             << link.getPeerPort() << "'";
+    PeerLinkAttr back = peerIt->second;
+    if (back.getPeerPort() != link.getPort())
+      return emitOpError("peer link '")
+             << link.getPort() << "' and '" << link.getPeerPort()
+             << "' are not reciprocal";
+    if (back.getPeerMap().getAffineMap().compose(
+            link.getPeerMap().getAffineMap()) != identity)
+      return emitOpError("peer link '")
+             << link.getPort()
+             << "' and its reciprocal maps do not compose to the identity";
+    if (back.getDepth() != link.getDepth())
+      return emitOpError("peer link '")
+             << link.getPort() << "' and its reciprocal have mismatched depth";
+  }
+
+  for (Attribute roleAttr : getRoles()) {
+    auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
+    if (!role)
       return emitOpError("each role must be an spmw.role attribute");
+    llvm::StringSet<> seenMissing;
+    for (Attribute missing : role.getMissing()) {
+      auto port = llvm::dyn_cast<StringAttr>(missing);
+      if (!port)
+        return emitOpError("role missing entry must be a string");
+      if (!peerByPort.contains(port.getValue()))
+        return emitOpError("role missing port '")
+               << port.getValue() << "' is not a declared peer-link port";
+      if (!seenMissing.insert(port.getValue()).second)
+        return emitOpError("role missing port '")
+               << port.getValue() << "' is repeated";
+    }
+  }
 
   if (ArrayAttr halo = getHaloAttr()) {
     int64_t numTensors = static_cast<int64_t>(getTensors().size());
@@ -107,7 +155,7 @@ LogicalResult MapOp::verify() {
                << " tensor operands";
       // A halo task attaches where its port is off-grid, so the port must be a
       // real peer-link port of the topology.
-      if (!peerPorts.contains(task.getPort()))
+      if (!peerByPort.contains(task.getPort()))
         return emitOpError("halo port '")
                << task.getPort() << "' is not a declared peer-link port";
       // At most one loader and one drain per port: two would create multiple
