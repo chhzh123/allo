@@ -150,3 +150,41 @@ def test_cooperative_gemv_twin_matches_dataflow():
     y = np.zeros((M,), dtype=np.float32)
     spmw.build(_cooperative_gemv_twin(), target="simulator")(A, x, y)
     np.testing.assert_allclose(y, np.dot(A, x), atol=1e-5)
+
+
+def test_channel_without_consumer_rejected():
+    @spmw.unit
+    def producer(ctx):
+        for i in range(4):
+            ctx.pipe.put(i)
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(producer, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(spmw.SPMWError, match="one producer and one consumer"):
+        spmw.build(top, target="simulator")
+
+
+def test_channel_alias_form_fails_closed():
+    # a channel used through a ctx alias (h = ctx.pipe; h.put) is not lowerable -> fail closed
+    @spmw.unit
+    def producer(ctx):
+        h = ctx.pipe
+        for i in range(4):
+            h.put(i)
+
+    @spmw.unit
+    def consumer(ctx):
+        for i in range(4):
+            x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(producer, grid=(1,))
+        spmw.map(consumer, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(Exception):
+        spmw.build(top, target="simulator")

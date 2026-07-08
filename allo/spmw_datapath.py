@@ -264,7 +264,51 @@ def _transcribe_pipeline_unit(unit, tensor_names, channel_names, pid_var):
     ctx_name = func.args.args[0].arg
     _PipelineRewriter(ctx_name, tensor_names, channel_names, pid_var).visit(func)
     ast.fix_missing_locations(func)
+    # Fail closed: every ctx.<...> use must have been rewritten. A leftover ctx reference means the
+    # body used a form (a ctx alias, ctx.port("..."), an undeclared port) the transcriber does not
+    # handle -- so the generated dataflow would reference an undefined ctx.
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == ctx_name:
+            raise NotImplementedError(
+                f"pipeline datapath cannot transcribe unit {unit.name!r}: it uses ctx in a form "
+                f"the transcriber does not support (use direct ctx.<tensor>/<channel> access)"
+            )
     return [ast.unparse(stmt) for stmt in func.body]
+
+
+def _validate_pipeline_channels(collection, channel_names):
+    """Each channel must have exactly one producer unit (puts) and one consumer unit (gets)."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
+    putters = {name: set() for name in channel_names}
+    getters = {name: set() for name in channel_names}
+    for decl in collection.maps:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(decl.unit.interior)))
+        func = tree.body[0]
+        ctx_name = func.args.args[0].arg
+        for node in ast.walk(func):
+            if not (
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ):
+                continue
+            inner = node.func.value
+            if (
+                isinstance(inner, ast.Attribute)
+                and isinstance(inner.value, ast.Name)
+                and inner.value.id == ctx_name
+                and inner.attr in channel_names
+            ):
+                if node.func.attr == "put":
+                    putters[inner.attr].add(decl.unit.name)
+                elif node.func.attr in {"get", "get_or"}:
+                    getters[inner.attr].add(decl.unit.name)
+    for name in channel_names:
+        if len(putters[name]) != 1 or len(getters[name]) != 1:
+            raise SPMWError(
+                f"channel {name!r} must have exactly one producer and one consumer unit; got "
+                f"producers {sorted(putters[name])}, consumers {sorted(getters[name])}"
+            )
 
 
 def _channel_payload(ch):
@@ -310,6 +354,7 @@ def generate_pipeline_source(region, collection):
         )
     tensor_names = {name for name, _, _ in tensors}
     channel_names = {ch.name for ch in collection.channels}
+    _validate_pipeline_channels(collection, channel_names)
     shape_of = {name: (shape, dt) for name, shape, dt in tensors}
 
     # Constants (M, N, ...) the unit bodies reference from their closure.
