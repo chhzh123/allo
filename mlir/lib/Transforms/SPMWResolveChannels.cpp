@@ -26,7 +26,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
+
 #include "llvm/ADT/Twine.h"
+#include <map>
 
 #include <algorithm>
 #include <string>
@@ -49,8 +51,10 @@ struct SPMWResolveChannelsPass
   }
 
   LogicalResult resolve(spmw::MapOp map) {
-    llvm::StringSet<> seen;
-    SmallVector<std::string> families;
+    // Each family maps to its FIFO depth (the peer link's depth); a link and
+    // its reciprocal, and both endpoints of the family, must agree on that
+    // depth.
+    std::map<std::string, int64_t> familyDepth;
     for (Attribute link : map.getTopology().getLinks()) {
       auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link);
       if (!peer) {
@@ -68,13 +72,26 @@ struct SPMWResolveChannelsPass
       std::string family =
           (a <= b ? (llvm::Twine(a) + "/" + b) : (llvm::Twine(b) + "/" + a))
               .str();
-      if (seen.insert(family).second)
-        families.push_back(family);
+      auto it = familyDepth.find(family);
+      if (it == familyDepth.end())
+        familyDepth[family] = peer.getDepth();
+      else if (it->second != peer.getDepth())
+        return map.emitOpError("channel family '")
+               << family << "' has links with mismatched depth";
     }
-    llvm::sort(families);
-    SmallVector<StringRef> refs(families.begin(), families.end());
+    // std::map orders families canonically; emit the family names and the
+    // per-family FIFO depths in that order (the FIFO arrays the emitter
+    // declares).
+    SmallVector<StringRef> refs;
+    SmallVector<int64_t> depths;
+    for (const auto &entry : familyDepth) {
+      refs.push_back(entry.first);
+      depths.push_back(entry.second);
+    }
     OpBuilder builder(map);
     map->setAttr("spmw.channel_families", builder.getStrArrayAttr(refs));
+    map->setAttr("spmw.channel_family_depths",
+                 builder.getDenseI64ArrayAttr(depths));
     return success();
   }
 };

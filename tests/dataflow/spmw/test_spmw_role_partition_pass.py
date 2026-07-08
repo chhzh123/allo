@@ -75,9 +75,11 @@ def _resolved(shape):
 
 def test_resolve_channels_pass_groups_peer_families():
     # a 2-D mesh's peer links resolve into two undirected channel families: east/west and
-    # north/south (a link and its reciprocal collapse into one family)
+    # north/south (a link and its reciprocal collapse into one family), each with its FIFO depth
     text = _resolved((4, 4))
     assert 'spmw.channel_families = ["east/west", "north/south"]' in text
+    # the per-family FIFO depths the emitter declares (the peer-link depth, default 2)
+    assert "spmw.channel_family_depths = array<i64: 2, 2>" in text
 
 
 def test_resolve_channels_family_count_constant_across_grid():
