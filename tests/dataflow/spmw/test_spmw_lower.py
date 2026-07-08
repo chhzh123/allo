@@ -217,3 +217,10 @@ def test_grid_only_region_lowers_with_empty_links():
     text = str(spmw.lower(r))
     assert "links = []" in text
     assert text.count("func.func @r_pe_") == 1  # interior role only
+
+
+def test_interior_role_declares_stream_ports():
+    # the interior role now declares its stream ABI (one port per stream arg) so the pass binds
+    # channels by port name, not by a sorted-port positional convention
+    text = str(spmw.lower(_systolic_twin(2, 2, 2)))
+    assert 'ports = ["east", "north", "south", "west"]' in text

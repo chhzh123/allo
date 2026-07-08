@@ -300,3 +300,42 @@ def test_role_missing_non_peer_port_rejected():
     bad = VALID_PEER.replace("missing = []", 'missing = ["bogus"]')
     with pytest.raises(Exception, match="not a declared peer-link port"):
         _parse(bad)
+
+
+# A valid role that declares its stream ports (two streams: east + west).
+VALID_ROLE_PORTS = """
+module {
+  func.func @pe(%a: memref<2x2xf32>, %e: !allo.stream<f32, 2>, %w: !allo.stream<f32, 2>) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = [
+        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>,
+        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>
+      ]>
+      roles = [#spmw.role<unit = @pe, missing = [], ports = ["east", "west"]>]
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+
+
+def test_role_ports_round_trips():
+    assert "ports = [" in str(_parse(VALID_ROLE_PORTS))
+
+
+def test_role_ports_count_mismatch_rejected():
+    # ports declares one port but the func has two stream parameters
+    bad = VALID_ROLE_PORTS.replace('ports = ["east", "west"]', 'ports = ["east"]')
+    with pytest.raises(Exception, match="stream ports but its function has"):
+        _parse(bad)
+
+
+def test_role_ports_non_peer_rejected():
+    bad = VALID_ROLE_PORTS.replace(
+        'ports = ["east", "west"]', 'ports = ["east", "bogus"]'
+    )
+    with pytest.raises(Exception, match="not a declared peer-link port"):
+        _parse(bad)

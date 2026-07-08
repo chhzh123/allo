@@ -88,10 +88,12 @@ int64_t linearIndex(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
   return index;
 }
 
-/// A role: the func it names and the boundary ports whose absence selects it.
+/// A role: the func it names, the boundary ports whose absence selects it, and
+/// (optionally) the local port each of its stream parameters carries, in order.
 struct RoleInfo {
   FlatSymbolRefAttr unit;
   SmallVector<StringRef> missing;
+  SmallVector<StringRef> ports;
 };
 
 /// One local peer port at a coordinate: whether its peer is on-grid, and if so
@@ -192,6 +194,9 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
     info.unit = role.getUnit();
     for (Attribute edge : role.getMissing())
       info.missing.push_back(llvm::cast<StringAttr>(edge).getValue());
+    if (ArrayAttr ports = role.getPorts())
+      for (Attribute port : ports)
+        info.ports.push_back(llvm::cast<StringAttr>(port).getValue());
     roles.push_back(info);
   }
 
@@ -259,14 +264,16 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
         operands.push_back(
             builder.create<arith::ConstantIndexOp>(loc, coord[pidIdx++]));
       } else if (llvm::isa<StreamType>(input)) {
-        if (streamIdx >= sortedPorts.size())
+        // A role's stream params bind to the local ports it declares (by name);
+        // a role that declares no ports falls back to sorted local-port order.
+        ArrayRef<StringRef> order = role->ports.empty()
+                                        ? ArrayRef<StringRef>(sortedPorts)
+                                        : ArrayRef<StringRef>(role->ports);
+        if (streamIdx >= order.size())
           return map.emitOpError("role '")
                  << role->unit.getValue()
-                 << "' has more stream parameters than the topology has ports";
-        // Stream params bind to ports in sorted local-port-name order -- the
-        // order the role transcriber lists them -- independent of how the
-        // topology links happen to be declared.
-        StringRef portName = sortedPorts[streamIdx++];
+                 << "' has more stream parameters than declared ports";
+        StringRef portName = order[streamIdx++];
         const PortPeer *info = nullptr;
         for (const PortPeer &candidate : ports)
           if (candidate.port == portName) {

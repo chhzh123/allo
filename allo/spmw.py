@@ -973,6 +973,14 @@ def _common_depth(decl):
     return depths.pop() if depths else DEFAULT_DEPTH
 
 
+def _interior_ports():
+    """The local ports the transcribed interior func streams over, in signature (sorted) order."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw_mlir import _READ_PORTS
+
+    return sorted(_READ_PORTS)
+
+
 def _interior_role_func(program, decl, sym):
     """The interior role ``func.func`` with the real transcribed datapath, or ``None``.
 
@@ -1152,11 +1160,19 @@ def _module_text(program, collection):
         for name, missing in _roles_of(decl):
             sym = f"{program.name}_{decl.unit.name}_{name}"
             func = None
+            ports_text = ""
             if not missing:
                 func = _interior_role_func(program, decl, sym)
+                if func is not None:
+                    # the transcribed interior func streams over every port, in the sorted
+                    # port-name order it lists them -- declare that as the role's stream ABI
+                    ports = ", ".join(f'"{p}"' for p in _interior_ports())
+                    ports_text = f", ports = [{ports}]"
             role_funcs.append(func or f"  func.func @{sym}() {{\n    return\n  }}")
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
-            role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
+            role_attrs.append(
+                f"#spmw.role<unit = @{sym}, missing = [{missing_text}]{ports_text}>"
+            )
         # auto-halo loader/drain datapaths are boundary tasks around the grid, emitted as sibling
         # funcs (not compute-grid roles) and referenced from the map's halo list so spmw-unroll wires
         # them to the edge channels

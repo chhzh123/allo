@@ -133,6 +133,15 @@ LogicalResult MapOp::verify() {
         return emitOpError("role missing port '")
                << port.getValue() << "' is repeated";
     }
+    if (ArrayAttr ports = role.getPorts())
+      for (Attribute portAttr : ports) {
+        auto port = llvm::dyn_cast<StringAttr>(portAttr);
+        if (!port)
+          return emitOpError("role port entry must be a string");
+        if (!peerByPort.contains(port.getValue()))
+          return emitOpError("role port '")
+                 << port.getValue() << "' is not a declared peer-link port";
+      }
   }
 
   if (ArrayAttr halo = getHaloAttr()) {
@@ -220,6 +229,19 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
                << " (" << input << ") does not match map tensor operand " << ti
                << " (" << tensorTypes[ti] << ")";
       ++ti;
+    }
+    // Declaration-derived stream ABI: a role that names its stream ports must
+    // have exactly that many stream parameters on its function.
+    if (ArrayAttr ports = role.getPorts()) {
+      unsigned streamCount = 0;
+      for (Type input : fn.getFunctionType().getInputs())
+        if (llvm::isa<allo::StreamType>(input))
+          ++streamCount;
+      if (streamCount != ports.size())
+        return emitOpError("role '")
+               << role.getUnit().getValue() << "' declares " << ports.size()
+               << " stream ports but its function has " << streamCount
+               << " stream parameters";
     }
   }
   if (ArrayAttr halo = getHaloAttr()) {

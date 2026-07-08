@@ -72,11 +72,17 @@ def SPMW_RoleAttr : SPMW_Attr<"Role", "role"> {
   let summary = "A boundary-specialized role and the missing links that select it.";
   let description = [{
     `unit` is the per-role function; `missing` is the set of boundary port names
-    whose absence selects this role.
+    whose absence selects this role. `ports`, when present, names the local port
+    each of the role func's stream parameters carries, in signature order -- the
+    declaration-derived stream ABI the unroll pass binds channels by.
   }];
   let parameters = (ins "::mlir::FlatSymbolRefAttr":$unit,
-                        "::mlir::ArrayAttr":$missing);
-  let assemblyFormat = "`<` `unit` `=` $unit `,` `missing` `=` $missing `>`";
+                        "::mlir::ArrayAttr":$missing,
+                        OptionalParameter<"::mlir::ArrayAttr">:$ports);
+  let assemblyFormat = [{
+    `<` `unit` `=` $unit `,` `missing` `=` $missing
+    (`,` `ports` `=` $ports^)? `>`
+  }];
 }
 
 def SPMW_HaloAttr : SPMW_Attr<"Halo", "halo"> {
