@@ -4,8 +4,9 @@
 import numpy as np
 import pytest
 import allo
+import allo.dataflow as df
 import allo.spmw as spmw
-from allo.ir.types import float32
+from allo.ir.types import float32, Stream
 
 M, N = 16, 16
 
@@ -266,3 +267,45 @@ def test_lower_carries_channels_in_rolled_ir():
     assert "depth = 4" in text
     # two units -> two maps, and the channel is carried once at the top
     assert text.count("spmw.map") == 2
+
+
+# The hand-written df original for cooperative_gemv, kept as the bit-identity oracle for the twin.
+@df.region()
+def _gemv_df_original(A: float32[M, N], x: float32[N], y: float32[M]):
+    pipe: Stream[float32[Mt], 2][P0]
+
+    @df.kernel(mapping=[P0], args=[A, x])
+    def gemv0(local_A: float32[M, N], local_x: float32[N]):
+        pi = df.get_pid()
+        y_out: float32[Mt] = 0
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            y_acc: float32 = 0
+            for n in range(N // 2):
+                y_acc += local_A[m, n] * local_x[n]
+            y_out[m - pi * Mt] = y_acc
+        pipe[pi].put(y_out)
+
+    @df.kernel(mapping=[P0], args=[A, x, y])
+    def gemv1(local_A: float32[M, N], local_x: float32[N], local_y: float32[M]):
+        pi = df.get_pid()
+        y_out: float32[Mt] = 0
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            y_acc: float32 = 0
+            for n in range(N // 2, N):
+                y_acc += local_A[m, n] * local_x[n]
+            y_out[m - pi * Mt] = y_acc
+        y_prev: float32[Mt] = pipe[pi].get()
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            local_y[m] = y_out[m - pi * Mt] + y_prev[m - pi * Mt]
+
+
+def test_cooperative_gemv_twin_is_bit_identical_to_df_original():
+    # the reduction has an order-sensitive float sum, so prove bit-identity against the df original
+    # directly (not only np.dot): same input -> same numbers
+    A = np.random.rand(M, N).astype(np.float32)
+    x = np.random.rand(N).astype(np.float32)
+    y_df = np.zeros((M,), dtype=np.float32)
+    y_spmw = np.zeros((M,), dtype=np.float32)
+    df.build(_gemv_df_original, target="simulator")(A, x, y_df)
+    spmw.build(_cooperative_gemv_twin(), target="simulator")(A, x, y_spmw)
+    np.testing.assert_array_equal(y_spmw, y_df)
