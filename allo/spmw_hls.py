@@ -318,7 +318,10 @@ def emit_rolled_project(
     With ``testbench`` the project also holds a self-checking ``tb.cpp`` and its ``run.tcl`` runs
     ``csim_design`` (correctness vs A@B) before ``csynth_design``.
     """
-    hls_code = emit_rolled_hls(region)
+    # The public rolled path emits by consuming the rolled spmw.map IR (grid/partition/families +
+    # the interior role func's datapath), so target="rolled" and its Vitis csim exercise the
+    # IR-driven emitter.
+    hls_code = emit_rolled_hls_ir(region)
     if project is not None:
         os.makedirs(project, exist_ok=True)
         with open(os.path.join(project, "kernel.cpp"), "w", encoding="utf-8") as handle:
@@ -441,13 +444,32 @@ def emit_rolled_hls_ir(region):
     _run_module_pass(module, "spmw-resolve-channels")
     ir = str(module)
 
-    families = re.search(r"spmw\.channel_families = \[([^\]]*)\]", ir)
-    if not families or families.group(1).count('"') // 2 != 2:
+    # The channel families the resolver produced are the FIFO arrays the rolled top declares; the
+    # rolled emitter wires the two systolic families (A along east/west, B along north/south).
+    families = re.findall(
+        r'"([^"]+)"',
+        re.search(r"spmw\.channel_families = \[([^\]]*)\]", ir).group(1),
+    )
+    if sorted(families) != ["east/west", "north/south"]:
         raise NotImplementedError(
-            "IR-driven rolled emitter handles the 2-family systolic mesh"
+            f"IR-driven rolled emitter handles the systolic east/west + north/south families; "
+            f"got {families}"
         )
+    # The partition (per compute-role grid-point counts) must be a single compute role covering the
+    # whole grid -- the systolic interior; the emitter stamps one pe_interior body.
+    partition = [
+        int(x)
+        for x in re.search(r"spmw\.partition = array<i64: ([^>]*)>", ir)
+        .group(1)
+        .split(",")
+    ]
     grid = re.search(r"grid = \[(\d+), (\d+)\]", ir)
     rows, cols = int(grid.group(1)), int(grid.group(2))
+    if len(partition) != 1 or partition[0] != rows * cols:
+        raise NotImplementedError(
+            f"IR-driven rolled emitter handles a single-compute-role systolic map; "
+            f"got partition {partition} for a {rows}x{cols} grid"
+        )
     # A is the first tensor operand, memref<rows x K x elem>: its second extent is the contraction K.
     a_shape = re.search(r"memref<(\d+)x(\d+)x(\w+)>", ir)
     depth = int(a_shape.group(2))
@@ -465,9 +487,18 @@ def emit_rolled_hls_ir(region):
     interior = re.search(r"(func\.func @\w+_interior\(.*?\n  \})", ir, re.DOTALL).group(
         1
     )
-    ports = sorted(
-        _ROLLED_WIRING
-    )  # the interior stream ABI is the sorted systolic port set
+    # The interior role declares the local port each of its stream parameters carries (its stream
+    # ABI); the translator binds the datapath's stream ops to those ports by that declaration.
+    role_attr = re.search(
+        r"#spmw\.role<unit = @\w+_interior, missing = \[[^\]]*\], ports = \[([^\]]*)\]>",
+        ir,
+    )
+    ports = re.findall(r'"([^"]+)"', role_attr.group(1))
+    if set(ports) != set(_ROLLED_WIRING):
+        raise NotImplementedError(
+            f"IR-driven rolled emitter handles the systolic port set {sorted(_ROLLED_WIRING)}; "
+            f"got {ports}"
+        )
     body = _interior_body_from_ir(interior, ports, elem)
     args = (
         ", ".join(f"hls::stream<{elem}> &{p}" for p in ports) + f", {elem} c_local[1]"

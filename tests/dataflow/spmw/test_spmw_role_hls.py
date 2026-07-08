@@ -76,10 +76,13 @@ def test_rolled_body_count_is_constant_across_grid_sizes():
 
 
 def test_rolled_build_target_emits_csynth_ready_project():
-    # the rolled O(#roles) synthesis path is reachable through the public build API
+    # the rolled O(#roles) synthesis path is reachable through the public build API, and the public
+    # path now consumes the rolled spmw.map IR (emit_rolled_hls_ir)
+    from allo.spmw_hls import emit_rolled_hls_ir
+
     with tempfile.TemporaryDirectory() as tmp:
         project = spmw.build(_systolic_twin(4, 4, 4), target="rolled", project=tmp)
-        assert project.hls_code == emit_rolled_hls(_systolic_twin(4, 4, 4))
+        assert project.hls_code == emit_rolled_hls_ir(_systolic_twin(4, 4, 4))
         kernel = os.path.join(tmp, "kernel.cpp")
         tcl = os.path.join(tmp, "run.tcl")
         assert os.path.exists(kernel) and os.path.exists(tcl)
