@@ -130,6 +130,11 @@ LogicalResult MapOp::verify() {
     if (back.getDepth() != link.getDepth())
       return emitOpError("peer link '")
              << link.getPort() << "' and its reciprocal have mismatched depth";
+    // Both endpoints share one FIFO, so they must agree on the element type.
+    if (back.getElementType() != link.getElementType())
+      return emitOpError("peer link '")
+             << link.getPort()
+             << "' and its reciprocal have mismatched element type";
   }
 
   for (Attribute roleAttr : getRoles()) {

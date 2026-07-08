@@ -420,3 +420,14 @@ def test_role_stream_base_type_mismatch_rejected():
     ).replace("%e: !allo.stream<f32, 2>", "%e: !allo.stream<i32, 2>")
     with pytest.raises(Exception, match="element type"):
         _parse(bad)
+
+
+def test_reciprocal_peer_element_type_mismatch_rejected():
+    # the east link declares element type f32 but its reciprocal west link does not:
+    # both share one FIFO, so the element types must agree
+    bad = VALID_PEER.replace(
+        'peer = "west", depth = 2>,',
+        'peer = "west", depth = 2, type = f32>,',
+    )
+    with pytest.raises(Exception, match="mismatched element type"):
+        _parse(bad)
