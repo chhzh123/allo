@@ -159,15 +159,19 @@ def emit_rolled_hls(region):
             f"rolled emitter handles the systolic port set {sorted(_ROLLED_WIRING)}; "
             f"got {ports}"
         )
-    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn)
+    # Honor the declared per-port FIFO depth, floored at K (a PE streams K elements per channel).
+    declared = max(decl.port_depths.values(), default=depth)
+    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, max(declared, depth))
 
 
-def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn):
+def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, fifo_depth):
     """The rolled systolic HLS top for a given ``pe_interior`` function ``pe_fn``.
 
     Shared by the frontend-transcribed emitter and the IR-driven one: given the compute-role body,
-    it wires the ``load_a``/``load_b``/``drain`` boundary roles and the grid instantiation loops
-    over the two FIFO families, so a single csynth sees one body per role.
+    it wires the ``load_a``/``load_b``/``drain`` boundary roles and stamps the PE across the whole
+    ``M x N`` grid (both loops unrolled) over the two FIFO families -- so a single csynth sees one
+    body per role instantiated once per grid point. ``fifo_depth`` is the per-channel FIFO depth the
+    resolver recorded (each PE streams ``K`` elements, so the depth must admit that buffering).
     """
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
     return (
@@ -198,8 +202,8 @@ def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn):
         "#pragma HLS array_partition variable=C complete dim=0\n"
         f"  hls::stream<{elem}> fa[M][N + 1];\n"
         f"  hls::stream<{elem}> fb[M + 1][N];\n"
-        "#pragma HLS stream variable=fa depth=K\n"
-        "#pragma HLS stream variable=fb depth=K\n"
+        f"#pragma HLS stream variable=fa depth={fifo_depth}\n"
+        f"#pragma HLS stream variable=fb depth={fifo_depth}\n"
         "  for (int i = 0; i < M; i++) {\n"
         "#pragma HLS unroll\n"
         "    load_a(A, i, fa[i][0]);\n"
@@ -209,6 +213,7 @@ def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn):
         "    load_b(B, j, fb[0][j]);\n"
         "  }\n"
         "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
         "    for (int j = 0; j < N; j++) {\n"
         "#pragma HLS unroll\n"
         f"      pe_interior({wired}, &C[i][j]);\n"
@@ -504,4 +509,7 @@ def emit_rolled_hls_ir(region):
         ", ".join(f"hls::stream<{elem}> &{p}" for p in ports) + f", {elem} c_local[1]"
     )
     pe_fn = f"void pe_interior({args}) {{\n#pragma HLS inline off\n{body}\n}}\n"
-    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn)
+    # The per-family FIFO depths the resolver recorded, floored at K (each PE streams K elements).
+    depths = re.search(r"spmw\.channel_family_depths = array<i64: ([^>]*)>", ir)
+    declared = max(int(x) for x in depths.group(1).split(","))
+    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, max(declared, depth))

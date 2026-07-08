@@ -31,17 +31,22 @@ The rolled top emitted by `emit_rolled_hls_ir` (which consumes the rolled `spmw.
 **L2 — csim (correctness):** the rolled O(#roles) top csim-**MATCHES** `A @ B`
 (`test_rolled_top_csim_matches_reference`, `target="rolled"`, IR-driven).
 
-**L3 — csynth (synthesis), rolled top at two grid sizes:**
+**L3 — csynth (synthesis), rolled top at two grid sizes:** both grids csynth (`CSYNTH_OK`). The
+**distinct synthesized role bodies stay 4** (`pe_interior`, `load_a`, `load_b`, `drain`); only the
+instance counts scale, exactly as the emitted `top` loops instantiate them (`load_a` once per row
+`M`, `load_b` once per column `N`, `pe_interior` once per grid point `M·N`, `drain` `M+N`):
 
-| grid  | distinct role modules synthesized                | instance scaling (O(P))         |
-|-------|--------------------------------------------------|---------------------------------|
-| 4 × 4 | `pe_interior`, `load_a`, `load_b`, `drain` (4)   | load_a 8, load_b 8, drain 16    |
-| 8 × 8 | `pe_interior`, `load_a`, `load_b`, `drain` (4)   | load_a 16, load_b 16, drain 32  |
+| grid  | distinct role bodies | load_a | load_b | pe_interior | drain |
+|-------|----------------------|--------|--------|-------------|-------|
+| 4 × 4 | 4                    | 4      | 4      | 16          | 8     |
+| 8 × 8 | 4                    | 8      | 8      | 64          | 16    |
 
-`pe_interior` uses **5 DSP at both grid sizes** (its FF/LUT grow only with the contraction depth K
-4→8, not with grid replication). The **number of distinct synthesized bodies is constant (4)** as the
-grid doubles per dimension, while instance counts scale O(P) — i.e. "O(#roles) function bodies, not
-O(P0·P1)".
+`pe_interior` is scheduled **once** (one body) and uses **5 DSP at both grid sizes** (its FF/LUT grow
+only with the contraction depth K 4→8, not with grid replication). So the **body count is constant
+(4)** as the grid grows, while instances scale O(P) for the boundary roles and O(P²) copies of the
+single interior body — i.e. "O(#roles) function bodies, not O(P0·P1)". (A wall-clock csynth-time trend
+across 8/16/32 is future work; the body-count and per-role-resource invariance are the load-bearing
+metrics.)
 
 ## Reproduce
 
