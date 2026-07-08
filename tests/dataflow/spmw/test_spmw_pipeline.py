@@ -255,3 +255,14 @@ def test_channel_self_loop_rejected():
 
     with pytest.raises(spmw.SPMWError, match="self-loop"):
         spmw.build(top, target="simulator")
+
+
+def test_lower_carries_channels_in_rolled_ir():
+    # a pipeline region's rolled spmw.map IR preserves its inter-unit channels as #spmw.channel attrs
+    # on the top function, so they survive to codegen (an M2 pass resolves them)
+    text = str(spmw.lower(_producer_consumer_twin()))
+    assert "spmw.channels" in text
+    assert '#spmw.channel<name = "pipe"' in text
+    assert "depth = 4" in text
+    # two units -> two maps, and the channel is carried once at the top
+    assert text.count("spmw.map") == 2

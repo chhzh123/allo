@@ -1221,6 +1221,26 @@ def _halo_tasks(program, decl, collection):
     return tasks
 
 
+def _channel_attrs(collection):
+    """``#spmw.channel`` attrs for the region's inter-unit channels, preserving them in the rolled IR.
+
+    A channel connects two distinct maps, so it is carried on the top function (not on a single map);
+    an M2 pass reads these to resolve/lower the pipeline. A shaped payload becomes a ``memref`` type.
+    """
+    attrs = []
+    for ch in collection.channels:
+        shape = getattr(ch.dtype, "shape", None)
+        if shape:
+            dims = "x".join(str(d) for d in shape)
+            elem = f"memref<{dims}x{repr(ch.dtype.dtype)}>"
+        else:
+            elem = repr(ch.dtype)
+        attrs.append(
+            f'#spmw.channel<name = "{ch.name}", type = {elem}, depth = {ch.depth}>'
+        )
+    return attrs
+
+
 def _tensor_operands(program):
     """The region's shaped memref args as ``(ssa, memref type)`` pairs -- the map's ``$tensors``."""
     annotations = getattr(program.fn, "__annotations__", {})
@@ -1316,8 +1336,16 @@ def _module_text(program, collection):
             f"{halo_text}\n"
             f"      : {operand_types}"
         )
+    channel_attrs = _channel_attrs(collection)
+    channels_text = ""
+    if channel_attrs:
+        channels_text = (
+            " attributes {spmw.channels = [\n      "
+            + ",\n      ".join(channel_attrs)
+            + "\n    ]}"
+        )
     top = (
-        f"  func.func @{program.name}({top_params}) {{\n"
+        f"  func.func @{program.name}({top_params}){channels_text} {{\n"
         + "\n".join(map_ops)
         + "\n    return\n  }"
     )
