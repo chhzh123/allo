@@ -1124,35 +1124,44 @@ def _assign_role(boundary, specs):
     return best[0]
 
 
-def _unrolled_text(program, collection):
-    """Assemble the per-PID IR: O(#roles) role funcs plus one func.call per grid point."""
-    role_funcs = []
-    calls = []
+def _check_role_assignment(program, collection):
+    """Raise :class:`SPMWError` if any grid point has no assignable, or an ambiguous, role.
+
+    Role selection is performed structurally by the ``spmw-unroll`` pass; this front-end check runs
+    the same subset rule (:func:`_assign_role`) over the grid first so an ambiguous or unassignable
+    boundary is reported as an ``SPMWError`` before lowering rather than as an MLIR pass failure.
+    """
+    del program  # signature kept parallel to the other lowering helpers
     for decl in collection.maps:
         specs = _role_specs(decl)
-        for name, _ in specs:
-            sym = f"{program.name}_{decl.unit.name}_{name}"
-            role_funcs.append(f"  func.func @{sym}() {{\n    return\n  }}")
         for coord in decl.topology.coords():
-            role_name = _assign_role(decl.topology.boundary_ports_at(coord), specs)
-            sym = f"{program.name}_{decl.unit.name}_{role_name}"
-            calls.append(f"    func.call @{sym}() : () -> ()")
-    top = f"  func.func @{program.name}() {{\n" + "\n".join(calls) + "\n    return\n  }"
-    return "module {\n" + "\n".join(role_funcs + [top]) + "\n}"
+            _assign_role(decl.topology.boundary_ports_at(coord), specs)
+
+
+def _run_module_pass(module, pipeline):
+    """Run an MLIR pass ``pipeline`` in place on a parsed ``module``."""
+    # pylint: disable=import-outside-toplevel,no-name-in-module
+    from ._mlir.passmanager import PassManager
+
+    with module.context:
+        PassManager.parse(f"builtin.module({pipeline})").run(module.operation)
 
 
 def unroll(program):
     """Expand the rolled map into the per-PID simulator form and return the parsed module.
 
-    Every grid point becomes a ``func.call`` to the ``func.func`` of the role it is assigned
-    (by which links are missing at its boundary). The call count is ``O(P0*P1)`` — the simulator
-    form — but the role ``func.func`` count stays ``O(#roles)``: the bodies are never cloned per
-    grid point. Role bodies are signature-only until the datapath lowering lands.
+    Lowers the region to the rolled ``spmw.map`` and then runs the ``spmw-unroll`` MLIR pass, which
+    replaces the map with one ``func.call`` per grid point to the role assigned by the links missing
+    at that point's boundary. The call count is ``O(P0*P1)`` — the simulator form — but the role
+    ``func.func`` count stays ``O(#roles)``: the bodies are never cloned per grid point.
     """
     if not isinstance(program, Region):
         raise SPMWError("spmw.unroll expects an @spmw.region")
     collection = _validate_collection(_collect(program))
-    return _parse_module(_unrolled_text(program, collection))
+    _check_role_assignment(program, collection)
+    module = _parse_module(_module_text(program, collection))
+    _run_module_pass(module, "spmw-unroll")
+    return module
 
 
 # Targets served by desugaring a recognized region to allo.dataflow (simulator + the HLS toolchain).

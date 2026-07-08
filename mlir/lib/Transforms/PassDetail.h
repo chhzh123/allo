@@ -20,6 +20,7 @@ namespace allo {
 #define GEN_PASS_DEF_REMOVESTRIDEMAP
 #define GEN_PASS_DEF_MEMREFDCE
 #define GEN_PASS_DEF_COPYONWRITE
+#define GEN_PASS_DEF_SPMWUNROLL
 #include "allo/Transforms/Passes.h.inc"
 
 } // namespace allo

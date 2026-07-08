@@ -48,4 +48,9 @@ def CopyOnWrite : Pass<"copy-on-write", "ModuleOp"> {
   let constructor = "mlir::allo::createCopyOnWritePass()";
 }
 
+def SPMWUnroll : Pass<"spmw-unroll", "ModuleOp"> {
+  let summary = "Expand each spmw.map into one func.call per grid point";
+  let constructor = "mlir::allo::createSPMWUnrollPass()";
+}
+
 #endif // ALLO_MLIR_PASSES

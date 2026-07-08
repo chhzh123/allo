@@ -1,0 +1,296 @@
+/*
+ * Copyright Allo authors. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===- SPMWUnroll.cpp - expand spmw.map over its grid -----------*- C++ -*-===//
+//
+// This pass is the structural consumer of the rolled spmw.map op. It replaces
+// each spmw.map with one func.call per grid point: for every coordinate it
+// evaluates the topology's affine peer links to find which local ports fall
+// off the grid (the "missing" ports), selects the boundary role whose missing
+// set matches, and emits a call to that role's func.func. The role func bodies
+// stay O(#roles) -- they are never cloned per grid point -- while the call
+// count is O(product(grid)). Call operands are built to match the callee's
+// signature: the map's tensor operands feed the leading memref parameters,
+// arith.constant indices feed the per-dimension PID parameters, and one
+// allo.stream_construct per peer channel feeds the stream parameters (a channel
+// is shared by the two neighbors it connects; a port whose peer is off-grid
+// gets its own dangling channel until halo wiring lands).
+//
+//===----------------------------------------------------------------------===//
+
+#include "PassDetail.h"
+
+#include "allo/Dialect/AlloDialect.h"
+#include "allo/Dialect/AlloOps.h"
+#include "allo/Dialect/AlloTypes.h"
+#include "allo/Dialect/SPMW/SPMWAttrs.h"
+#include "allo/Dialect/SPMW/SPMWOps.h"
+#include "allo/Transforms/Passes.h"
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/AffineMap.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/SymbolTable.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+
+#include <algorithm>
+#include <map>
+#include <string>
+
+using namespace mlir;
+using namespace mlir::allo;
+
+namespace {
+
+/// Evaluate a static affine map (dims only, no symbols) at a constant
+/// coordinate, appending each result to `out`. Fails if the map has symbols,
+/// the dim count disagrees with the coordinate, or a result is non-constant.
+LogicalResult evalAffine(AffineMap map, ArrayRef<int64_t> coord,
+                         SmallVectorImpl<int64_t> &out) {
+  if (map.getNumSymbols() != 0 ||
+      map.getNumDims() != static_cast<unsigned>(coord.size()))
+    return failure();
+  MLIRContext *ctx = map.getContext();
+  SmallVector<AffineExpr> repl;
+  for (int64_t c : coord)
+    repl.push_back(getAffineConstantExpr(c, ctx));
+  for (AffineExpr result : map.getResults()) {
+    AffineExpr folded = result.replaceDims(repl);
+    auto constant = llvm::dyn_cast<AffineConstantExpr>(folded);
+    if (!constant)
+      return failure();
+    out.push_back(constant.getValue());
+  }
+  return success();
+}
+
+bool inBounds(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
+  for (auto [c, extent] : llvm::zip(coord, grid))
+    if (c < 0 || c >= extent)
+      return false;
+  return true;
+}
+
+/// Row-major linear index of a coordinate within the grid.
+int64_t linearIndex(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
+  int64_t index = 0;
+  for (auto [c, extent] : llvm::zip(coord, grid))
+    index = index * extent + c;
+  return index;
+}
+
+/// A role: the func it names and the boundary ports whose absence selects it.
+struct RoleInfo {
+  FlatSymbolRefAttr unit;
+  SmallVector<StringRef> missing;
+};
+
+/// One local peer port at a coordinate: whether its peer is on-grid, and if so
+/// the peer's linear index and the peer-side port name (for channel sharing).
+struct PortPeer {
+  StringRef port;
+  bool onGrid;
+  int64_t peerIndex;
+  StringRef peerPort;
+};
+
+struct SPMWUnrollPass
+    : public mlir::allo::impl::SPMWUnrollBase<SPMWUnrollPass> {
+  void getDependentDialects(DialectRegistry &registry) const override {
+    // The expansion creates func.call, arith.constant, and
+    // allo.stream_construct ops, so those dialects must be loaded before the
+    // pass runs.
+    registry
+        .insert<allo::AlloDialect, func::FuncDialect, arith::ArithDialect>();
+  }
+
+  void runOnOperation() override {
+    ModuleOp module = getOperation();
+    SmallVector<spmw::MapOp> maps;
+    module.walk([&](spmw::MapOp op) { maps.push_back(op); });
+    SymbolTable symbolTable(module);
+    for (spmw::MapOp map : maps)
+      if (failed(expand(map, symbolTable)))
+        return signalPassFailure();
+  }
+
+  /// Select the role for a point given its missing ports: a role fits when its
+  /// missing set is a subset of the point's; the most specific (largest) wins;
+  /// two incomparable fits are a genuine ambiguity.
+  LogicalResult selectRole(spmw::MapOp map, ArrayRef<RoleInfo> roles,
+                           ArrayRef<StringRef> missing,
+                           const RoleInfo *&selected) {
+    int bestSize = -1;
+    SmallVector<const RoleInfo *> best;
+    for (const RoleInfo &role : roles) {
+      bool fits = llvm::all_of(role.missing, [&](StringRef port) {
+        return llvm::is_contained(missing, port);
+      });
+      if (!fits)
+        continue;
+      int size = static_cast<int>(role.missing.size());
+      if (size > bestSize) {
+        bestSize = size;
+        best.assign(1, &role);
+      } else if (size == bestSize) {
+        best.push_back(&role);
+      }
+    }
+    if (best.empty())
+      return map.emitOpError("no role fits a grid point missing ports");
+    if (best.size() > 1)
+      return map.emitOpError("ambiguous role for a grid point; declare a role "
+                             "for that exact boundary");
+    selected = best.front();
+    return success();
+  }
+
+  LogicalResult expand(spmw::MapOp map, SymbolTable &symbolTable);
+};
+
+LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
+                                     SymbolTable &symbolTable) {
+  spmw::TopologyAttr topology = map.getTopology();
+  ArrayRef<int64_t> grid = topology.getGrid();
+  unsigned dims = static_cast<unsigned>(topology.getDims());
+
+  // The peer links describe the interconnect pattern; each applies to every
+  // coordinate. Their sorted local-port names are the canonical order the role
+  // funcs list their stream parameters in.
+  SmallVector<spmw::PeerLinkAttr> peers;
+  for (Attribute link : topology.getLinks())
+    if (auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link))
+      peers.push_back(peer);
+  SmallVector<StringRef> sortedPorts;
+  for (spmw::PeerLinkAttr peer : peers)
+    sortedPorts.push_back(peer.getPort());
+  llvm::sort(sortedPorts);
+
+  SmallVector<RoleInfo> roles;
+  for (Attribute roleAttr : map.getRoles()) {
+    auto role = llvm::dyn_cast<spmw::RoleAttr>(roleAttr);
+    if (!role)
+      return map.emitOpError("each role must be an spmw.role attribute");
+    RoleInfo info;
+    info.unit = role.getUnit();
+    for (Attribute edge : role.getMissing())
+      info.missing.push_back(llvm::cast<StringAttr>(edge).getValue());
+    roles.push_back(info);
+  }
+
+  OpBuilder builder(map);
+  Location loc = map.getLoc();
+  ValueRange tensors = map.getTensors();
+  // Peer channels shared across neighbors, keyed by the canonical endpoint.
+  std::map<std::string, Value> channels;
+
+  int64_t total = 1;
+  for (int64_t extent : grid)
+    total *= extent;
+
+  SmallVector<int64_t> coord(dims, 0);
+  for (int64_t point = 0; point < total; ++point) {
+    // Decode the row-major coordinate.
+    int64_t rem = point;
+    for (int d = static_cast<int>(dims) - 1; d >= 0; --d) {
+      coord[d] = rem % grid[d];
+      rem /= grid[d];
+    }
+
+    // Resolve each local port's peer and collect the missing ones.
+    SmallVector<PortPeer> ports;
+    SmallVector<StringRef> missing;
+    for (spmw::PeerLinkAttr peer : peers) {
+      SmallVector<int64_t> peerCoord;
+      if (failed(
+              evalAffine(peer.getPeerMap().getAffineMap(), coord, peerCoord)))
+        return map.emitOpError("peer link '")
+               << peer.getPort() << "' has a non-static map";
+      PortPeer info;
+      info.port = peer.getPort();
+      info.onGrid = inBounds(peerCoord, grid);
+      info.peerIndex = info.onGrid ? linearIndex(peerCoord, grid) : -1;
+      info.peerPort = peer.getPeerPort();
+      ports.push_back(info);
+      if (!info.onGrid)
+        missing.push_back(peer.getPort());
+    }
+
+    const RoleInfo *role = nullptr;
+    if (failed(selectRole(map, roles, missing, role)))
+      return failure();
+    auto callee = symbolTable.lookup<func::FuncOp>(role->unit.getValue());
+    if (!callee)
+      return map.emitOpError("role references undefined function '")
+             << role->unit.getValue() << "'";
+
+    // Build the call operands to match the callee's signature.
+    SmallVector<Value> operands;
+    unsigned tensorIdx = 0, pidIdx = 0, streamIdx = 0;
+    for (Type input : callee.getFunctionType().getInputs()) {
+      if (llvm::isa<MemRefType>(input)) {
+        if (tensorIdx >= tensors.size())
+          return map.emitOpError("role '")
+                 << role->unit.getValue()
+                 << "' needs more tensor operands than the map provides";
+        operands.push_back(tensors[tensorIdx++]);
+      } else if (llvm::isa<IndexType>(input)) {
+        if (pidIdx >= dims)
+          return map.emitOpError("role '")
+                 << role->unit.getValue()
+                 << "' has more index parameters than the grid has dimensions";
+        operands.push_back(
+            builder.create<arith::ConstantIndexOp>(loc, coord[pidIdx++]));
+      } else if (llvm::isa<StreamType>(input)) {
+        if (streamIdx >= ports.size())
+          return map.emitOpError("role '")
+                 << role->unit.getValue()
+                 << "' has more stream parameters than the topology has ports";
+        const PortPeer &info = ports[streamIdx++];
+        int64_t self = linearIndex(coord, grid);
+        std::string key;
+        if (info.onGrid) {
+          // Canonical undirected key: the smaller of the two endpoints, so the
+          // neighbor resolves to the same allo.stream_construct.
+          std::string a = std::to_string(self) + ":" + info.port.str();
+          std::string b =
+              std::to_string(info.peerIndex) + ":" + info.peerPort.str();
+          key = std::min(a, b);
+        } else {
+          key = std::to_string(self) + ":" + info.port.str();
+        }
+        Value &channel = channels[key];
+        if (!channel)
+          channel = builder.create<allo::StreamConstructOp>(loc, input);
+        operands.push_back(channel);
+      } else {
+        return map.emitOpError("role '")
+               << role->unit.getValue()
+               << "' has an unsupported parameter type";
+      }
+    }
+    builder.create<func::CallOp>(loc, callee, operands);
+  }
+
+  map.erase();
+  return success();
+}
+
+} // namespace
+
+namespace mlir {
+namespace allo {
+
+std::unique_ptr<OperationPass<ModuleOp>> createSPMWUnrollPass() {
+  return std::make_unique<SPMWUnrollPass>();
+}
+
+} // namespace allo
+} // namespace mlir

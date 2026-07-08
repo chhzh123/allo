@@ -3,6 +3,31 @@
 
 import pytest
 import allo.spmw as spmw
+from allo.ir.types import float32
+
+
+def _systolic_twin(M, N, K):
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
 
 
 def _region(shape):
@@ -56,6 +81,27 @@ def test_role_assignment_by_missing_links():
 def test_build_unroll_target():
     text = str(spmw.build(_region((4, 4)), target="unroll"))
     assert text.count("call @gemm_pe_") == 16
+
+
+def test_unroll_consumes_the_rolled_map():
+    # unroll now runs the spmw-unroll MLIR pass over the rolled spmw.map rather than re-deriving
+    # the expansion in Python: the map op is genuinely consumed and no longer present afterwards.
+    text = str(spmw.unroll(_region((4, 4))))
+    assert "spmw.map" not in text
+    assert text.count("call @gemm_pe_") == 16
+
+
+def test_unroll_streaming_interior_wires_channels():
+    # the systolic twin's interior role carries the real streaming datapath (A/B/C memrefs, %pi/%pj
+    # PID indices, and one !allo.stream per port). The pass instantiates it across the grid with
+    # per-PID index constants and allo.stream_construct channels -- and the result verifies.
+    text = str(spmw.unroll(_systolic_twin(3, 3, 2)))
+    assert "spmw.map" not in text
+    # only the interior role exists, so every one of the 9 grid points calls it
+    assert text.count("call @gemm_pe_interior") == 9
+    # channels are materialized as allo.stream_construct and PID indices as arith.constant
+    assert "allo.stream_construct" in text
+    assert "arith.constant" in text
 
 
 def test_ambiguous_role_rejected():

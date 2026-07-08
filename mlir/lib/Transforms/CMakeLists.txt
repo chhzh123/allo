@@ -12,6 +12,7 @@ add_mlir_library(MLIRAlloPasses
     DataPlacement.cpp
     CopyOnWrite.cpp
     UnifyKernels.cpp
+    SPMWUnroll.cpp
     TransformationUtils.cpp
 
     ADDITIONAL_HEADER_DIRS
@@ -21,6 +22,8 @@ add_mlir_library(MLIRAlloPasses
     MLIRAlloOpsIncGen
     MLIRAlloTypesIncGen
     MLIRAlloPassesIncGen
+    MLIRSPMWOpsIncGen
+    MLIRSPMWAttrsIncGen
 
     LINK_COMPONENTS
     Core
