@@ -48,6 +48,8 @@ LogicalResult MapOp::verify() {
 
   // Each channel key must have exactly one source and one sink.
   llvm::DenseMap<Attribute, std::pair<int, int>> keyCounts;
+  // The src and sink sharing a key must agree on depth and element type.
+  llvm::DenseMap<Attribute, std::pair<int64_t, Type>> keyAbi;
   llvm::StringMap<PeerLinkAttr> peerByPort;
   for (Attribute linkAttr : topology.getLinks()) {
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr)) {
@@ -76,6 +78,19 @@ LogicalResult MapOp::verify() {
         ++count.first;
       else
         ++count.second;
+      std::pair<int64_t, Type> abi = {
+          key.getDepth(),
+          key.getElementType() ? key.getElementType().getValue() : Type()};
+      auto insertion = keyAbi.try_emplace(key.getKey(), abi);
+      if (!insertion.second) {
+        std::pair<int64_t, Type> &seen = insertion.first->second;
+        if (seen.first != abi.first)
+          return emitOpError("key '")
+                 << key.getKey() << "' endpoints have mismatched depth";
+        if (seen.second && abi.second && seen.second != abi.second)
+          return emitOpError("key '")
+                 << key.getKey() << "' endpoints have mismatched element type";
+      }
     } else {
       return emitOpError(
           "topology link must be a peer_link or key_link attribute");
@@ -198,10 +213,12 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   TypeRange tensorTypes = getTensors().getTypes();
   TopologyAttr topology = getTopology();
   int64_t dims = topology.getDims();
-  llvm::StringMap<int64_t> portDepth;
+  llvm::StringMap<std::pair<int64_t, Type>> portAbi;
   for (Attribute linkAttr : topology.getLinks())
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr))
-      portDepth[peer.getPort()] = peer.getDepth();
+      portAbi[peer.getPort()] = {
+          peer.getDepth(),
+          peer.getElementType() ? peer.getElementType().getValue() : Type()};
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
     if (!role)
@@ -254,13 +271,21 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
                  << unit << "' has more stream parameters than declared ports";
         StringRef portName =
             llvm::cast<StringAttr>(ports[streamIdx]).getValue();
-        auto depthIt = portDepth.find(portName);
-        if (depthIt != portDepth.end() &&
-            static_cast<int64_t>(stream.getDepth()) != depthIt->second)
-          return emitOpError("role '")
-                 << unit << "' stream parameter " << streamIdx << " has depth "
-                 << stream.getDepth() << " but port '" << portName
-                 << "' declares depth " << depthIt->second;
+        auto abiIt = portAbi.find(portName);
+        if (abiIt != portAbi.end()) {
+          if (static_cast<int64_t>(stream.getDepth()) != abiIt->second.first)
+            return emitOpError("role '")
+                   << unit << "' stream parameter " << streamIdx
+                   << " has depth " << stream.getDepth() << " but port '"
+                   << portName << "' declares depth " << abiIt->second.first;
+          if (abiIt->second.second &&
+              stream.getBaseType() != abiIt->second.second)
+            return emitOpError("role '")
+                   << unit << "' stream parameter " << streamIdx
+                   << " has element type " << stream.getBaseType()
+                   << " but port '" << portName << "' declares "
+                   << abiIt->second.second;
+        }
         ++streamIdx;
       } else {
         return emitOpError("role '")
@@ -271,7 +296,7 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
       return emitOpError("role '") << unit << "' declares " << ports.size()
                                    << " ports but its function has "
                                    << streamIdx << " stream parameters";
-    if (sawStream && idxCount != static_cast<unsigned>(dims))
+    if ((sawStream || sawIndex) && idxCount != static_cast<unsigned>(dims))
       return emitOpError("role '")
              << unit << "' has " << idxCount
              << " index parameters but the grid has " << dims << " dimensions";
@@ -309,6 +334,25 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
           return emitOpError("halo drain '")
                  << task.getUnit().getValue() << "' must take exactly (stream)";
       }
+      // the halo stream (always the last parameter) must match the depth/type
+      // of the boundary port it feeds/drains
+      if (!inputs.empty())
+        if (auto stream = llvm::dyn_cast<allo::StreamType>(inputs.back())) {
+          auto abiIt = portAbi.find(task.getPort());
+          if (abiIt != portAbi.end()) {
+            if (static_cast<int64_t>(stream.getDepth()) != abiIt->second.first)
+              return emitOpError("halo '")
+                     << task.getUnit().getValue() << "' stream has depth "
+                     << stream.getDepth() << " but port '" << task.getPort()
+                     << "' declares depth " << abiIt->second.first;
+            if (abiIt->second.second &&
+                stream.getBaseType() != abiIt->second.second)
+              return emitOpError("halo '")
+                     << task.getUnit().getValue()
+                     << "' stream element type does not match port '"
+                     << task.getPort() << "'";
+          }
+        }
     }
   }
   return success();

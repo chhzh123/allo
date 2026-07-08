@@ -370,3 +370,53 @@ def test_role_wrong_index_arity_rejected():
     bad = VALID_ROLE_PORTS.replace("%pi: index, %pj: index, ", "%pi: index, ")
     with pytest.raises(Exception, match="index parameters but the grid has 2"):
         _parse(bad)
+
+
+def test_halo_stream_depth_mismatch_rejected():
+    # the loader stream is typed depth 4 but its boundary port "west" declares depth 2
+    bad = VALID_HALO.replace(
+        "func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 2>)",
+        "func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 4>)",
+    )
+    with pytest.raises(Exception, match="stream has depth 4 but port"):
+        _parse(bad)
+
+
+def test_key_endpoint_depth_mismatch_rejected():
+    # src depth 2, sink depth 4 for the same key
+    bad = VALID_KEY.replace(
+        '#spmw.key_link<port = "in", key = "c", end = "sink", depth = 2>',
+        '#spmw.key_link<port = "in", key = "c", end = "sink", depth = 4>',
+    )
+    with pytest.raises(Exception, match="mismatched depth"):
+        _parse(bad)
+
+
+def test_role_index_only_wrong_arity_rejected():
+    # a role taking PID index params (but no streams) must take exactly `dims` of them
+    bad = """
+module {
+  func.func @pe(%p: index) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = []>
+      roles = [#spmw.role<unit = @pe, missing = []>]
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+    with pytest.raises(Exception, match="index parameters but the grid has 2"):
+        _parse(bad)
+
+
+def test_role_stream_base_type_mismatch_rejected():
+    # the "east" link declares element type f32 but the stream bound to it is i32
+    bad = VALID_ROLE_PORTS.replace(
+        'peer = "west", depth = 2>,',
+        'peer = "west", depth = 2, type = f32>,',
+    ).replace("%e: !allo.stream<f32, 2>", "%e: !allo.stream<i32, 2>")
+    with pytest.raises(Exception, match="element type"):
+        _parse(bad)
