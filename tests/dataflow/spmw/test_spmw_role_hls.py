@@ -117,3 +117,23 @@ def test_rolled_hls_structure_matches_ir_passes():
     assert cpp.count("void pe_interior(") == 1
     # two FIFO family arrays (fa, fb) == the two channel families
     assert "fa[M][N + 1]" in cpp and "fb[M + 1][N]" in cpp
+
+
+def test_ir_driven_rolled_emitter_consumes_spmw_map():
+    # emit_rolled_hls_ir lowers to spmw.map, runs spmw-role-partition + spmw-resolve-channels, and
+    # emits the rolled HLS by reading the grid/families off the IR and translating the interior role
+    # func's transcribed datapath -- so the emission is driven by spmw.map, not the frontend.
+    from allo.spmw_hls import emit_rolled_hls, emit_rolled_hls_ir
+
+    from_ir = emit_rolled_hls_ir(_systolic_twin(4, 4, 4))
+    # the shared top scaffolding (grid, FIFO families, role instantiation) is identical to the
+    # frontend emitter's -- the IR path only changes where the pe datapath comes from
+    from_frontend = emit_rolled_hls(_systolic_twin(4, 4, 4))
+    assert from_ir.split("void load_a")[1] == from_frontend.split("void load_a")[1]
+    # the pe body is the datapath translated from the interior role func's IR ops: stream reads for
+    # the two inputs, the a*b MAC into the accumulator, the two forwarding writes, the output store
+    pe = from_ir.split("void load_a")[0]
+    assert "west.read()" in pe and "north.read()" in pe
+    assert "east.write(" in pe and "south.write(" in pe
+    assert " * " in pe and "acc + " in pe  # the multiply-accumulate
+    assert "c_local[0] = acc;" in pe

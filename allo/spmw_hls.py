@@ -21,6 +21,7 @@ It handles the constructs the systolic PE uses; anything else raises ``NotImplem
 import ast
 import inspect
 import os
+import re
 import textwrap
 
 # The default synthesis target for a stand-alone rolled project (matches the flagship's U280 runs).
@@ -158,6 +159,16 @@ def emit_rolled_hls(region):
             f"rolled emitter handles the systolic port set {sorted(_ROLLED_WIRING)}; "
             f"got {ports}"
         )
+    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn)
+
+
+def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn):
+    """The rolled systolic HLS top for a given ``pe_interior`` function ``pe_fn``.
+
+    Shared by the frontend-transcribed emitter and the IR-driven one: given the compute-role body,
+    it wires the ``load_a``/``load_b``/``drain`` boundary roles and the grid instantiation loops
+    over the two FIFO families, so a single csynth sees one body per role.
+    """
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
     return (
         "#include <hls_stream.h>\n"
@@ -318,3 +329,148 @@ def emit_rolled_project(
             with open(os.path.join(project, "tb.cpp"), "w", encoding="utf-8") as handle:
                 handle.write(_rolled_testbench(region))
     return RolledHLSProject(hls_code, project)
+
+
+# --- IR-driven rolled emitter: lower to spmw.map, run the M2 passes, and emit the rolled HLS by
+# reading the grid/families off the rolled IR and translating the interior role func's transcribed
+# datapath (allo ops) to HLS C++ -- so the emission genuinely consumes spmw.map, not the frontend.
+
+# The systolic interior op set the datapath translator handles, mapped to their C++ operators.
+_MLIR_ARITH = {"mulf": "*", "addf": "+", "subf": "-", "divf": "/"}
+
+
+def _interior_body_from_ir(func_text, ports, elem):
+    """Translate the interior role func's transcribed MLIR body to a ``pe_interior`` C++ body.
+
+    ``ports`` is the sorted local-port name per stream parameter (the role's declared stream ABI);
+    the body's ``allo.stream_get/put`` on those args become ``port.read()/write()``, the ``arith``
+    ops become C operators, the accumulator ``memref`` becomes a local, and the final store to the
+    output tensor becomes ``c_local[0] = ...``. Only the systolic op set is handled.
+    """
+    lines = [ln.strip() for ln in func_text.splitlines()]
+    # The stream parameters, in signature order, are the declared ports.
+    stream_args = re.findall(r"(%\w+): !allo\.stream", lines[0])
+    if len(stream_args) != len(ports):
+        raise NotImplementedError(
+            "interior role stream ABI does not match its declared ports"
+        )
+    port_of = dict(zip(stream_args, ports))
+
+    val = {}  # SSA name -> C expression (a temp name or a literal)
+    acc = None  # the accumulator memref SSA
+    out = []
+    indent = "  "
+
+    def emit(stmt):
+        out.append(indent + stmt)
+
+    for ln in lines[1:]:
+        if not ln or (ln == "}" and acc is None):
+            continue
+        m = re.match(r"(%\w+) = memref\.alloc\(\) :", ln)
+        if m:
+            acc = m.group(1)
+            emit(f"{elem} acc;")  # initialized by the affine.store that follows
+            continue
+        m = re.match(r"(%\w+) = arith\.constant (\S+) :", ln)
+        if m:
+            val[m.group(1)] = m.group(2)
+            continue
+        m = re.match(r"affine\.store (%\w+), " + re.escape(acc or "") + r"\[\]", ln)
+        if acc and m:
+            emit(f"acc = {val[m.group(1)]};")
+            continue
+        m = re.match(r"affine\.for (%\w+) = 0 to (\d+)", ln)
+        if m:
+            emit(
+                f"for (int {m.group(1)[1:]} = 0; {m.group(1)[1:]} < {m.group(2)}; {m.group(1)[1:]}++) {{"
+            )
+            indent = "    "
+            continue
+        m = re.match(r"(%\w+) = affine\.load " + re.escape(acc or "") + r"\[\]", ln)
+        if acc and m:
+            val[m.group(1)] = "acc"
+            continue
+        m = re.match(r"(%\w+) = allo\.stream_get\((%\w+),", ln)
+        if m:
+            v = f"v{m.group(1)[1:]}"
+            emit(f"{elem} {v} = {port_of[m.group(2)]}.read();")
+            val[m.group(1)] = v
+            continue
+        m = re.match(r"(%\w+) = arith\.(mulf|addf|subf|divf) (%\w+), (%\w+)", ln)
+        if m:
+            v = f"v{m.group(1)[1:]}"
+            emit(
+                f"{elem} {v} = {val[m.group(3)]} {_MLIR_ARITH[m.group(2)]} {val[m.group(4)]};"
+            )
+            val[m.group(1)] = v
+            continue
+        m = re.match(r"allo\.stream_put\((%\w+), \[\], (%\w+)\)", ln)
+        if m:
+            emit(f"{port_of[m.group(1)]}.write({val[m.group(2)]});")
+            continue
+        if ln == "}":
+            indent = "  "
+            emit("}")
+            continue
+        m = re.match(r"memref\.store (%\w+), %\w+\[", ln)
+        if m:
+            emit(f"c_local[0] = {val[m.group(1)]};")
+            continue
+        if ln.startswith("return"):
+            break
+        raise NotImplementedError(f"IR datapath translator does not handle: {ln}")
+    return "\n".join(out)
+
+
+def emit_rolled_hls_ir(region):
+    """The rolled systolic HLS top emitted by *consuming the rolled ``spmw.map`` IR*.
+
+    Lowers ``region`` to the rolled ``spmw.map``, runs ``spmw-role-partition`` and
+    ``spmw-resolve-channels``, then reads the grid extents and channel families off the IR and
+    translates the interior role func's transcribed datapath to the ``pe_interior`` body. So the
+    emitted O(#roles) top is derived from the rolled IR + its partition/family attributes, not
+    re-derived from the frontend collection. Bit-for-bit equivalent to :func:`emit_rolled_hls` for
+    the systolic twin, but IR-driven.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import lower, _run_module_pass
+
+    module = lower(region)
+    _run_module_pass(module, "spmw-role-partition")
+    _run_module_pass(module, "spmw-resolve-channels")
+    ir = str(module)
+
+    families = re.search(r"spmw\.channel_families = \[([^\]]*)\]", ir)
+    if not families or families.group(1).count('"') // 2 != 2:
+        raise NotImplementedError(
+            "IR-driven rolled emitter handles the 2-family systolic mesh"
+        )
+    grid = re.search(r"grid = \[(\d+), (\d+)\]", ir)
+    rows, cols = int(grid.group(1)), int(grid.group(2))
+    # A is the first tensor operand, memref<rows x K x elem>: its second extent is the contraction K.
+    a_shape = re.search(r"memref<(\d+)x(\d+)x(\w+)>", ir)
+    depth = int(a_shape.group(2))
+    elem = _CPP_TYPE[
+        {
+            "f32": "float32",
+            "f64": "float64",
+            "i8": "int8",
+            "i16": "int16",
+            "i32": "int32",
+            "i64": "int64",
+        }[a_shape.group(3)]
+    ]
+
+    interior = re.search(r"(func\.func @\w+_interior\(.*?\n  \})", ir, re.DOTALL).group(
+        1
+    )
+    ports = sorted(
+        _ROLLED_WIRING
+    )  # the interior stream ABI is the sorted systolic port set
+    body = _interior_body_from_ir(interior, ports, elem)
+    args = (
+        ", ".join(f"hls::stream<{elem}> &{p}" for p in ports) + f", {elem} c_local[1]"
+    )
+    pe_fn = f"void pe_interior({args}) {{\n#pragma HLS inline off\n{body}\n}}\n"
+    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn)
