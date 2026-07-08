@@ -169,6 +169,165 @@ def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
 """
 
 
+def _region_tensors(region):
+    """Ordered ``[(name, shape_tuple, dtype_name)]`` for the region's shaped operands."""
+    annotations = getattr(region.fn, "__annotations__", {})
+    out = []
+    for name, typ in annotations.items():
+        shape = getattr(typ, "shape", None)
+        if shape is None:
+            continue
+        dtype = repr(typ.dtype)
+        if dtype not in _DTYPE_NAMES:
+            raise NotImplementedError(
+                f"pipeline datapath supports {sorted(_DTYPE_NAMES)} elements, not {dtype!r}"
+            )
+        out.append((name, tuple(shape), _DTYPE_NAMES[dtype]))
+    return out
+
+
+class _PipelineRewriter(ast.NodeTransformer):
+    """Rewrite a pipeline unit body to its dataflow-kernel form.
+
+    ``ctx.<tensor>[...]`` becomes the kernel's local operand ``local_<tensor>[...]`` and
+    ``ctx.<channel>.put/get(...)`` becomes the region-level ``<channel>.put/get(...)``.
+    """
+
+    def __init__(self, ctx_name, tensors, channels):
+        self.ctx = ctx_name
+        self.tensors = tensors
+        self.channels = channels
+
+    def _ctx_attr(self, node):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == self.ctx
+        ):
+            return node.attr
+        return None
+
+    def visit_Subscript(self, node):
+        self.generic_visit(node)
+        name = self._ctx_attr(node.value)
+        if name in self.tensors:
+            node.value = ast.Name(id=f"local_{name}", ctx=ast.Load())
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in {"put", "get", "get_or"}:
+            chan = self._ctx_attr(func.value)
+            if chan in self.channels:
+                node.func = ast.Attribute(
+                    value=ast.Name(id=chan, ctx=ast.Load()),
+                    attr=func.attr,
+                    ctx=ast.Load(),
+                )
+        return node
+
+
+def _unit_tensor_args(unit, tensor_names):
+    """The region tensor operands a unit body accesses (``ctx.<tensor>``), in first-use order."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
+    func = tree.body[0]
+    ctx_name = func.args.args[0].arg
+    used = []
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == ctx_name
+            and node.attr in tensor_names
+            and node.attr not in used
+        ):
+            used.append(node.attr)
+    return used
+
+
+def _transcribe_pipeline_unit(unit, tensor_names, channel_names):
+    tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
+    func = tree.body[0]
+    ctx_name = func.args.args[0].arg
+    _PipelineRewriter(ctx_name, tensor_names, channel_names).visit(func)
+    ast.fix_missing_locations(func)
+    return [ast.unparse(stmt) for stmt in func.body]
+
+
+def generate_pipeline_source(region, collection):
+    """The equivalent allo.dataflow source for a producer/consumer pipeline region.
+
+    A region that declares two or more units connected by ``spmw.channel`` becomes one
+    ``@df.kernel(mapping=[1])`` per unit plus a ``Stream`` per channel, with each unit body
+    transcribed verbatim -- so the result is bit-identical to a hand-written dataflow pipeline.
+    """
+    if not collection.channels:
+        raise NotImplementedError("pipeline datapath expects at least one spmw.channel")
+    tensors = _region_tensors(region)
+    if not tensors:
+        raise NotImplementedError(
+            "pipeline datapath needs typed tensor operands on the region"
+        )
+    tensor_names = {name for name, _, _ in tensors}
+    channel_names = {ch.name for ch in collection.channels}
+    shape_of = {name: (shape, dt) for name, shape, dt in tensors}
+
+    # Constants (M, N, ...) the unit bodies reference from their closure.
+    consts = {}
+    for decl in collection.maps:
+        closure = inspect.getclosurevars(decl.unit.interior)
+        for key, value in {**closure.nonlocals, **closure.globals}.items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                consts.setdefault(key, value)
+
+    def _sig(name, shape, dt):
+        dims = ", ".join(str(d) for d in shape)
+        return f"{name}: {dt}[{dims}]"
+
+    dtypes_used = {dt for _, _, dt in tensors}
+    chan_lines = []
+    for ch in collection.channels:
+        cdt = _DTYPE_NAMES.get(repr(ch.dtype))
+        if cdt is None:
+            raise NotImplementedError(
+                f"pipeline channel dtype {ch.dtype!r} unsupported"
+            )
+        dtypes_used.add(cdt)
+        chan_lines.append(f"    {ch.name}: Stream[{cdt}, {ch.depth}]")
+
+    kernels = []
+    for decl in collection.maps:
+        used = _unit_tensor_args(decl.unit, tensor_names)
+        body = _transcribe_pipeline_unit(decl.unit, tensor_names, channel_names)
+        params = ", ".join(_sig(f"local_{t}", *shape_of[t]) for t in used)
+        args = ", ".join(used)
+        body_text = "\n".join(
+            " " * 8 + line for stmt in body for line in stmt.splitlines()
+        )
+        kernels.append(
+            f"    @df.kernel(mapping=[1], args=[{args}])\n"
+            f"    def {decl.unit.name}({params}):\n"
+            f"{body_text}"
+        )
+
+    const_lines = "\n".join(f"{key} = {value}" for key, value in consts.items())
+    imports = ", ".join(sorted(dtypes_used))
+    region_sig = ", ".join(_sig(name, shape, dt) for name, shape, dt in tensors)
+    return (
+        "import allo\n"
+        f"from allo.ir.types import {imports}, Stream\n"
+        "import allo.dataflow as df\n\n"
+        f"{const_lines}\n\n\n"
+        "@df.region()\n"
+        f"def {region.name}_df({region_sig}):\n"
+        + "\n".join(chan_lines)
+        + "\n\n"
+        + "\n\n".join(kernels)
+        + "\n"
+    )
+
+
 def build_dataflow(region, target="simulator", **kwargs):
     """Desugar a systolic-mesh region to allo.dataflow and build it for a dataflow target.
 
@@ -186,7 +345,14 @@ def build_dataflow(region, target="simulator", **kwargs):
     from .spmw import _collect, _validate_collection
 
     collection = _validate_collection(_collect(region))
-    source = generate_source(region, collection)
+    # The systolic mesh is one desugar family; a producer/consumer pipeline (units joined by
+    # spmw.channel) is another. Try the mesh recognizer, then fall back to the pipeline path.
+    try:
+        source = generate_source(region, collection)
+        systolic = True
+    except NotImplementedError:
+        source = generate_pipeline_source(region, collection)
+        systolic = False
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
@@ -199,7 +365,11 @@ def build_dataflow(region, target="simulator", **kwargs):
     import allo.dataflow as df
 
     df_region = getattr(generated, f"{region.name}_df")
-    if target != "simulator" and kwargs.get("mode") in {"csyn", "hw_emu", "hw"}:
+    if (
+        systolic
+        and target != "simulator"
+        and kwargs.get("mode") in {"csyn", "hw_emu", "hw"}
+    ):
         # HLS dataflow requires a single writer per array. Each grid point writes a distinct C
         # element (and reads distinct A/B lanes), so complete-partition the operands into per-lane
         # banks before synthesis.
