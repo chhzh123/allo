@@ -163,7 +163,7 @@ def test_channel_without_consumer_rejected():
         spmw.map(producer, grid=(1,))
         spmw.channel("pipe", float32, depth=4)
 
-    with pytest.raises(spmw.SPMWError, match="one producer and one consumer"):
+    with pytest.raises(spmw.SPMWError, match="one producer map and one consumer map"):
         spmw.build(top, target="simulator")
 
 
@@ -238,3 +238,20 @@ def test_singleton_rank_is_zero():
     B = np.zeros((M, N), dtype=np.float32)
     spmw.build(top, target="simulator")(A, B)
     np.testing.assert_array_equal(B, A)
+
+
+def test_channel_self_loop_rejected():
+    # one map that both puts and gets the same channel is a self-loop, not a producer/consumer pair
+    @spmw.unit
+    def loopback(ctx):
+        for i in range(4):
+            ctx.pipe.put(i)
+            x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(loopback, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(spmw.SPMWError, match="self-loop"):
+        spmw.build(top, target="simulator")

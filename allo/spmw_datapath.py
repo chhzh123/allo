@@ -285,13 +285,18 @@ def _transcribe_pipeline_unit(unit, tensor_names, channel_names, pid_var):
 
 
 def _validate_pipeline_channels(collection, channel_names):
-    """Each channel must have exactly one producer unit (puts) and one consumer unit (gets)."""
+    """Each channel must have exactly one producer map and one distinct consumer map.
+
+    Endpoints are counted per *mapped declaration* (by index), not by unit name -- so the same unit
+    mapped twice counts as two endpoints -- and the producer and consumer must be different maps (a
+    channel a single map both puts and gets is a self-loop).
+    """
     # pylint: disable=import-outside-toplevel
     from .spmw import SPMWError
 
     putters = {name: set() for name in channel_names}
     getters = {name: set() for name in channel_names}
-    for decl in collection.maps:
+    for idx, decl in enumerate(collection.maps):
         tree = ast.parse(textwrap.dedent(inspect.getsource(decl.unit.interior)))
         func = tree.body[0]
         ctx_name = func.args.args[0].arg
@@ -308,14 +313,19 @@ def _validate_pipeline_channels(collection, channel_names):
                 and inner.attr in channel_names
             ):
                 if node.func.attr == "put":
-                    putters[inner.attr].add(decl.unit.name)
+                    putters[inner.attr].add(idx)
                 elif node.func.attr in {"get", "get_or"}:
-                    getters[inner.attr].add(decl.unit.name)
+                    getters[inner.attr].add(idx)
     for name in channel_names:
         if len(putters[name]) != 1 or len(getters[name]) != 1:
             raise SPMWError(
-                f"channel {name!r} must have exactly one producer and one consumer unit; got "
-                f"producers {sorted(putters[name])}, consumers {sorted(getters[name])}"
+                f"channel {name!r} must have exactly one producer map and one consumer map; got "
+                f"{len(putters[name])} producer(s) and {len(getters[name])} consumer(s)"
+            )
+        if putters[name] == getters[name]:
+            raise SPMWError(
+                f"channel {name!r} is put and got by the same map (self-loop); a channel connects "
+                f"two different maps"
             )
 
 
@@ -410,6 +420,7 @@ def generate_pipeline_source(region, collection):
         chan_lines.append(f"    {ch.name}: Stream[{payload}, {ch.depth}]{array}")
 
     kernels = []
+    name_counts = {}
     for decl in collection.maps:
         used = _unit_tensor_args(decl.unit, tensor_names)
         body = _transcribe_pipeline_unit(
@@ -422,9 +433,13 @@ def generate_pipeline_source(region, collection):
         body_text = "\n".join(
             " " * 8 + line for stmt in body for line in stmt.splitlines()
         )
+        # A unit mapped more than once needs a distinct kernel name per instance.
+        seen = name_counts.get(decl.unit.name, 0)
+        name_counts[decl.unit.name] = seen + 1
+        kernel_name = decl.unit.name if seen == 0 else f"{decl.unit.name}_{seen}"
         kernels.append(
             f"    @df.kernel(mapping=[{_map_size(decl)}], args=[{args}])\n"
-            f"    def {decl.unit.name}({params}):\n"
+            f"    def {kernel_name}({params}):\n"
             f"{body_text}"
         )
 
