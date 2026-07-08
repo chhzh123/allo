@@ -1224,13 +1224,16 @@ def _halo_tasks(program, decl, collection):
 def _channel_endpoints(program, collection):
     """``{channel_name: (producer_sym, consumer_sym)}`` -- the role funcs that put to / get from each.
 
-    The producer is the unit whose body puts the channel; the consumer the unit that gets it. Their
-    role-func symbols are the ``interior`` roles of the maps that reference the channel, so a later
-    pass can resolve a channel from the IR alone.
+    Endpoints are counted per mapped declaration: a channel must have exactly one distinct producer
+    map (puts) and one distinct consumer map (gets), and they must differ (no self-loop). This
+    mirrors the simulator path's :func:`spmw_datapath._validate_pipeline_channels`, so the rolled IR
+    never records an invalid channel topology. The symbol is the producing/consuming map's interior
+    role func.
     """
     channel_names = {ch.name for ch in collection.channels}
-    producer, consumer = {}, {}
-    for decl in collection.maps:
+    producers = {name: {} for name in channel_names}  # name -> {map index: sym}
+    consumers = {name: {} for name in channel_names}
+    for idx, decl in enumerate(collection.maps):
         sym = f"{program.name}_{decl.unit.name}_interior"
         try:
             source = textwrap.dedent(inspect.getsource(decl.unit.interior))
@@ -1239,17 +1242,32 @@ def _channel_endpoints(program, collection):
             continue
         ctx_name = _ctx_param_name(decl.unit.interior)
         for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            if not (
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ):
                 continue
-            recv = node.func.value
-            name = _receiver_port(recv, ctx_name)
+            name = _receiver_port(node.func.value, ctx_name)
             if name not in channel_names:
                 continue
             if node.func.attr == "put":
-                producer[name] = sym
+                producers[name][idx] = sym
             elif node.func.attr in {"get", "get_or"}:
-                consumer[name] = sym
-    return {name: (producer.get(name), consumer.get(name)) for name in channel_names}
+                consumers[name][idx] = sym
+    endpoints = {}
+    for name in channel_names:
+        prod, cons = producers[name], consumers[name]
+        if len(prod) != 1 or len(cons) != 1:
+            raise SPMWError(
+                f"channel {name!r} must have exactly one producer map and one consumer map; got "
+                f"{len(prod)} producer(s) and {len(cons)} consumer(s)"
+            )
+        if set(prod) == set(cons):
+            raise SPMWError(
+                f"channel {name!r} is put and got by the same map (self-loop); a channel connects "
+                f"two different maps"
+            )
+        endpoints[name] = (next(iter(prod.values())), next(iter(cons.values())))
+    return endpoints
 
 
 def _channel_attrs(program, collection):
@@ -1268,11 +1286,9 @@ def _channel_attrs(program, collection):
             elem = f"memref<{dims}x{repr(ch.dtype.dtype)}>"
         else:
             elem = repr(ch.dtype)
-        producer_sym, consumer_sym = endpoints[ch.name]
-        if producer_sym is None or consumer_sym is None:
-            raise SPMWError(
-                f"channel {ch.name!r} must have a producer (put) and a consumer (get) unit"
-            )
+        producer_sym, consumer_sym = endpoints[
+            ch.name
+        ]  # validated non-empty + distinct
         attrs.append(
             f'#spmw.channel<name = "{ch.name}", type = {elem}, depth = {ch.depth}, '
             f"producer = @{producer_sym}, consumer = @{consumer_sym}>"

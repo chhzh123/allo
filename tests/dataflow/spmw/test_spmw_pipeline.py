@@ -313,3 +313,44 @@ def test_cooperative_gemv_twin_is_bit_identical_to_df_original():
     df.build(_gemv_df_original, target="simulator")(A, x, y_df)
     spmw.build(_cooperative_gemv_twin(), target="simulator")(A, x, y_spmw)
     np.testing.assert_array_equal(y_spmw, y_df)
+
+
+def test_lower_rejects_two_producer_channel():
+    # the rolled IR must not silently collapse an invalid topology: two maps putting one channel is
+    # rejected at lower(), not just in the simulator desugar
+    @spmw.unit
+    def p0(ctx):
+        ctx.pipe.put(1)
+
+    @spmw.unit
+    def p1(ctx):
+        ctx.pipe.put(2)
+
+    @spmw.unit
+    def cons(ctx):
+        x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(p0, grid=(1,))
+        spmw.map(p1, grid=(1,))
+        spmw.map(cons, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(spmw.SPMWError, match="one producer map and one consumer map"):
+        spmw.lower(top)
+
+
+def test_lower_rejects_self_loop_channel():
+    @spmw.unit
+    def loopback(ctx):
+        ctx.pipe.put(1)
+        x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[M, N]):
+        spmw.map(loopback, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(spmw.SPMWError, match="self-loop"):
+        spmw.lower(top)
