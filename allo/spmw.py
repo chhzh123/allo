@@ -41,6 +41,10 @@ __all__ = [
     "map",
     "stream_in",
     "stream_out",
+    "shared",
+    "banked",
+    "view",
+    "LogicalBuffer",
     "PortContext",
     "PortHandle",
     "validate",
@@ -500,6 +504,94 @@ def stream_out(tensor, from_=None, flow=None, **kwargs):
     if _active_collector is not None:
         _active_collector.streams.append(decl)
     return decl
+
+
+# Logical memory hierarchy (AC-7 / DEC-5): a ``space=`` level names a place in the on-chip memory
+# hierarchy, resolved up front to a concrete ``allo.memory.Memory`` resource; ``resource=`` is an
+# explicit escape hatch that pins the resource directly.
+_SPACE_LEVELS = {"L1": "LUTRAM", "L2": "URAM", "L3": "BRAM"}
+
+# The tensor axis each banking key names.
+_BANK_AXES = {"row": 0, "col": 1}
+
+
+def _resolve_space(space, resource):
+    """The concrete ``allo.memory.Memory`` a logical ``space=`` level (or ``resource=``) resolves to."""
+    # pylint: disable=import-outside-toplevel
+    from .memory import Memory
+
+    if resource is not None:
+        if str(resource).upper() not in Memory.VALID_RESOURCE:
+            raise SPMWError(
+                f"unknown memory resource {resource!r}; must be one of "
+                f"{sorted(Memory.VALID_RESOURCE)}"
+            )
+        return Memory(resource=resource)
+    if space is None:
+        return Memory(resource="AUTO")
+    if space not in _SPACE_LEVELS:
+        raise SPMWError(
+            f"unknown memory space {space!r}; known levels are {sorted(_SPACE_LEVELS)} "
+            f"(or pass resource=)"
+        )
+    return Memory(resource=_SPACE_LEVELS[space])
+
+
+class LogicalBuffer:
+    """A logical SPMW buffer: a shaped value placed at a memory ``space=`` level.
+
+    ``memory`` is the resolved :class:`allo.memory.Memory` resource, ``layout`` (banked only) is the
+    :class:`allo.memory.Layout` that partitions it, and ``kind`` is ``"shared"``/``"banked"``/
+    ``"view"``. ``source`` is the buffer a view aliases.
+    """
+
+    def __init__(self, dtype, memory, kind, layout=None, shape=None, source=None):
+        self.dtype = dtype
+        self.memory = memory
+        self.kind = kind
+        self.layout = layout
+        self.shape = shape
+        self.source = source
+
+    def __repr__(self):
+        return f"<spmw.{self.kind} {self.dtype!r} @ {self.memory!r}>"
+
+
+def shared(dtype, space=None, resource=None):
+    """A buffer shared across the grid, placed at a logical ``space=`` level (or a ``resource=``)."""
+    return LogicalBuffer(dtype, _resolve_space(space, resource), "shared")
+
+
+def banked(dtype, on=None, space=None, resource=None):
+    """A buffer banked (partitioned) along the ``on`` axis, placed at a logical ``space=`` level."""
+    # pylint: disable=import-outside-toplevel
+    from .memory import Layout
+
+    if on is None:
+        raise SPMWError(
+            "spmw.banked requires on= naming the banking axis (e.g. 'row'/'col' or an int)"
+        )
+    if isinstance(on, str):
+        if on not in _BANK_AXES:
+            raise SPMWError(
+                f"unknown banking axis {on!r}; use one of {sorted(_BANK_AXES)} or an int"
+            )
+        axis = _BANK_AXES[on]
+    else:
+        axis = int(on)
+    layout = Layout([Layout.Shard(axis)])
+    return LogicalBuffer(
+        dtype, _resolve_space(space, resource), "banked", layout=layout
+    )
+
+
+def view(source, shape=None):
+    """A logical re-view (reshape/alias) of a ``shared``/``banked`` buffer sharing its memory."""
+    if not isinstance(source, LogicalBuffer):
+        raise SPMWError("spmw.view expects a spmw.shared/banked buffer as its source")
+    return LogicalBuffer(
+        source.dtype, source.memory, "view", shape=shape, source=source
+    )
 
 
 # Flow shorthands map a direction across a mesh to the (entry, exit) port pair it uses.
