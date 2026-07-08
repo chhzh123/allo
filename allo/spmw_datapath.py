@@ -266,6 +266,9 @@ def generate_1d_systolic_source(region, collection):
     -- so the float accumulation order matches the hand-written df stripe and the result is
     bit-identical.
     """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
     decl, out_attr = _recognize_1d_systolic(collection)
     tensors = _region_tensors(region)
     shape_of = {name: shape for name, shape, _ in tensors}
@@ -280,6 +283,23 @@ def generate_1d_systolic_source(region, collection):
     ctx_name = func.args.args[0].arg
     _StripeRewriter(ctx_name, out_attr).visit(func)
     ast.fix_missing_locations(func)
+    # Fall through to the 2-D mesh path if any ctx reference survives (e.g. a 1-row 2-D body using
+    # ctx.south): the region is not this stripe pattern. This is a NotImplementedError (try next),
+    # distinct from the shape check below (a terminal SPMWError for a genuine stripe).
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == ctx_name:
+            raise NotImplementedError(
+                "1-D systolic body uses a port the stripe rewriter does not handle"
+            )
+    # The region IS a stripe. The copied template balances only when the compute-column count (K),
+    # the output-column count (N), and the B-feed/compute counts (M vs N) all agree -- the square
+    # M == N == K case -- so reject other shapes rather than compute too few columns / index out of
+    # bounds / deadlock.
+    if not rows == cols == depth:
+        raise SPMWError(
+            f"1-D systolic stripe currently supports only the square M == N == K case; "
+            f"got M={rows}, N={cols}, K={depth}"
+        )
     body = "\n".join(
         " " * 12 + line for stmt in func.body for line in ast.unparse(stmt).splitlines()
     )
