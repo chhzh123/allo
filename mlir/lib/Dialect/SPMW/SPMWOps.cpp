@@ -110,9 +110,20 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
     // args must therefore be a prefix of the map's tensor operands, matching
     // type by type.
     unsigned ti = 0;
+    bool sawNonMemref = false;
     for (Type input : fn.getFunctionType().getInputs()) {
-      if (!llvm::isa<MemRefType>(input))
-        break; // memref prefix ends at the first non-memref parameter
+      if (!llvm::isa<MemRefType>(input)) {
+        // the per-instantiation parameters (PID indices, streams) follow the
+        // tensors
+        sawNonMemref = true;
+        continue;
+      }
+      if (sawNonMemref)
+        return emitOpError("role '")
+               << role.getUnit().getValue()
+               << "' has a memref argument after a non-memref parameter; a "
+                  "role's map tensors must precede its per-instantiation "
+                  "parameters";
       if (ti >= tensorTypes.size())
         return emitOpError("role '") << role.getUnit().getValue()
                                      << "' takes more memref arguments than "

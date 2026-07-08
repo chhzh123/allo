@@ -147,6 +147,27 @@ def test_role_abi_mismatch_rejected():
         _parse(bad)
 
 
+def test_role_with_memref_after_nonmemref_rejected():
+    # a role must name all its map tensors (memref args) before any per-instantiation param;
+    # a memref appearing after an index/stream is rejected
+    bad = """
+module {
+  func.func @pe_interior(%p: index, %a: memref<2x2xf32>) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = []>
+      roles = [#spmw.role<unit = @pe_interior, missing = []>]
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+    with pytest.raises(Exception):
+        _parse(bad)
+
+
 def test_role_with_more_memrefs_than_tensors_rejected():
     # the role takes two memrefs but the map has only one tensor operand
     bad = """
