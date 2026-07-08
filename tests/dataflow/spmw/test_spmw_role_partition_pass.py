@@ -85,3 +85,49 @@ def test_resolve_channels_family_count_constant_across_grid():
     # channel instance count is O(P0*P1)
     assert 'spmw.channel_families = ["east/west", "north/south"]' in _resolved((4, 4))
     assert 'spmw.channel_families = ["east/west", "north/south"]' in _resolved((8, 8))
+
+
+def _interior_mesh(shape):
+    grid = spmw.mesh(shape)
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def top(A):
+        spmw.map(pe, grid=grid)
+
+    return top
+
+
+def _link_classes(shape):
+    module = spmw.lower(_interior_mesh(shape))
+    spmw._run_module_pass(module, "spmw-role-partition")
+    text = str(module)
+    import re
+
+    return [
+        int(x)
+        for x in re.search(r"spmw\.link_classes = array<i64: ([^>]*)>", text)
+        .group(1)
+        .split(",")
+    ]
+
+
+def test_link_presence_classes_are_nine_for_any_mesh():
+    # the AC-4 link-presence classification, computed by the named pass independent of declared roles:
+    # a 2-D mesh (extents >= 3) has exactly nine classes (interior, 4 edges, 4 corners), constant as
+    # the grid scales; only the per-class instance counts grow
+    small = _link_classes((4, 4))
+    large = _link_classes((8, 8))
+    assert len(small) == 9 and len(large) == 9
+    assert sum(small) == 16 and sum(large) == 64
+    # interior class (empty signature, sorts first) scales with the interior area (2x2 vs 6x6)
+    assert small[0] == 4 and large[0] == 36
+
+
+def test_link_presence_degenerate_grid_has_fewer_classes():
+    # a thin grid has fewer link-presence classes than the full nine
+    assert len(_link_classes((2, 4))) == 6
+    assert len(_link_classes((2, 2))) == 4

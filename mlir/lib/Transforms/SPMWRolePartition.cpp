@@ -29,6 +29,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include <map>
+#include <string>
+
 using namespace mlir;
 using namespace mlir::allo;
 
@@ -125,6 +128,13 @@ struct SPMWRolePartitionPass
     for (int64_t extent : grid)
       total *= extent;
     SmallVector<int64_t> counts(roles.size(), 0);
+    // The link-presence classification is independent of the declared roles:
+    // two grid points share a class when the same set of links is missing at
+    // them. For a 2-D mesh (extents >= 3) this yields the nine classes
+    // (interior, four edges, four corners), constant as the grid scales -- the
+    // O(#roles) count the synthesis-time-win rests on. Keyed by the sorted
+    // missing-port signature, std::map orders classes canonically.
+    std::map<std::string, int64_t> linkClasses;
 
     SmallVector<int64_t> coord(dims, 0);
     for (int64_t point = 0; point < total; ++point) {
@@ -143,14 +153,30 @@ struct SPMWRolePartitionPass
         if (!inBounds(peerCoord, grid))
           missing.push_back(peer.getPort());
       }
+      SmallVector<StringRef> sig(missing.begin(), missing.end());
+      llvm::sort(sig);
+      std::string key;
+      for (StringRef port : sig)
+        key += (key.empty() ? "" : ",") + port.str();
+      ++linkClasses[key];
+
       int role = selectRole(roles, missing);
       if (role < 0)
         return map.emitOpError("no unambiguous role fits a grid point");
       ++counts[role];
     }
 
+    SmallVector<int64_t> classCounts;
+    for (const auto &entry : linkClasses)
+      classCounts.push_back(entry.second);
+
     OpBuilder builder(map);
     map->setAttr("spmw.partition", builder.getDenseI64ArrayAttr(counts));
+    // The number of link-presence classes (array length) is the O(#roles)
+    // count; the entries are the per-class grid-point instance counts, which
+    // scale with the grid.
+    map->setAttr("spmw.link_classes",
+                 builder.getDenseI64ArrayAttr(classCounts));
     return success();
   }
 };
