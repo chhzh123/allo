@@ -89,3 +89,31 @@ def test_rolled_build_target_emits_csynth_ready_project():
         assert "csynth_design" in script
         assert "set_top top" in script
         assert "add_files kernel.cpp" in script
+
+
+def test_rolled_hls_structure_matches_ir_passes():
+    # the rolled HLS emitter's O(#roles) structure is exactly what the M2 MLIR passes derive from the
+    # rolled spmw.map: one compute-role body per spmw.partition entry, one FIFO family per
+    # spmw.channel_families entry -- so the emission is driven by the same rolled-IR classification.
+    region = _systolic_twin(4, 4, 4)
+    module = spmw.lower(region)
+    spmw._run_module_pass(module, "spmw-role-partition")
+    spmw._run_module_pass(module, "spmw-resolve-channels")
+    ir = str(module)
+
+    # the systolic twin's map carries a single compute role (interior); the halo loaders/drains are
+    # boundary tasks, so the partition has one entry summing to the whole grid
+    partition = re.search(r"spmw\.partition = array<i64: ([^>]*)>", ir).group(1)
+    counts = [int(x) for x in partition.split(",")]
+    assert len(counts) == 1 and sum(counts) == 16  # 4x4 grid, all interior
+
+    # two peer families: east/west and north/south
+    families = re.search(r"spmw\.channel_families = \[([^\]]*)\]", ir).group(1)
+    assert families.count('"') // 2 == 2
+    assert '"east/west"' in families and '"north/south"' in families
+
+    cpp = emit_rolled_hls(region)
+    # one compute-role body (pe_interior) == the single partition entry
+    assert cpp.count("void pe_interior(") == 1
+    # two FIFO family arrays (fa, fb) == the two channel families
+    assert "fa[M][N + 1]" in cpp and "fb[M + 1][N]" in cpp
