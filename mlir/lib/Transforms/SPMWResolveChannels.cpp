@@ -41,16 +41,27 @@ struct SPMWResolveChannelsPass
           SPMWResolveChannelsPass> {
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    module.walk([&](spmw::MapOp map) { resolve(map); });
+    SmallVector<spmw::MapOp> maps;
+    module.walk([&](spmw::MapOp op) { maps.push_back(op); });
+    for (spmw::MapOp map : maps)
+      if (failed(resolve(map)))
+        return signalPassFailure();
   }
 
-  void resolve(spmw::MapOp map) {
+  LogicalResult resolve(spmw::MapOp map) {
     llvm::StringSet<> seen;
     SmallVector<std::string> families;
     for (Attribute link : map.getTopology().getLinks()) {
       auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link);
-      if (!peer)
+      if (!peer) {
+        // key_link channels rendezvous by key, not by grid-neighbor port pair,
+        // so this peer-family resolver cannot group them. Fail closed rather
+        // than silently omit them from spmw.channel_families.
+        if (llvm::isa<spmw::KeyLinkAttr>(link))
+          return map.emitOpError(
+              "spmw-resolve-channels does not yet resolve key_link channels");
         continue;
+      }
       // The unordered pair {port, peerPort} names the family, so a link and its
       // reciprocal collapse to one entry.
       StringRef a = peer.getPort(), b = peer.getPeerPort();
@@ -64,6 +75,7 @@ struct SPMWResolveChannelsPass
     SmallVector<StringRef> refs(families.begin(), families.end());
     OpBuilder builder(map);
     map->setAttr("spmw.channel_families", builder.getStrArrayAttr(refs));
+    return success();
   }
 };
 

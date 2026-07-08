@@ -200,6 +200,19 @@ def test_spmw_unroll_rejects_key_links():
             PassManager.parse("builtin.module(spmw-unroll)").run(module.operation)
 
 
+def test_spmw_resolve_channels_rejects_key_links():
+    # the peer-family resolver cannot group rendezvous-by-key channels; it fails closed rather than
+    # silently omitting them from spmw.channel_families.
+    from allo._mlir.passmanager import PassManager
+
+    module = _parse(VALID_KEY)
+    with module.context:
+        with pytest.raises(Exception, match="key_link"):
+            PassManager.parse("builtin.module(spmw-resolve-channels)").run(
+                module.operation
+            )
+
+
 # A valid map with a west peer link, an interior role, and a west loader halo task.
 VALID_HALO = """
 module {
