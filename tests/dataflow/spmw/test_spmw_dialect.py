@@ -135,3 +135,33 @@ def test_bad_fold_rank_rejected():
     )
     with pytest.raises(Exception):
         _parse(bad)
+
+
+def test_role_abi_mismatch_rejected():
+    # a role func's leading memref arg must match the map's tensor operand type
+    bad = VALID_PEER.replace(
+        "func.func @pe_interior(%a: memref<2x2xf32>)",
+        "func.func @pe_interior(%a: memref<4x4xf32>)",
+    )
+    with pytest.raises(Exception):
+        _parse(bad)
+
+
+def test_role_with_more_memrefs_than_tensors_rejected():
+    # the role takes two memrefs but the map has only one tensor operand
+    bad = """
+module {
+  func.func @pe_interior(%a: memref<2x2xf32>, %b: memref<2x2xf32>) {
+    return
+  }
+  func.func @top(%A: memref<2x2xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [2, 2], dims = 2, links = []>
+      roles = [#spmw.role<unit = @pe_interior, missing = []>]
+      : memref<2x2xf32>
+    return
+  }
+}
+"""
+    with pytest.raises(Exception):
+        _parse(bad)

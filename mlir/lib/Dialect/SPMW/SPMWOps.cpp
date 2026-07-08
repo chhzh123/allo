@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -94,6 +95,7 @@ LogicalResult MapOp::verify() {
 }
 
 LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  TypeRange tensorTypes = getTensors().getTypes();
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
     if (!role)
@@ -103,6 +105,25 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
     if (!fn)
       return emitOpError("role references undefined function '")
              << role.getUnit().getValue() << "'";
+    // A role func names the map's tensors first (memref args), then its
+    // per-instantiation parameters (PID indices, streams). Its leading memref
+    // args must therefore be a prefix of the map's tensor operands, matching
+    // type by type.
+    unsigned ti = 0;
+    for (Type input : fn.getFunctionType().getInputs()) {
+      if (!llvm::isa<MemRefType>(input))
+        break; // memref prefix ends at the first non-memref parameter
+      if (ti >= tensorTypes.size())
+        return emitOpError("role '") << role.getUnit().getValue()
+                                     << "' takes more memref arguments than "
+                                        "the map has tensor operands";
+      if (input != tensorTypes[ti])
+        return emitOpError("role '")
+               << role.getUnit().getValue() << "' memref argument " << ti
+               << " (" << input << ") does not match map tensor operand " << ti
+               << " (" << tensorTypes[ti] << ")";
+      ++ti;
+    }
   }
   return success();
 }
