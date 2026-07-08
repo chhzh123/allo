@@ -13,6 +13,7 @@ add_mlir_library(MLIRAlloPasses
     CopyOnWrite.cpp
     UnifyKernels.cpp
     SPMWUnroll.cpp
+    SPMWRolePartition.cpp
     TransformationUtils.cpp
 
     ADDITIONAL_HEADER_DIRS

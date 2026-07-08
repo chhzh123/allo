@@ -53,4 +53,9 @@ def SPMWUnroll : Pass<"spmw-unroll", "ModuleOp"> {
   let constructor = "mlir::allo::createSPMWUnrollPass()";
 }
 
+def SPMWRolePartition : Pass<"spmw-role-partition", "ModuleOp"> {
+  let summary = "Classify a spmw.map's grid points by role (attach spmw.partition counts)";
+  let constructor = "mlir::allo::createSPMWRolePartitionPass()";
+}
+
 #endif // ALLO_MLIR_PASSES

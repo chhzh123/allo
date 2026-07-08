@@ -22,6 +22,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createMemRefDCEPass();
 std::unique_ptr<OperationPass<ModuleOp>> createDataPlacementPass();
 std::unique_ptr<OperationPass<ModuleOp>> createCopyOnWritePass();
 std::unique_ptr<OperationPass<ModuleOp>> createSPMWUnrollPass();
+std::unique_ptr<OperationPass<ModuleOp>> createSPMWRolePartitionPass();
 
 bool applyLoopTransformation(ModuleOp &f);
 bool applyAnyWidthInteger(ModuleOp &module);

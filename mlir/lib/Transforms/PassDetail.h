@@ -21,6 +21,7 @@ namespace allo {
 #define GEN_PASS_DEF_MEMREFDCE
 #define GEN_PASS_DEF_COPYONWRITE
 #define GEN_PASS_DEF_SPMWUNROLL
+#define GEN_PASS_DEF_SPMWROLEPARTITION
 #include "allo/Transforms/Passes.h.inc"
 
 } // namespace allo
