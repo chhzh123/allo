@@ -4,7 +4,6 @@
 import pytest
 import allo.spmw as spmw
 from allo.ir.types import float32
-from allo.memory import Layout
 
 
 def test_shared_space_resolves_to_memory():
@@ -30,17 +29,16 @@ def test_shared_defaults_to_auto():
     assert spmw.shared(float32).memory.resource == "AUTO"
 
 
-def test_banked_carries_layout_and_memory():
+def test_banked_carries_axis_and_memory():
     buf = spmw.banked(float32, on="col", space="L2")
     assert buf.kind == "banked"
     assert buf.memory.resource == "URAM"
-    # banked on "col" -> a Shard on tensor axis 1
-    assert isinstance(buf.layout, Layout)
-    assert buf.layout.partitions == [Layout.Shard(1)]
+    # banked on "col" -> the tensor axis to partition along is 1
+    assert buf.bank_axis == 1
 
 
 def test_banked_on_int_axis():
-    assert spmw.banked(float32, on=0, space="L3").layout.partitions == [Layout.Shard(0)]
+    assert spmw.banked(float32, on=0, space="L3").bank_axis == 0
 
 
 def test_view_shares_the_source_memory():

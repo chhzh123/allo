@@ -506,9 +506,9 @@ def stream_out(tensor, from_=None, flow=None, **kwargs):
     return decl
 
 
-# Logical memory hierarchy (AC-7 / DEC-5): a ``space=`` level names a place in the on-chip memory
-# hierarchy, resolved up front to a concrete ``allo.memory.Memory`` resource; ``resource=`` is an
-# explicit escape hatch that pins the resource directly.
+# The on-chip memory hierarchy: a ``space=`` level names a place in the hierarchy, resolved up front
+# to a concrete ``allo.memory.Memory`` resource; ``resource=`` is an explicit escape hatch that pins
+# the resource directly.
 _SPACE_LEVELS = {"L1": "LUTRAM", "L2": "URAM", "L3": "BRAM"}
 
 # The tensor axis each banking key names.
@@ -540,16 +540,17 @@ def _resolve_space(space, resource):
 class LogicalBuffer:
     """A logical SPMW buffer: a shaped value placed at a memory ``space=`` level.
 
-    ``memory`` is the resolved :class:`allo.memory.Memory` resource, ``layout`` (banked only) is the
-    :class:`allo.memory.Layout` that partitions it, and ``kind`` is ``"shared"``/``"banked"``/
-    ``"view"``. ``source`` is the buffer a view aliases.
+    ``memory`` is the resolved :class:`allo.memory.Memory` resource; ``bank_axis`` (banked only) is
+    the tensor axis the buffer is partitioned along; ``kind`` is ``"shared"``/``"banked"``/``"view"``;
+    ``source`` is the buffer a view aliases. The concrete :class:`allo.memory.Layout` is built by the
+    consumer once the buffer shape and the grid it maps onto are known.
     """
 
-    def __init__(self, dtype, memory, kind, layout=None, shape=None, source=None):
+    def __init__(self, dtype, memory, kind, bank_axis=None, shape=None, source=None):
         self.dtype = dtype
         self.memory = memory
         self.kind = kind
-        self.layout = layout
+        self.bank_axis = bank_axis
         self.shape = shape
         self.source = source
 
@@ -563,10 +564,7 @@ def shared(dtype, space=None, resource=None):
 
 
 def banked(dtype, on=None, space=None, resource=None):
-    """A buffer banked (partitioned) along the ``on`` axis, placed at a logical ``space=`` level."""
-    # pylint: disable=import-outside-toplevel
-    from .memory import Layout
-
+    """A buffer banked (partitioned) along the ``on`` tensor axis, placed at a ``space=`` level."""
     if on is None:
         raise SPMWError(
             "spmw.banked requires on= naming the banking axis (e.g. 'row'/'col' or an int)"
@@ -579,9 +577,8 @@ def banked(dtype, on=None, space=None, resource=None):
         axis = _BANK_AXES[on]
     else:
         axis = int(on)
-    layout = Layout([Layout.Shard(axis)])
     return LogicalBuffer(
-        dtype, _resolve_space(space, resource), "banked", layout=layout
+        dtype, _resolve_space(space, resource), "banked", bank_axis=axis
     )
 
 
