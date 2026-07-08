@@ -265,6 +265,10 @@ def test_lower_carries_channels_in_rolled_ir():
     assert "spmw.channels" in text
     assert '#spmw.channel<name = "pipe"' in text
     assert "depth = 4" in text
+    # the channel records which map produces (puts) and which consumes (gets) it, so a later pass
+    # can resolve endpoints from the IR alone
+    assert "producer = @top_producer_interior" in text
+    assert "consumer = @top_consumer_interior" in text
     # two units -> two maps, and the channel is carried once at the top
     assert text.count("spmw.map") == 2
 

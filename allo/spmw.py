@@ -1221,12 +1221,45 @@ def _halo_tasks(program, decl, collection):
     return tasks
 
 
-def _channel_attrs(collection):
+def _channel_endpoints(program, collection):
+    """``{channel_name: (producer_sym, consumer_sym)}`` -- the role funcs that put to / get from each.
+
+    The producer is the unit whose body puts the channel; the consumer the unit that gets it. Their
+    role-func symbols are the ``interior`` roles of the maps that reference the channel, so a later
+    pass can resolve a channel from the IR alone.
+    """
+    channel_names = {ch.name for ch in collection.channels}
+    producer, consumer = {}, {}
+    for decl in collection.maps:
+        sym = f"{program.name}_{decl.unit.name}_interior"
+        try:
+            source = textwrap.dedent(inspect.getsource(decl.unit.interior))
+            tree = ast.parse(source)
+        except (OSError, TypeError, SyntaxError):
+            continue
+        ctx_name = _ctx_param_name(decl.unit.interior)
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            recv = node.func.value
+            name = _receiver_port(recv, ctx_name)
+            if name not in channel_names:
+                continue
+            if node.func.attr == "put":
+                producer[name] = sym
+            elif node.func.attr in {"get", "get_or"}:
+                consumer[name] = sym
+    return {name: (producer.get(name), consumer.get(name)) for name in channel_names}
+
+
+def _channel_attrs(program, collection):
     """``#spmw.channel`` attrs for the region's inter-unit channels, preserving them in the rolled IR.
 
     A channel connects two distinct maps, so it is carried on the top function (not on a single map);
-    an M2 pass reads these to resolve/lower the pipeline. A shaped payload becomes a ``memref`` type.
+    an M2 pass reads these to resolve/lower the pipeline. A shaped payload becomes a ``memref`` type;
+    ``producer``/``consumer`` name the role funcs that put to / get from it.
     """
+    endpoints = _channel_endpoints(program, collection)
     attrs = []
     for ch in collection.channels:
         shape = getattr(ch.dtype, "shape", None)
@@ -1235,8 +1268,14 @@ def _channel_attrs(collection):
             elem = f"memref<{dims}x{repr(ch.dtype.dtype)}>"
         else:
             elem = repr(ch.dtype)
+        producer_sym, consumer_sym = endpoints[ch.name]
+        if producer_sym is None or consumer_sym is None:
+            raise SPMWError(
+                f"channel {ch.name!r} must have a producer (put) and a consumer (get) unit"
+            )
         attrs.append(
-            f'#spmw.channel<name = "{ch.name}", type = {elem}, depth = {ch.depth}>'
+            f'#spmw.channel<name = "{ch.name}", type = {elem}, depth = {ch.depth}, '
+            f"producer = @{producer_sym}, consumer = @{consumer_sym}>"
         )
     return attrs
 
@@ -1336,7 +1375,7 @@ def _module_text(program, collection):
             f"{halo_text}\n"
             f"      : {operand_types}"
         )
-    channel_attrs = _channel_attrs(collection)
+    channel_attrs = _channel_attrs(program, collection)
     channels_text = ""
     if channel_attrs:
         channels_text = (

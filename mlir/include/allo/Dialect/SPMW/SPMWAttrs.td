@@ -110,15 +110,20 @@ def SPMW_ChannelAttr : SPMW_Attr<"Channel", "channel"> {
   let summary = "A named inter-unit FIFO channel connecting two mapped units.";
   let description = [{
     `name` identifies the channel; `elementType` is the payload type it carries and
-    `depth` its FIFO depth. Unlike a topology link (which wires grid neighbors of one
-    map), a channel connects two distinct maps -- so a rolled pipeline region carries
-    its channels alongside the maps that put to and get from them.
+    `depth` its FIFO depth. `producer` and `consumer` are the role funcs of the two
+    maps that put to and get from it -- so a later pass can resolve the channel
+    without re-scanning bodies. Unlike a topology link (which wires grid neighbors of
+    one map), a channel connects two distinct maps, so a rolled pipeline region carries
+    its channels alongside the maps.
   }];
   let parameters = (ins StringRefParameter<>:$name,
                         "::mlir::TypeAttr":$elementType,
-                        "int64_t":$depth);
+                        "int64_t":$depth,
+                        "::mlir::FlatSymbolRefAttr":$producer,
+                        "::mlir::FlatSymbolRefAttr":$consumer);
   let assemblyFormat = [{
-    `<` `name` `=` $name `,` `type` `=` $elementType `,` `depth` `=` $depth `>`
+    `<` `name` `=` $name `,` `type` `=` $elementType `,` `depth` `=` $depth
+    `,` `producer` `=` $producer `,` `consumer` `=` $consumer `>`
   }];
 }
 
