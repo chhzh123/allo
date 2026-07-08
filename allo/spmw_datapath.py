@@ -193,10 +193,12 @@ class _PipelineRewriter(ast.NodeTransformer):
     ``ctx.<channel>.put/get(...)`` becomes the region-level ``<channel>.put/get(...)``.
     """
 
-    def __init__(self, ctx_name, tensors, channels):
+    def __init__(self, ctx_name, tensors, channels, pid_var=None):
         self.ctx = ctx_name
         self.tensors = tensors
         self.channels = channels
+        # When the units are replicated, the pid variable indexes rank() and the channels.
+        self.pid_var = pid_var
 
     def _ctx_attr(self, node):
         if (
@@ -217,14 +219,24 @@ class _PipelineRewriter(ast.NodeTransformer):
     def visit_Call(self, node):
         self.generic_visit(node)
         func = node.func
-        if isinstance(func, ast.Attribute) and func.attr in {"put", "get", "get_or"}:
-            chan = self._ctx_attr(func.value)
-            if chan in self.channels:
-                node.func = ast.Attribute(
-                    value=ast.Name(id=chan, ctx=ast.Load()),
-                    attr=func.attr,
-                    ctx=ast.Load(),
-                )
+        if isinstance(func, ast.Attribute):
+            # ctx.rank() -> this replica's pid variable.
+            if self._ctx_attr(func) == "rank" and self.pid_var is not None:
+                return ast.Name(id=self.pid_var, ctx=ast.Load())
+            # ctx.<channel>.put/get(...) -> <channel>[pid].put/get(...) (or scalar).
+            if func.attr in {"put", "get", "get_or"}:
+                chan = self._ctx_attr(func.value)
+                if chan in self.channels:
+                    base = ast.Name(id=chan, ctx=ast.Load())
+                    if self.pid_var is not None:
+                        base = ast.Subscript(
+                            value=base,
+                            slice=ast.Name(id=self.pid_var, ctx=ast.Load()),
+                            ctx=ast.Load(),
+                        )
+                    node.func = ast.Attribute(
+                        value=base, attr=func.attr, ctx=ast.Load()
+                    )
         return node
 
 
@@ -246,13 +258,40 @@ def _unit_tensor_args(unit, tensor_names):
     return used
 
 
-def _transcribe_pipeline_unit(unit, tensor_names, channel_names):
+def _transcribe_pipeline_unit(unit, tensor_names, channel_names, pid_var):
     tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
     func = tree.body[0]
     ctx_name = func.args.args[0].arg
-    _PipelineRewriter(ctx_name, tensor_names, channel_names).visit(func)
+    _PipelineRewriter(ctx_name, tensor_names, channel_names, pid_var).visit(func)
     ast.fix_missing_locations(func)
     return [ast.unparse(stmt) for stmt in func.body]
+
+
+def _channel_payload(ch):
+    """``(payload_type_text, element_dtype_name)`` for a channel's Stream payload.
+
+    A channel may carry a scalar (``float32``) or a small vector (``float32[Mt]``).
+    """
+    shape = getattr(ch.dtype, "shape", None)
+    if shape:
+        elem = _DTYPE_NAMES.get(repr(ch.dtype.dtype))
+        if elem is None:
+            raise NotImplementedError(
+                f"pipeline channel element {ch.dtype!r} unsupported"
+            )
+        dims = ", ".join(str(d) for d in shape)
+        return f"{elem}[{dims}]", elem
+    elem = _DTYPE_NAMES.get(repr(ch.dtype))
+    if elem is None:
+        raise NotImplementedError(f"pipeline channel dtype {ch.dtype!r} unsupported")
+    return elem, elem
+
+
+def _map_size(decl):
+    size = 1
+    for extent in decl.topology.grid:
+        size *= extent
+    return size
 
 
 def generate_pipeline_source(region, collection):
@@ -286,27 +325,41 @@ def generate_pipeline_source(region, collection):
         return f"{name}: {dt}[{dims}]"
 
     dtypes_used = {dt for _, _, dt in tensors}
+
+    # Replication: a unit mapped over a grid of size P>1 becomes a mapping=[P] kernel whose channels
+    # are P-wide arrays indexed by df.get_pid(); a size-1 grid is a plain singleton.
+    sizes = {_map_size(decl) for decl in collection.maps}
+    if sizes == {1}:
+        replicated, pid_extent, pid_var = False, 1, None
+    elif len(sizes) == 1:
+        replicated, pid_extent, pid_var = True, sizes.pop(), "_pid"
+    else:
+        raise NotImplementedError(
+            "pipeline datapath needs a uniform replication factor across the units"
+        )
+
     chan_lines = []
     for ch in collection.channels:
-        cdt = _DTYPE_NAMES.get(repr(ch.dtype))
-        if cdt is None:
-            raise NotImplementedError(
-                f"pipeline channel dtype {ch.dtype!r} unsupported"
-            )
-        dtypes_used.add(cdt)
-        chan_lines.append(f"    {ch.name}: Stream[{cdt}, {ch.depth}]")
+        payload, elem = _channel_payload(ch)
+        dtypes_used.add(elem)
+        array = f"[{pid_extent}]" if replicated else ""
+        chan_lines.append(f"    {ch.name}: Stream[{payload}, {ch.depth}]{array}")
 
     kernels = []
     for decl in collection.maps:
         used = _unit_tensor_args(decl.unit, tensor_names)
-        body = _transcribe_pipeline_unit(decl.unit, tensor_names, channel_names)
+        body = _transcribe_pipeline_unit(
+            decl.unit, tensor_names, channel_names, pid_var
+        )
+        if replicated:
+            body = ["_pid = df.get_pid()"] + body
         params = ", ".join(_sig(f"local_{t}", *shape_of[t]) for t in used)
         args = ", ".join(used)
         body_text = "\n".join(
             " " * 8 + line for stmt in body for line in stmt.splitlines()
         )
         kernels.append(
-            f"    @df.kernel(mapping=[1], args=[{args}])\n"
+            f"    @df.kernel(mapping=[{_map_size(decl)}], args=[{args}])\n"
             f"    def {decl.unit.name}({params}):\n"
             f"{body_text}"
         )

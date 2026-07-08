@@ -102,3 +102,51 @@ def test_producer_consumer_twin_matches_dataflow():
     B = np.zeros((M, N), dtype=np.float32)
     spmw.build(_producer_consumer_twin(), target="simulator")(A, B)
     np.testing.assert_array_equal(B, A + 1)
+
+
+P0 = 2
+Mt = M // P0
+
+
+def _cooperative_gemv_twin():
+    @spmw.unit
+    def gemv0(ctx):
+        pi = ctx.rank()
+        y_out: float32[Mt] = 0
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            y_acc: float32 = 0
+            for n in range(N // 2):
+                y_acc += ctx.A[m, n] * ctx.x[n]
+            y_out[m - pi * Mt] = y_acc
+        ctx.pipe.put(y_out)
+
+    @spmw.unit
+    def gemv1(ctx):
+        pi = ctx.rank()
+        y_out: float32[Mt] = 0
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            y_acc: float32 = 0
+            for n in range(N // 2, N):
+                y_acc += ctx.A[m, n] * ctx.x[n]
+            y_out[m - pi * Mt] = y_acc
+        y_prev: float32[Mt] = ctx.pipe.get()
+        for m in range(pi * Mt, (pi + 1) * Mt):
+            ctx.y[m] = y_out[m - pi * Mt] + y_prev[m - pi * Mt]
+
+    @spmw.region()
+    def top(A: float32[M, N], x: float32[N], y: float32[M]):
+        spmw.map(gemv0, grid=(P0,))
+        spmw.map(gemv1, grid=(P0,))
+        spmw.channel("pipe", float32[Mt], depth=2)
+
+    return top
+
+
+def test_cooperative_gemv_twin_matches_dataflow():
+    # a replicated two-stage GEMV: each of P0 PEs computes half the reduction, hands its partial
+    # over a pid-indexed vector channel, and the second stage sums them -- matching the df original
+    A = np.random.rand(M, N).astype(np.float32)
+    x = np.random.rand(N).astype(np.float32)
+    y = np.zeros((M,), dtype=np.float32)
+    spmw.build(_cooperative_gemv_twin(), target="simulator")(A, x, y)
+    np.testing.assert_allclose(y, np.dot(A, x), atol=1e-5)
