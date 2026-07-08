@@ -29,6 +29,7 @@ _DTYPE_NAMES = {
     "i16": "int16",
     "i32": "int32",
     "i64": "int64",
+    "index": "index",
 }
 
 
@@ -357,13 +358,16 @@ def generate_pipeline_source(region, collection):
     _validate_pipeline_channels(collection, channel_names)
     shape_of = {name: (shape, dt) for name, shape, dt in tensors}
 
-    # Constants (M, N, ...) the unit bodies reference from their closure.
+    # Constants (M, N, ...) and helper functions the unit bodies reference from their closure.
     consts = {}
+    helpers = {}
     for decl in collection.maps:
         closure = inspect.getclosurevars(decl.unit.interior)
         for key, value in {**closure.nonlocals, **closure.globals}.items():
             if isinstance(value, int) and not isinstance(value, bool):
                 consts.setdefault(key, value)
+            elif inspect.isfunction(value):
+                helpers.setdefault(key, value)
 
     def _sig(name, shape, dt):
         dims = ", ".join(str(d) for d in shape)
@@ -410,6 +414,12 @@ def generate_pipeline_source(region, collection):
         )
 
     const_lines = "\n".join(f"{key} = {value}" for key, value in consts.items())
+    # Helper functions the bodies call are emitted at module level; they may use `index`.
+    helper_src = "\n\n\n".join(
+        textwrap.dedent(inspect.getsource(fn)) for fn in helpers.values()
+    )
+    if helpers:
+        dtypes_used.add("index")
     imports = ", ".join(sorted(dtypes_used))
     region_sig = ", ".join(_sig(name, shape, dt) for name, shape, dt in tensors)
     return (
@@ -417,6 +427,7 @@ def generate_pipeline_source(region, collection):
         f"from allo.ir.types import {imports}, Stream\n"
         "import allo.dataflow as df\n\n"
         f"{const_lines}\n\n\n"
+        f"{helper_src}\n\n\n"
         "@df.region()\n"
         f"def {region.name}_df({region_sig}):\n"
         + "\n".join(chan_lines)
