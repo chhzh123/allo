@@ -133,7 +133,8 @@ LogicalResult MapOp::verify() {
         return emitOpError("role missing port '")
                << port.getValue() << "' is repeated";
     }
-    if (ArrayAttr ports = role.getPorts())
+    if (ArrayAttr ports = role.getPorts()) {
+      llvm::StringSet<> seenPorts;
       for (Attribute portAttr : ports) {
         auto port = llvm::dyn_cast<StringAttr>(portAttr);
         if (!port)
@@ -141,7 +142,11 @@ LogicalResult MapOp::verify() {
         if (!peerByPort.contains(port.getValue()))
           return emitOpError("role port '")
                  << port.getValue() << "' is not a declared peer-link port";
+        if (!seenPorts.insert(port.getValue()).second)
+          return emitOpError("role port '")
+                 << port.getValue() << "' is repeated";
       }
+    }
   }
 
   if (ArrayAttr halo = getHaloAttr()) {
@@ -191,6 +196,12 @@ LogicalResult MapOp::verify() {
 
 LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   TypeRange tensorTypes = getTensors().getTypes();
+  TopologyAttr topology = getTopology();
+  int64_t dims = topology.getDims();
+  llvm::StringMap<int64_t> portDepth;
+  for (Attribute linkAttr : topology.getLinks())
+    if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr))
+      portDepth[peer.getPort()] = peer.getDepth();
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
     if (!role)
@@ -200,49 +211,70 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
     if (!fn)
       return emitOpError("role references undefined function '")
              << role.getUnit().getValue() << "'";
-    // A role func names the map's tensors first (memref args), then its
-    // per-instantiation parameters (PID indices, streams). Its leading memref
-    // args must therefore be a prefix of the map's tensor operands, matching
-    // type by type.
-    unsigned ti = 0;
-    bool sawNonMemref = false;
+    // A role func's parameters are the map's tensor memrefs, then exactly
+    // `dims` index PID parameters, then one stream per declared port -- in that
+    // order.
+    ArrayAttr ports = role.getPorts();
+    StringRef unit = role.getUnit().getValue();
+    unsigned ti = 0, idxCount = 0, streamIdx = 0;
+    bool sawIndex = false, sawStream = false;
     for (Type input : fn.getFunctionType().getInputs()) {
-      if (!llvm::isa<MemRefType>(input)) {
-        // the per-instantiation parameters (PID indices, streams) follow the
-        // tensors
-        sawNonMemref = true;
-        continue;
+      if (llvm::isa<MemRefType>(input)) {
+        if (sawIndex || sawStream)
+          return emitOpError("role '")
+                 << unit
+                 << "' has a memref argument after a per-instantiation "
+                    "parameter; a role lists tensors, then PID indices, then "
+                    "streams";
+        if (ti >= tensorTypes.size())
+          return emitOpError("role '")
+                 << unit
+                 << "' takes more memref arguments than the map has tensor "
+                    "operands";
+        if (input != tensorTypes[ti])
+          return emitOpError("role '")
+                 << unit << "' memref argument " << ti << " (" << input
+                 << ") does not match map tensor operand " << ti << " ("
+                 << tensorTypes[ti] << ")";
+        ++ti;
+      } else if (llvm::isa<IndexType>(input)) {
+        if (sawStream)
+          return emitOpError("role '")
+                 << unit << "' has an index parameter after a stream parameter";
+        sawIndex = true;
+        ++idxCount;
+      } else if (auto stream = llvm::dyn_cast<allo::StreamType>(input)) {
+        sawStream = true;
+        if (!ports)
+          return emitOpError("role '")
+                 << unit
+                 << "' has stream parameters but does not declare its ports";
+        if (streamIdx >= ports.size())
+          return emitOpError("role '")
+                 << unit << "' has more stream parameters than declared ports";
+        StringRef portName =
+            llvm::cast<StringAttr>(ports[streamIdx]).getValue();
+        auto depthIt = portDepth.find(portName);
+        if (depthIt != portDepth.end() &&
+            static_cast<int64_t>(stream.getDepth()) != depthIt->second)
+          return emitOpError("role '")
+                 << unit << "' stream parameter " << streamIdx << " has depth "
+                 << stream.getDepth() << " but port '" << portName
+                 << "' declares depth " << depthIt->second;
+        ++streamIdx;
+      } else {
+        return emitOpError("role '")
+               << unit << "' has an unsupported parameter type";
       }
-      if (sawNonMemref)
-        return emitOpError("role '")
-               << role.getUnit().getValue()
-               << "' has a memref argument after a non-memref parameter; a "
-                  "role's map tensors must precede its per-instantiation "
-                  "parameters";
-      if (ti >= tensorTypes.size())
-        return emitOpError("role '") << role.getUnit().getValue()
-                                     << "' takes more memref arguments than "
-                                        "the map has tensor operands";
-      if (input != tensorTypes[ti])
-        return emitOpError("role '")
-               << role.getUnit().getValue() << "' memref argument " << ti
-               << " (" << input << ") does not match map tensor operand " << ti
-               << " (" << tensorTypes[ti] << ")";
-      ++ti;
     }
-    // Declaration-derived stream ABI: a role that names its stream ports must
-    // have exactly that many stream parameters on its function.
-    if (ArrayAttr ports = role.getPorts()) {
-      unsigned streamCount = 0;
-      for (Type input : fn.getFunctionType().getInputs())
-        if (llvm::isa<allo::StreamType>(input))
-          ++streamCount;
-      if (streamCount != ports.size())
-        return emitOpError("role '")
-               << role.getUnit().getValue() << "' declares " << ports.size()
-               << " stream ports but its function has " << streamCount
-               << " stream parameters";
-    }
+    if (ports && streamIdx != static_cast<unsigned>(ports.size()))
+      return emitOpError("role '") << unit << "' declares " << ports.size()
+                                   << " ports but its function has "
+                                   << streamIdx << " stream parameters";
+    if (sawStream && idxCount != static_cast<unsigned>(dims))
+      return emitOpError("role '")
+             << unit << "' has " << idxCount
+             << " index parameters but the grid has " << dims << " dimensions";
   }
   if (ArrayAttr halo = getHaloAttr()) {
     for (Attribute haloAttr : halo) {

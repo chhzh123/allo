@@ -203,10 +203,10 @@ def test_spmw_unroll_rejects_key_links():
 # A valid map with a west peer link, an interior role, and a west loader halo task.
 VALID_HALO = """
 module {
-  func.func @pe(%a: memref<2x2xf32>, %pi: index, %pj: index, %w: !allo.stream<f32, 4>) {
+  func.func @pe(%a: memref<2x2xf32>, %pi: index, %pj: index, %w: !allo.stream<f32, 2>) {
     return
   }
-  func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 4>) {
+  func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 2>) {
     return
   }
   func.func @top(%A: memref<2x2xf32>) {
@@ -215,7 +215,7 @@ module {
         #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>,
         #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>
       ]>
-      roles = [#spmw.role<unit = @pe, missing = []>]
+      roles = [#spmw.role<unit = @pe, missing = [], ports = ["west"]>]
       {halo = [#spmw.halo<unit = @load_a, port = "west", kind = "load", axis = 0, operand = 0>]}
       : memref<2x2xf32>
     return
@@ -231,8 +231,8 @@ def test_valid_halo_round_trips():
 def test_halo_loader_wrong_abi_rejected():
     # a load halo must take (memref, index, stream); drop the index arg
     bad = VALID_HALO.replace(
-        "func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 4>)",
-        "func.func @load_a(%a: memref<2x2xf32>, %s: !allo.stream<f32, 4>)",
+        "func.func @load_a(%a: memref<2x2xf32>, %p: index, %s: !allo.stream<f32, 2>)",
+        "func.func @load_a(%a: memref<2x2xf32>, %s: !allo.stream<f32, 2>)",
     )
     with pytest.raises(Exception, match="memref, index, stream"):
         _parse(bad)
@@ -302,10 +302,10 @@ def test_role_missing_non_peer_port_rejected():
         _parse(bad)
 
 
-# A valid role that declares its stream ports (two streams: east + west).
+# A valid role with the full ABI: tensor memref, dims (2) PID index args, then a stream per port.
 VALID_ROLE_PORTS = """
 module {
-  func.func @pe(%a: memref<2x2xf32>, %e: !allo.stream<f32, 2>, %w: !allo.stream<f32, 2>) {
+  func.func @pe(%a: memref<2x2xf32>, %pi: index, %pj: index, %e: !allo.stream<f32, 2>, %w: !allo.stream<f32, 2>) {
     return
   }
   func.func @top(%A: memref<2x2xf32>) {
@@ -329,7 +329,7 @@ def test_role_ports_round_trips():
 def test_role_ports_count_mismatch_rejected():
     # ports declares one port but the func has two stream parameters
     bad = VALID_ROLE_PORTS.replace('ports = ["east", "west"]', 'ports = ["east"]')
-    with pytest.raises(Exception, match="stream ports but its function has"):
+    with pytest.raises(Exception, match="more stream parameters than declared ports"):
         _parse(bad)
 
 
@@ -338,4 +338,35 @@ def test_role_ports_non_peer_rejected():
         'ports = ["east", "west"]', 'ports = ["east", "bogus"]'
     )
     with pytest.raises(Exception, match="not a declared peer-link port"):
+        _parse(bad)
+
+
+def test_role_ports_duplicate_rejected():
+    bad = VALID_ROLE_PORTS.replace(
+        'ports = ["east", "west"]', 'ports = ["east", "east"]'
+    )
+    with pytest.raises(Exception, match="is repeated"):
+        _parse(bad)
+
+
+def test_stream_role_without_ports_rejected():
+    # a role func with stream parameters must declare its ports
+    bad = VALID_ROLE_PORTS.replace(', ports = ["east", "west"]', "")
+    with pytest.raises(Exception, match="does not declare its ports"):
+        _parse(bad)
+
+
+def test_role_stream_depth_mismatch_rejected():
+    # the east stream is typed depth 4 but the "east" peer link declares depth 2
+    bad = VALID_ROLE_PORTS.replace(
+        "%e: !allo.stream<f32, 2>", "%e: !allo.stream<f32, 4>"
+    )
+    with pytest.raises(Exception, match="declares depth 2"):
+        _parse(bad)
+
+
+def test_role_wrong_index_arity_rejected():
+    # a stream role must take exactly `dims` (2) PID index args; drop one
+    bad = VALID_ROLE_PORTS.replace("%pi: index, %pj: index, ", "%pi: index, ")
+    with pytest.raises(Exception, match="index parameters but the grid has 2"):
         _parse(bad)
