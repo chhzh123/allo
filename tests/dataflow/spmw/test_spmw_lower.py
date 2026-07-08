@@ -83,6 +83,16 @@ def test_map_carries_real_tensor_operands():
     assert "memref<1xf32>" not in text
 
 
+def test_lower_carries_halo_tasks():
+    # the rolled spmw.map now records its loader/drain boundary tasks as #spmw.halo attributes so the
+    # spmw-unroll pass can wire them to the edge channels, instead of leaving them orphan siblings
+    text = str(spmw.lower(_systolic_twin(2, 2, 2)))
+    assert "#spmw.halo<unit = @gemm_pe_load_A" in text
+    assert "#spmw.halo<unit = @gemm_pe_load_B" in text
+    assert 'kind = "load"' in text
+    assert 'kind = "drain"' in text
+
+
 def test_untranscribable_systolic_body_fails_closed():
     # a systolic region whose interior uses a construct the transcriber does not handle must raise,
     # not silently lower to an empty stub

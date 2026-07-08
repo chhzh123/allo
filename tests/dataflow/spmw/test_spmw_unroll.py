@@ -104,6 +104,21 @@ def test_unroll_streaming_interior_wires_channels():
     assert "arith.constant" in text
 
 
+def test_unroll_wires_halo_loaders_and_drains():
+    text = str(spmw.unroll(_systolic_twin(3, 3, 2)))
+    # the halo loader/drain funcs are now CALLED (not orphaned siblings): the W->E flow gives 3
+    # west-edge A-loaders + 3 east-edge A-drains, the N->S flow 3 north-edge B-loaders + 3 south-edge
+    # B-drains (one per edge point of the 3x3 grid)
+    assert text.count("call @gemm_pe_load_A") == 3
+    assert text.count("call @gemm_pe_load_B") == 3
+    assert text.count("call @gemm_pe_drain_A") == 3
+    assert text.count("call @gemm_pe_drain_B") == 3
+    # the loaders/drains REUSE the edge PEs' boundary channels rather than allocating new ones: the
+    # stream_construct count is unchanged (12 shared peer + 12 boundary = 24) -- no channel is left
+    # dangling with only one endpoint
+    assert text.count("allo.stream_construct") == 24
+
+
 def test_ambiguous_role_rejected():
     grid = spmw.mesh((4, 4))
 

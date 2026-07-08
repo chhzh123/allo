@@ -39,6 +39,7 @@ def SPMW_MapOp : SPMW_Op<"map", [DeclareOpInterfaceMethods<SymbolUserOpInterface
       * `tensors`  - the top-level memrefs the map reads and writes;
       * `topology` - the grid, its dimensionality, and the typed interconnect links;
       * `roles`    - an `spmw.role` per boundary specialization;
+      * `halo`     - optional `spmw.halo` loader/drain tasks feeding the edge channels;
       * `fold`/`unroll` - optional time-multiplex / spatial-unroll factors.
   }];
 
@@ -46,6 +47,7 @@ def SPMW_MapOp : SPMW_Op<"map", [DeclareOpInterfaceMethods<SymbolUserOpInterface
     Variadic<AnyStaticShapeMemRef>:$tensors,
     SPMW_TopologyAttr:$topology,
     ArrayAttr:$roles,
+    OptionalAttr<ArrayAttr>:$halo,
     OptionalAttr<DenseI64ArrayAttr>:$fold,
     OptionalAttr<DenseI64ArrayAttr>:$unroll
   );

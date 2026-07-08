@@ -1019,6 +1019,43 @@ def _halo_role_funcs(program, decl, collection):
     return out
 
 
+def _halo_tasks(program, decl, collection):
+    """The ``#spmw.halo`` descriptors for a mapped unit's loader/drain boundary tasks.
+
+    Mirrors :func:`_halo_role_funcs`: each ``stream_in`` flow makes a loader at the entry edge and a
+    drain at the exit edge. The loader feeds the entry port of every point missing that port (the
+    entry edge), reading the operand indexed by the coordinate along ``axis``; the drain consumes the
+    exit port of every point missing it. ``spmw-unroll`` reads these and wires each task to the same
+    boundary channel the edge point's compute role uses.
+    """
+    annotations = getattr(program.fn, "__annotations__", {})
+    tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
+    if len(tensors) < 3:
+        return []
+    prefix = f"{program.name}_{decl.unit.name}"
+    tasks = []
+    for stream in collection.streams:
+        if stream.direction != "in" or stream.flow is None:
+            continue
+        entry, exit_edge = _FLOW_PORTS[stream.flow]
+        horizontal = stream.flow in {"W->E", "E->W"}
+        tag = "A" if horizontal else "B"
+        operand = 0 if horizontal else 1
+        axis = (
+            0 if horizontal else 1
+        )  # horizontal loaders index by row, vertical by column
+        load_sym, drain_sym = f"{prefix}_load_{tag}", f"{prefix}_drain_{tag}"
+        tasks.append(
+            f'#spmw.halo<unit = @{load_sym}, port = "{entry}", kind = "load", '
+            f"axis = {axis}, operand = {operand}>"
+        )
+        tasks.append(
+            f'#spmw.halo<unit = @{drain_sym}, port = "{exit_edge}", kind = "drain", '
+            f"axis = {axis}, operand = {operand}>"
+        )
+    return tasks
+
+
 def _tensor_operands(program):
     """The region's shaped memref args as ``(ssa, memref type)`` pairs -- the map's ``$tensors``."""
     annotations = getattr(program.fn, "__annotations__", {})
@@ -1053,14 +1090,24 @@ def _module_text(program, collection):
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
             role_attrs.append(f"#spmw.role<unit = @{sym}, missing = [{missing_text}]>")
         # auto-halo loader/drain datapaths are boundary tasks around the grid, emitted as sibling
-        # funcs -- deliberately not added to the compute map's roles
+        # funcs (not compute-grid roles) and referenced from the map's halo list so spmw-unroll wires
+        # them to the edge channels
         for func_text in _halo_role_funcs(program, decl, collection):
             role_funcs.append(func_text)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
+        halo_attrs = _halo_tasks(program, decl, collection)
+        halo_text = ""
+        if halo_attrs:
+            halo_text = (
+                "\n      {halo = [\n        "
+                + ",\n        ".join(halo_attrs)
+                + "\n      ]}"
+            )
         map_ops.append(
             f"    spmw.map ({operand_ssa})\n"
             f"      topology = {_topology_text(decl)}\n"
-            f"      roles = {roles_text}\n"
+            f"      roles = {roles_text}"
+            f"{halo_text}\n"
             f"      : {operand_types}"
         )
     top = (

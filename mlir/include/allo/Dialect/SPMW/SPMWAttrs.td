@@ -79,4 +79,25 @@ def SPMW_RoleAttr : SPMW_Attr<"Role", "role"> {
   let assemblyFormat = "`<` `unit` `=` $unit `,` `missing` `=` $missing `>`";
 }
 
+def SPMW_HaloAttr : SPMW_Attr<"Halo", "halo"> {
+  let summary = "A boundary loader/drain task attached to a grid edge.";
+  let description = [{
+    `unit` is the loader/drain function. The task applies at each grid point where
+    `port` is missing (an off-grid boundary port), wiring `unit` to the same channel
+    that point's compute role uses on `port`. `kind` is `"load"` (a producer that
+    streams `operand` into the array) or `"drain"` (a consumer at the exit edge).
+    `axis` is the grid dimension whose coordinate feeds a loader's position argument;
+    `operand` indexes the map tensors a loader reads.
+  }];
+  let parameters = (ins "::mlir::FlatSymbolRefAttr":$unit,
+                        StringRefParameter<>:$port,
+                        StringRefParameter<>:$kind,
+                        "int64_t":$axis,
+                        "int64_t":$operand);
+  let assemblyFormat = [{
+    `<` `unit` `=` $unit `,` `port` `=` $port `,` `kind` `=` $kind
+    `,` `axis` `=` $axis `,` `operand` `=` $operand `>`
+  }];
+}
+
 #endif // SPMW_ATTRS

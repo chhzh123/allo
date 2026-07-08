@@ -82,6 +82,26 @@ LogicalResult MapOp::verify() {
     if (!llvm::isa<RoleAttr>(roleAttr))
       return emitOpError("each role must be an spmw.role attribute");
 
+  if (ArrayAttr halo = getHaloAttr()) {
+    int64_t numTensors = static_cast<int64_t>(getTensors().size());
+    for (Attribute haloAttr : halo) {
+      auto task = llvm::dyn_cast<HaloAttr>(haloAttr);
+      if (!task)
+        return emitOpError("each halo task must be an spmw.halo attribute");
+      if (task.getKind() != "load" && task.getKind() != "drain")
+        return emitOpError("halo kind must be \"load\" or \"drain\"");
+      if (task.getAxis() < 0 || task.getAxis() >= dims)
+        return emitOpError("halo axis (")
+               << task.getAxis() << ") out of range for topology dims (" << dims
+               << ")";
+      if (task.getKind() == "load" &&
+          (task.getOperand() < 0 || task.getOperand() >= numTensors))
+        return emitOpError("halo operand (")
+               << task.getOperand() << ") out of range for " << numTensors
+               << " tensor operands";
+    }
+  }
+
   if (DenseI64ArrayAttr fold = getFoldAttr())
     if (static_cast<int64_t>(fold.size()) != dims)
       return emitOpError("fold rank does not match topology dims (")
@@ -134,6 +154,18 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
                << " (" << input << ") does not match map tensor operand " << ti
                << " (" << tensorTypes[ti] << ")";
       ++ti;
+    }
+  }
+  if (ArrayAttr halo = getHaloAttr()) {
+    for (Attribute haloAttr : halo) {
+      auto task = llvm::dyn_cast<HaloAttr>(haloAttr);
+      if (!task)
+        continue; // payload kind is checked by verify()
+      auto fn = symbolTable.lookupNearestSymbolFrom<func::FuncOp>(
+          *this, task.getUnit());
+      if (!fn)
+        return emitOpError("halo task references undefined function '")
+               << task.getUnit().getValue() << "'";
     }
   }
   return success();

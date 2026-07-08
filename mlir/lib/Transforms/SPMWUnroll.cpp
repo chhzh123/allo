@@ -15,8 +15,10 @@
 // signature: the map's tensor operands feed the leading memref parameters,
 // arith.constant indices feed the per-dimension PID parameters, and one
 // allo.stream_construct per peer channel feeds the stream parameters (a channel
-// is shared by the two neighbors it connects; a port whose peer is off-grid
-// gets its own dangling channel until halo wiring lands).
+// is shared by the two neighbors it connects). For a port whose peer is
+// off-grid, the map's spmw.halo tasks supply the missing endpoint: a loader
+// produces into that boundary channel, or a drain consumes from it, so no
+// off-grid channel is left with only one side.
 //
 //===----------------------------------------------------------------------===//
 
@@ -296,6 +298,50 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
       }
     }
     builder.create<func::CallOp>(loc, callee, operands);
+
+    // Wire the halo loader/drain tasks for this point's missing (off-grid)
+    // ports to the same boundary channels the compute call just created, so no
+    // off-grid channel is left dangling.
+    if (ArrayAttr haloTasks = map.getHaloAttr()) {
+      int64_t self = linearIndex(coord, grid);
+      for (Attribute haloAttr : haloTasks) {
+        auto task = llvm::dyn_cast<spmw::HaloAttr>(haloAttr);
+        if (!task || !llvm::is_contained(missing, task.getPort()))
+          continue;
+        auto haloFn =
+            symbolTable.lookup<func::FuncOp>(task.getUnit().getValue());
+        if (!haloFn)
+          return map.emitOpError("halo task references undefined function '")
+                 << task.getUnit().getValue() << "'";
+        // The boundary channel is the one the compute call keyed for this
+        // off-grid port.
+        std::string key = std::to_string(self) + ":" + task.getPort().str();
+        Value &channel = channels[key];
+        if (!channel) {
+          Type streamTy;
+          for (Type in : haloFn.getFunctionType().getInputs())
+            if (llvm::isa<StreamType>(in)) {
+              streamTy = in;
+              break;
+            }
+          if (!streamTy)
+            return map.emitOpError("halo function '")
+                   << task.getUnit().getValue() << "' has no stream parameter";
+          channel = builder.create<allo::StreamConstructOp>(loc, streamTy);
+        }
+        SmallVector<Value> haloOperands;
+        if (task.getKind() == "load") {
+          if (task.getOperand() < 0 ||
+              task.getOperand() >= static_cast<int64_t>(tensors.size()))
+            return map.emitOpError("halo operand out of range");
+          haloOperands.push_back(tensors[task.getOperand()]);
+          haloOperands.push_back(builder.create<arith::ConstantIndexOp>(
+              loc, coord[task.getAxis()]));
+        }
+        haloOperands.push_back(channel);
+        builder.create<func::CallOp>(loc, haloFn, haloOperands);
+      }
+    }
   }
 
   map.erase();
