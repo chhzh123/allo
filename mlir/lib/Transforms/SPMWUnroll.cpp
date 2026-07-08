@@ -313,22 +313,19 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
         if (!haloFn)
           return map.emitOpError("halo task references undefined function '")
                  << task.getUnit().getValue() << "'";
-        // The boundary channel is the one the compute call keyed for this
-        // off-grid port.
+        // The boundary channel must be the one the compute call keyed for this
+        // off-grid port; if the selected compute role has no stream endpoint on
+        // this port, the loader/drain would feed a disconnected FIFO -- error
+        // rather than silently allocating a one-sided channel.
         std::string key = std::to_string(self) + ":" + task.getPort().str();
-        Value &channel = channels[key];
-        if (!channel) {
-          Type streamTy;
-          for (Type in : haloFn.getFunctionType().getInputs())
-            if (llvm::isa<StreamType>(in)) {
-              streamTy = in;
-              break;
-            }
-          if (!streamTy)
-            return map.emitOpError("halo function '")
-                   << task.getUnit().getValue() << "' has no stream parameter";
-          channel = builder.create<allo::StreamConstructOp>(loc, streamTy);
-        }
+        auto found = channels.find(key);
+        if (found == channels.end())
+          return map.emitOpError("halo task for port '")
+                 << task.getPort()
+                 << "' has no matching compute-role stream endpoint at grid "
+                    "point "
+                 << self;
+        Value channel = found->second;
         SmallVector<Value> haloOperands;
         if (task.getKind() == "load") {
           if (task.getOperand() < 0 ||

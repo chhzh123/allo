@@ -83,6 +83,27 @@ def test_map_carries_real_tensor_operands():
     assert "memref<1xf32>" not in text
 
 
+def test_explicit_role_body_fails_closed():
+    # an explicit @pe.role carrying real work would otherwise be silently dropped to an empty stub;
+    # lowering rejects it until explicit-role datapath transcription lands
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @pe.role("west")
+    def load(ctx):
+        ctx.east.put(1)
+
+    @spmw.region()
+    def r(A):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="cannot transcribe"):
+        spmw.lower(r)
+
+
 def test_lower_carries_halo_tasks():
     # the rolled spmw.map now records its loader/drain boundary tasks as #spmw.halo attributes so the
     # spmw-unroll pass can wire them to the edge channels, instead of leaving them orphan siblings
@@ -132,11 +153,11 @@ def _mesh_region_with_roles(shape):
 
     @pe.role("west")
     def pe_load(ctx):
-        ctx.east.put(1)
+        pass
 
     @pe.role("east", "south")
     def pe_drain(ctx):
-        ctx.west.get()
+        pass
 
     @spmw.region()
     def gemm(A):

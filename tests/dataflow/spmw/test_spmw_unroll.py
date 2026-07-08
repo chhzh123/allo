@@ -39,11 +39,11 @@ def _region(shape):
 
     @pe.role("west")
     def pe_load(ctx):
-        ctx.east.put(1)
+        pass
 
     @pe.role("east", "south")
     def pe_drain(ctx):
-        ctx.west.get()
+        pass
 
     @spmw.region()
     def gemm(A):

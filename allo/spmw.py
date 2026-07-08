@@ -1067,6 +1067,38 @@ def _tensor_operands(program):
     return operands
 
 
+def _role_body_is_trivial(body):
+    """Whether an ``@pe.role`` body is empty (only ``pass`` / a docstring) and so needs no datapath."""
+    tree = ast.parse(textwrap.dedent(inspect.getsource(body)))
+    stmts = tree.body[0].body
+    meaningful = [
+        node
+        for node in stmts
+        if not (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
+    ]
+    return all(isinstance(node, ast.Pass) for node in meaningful)
+
+
+def _check_role_bodies_transcribable(decl):
+    """Fail closed on an explicit role whose body carries real work we cannot transcribe yet.
+
+    Explicit ``@pe.role`` bodies currently lower to signature-only stubs. A non-empty role body would
+    therefore be *silently dropped*, so it is rejected instead: only trivial (``pass``) role bodies
+    lower to a stub. (Transcribing explicit role datapaths is a later step and needs a declared
+    element type, which topology-only regions do not have.)
+    """
+    for edges, body in decl.unit.roles:
+        if not _role_body_is_trivial(body):
+            raise SPMWError(
+                f"explicit role {list(edges)} has a body spmw.lower cannot transcribe yet; "
+                f"only trivial (pass) role bodies are supported so far"
+            )
+
+
 def _module_text(program, collection):
     """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
     role_funcs = []
@@ -1080,6 +1112,7 @@ def _module_text(program, collection):
     operand_types = ", ".join(ty for _, ty in operands)
     top_params = ", ".join(f"{ssa}: {ty}" for ssa, ty in operands)
     for decl in collection.maps:
+        _check_role_bodies_transcribable(decl)
         role_attrs = []
         for name, missing in _roles_of(decl):
             sym = f"{program.name}_{decl.unit.name}_{name}"
