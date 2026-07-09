@@ -102,3 +102,47 @@ def test_fold_unknown_named_axis_rejected():
 def test_fold_axis_out_of_range_rejected():
     with pytest.raises(spmw.SPMWError, match="out of range"):
         spmw.lower(_twin(4, 4, 2, fold={5: 2}))
+
+
+# --- strict typing: axes and factors must be real ints, never coerced ---
+
+
+def test_fold_float_axis_rejected():
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, fold={0.5: 2}))
+
+
+def test_fold_float_factor_rejected():
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, fold={"row": 1.5}))
+
+
+def test_fold_bool_factor_rejected():
+    # bool is an int subclass; True must not sneak through as factor 1
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, fold={"row": True}))
+
+
+def test_fold_bool_axis_key_rejected():
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, fold={True: 2}))
+
+
+def test_unroll_object_factor_rejected():
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, unroll=[object(), 2]))
+
+
+def test_unroll_string_factor_rejected():
+    with pytest.raises(spmw.SPMWError, match="int"):
+        spmw.lower(_twin(4, 4, 2, unroll=["a", "b"]))
+
+
+def test_fold_non_iterable_container_rejected():
+    with pytest.raises(spmw.SPMWError, match="dict, list, or tuple"):
+        spmw.lower(_twin(4, 4, 2, fold=3))
+
+
+def test_fold_bare_string_container_rejected():
+    with pytest.raises(spmw.SPMWError, match="dict, list, or tuple"):
+        spmw.lower(_twin(4, 4, 2, fold="ab"))

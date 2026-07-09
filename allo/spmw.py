@@ -561,13 +561,27 @@ def _resolve_topology(work_unit, grid, topo):
     return topology
 
 
+def _strict_int(value, what):
+    """``value`` as a plain Python ``int``, rejecting ``bool`` and non-ints with ``SPMWError``.
+
+    ``bool`` is an ``int`` subclass, so a ``True``/``False`` axis or factor would otherwise slip
+    through as ``1``/``0``; a ``float`` would silently truncate. Both are almost certainly mistakes,
+    so both raise instead of coercing.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise SPMWError(f"{what} must be an int, got {value!r}")
+    return value
+
+
 def _resolve_map_factors(factors, topology, kind):
     """A full-rank tuple of ``fold``/``unroll`` factors for a map over ``topology``, or ``None``.
 
     ``factors`` may be a per-axis mapping (``{axis: factor}`` with an int axis or a ``"row"``/``"col"``
-    key, axes default to ``1``) or a full-rank list/tuple. Every factor must be a positive int that
-    divides its grid extent, so the physical grid ``grid // factors`` is integral. ``kind`` (``"fold"``
-    or ``"unroll"``) only sharpens the error messages.
+    key, axes default to ``1``) or a full-rank list/tuple. Every axis and factor must be a real
+    ``int`` (``bool`` and ``float`` are rejected), and every factor must be positive and divide its
+    grid extent, so the physical grid ``grid // factors`` is integral. Any malformed input raises
+    ``SPMWError`` (never a leaked ``TypeError``/``ValueError``). ``kind`` (``"fold"``/``"unroll"``)
+    only sharpens the messages.
     """
     if factors is None:
         return None
@@ -582,18 +596,22 @@ def _resolve_map_factors(factors, topology, kind):
                     )
                 axis = _BANK_AXES[key]
             else:
-                axis = int(key)
+                axis = _strict_int(key, f"{kind} axis")
             if not 0 <= axis < dims:
                 raise SPMWError(
                     f"{kind} axis {axis} is out of range for a rank-{dims} grid"
                 )
-            resolved[axis] = int(value)
-    else:
-        resolved = [int(f) for f in factors]
+            resolved[axis] = _strict_int(value, f"{kind} factor")
+    elif isinstance(factors, (list, tuple)):
+        resolved = [_strict_int(f, f"{kind} factor") for f in factors]
         if len(resolved) != dims:
             raise SPMWError(
                 f"{kind} rank {len(resolved)} does not match grid rank {dims}"
             )
+    else:
+        raise SPMWError(
+            f"{kind} must be a dict, list, or tuple; got {type(factors).__name__}"
+        )
     for axis, (factor, extent) in enumerate(zip(resolved, grid)):
         if factor <= 0:
             raise SPMWError(f"{kind} factor {factor} on axis {axis} must be positive")
