@@ -194,3 +194,22 @@ def test_solve_subspace_accepts_a_conflict_basis_directly():
     Q = np.array([[1], [0], [1], [0]], dtype=np.int32)
     with pytest.raises(ValueError, match="unit-stride"):
         F2LayoutSolver(4, 2).solve_subspace(Q)
+
+
+def test_auto_f2_runs_end_to_end_on_a_kernel():
+    # Schedule.auto_f2 analyzes a kernel's 1D buffers over F2 and applies conflict-free layouts (or
+    # none when there are no conflicts); it must run end-to-end and produce buildable HLS.
+    def ak(inp: int32[16]) -> int32[16]:
+        buf: int32[16]  # no init: only load/store uses
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(ak)
+    s.auto_f2()  # no bank conflicts here -> a no-op, but must run without error
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
+    assert len(mod.hls_code) > 0 and "ak" in mod.hls_code

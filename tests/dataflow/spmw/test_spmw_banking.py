@@ -143,20 +143,42 @@ def test_banked_A_operand_rejected_by_emitter():
 # --- folded buffer families materialized as real banked on-chip buffers -------------------------
 
 
-def test_folded_map_materializes_a_banked_on_chip_buffer():
-    # fold={"col": 2} reclassifies the east/west (A) family to a buffer (spmw.buffer_families); the
-    # emitter no longer rejects it and materializes A as a REAL 2D-banked on-chip buffer that the
-    # loader reads by (bank, offset) -- the A-forwarding now flows through addressed banked storage,
-    # not a FIFO family.
+def test_folded_map_routes_a_through_a_banked_buffer_not_a_fifo():
+    # fold={"col": 2} reclassifies the east/west (A) family to a buffer (spmw.buffer_families). The
+    # reclassified family must NOT be wired as a FIFO stream anymore: the PE reads A directly from a
+    # real banked on-chip buffer via (bank, offset).
     cpp = emit_rolled_hls_ir(_twin(4, 4, 4, fold={"col": 2}))
     assert (
         "A_bank[2][2][K]" in cpp
     )  # real [banks][depth][K] on-chip buffer (M=4, 2 banks)
     assert "#pragma HLS array_partition variable=A_bank complete dim=1" in cpp
-    # the loader reads A through bank/offset (routing the family through the buffer)
-    assert "out.write(A_bank[" in cpp and "][k]);" in cpp
+    # the east/west family is gone from the stream topology -- no fa array, no load_a, no fa drain
+    assert "fa[" not in cpp
+    assert "load_a" not in cpp
+    # the PE reads A from the banked buffer (A_row), dispatched with A_bank[bank(i)][offset(i)]
+    assert "A_row[" in cpp
+    assert re.search(r"pe_interior\(A_bank\[", cpp)
     # B (north/south) stays a FIFO family
     assert "fb[M + 1][N]" in cpp
+
+
+def test_folded_map_with_banked_output_c_is_realized():
+    # a folded map that ALSO banks the output C must declare C_bank (not reference it undeclared) and
+    # write it back to the host C[M][N].
+    twin = _twin(
+        4,
+        4,
+        4,
+        placements=[("C", spmw.banked(float32[4, 4], on="row", banks=2))],
+        fold={"col": 2},
+    )
+    cpp = emit_rolled_hls_ir(twin)
+    assert "A_bank[2][2][K]" in cpp  # folded A buffer
+    assert (
+        "C_bank[2][2][N]" in cpp
+    )  # banked C output declared, not an undeclared reference
+    assert re.search(r"C\[i\]\[j\] = C_bank\[", cpp)  # writeback to the host interface
+    assert "fa[" not in cpp  # still no stale east/west FIFO
 
 
 def test_unfolded_map_has_no_banked_a_buffer():
@@ -171,3 +193,52 @@ def test_unsupported_folded_shape_is_rejected():
     # shape the emitter rejects clearly rather than mis-emitting
     with pytest.raises(NotImplementedError, match="folded rolled emitter"):
         emit_rolled_hls_ir(_twin(4, 4, 4, fold={"row": 2}))
+
+
+# --- serialize fallback + reject on an unrealizable banking --------------------------------------
+
+
+def test_banked_serialize_fallback_collapses_to_one_bank():
+    # banks=1 (bank_bits=0) with an xor stride cannot be made conflict-free; on_conflict="serialize"
+    # reports a warning and collapses to a single bank rather than mis-banking.
+    import warnings
+
+    twin = _twin(
+        4,
+        4,
+        4,
+        placements=[
+            (
+                "C",
+                spmw.banked(
+                    float32[4, 4],
+                    on="row",
+                    banks=1,
+                    bank="xor",
+                    stride_bit=1,
+                    on_conflict="serialize",
+                ),
+            )
+        ],
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        ir = str(spmw.lower(twin))
+    assert any("serializing" in str(w.message) for w in caught)
+    assert '"C:1:0:cyclic:0"' in ir  # collapsed to a single bank
+
+
+def test_banked_unrealizable_rejects_by_default():
+    twin = _twin(
+        4,
+        4,
+        4,
+        placements=[
+            (
+                "C",
+                spmw.banked(float32[4, 4], on="row", banks=1, bank="xor", stride_bit=1),
+            )
+        ],
+    )
+    with pytest.raises(spmw.SPMWError, match="not a conflict-free banking"):
+        spmw.lower(twin)
