@@ -224,8 +224,16 @@ class Topology:
                     )
 
     def _validate_key_channels(self):
-        sources = {}
-        sinks = {}
+        self.key_channel_roles()  # classifies every key channel and rejects unsupported cardinality
+
+    def key_channel_roles(self):
+        """Classify each key channel as ``"peer"`` (1->1), ``"scatter"`` (1->N), or ``"gather"``.
+
+        A scatter is one source fanning out to many sinks; a gather is many sources fanning in to one
+        sink; a peer channel is the 1->1 case. A key with no source, no sink, or a many-to-many
+        (N->M with both > 1) topology is rejected.
+        """
+        sources, sinks = {}, {}
         for coord in self.coords():
             for port, target in self.links_at(coord).items():
                 if not _is_key_form(target):
@@ -233,14 +241,22 @@ class Topology:
                 key, direction = target
                 bucket = sources if direction == _SRC else sinks
                 bucket.setdefault(key, []).append((coord, port))
+        roles = {}
         for key in set(sources) | set(sinks):
             n_src, n_sink = len(sources.get(key, [])), len(sinks.get(key, []))
-            if n_src != 1 or n_sink != 1:
+            if n_src == 1 and n_sink == 1:
+                roles[key] = "peer"
+            elif n_src == 1 and n_sink >= 1:
+                roles[key] = "scatter"
+            elif n_sink == 1 and n_src >= 1:
+                roles[key] = "gather"
+            else:
                 raise SPMWError(
-                    f"channel key {key!r} must have exactly one source and one sink; "
-                    f"got {n_src} source(s) and {n_sink} sink(s) (fan-out/fan-in is a "
-                    f"collective extension)"
+                    f"channel key {key!r} must be one source to one-or-more sinks (scatter) or "
+                    f"one-or-more sources to one sink (gather); got {n_src} source(s) and "
+                    f"{n_sink} sink(s)"
                 )
+        return roles
 
     def __repr__(self):
         return f"Topology(grid={self.grid})"
@@ -285,6 +301,26 @@ def ring(n):
             "next": (((i + 1) % n,), "prev"),
             "prev": (((i - 1) % n,), "next"),
         }
+
+    return Topology(grid=(n,), link=link)
+
+
+def scatter(n, key="scatter"):
+    """A scatter (fan-out) collective: unit 0 is the source of ``key``; units 1..n-1 are its sinks."""
+    n = int(n)
+
+    def link(i):
+        return {"out": (key, _SRC)} if i == 0 else {"in": (key, _SINK)}
+
+    return Topology(grid=(n,), link=link)
+
+
+def gather(n, key="gather"):
+    """A gather (fan-in) collective: units 0..n-2 are sources of ``key``; unit n-1 is its one sink."""
+    n = int(n)
+
+    def link(i):
+        return {"in": (key, _SINK)} if i == n - 1 else {"out": (key, _SRC)}
 
     return Topology(grid=(n,), link=link)
 
@@ -437,7 +473,7 @@ DEFAULT_DEPTH = 2
 class _MapDecl:
     """A recorded ``spmw.map`` call: a unit placed over a topology."""
 
-    def __init__(self, work_unit, topology, depths):
+    def __init__(self, work_unit, topology, depths, shard=None):
         self.unit = work_unit
         self.topology = topology
         self.depths = dict(depths) if depths else {}
@@ -445,6 +481,9 @@ class _MapDecl:
         # user's request. This materializes the default so callers do not read the raw override.
         self.port_depths = {port: DEFAULT_DEPTH for port in topology.port_names()}
         self.port_depths.update(self.depths)
+        # A shard tiles the grid into a 2-level hierarchy: each shard is a `shard` sub-block of the
+        # grid, replicated `grid // shard` times. `None` means a flat (unsharded) map.
+        self.shard = tuple(shard) if shard else None
 
 
 class _StreamDecl:
@@ -513,8 +552,14 @@ def _resolve_topology(work_unit, grid, topo):
     return topology
 
 
-def map(work_unit, grid=None, topo=None, depths=None):
-    """Replicate a work unit over a grid, wired by a topology."""
+def map(work_unit, grid=None, topo=None, depths=None, shard=None):
+    """Replicate a work unit over a grid, wired by a topology.
+
+    ``shard`` tiles the grid into a 2-level hierarchy: each shard is a ``shard``-shaped sub-block,
+    replicated ``grid // shard`` times. Its rank must match the grid and each extent must divide the
+    corresponding grid extent, so a ``P0 x P1`` grid with ``shard=(s0, s1)`` nests
+    ``(P0/s0) x (P1/s1)`` shards of ``s0 x s1`` units.
+    """
     if not isinstance(work_unit, Unit):
         raise SPMWError("spmw.map expects an @spmw.unit as its first argument")
     topology = _resolve_topology(work_unit, grid, topo)
@@ -526,7 +571,18 @@ def map(work_unit, grid=None, topo=None, depths=None):
                     f"depths references undeclared port {port!r}; declared ports: "
                     f"{sorted(ports)}"
                 )
-    decl = _MapDecl(work_unit, topology, depths)
+    if shard is not None:
+        shard = tuple(int(s) for s in shard)
+        if len(shard) != topology.dims:
+            raise SPMWError(
+                f"shard rank {len(shard)} does not match grid rank {topology.dims}"
+            )
+        for extent, tile in zip(topology.grid, shard):
+            if tile <= 0 or extent % tile != 0:
+                raise SPMWError(
+                    f"shard {shard} must divide the grid {topology.grid} along every axis"
+                )
+    decl = _MapDecl(work_unit, topology, depths, shard)
     if _active_collector is not None:
         _active_collector.maps.append(decl)
     return decl
@@ -1470,19 +1526,21 @@ def _module_text(program, collection):
         for func_text in _halo_role_funcs(program, decl, collection):
             role_funcs.append(func_text)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
+        map_attrs = []
+        if decl.shard:
+            shard_dims = ", ".join(str(s) for s in decl.shard)
+            map_attrs.append(f"spmw.shard = array<i64: {shard_dims}>")
         halo_attrs = _halo_tasks(program, decl, collection)
-        halo_text = ""
         if halo_attrs:
-            halo_text = (
-                "\n      {halo = [\n        "
-                + ",\n        ".join(halo_attrs)
-                + "\n      ]}"
+            map_attrs.append(
+                "halo = [\n        " + ",\n        ".join(halo_attrs) + "\n      ]"
             )
+        attrs_text = "\n      {" + ", ".join(map_attrs) + "}" if map_attrs else ""
         map_ops.append(
             f"    spmw.map ({operand_ssa})\n"
             f"      topology = {_topology_text(decl)}\n"
             f"      roles = {roles_text}"
-            f"{halo_text}\n"
+            f"{attrs_text}\n"
             f"      : {operand_types}"
         )
     func_attrs = []

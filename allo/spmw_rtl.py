@@ -88,6 +88,11 @@ def emit_structural_verilog(region, behavioral=False):
             f"got partition {partition} for a {rows}x{cols} grid"
         )
     a_shape = re.search(r"memref<(\d+)x(\d+)x(\w+)>", ir)
+    if a_shape is None:
+        raise NotImplementedError(
+            "structural RTL emitter handles the systolic A[M,K] @ B[K,N] -> C[M,N] shape; "
+            "the region has no 2-D tensor operands"
+        )
     depth = int(a_shape.group(2))
     dw = _DW[a_shape.group(3)]
 
