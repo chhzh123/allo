@@ -46,7 +46,7 @@ LogicalResult MapOp::verify() {
     if (extent <= 0)
       return emitOpError("grid extent must be positive; got ") << extent;
 
-  // Each channel key must have exactly one source and one sink.
+  // Each channel key (family) must have at least one source and one sink.
   llvm::DenseMap<Attribute, std::pair<int, int>> keyCounts;
   // The src and sink sharing a key must agree on depth and element type.
   llvm::DenseMap<Attribute, std::pair<int64_t, Type>> keyAbi;
@@ -96,12 +96,18 @@ LogicalResult MapOp::verify() {
           "topology link must be a peer_link or key_link attribute");
     }
   }
+  // A channel key names a channel family: 1->1 (peer), 1->N (scatter), N->1
+  // (gather), or an N->N permutation (an FFT lane family is one FIFO array of
+  // many 1->1 slots). Precise per-instance cardinality is a frontend concern
+  // (key_channel_roles over the concrete keys); the rolled family must only
+  // have a producer and a consumer, so a src-only or sink-only (dangling) key
+  // fails.
   for (const auto &entry : keyCounts) {
     int numSrc = entry.second.first;
     int numSink = entry.second.second;
-    if (numSrc != 1 || numSink != 1)
+    if (numSrc < 1 || numSink < 1)
       return emitOpError(
-                 "channel key must have exactly one src and one sink; got ")
+                 "channel key must have at least one src and one sink; got ")
              << numSrc << " src and " << numSink << " sink";
   }
 

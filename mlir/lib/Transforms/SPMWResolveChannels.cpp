@@ -76,15 +76,28 @@ struct SPMWResolveChannelsPass
     // depth. familyAxes records the grid axes each family's channel spans.
     std::map<std::string, int64_t> familyDepth;
     std::map<std::string, std::set<int64_t>> familyAxes;
+    // Key (rendezvous) families group by their key string -- the channel-group
+    // family, one FIFO array -- with a consistent per-family depth.
+    std::map<std::string, int64_t> keyFamilyDepth;
     for (Attribute link : map.getTopology().getLinks()) {
       auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link);
       if (!peer) {
-        // key_link channels rendezvous by key, not by grid-neighbor port pair,
-        // so this peer-family resolver cannot group them. Fail closed rather
-        // than silently omit them from spmw.channel_families.
-        if (llvm::isa<spmw::KeyLinkAttr>(link))
-          return map.emitOpError(
-              "spmw-resolve-channels does not yet resolve key_link channels");
+        // A key_link rendezvous by key: group it under its key string. The
+        // precise per-instance src/sink matching is a frontend concern; here
+        // the family is the rolled interconnect unit the emitter declares.
+        if (auto key = llvm::dyn_cast<spmw::KeyLinkAttr>(link)) {
+          auto family = llvm::dyn_cast<StringAttr>(key.getKey());
+          if (!family)
+            return map.emitOpError(
+                "spmw-resolve-channels needs a string key on a key_link");
+          std::string name = family.getValue().str();
+          auto it = keyFamilyDepth.find(name);
+          if (it == keyFamilyDepth.end())
+            keyFamilyDepth[name] = key.getDepth();
+          else if (it->second != key.getDepth())
+            return map.emitOpError("key channel family '")
+                   << name << "' has links with mismatched depth";
+        }
         continue;
       }
       // The unordered pair {port, peerPort} names the family, so a link and its
@@ -132,6 +145,25 @@ struct SPMWResolveChannelsPass
         streamRefs.push_back(entry.first);
         streamDepths.push_back(entry.second);
       }
+    }
+
+    // Key (rendezvous) families. Unfolded they are FIFO streams. A folded map
+    // time-multiplexes several butterflies onto one PE that random-accesses its
+    // lane family (the permutation), which a linear FIFO cannot preserve --
+    // that folded -> banked-buffer lowering is not yet implemented, so fail
+    // closed.
+    bool folded = false;
+    for (int64_t f : fold)
+      if (f > 1) {
+        folded = true;
+        break;
+      }
+    if (!keyFamilyDepth.empty() && folded)
+      return map.emitOpError("spmw-resolve-channels does not yet resolve "
+                             "folded key_link families");
+    for (const auto &entry : keyFamilyDepth) {
+      streamRefs.push_back(entry.first);
+      streamDepths.push_back(entry.second);
     }
 
     OpBuilder builder(map);

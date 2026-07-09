@@ -200,14 +200,32 @@ def test_spmw_unroll_rejects_key_links():
             PassManager.parse("builtin.module(spmw-unroll)").run(module.operation)
 
 
-def test_spmw_resolve_channels_rejects_key_links():
-    # the peer-family resolver cannot group rendezvous-by-key channels; it fails closed rather than
-    # silently omitting them from spmw.channel_families.
+def test_spmw_resolve_channels_groups_key_links():
+    # a key_link family groups into spmw.channel_families by its key string (an unfolded rendezvous
+    # family is a FIFO stream, like a peer family).
     from allo._mlir.passmanager import PassManager
 
     module = _parse(VALID_KEY)
     with module.context:
-        with pytest.raises(Exception, match="key_link"):
+        PassManager.parse("builtin.module(spmw-resolve-channels)").run(module.operation)
+    printed = str(module)
+    assert "spmw.channel_families" in printed and '"c"' in printed
+
+
+# The valid 1D key channel, folded on its only axis: one PE time-muxes the channel, so a linear FIFO
+# cannot preserve order -- resolve-channels must fail closed until folded key banking exists.
+FOLDED_KEY = VALID_KEY.replace(
+    "      : memref<2xf32>",
+    "      {fold = array<i64: 2>}\n      : memref<2xf32>",
+)
+
+
+def test_spmw_resolve_channels_rejects_folded_key_links():
+    from allo._mlir.passmanager import PassManager
+
+    module = _parse(FOLDED_KEY)
+    with module.context:
+        with pytest.raises(Exception, match="folded key_link"):
             PassManager.parse("builtin.module(spmw-resolve-channels)").run(
                 module.operation
             )

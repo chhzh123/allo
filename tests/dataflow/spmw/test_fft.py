@@ -129,3 +129,22 @@ def test_fft_spatial(N):
     np.testing.assert_allclose(
         out_imag, ref.imag.astype(np.float32), rtol=1e-4, atol=1e-4
     )
+
+
+def test_fft_spatial_rolled_ir():
+    """The SPMW spatial FFT lowers to rolled spmw.map IR carrying key_link lane families."""
+    printed = str(spmw.build(_fft_region(8), target="ir"))
+    assert "spmw.map" in printed
+    assert "key_link" in printed
+    assert "lane_re" in printed and "lane_im" in printed
+
+
+def test_fft_spatial_resolve_channels():
+    """spmw-resolve-channels groups the FFT key links into lane_re/lane_im stream families."""
+    from allo.spmw import lower, _run_module_pass
+
+    module = lower(_fft_region(8))
+    _run_module_pass(module, "spmw-resolve-channels")
+    printed = str(module)
+    assert "spmw.channel_families" in printed
+    assert "lane_re" in printed and "lane_im" in printed

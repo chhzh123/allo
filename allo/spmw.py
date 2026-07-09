@@ -1416,17 +1416,30 @@ def _topology_text(decl):
     rep = tuple(0 for _ in topology.grid)
     links = []
     for port, target in sorted(topology.links_at(rep).items()):
+        depth = decl.port_depths.get(port, DEFAULT_DEPTH)
         if _is_key_form(target):
-            raise SPMWError(
-                f"port {port!r}: key-form link lowering is not yet implemented"
+            # A key-form link rendezvous by key: the rolled IR names the channel-group *family*
+            # (`key[0]` of a `(family, stage, slot)` key, or the bare string key itself) -- the
+            # O(#roles) interconnect identity, exactly as a peer link names "east/west" rather than
+            # every concrete FIFO. The per-instance stage/slot permutation is a datapath/layout
+            # detail carried separately (and checked), not a rolled representative-point link.
+            key, endpoint = target
+            family = key[0] if isinstance(key, tuple) and key else key
+            if not isinstance(family, str):
+                raise SPMWError(
+                    f"port {port!r}: key-form channel family must be a string; got {family!r}"
+                )
+            links.append(
+                f'#spmw.key_link<port = "{port}", key = "{family}", '
+                f'end = "{endpoint}", depth = {depth}>'
             )
+            continue
         offset = _translation_offset(topology, port)
         if offset is None:
             raise SPMWError(
                 f"port {port!r}: only affine-translation peer links are lowerable so far"
             )
         _, peer_port = topology._parse_peer(port, target)
-        depth = decl.port_depths.get(port, DEFAULT_DEPTH)
         links.append(
             f'#spmw.peer_link<port = "{port}", map = {_affine_map_text(offset)}, '
             f'peer = "{peer_port}", depth = {depth}>'
@@ -1466,6 +1479,11 @@ def _interior_role_func(program, decl, sym, body=None):
     if len(tensors) < 3:
         return None
     shapes = (tensors[0].shape, tensors[1].shape, tensors[2].shape)
+    # The datapath transcriber handles only the 2-D systolic A/B/C operand shape. A region whose
+    # first three operands are not all 2-D (e.g. the 1-D FFT lane vectors, or a key-form topology)
+    # falls back to the signature-only stub role func rather than crashing on `shapes[0][1]`.
+    if any(len(shape) != 2 for shape in shapes):
+        return None
     elem = repr(tensors[0].dtype)
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
     # A systolic region fails closed: an untranscribable interior body raises rather than silently
