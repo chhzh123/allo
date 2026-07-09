@@ -1629,6 +1629,11 @@ def build(program, target="simulator", **kwargs):
             frequency=kwargs.get("frequency", _DEFAULT_FREQUENCY_MHZ),
             testbench=kwargs.get("testbench", False),
         )
+    if target == "rtl":
+        # pylint: disable=import-outside-toplevel
+        from .spmw_rtl import emit_structural_verilog
+
+        return emit_structural_verilog(program)
     if target in _DATAFLOW_TARGETS:
         # pylint: disable=import-outside-toplevel
         from .spmw_datapath import build_dataflow
@@ -1636,5 +1641,5 @@ def build(program, target="simulator", **kwargs):
         return build_dataflow(program, target=target, **kwargs)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"target='simulator'/'vitis_hls'/'ir'/'unroll'/'rolled'"
+        f"target='simulator'/'vitis_hls'/'ir'/'unroll'/'rolled'/'rtl'"
     )
