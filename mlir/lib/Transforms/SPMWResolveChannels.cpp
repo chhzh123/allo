@@ -14,6 +14,12 @@
 // the channel instance count is O(product(grid)), so this is the compact
 // interconnect representation the rolled HLS emitter consumes.
 //
+// When the map is folded, a family whose forwarding channel spans a folded axis
+// is time-multiplexed onto one physical link in an order a linear FIFO cannot
+// preserve, so it is reclassified into `spmw.buffer_families` (an addressed
+// buffer) instead of remaining a stream. Families the fold does not affect stay
+// in `spmw.channel_families`, so an unfolded map is byte-identical.
+//
 //===----------------------------------------------------------------------===//
 
 #include "PassDetail.h"
@@ -22,13 +28,17 @@
 #include "allo/Dialect/SPMW/SPMWOps.h"
 #include "allo/Transforms/Passes.h"
 
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 
 #include "llvm/ADT/Twine.h"
 #include <map>
+#include <set>
 
 #include <algorithm>
 #include <string>
@@ -37,6 +47,16 @@ using namespace mlir;
 using namespace mlir::allo;
 
 namespace {
+
+// The grid axes a peer link's affine map displaces: the result positions that
+// are not the identity dimension (e.g. east's (i,j)->(i,j+1) displaces axis 1).
+// A family's connection axes are the axes its forwarding channel spans.
+static void collectDisplacedAxes(AffineMap m, std::set<int64_t> &axes) {
+  MLIRContext *ctx = m.getContext();
+  for (unsigned i = 0, e = m.getNumResults(); i < e; ++i)
+    if (m.getResult(i) != getAffineDimExpr(i, ctx))
+      axes.insert(static_cast<int64_t>(i));
+}
 
 struct SPMWResolveChannelsPass
     : public mlir::allo::impl::SPMWResolveChannelsBase<
@@ -53,8 +73,9 @@ struct SPMWResolveChannelsPass
   LogicalResult resolve(spmw::MapOp map) {
     // Each family maps to its FIFO depth (the peer link's depth); a link and
     // its reciprocal, and both endpoints of the family, must agree on that
-    // depth.
+    // depth. familyAxes records the grid axes each family's channel spans.
     std::map<std::string, int64_t> familyDepth;
+    std::map<std::string, std::set<int64_t>> familyAxes;
     for (Attribute link : map.getTopology().getLinks()) {
       auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link);
       if (!peer) {
@@ -78,20 +99,52 @@ struct SPMWResolveChannelsPass
       else if (it->second != peer.getDepth())
         return map.emitOpError("channel family '")
                << family << "' has links with mismatched depth";
+      collectDisplacedAxes(peer.getPeerMap().getAffineMap(),
+                           familyAxes[family]);
     }
-    // std::map orders families canonically; emit the family names and the
-    // per-family FIFO depths in that order (the FIFO arrays the emitter
-    // declares).
-    SmallVector<StringRef> refs;
-    SmallVector<int64_t> depths;
+
+    // A fold time-multiplexes the map: a factor > 1 along a family's connection
+    // axis makes one physical link carry several logical instances of that
+    // forwarding channel in an order a linear FIFO cannot preserve, so the
+    // family must become an addressed buffer. A fold only along axes the family
+    // does not span keeps FIFO order (block/cyclic time-muxing along an
+    // unrelated axis is still ordered), so it stays a stream.
+    ArrayRef<int64_t> fold;
+    if (DenseI64ArrayAttr foldAttr = map.getFoldAttr())
+      fold = foldAttr.asArrayRef();
+
+    // std::map orders families canonically; emit stream families (and their
+    // per-family FIFO depths) in that order -- the FIFO arrays the emitter
+    // declares -- and any buffer families separately.
+    SmallVector<StringRef> streamRefs, bufferRefs;
+    SmallVector<int64_t> streamDepths, bufferDepths;
     for (const auto &entry : familyDepth) {
-      refs.push_back(entry.first);
-      depths.push_back(entry.second);
+      bool isBuffer = false;
+      for (int64_t axis : familyAxes[entry.first])
+        if (axis < static_cast<int64_t>(fold.size()) && fold[axis] > 1) {
+          isBuffer = true;
+          break;
+        }
+      if (isBuffer) {
+        bufferRefs.push_back(entry.first);
+        bufferDepths.push_back(entry.second);
+      } else {
+        streamRefs.push_back(entry.first);
+        streamDepths.push_back(entry.second);
+      }
     }
+
     OpBuilder builder(map);
-    map->setAttr("spmw.channel_families", builder.getStrArrayAttr(refs));
+    map->setAttr("spmw.channel_families", builder.getStrArrayAttr(streamRefs));
     map->setAttr("spmw.channel_family_depths",
-                 builder.getDenseI64ArrayAttr(depths));
+                 builder.getDenseI64ArrayAttr(streamDepths));
+    // Emit the buffer attrs only when a fold reclassified something, so an
+    // unfolded map's attributes are byte-identical to before.
+    if (!bufferRefs.empty()) {
+      map->setAttr("spmw.buffer_families", builder.getStrArrayAttr(bufferRefs));
+      map->setAttr("spmw.buffer_family_depths",
+                   builder.getDenseI64ArrayAttr(bufferDepths));
+    }
     return success();
   }
 };
