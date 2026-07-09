@@ -475,7 +475,9 @@ DEFAULT_DEPTH = 2
 class _MapDecl:
     """A recorded ``spmw.map`` call: a unit placed over a topology."""
 
-    def __init__(self, work_unit, topology, depths, shard=None):
+    def __init__(self, work_unit, topology, depths, shard=None, fold=None, unroll=None):
+        # `fold`/`unroll` mirror the module-level pass helpers by name (they are the public kwargs)
+        # pylint: disable=redefined-outer-name
         self.unit = work_unit
         self.topology = topology
         self.depths = dict(depths) if depths else {}
@@ -486,6 +488,11 @@ class _MapDecl:
         # A shard tiles the grid into a 2-level hierarchy: each shard is a `shard` sub-block of the
         # grid, replicated `grid // shard` times. `None` means a flat (unsharded) map.
         self.shard = tuple(shard) if shard else None
+        # Per-dim time-multiplex (`fold`) and spatial-unroll (`unroll`) factors, or `None` when the
+        # map is not folded/unrolled. Each is a full-rank tuple whose product with the physical grid
+        # reconstructs the logical grid; consumed by the folding/banking machinery.
+        self.fold = tuple(fold) if fold is not None else None
+        self.unroll = tuple(unroll) if unroll is not None else None
 
 
 class _StreamDecl:
@@ -554,17 +561,70 @@ def _resolve_topology(work_unit, grid, topo):
     return topology
 
 
-def map(work_unit, grid=None, topo=None, depths=None, shard=None):
+def _resolve_map_factors(factors, topology, kind):
+    """A full-rank tuple of ``fold``/``unroll`` factors for a map over ``topology``, or ``None``.
+
+    ``factors`` may be a per-axis mapping (``{axis: factor}`` with an int axis or a ``"row"``/``"col"``
+    key, axes default to ``1``) or a full-rank list/tuple. Every factor must be a positive int that
+    divides its grid extent, so the physical grid ``grid // factors`` is integral. ``kind`` (``"fold"``
+    or ``"unroll"``) only sharpens the error messages.
+    """
+    if factors is None:
+        return None
+    dims, grid = topology.dims, topology.grid
+    if isinstance(factors, dict):
+        resolved = [1] * dims
+        for key, value in factors.items():
+            if isinstance(key, str):
+                if key not in _BANK_AXES:
+                    raise SPMWError(
+                        f"{kind} axis {key!r} is not one of {sorted(_BANK_AXES)} or an int"
+                    )
+                axis = _BANK_AXES[key]
+            else:
+                axis = int(key)
+            if not 0 <= axis < dims:
+                raise SPMWError(
+                    f"{kind} axis {axis} is out of range for a rank-{dims} grid"
+                )
+            resolved[axis] = int(value)
+    else:
+        resolved = [int(f) for f in factors]
+        if len(resolved) != dims:
+            raise SPMWError(
+                f"{kind} rank {len(resolved)} does not match grid rank {dims}"
+            )
+    for axis, (factor, extent) in enumerate(zip(resolved, grid)):
+        if factor <= 0:
+            raise SPMWError(f"{kind} factor {factor} on axis {axis} must be positive")
+        if extent % factor != 0:
+            raise SPMWError(
+                f"{kind} factor {factor} on axis {axis} must divide the grid extent {extent}"
+            )
+    return tuple(resolved)
+
+
+def map(
+    work_unit, grid=None, topo=None, depths=None, shard=None, fold=None, unroll=None
+):
+    # `fold`/`unroll` mirror the module-level pass helpers by name (they are the public kwargs)
+    # pylint: disable=redefined-outer-name
     """Replicate a work unit over a grid, wired by a topology.
 
     ``shard`` tiles the grid into a 2-level hierarchy: each shard is a ``shard``-shaped sub-block,
     replicated ``grid // shard`` times. Its rank must match the grid and each extent must divide the
     corresponding grid extent, so a ``P0 x P1`` grid with ``shard=(s0, s1)`` nests
     ``(P0/s0) x (P1/s1)`` shards of ``s0 x s1`` units.
+
+    ``fold`` time-multiplexes the map: a factor ``F`` on an axis runs ``F`` logical grid points on
+    one physical unit. ``unroll`` spatially unrolls it. Each is a per-axis ``{axis: factor}`` mapping
+    or a full-rank list; every factor must be a positive int dividing its grid extent.
     """
     if not isinstance(work_unit, Unit):
         raise SPMWError("spmw.map expects an @spmw.unit as its first argument")
     topology = _resolve_topology(work_unit, grid, topo)
+    fold = _resolve_map_factors(fold, topology, "fold")
+    unroll = _resolve_map_factors(unroll, topology, "unroll")
     if depths:
         ports = topology.port_names()
         for port in depths:
@@ -584,7 +644,7 @@ def map(work_unit, grid=None, topo=None, depths=None, shard=None):
                 raise SPMWError(
                     f"shard {shard} must divide the grid {topology.grid} along every axis"
                 )
-    decl = _MapDecl(work_unit, topology, depths, shard)
+    decl = _MapDecl(work_unit, topology, depths, shard, fold, unroll)
     if _active_collector is not None:
         _active_collector.maps.append(decl)
     return decl
@@ -1532,6 +1592,14 @@ def _module_text(program, collection):
         if decl.shard:
             shard_dims = ", ".join(str(s) for s in decl.shard)
             map_attrs.append(f"spmw.shard = array<i64: {shard_dims}>")
+        if decl.fold is not None:
+            map_attrs.append(
+                "fold = array<i64: " + ", ".join(str(f) for f in decl.fold) + ">"
+            )
+        if decl.unroll is not None:
+            map_attrs.append(
+                "unroll = array<i64: " + ", ".join(str(u) for u in decl.unroll) + ">"
+            )
         halo_attrs = _halo_tasks(program, decl, collection)
         if halo_attrs:
             map_attrs.append(
