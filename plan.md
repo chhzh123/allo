@@ -1,5 +1,13 @@
 # SPMW: A Single-Program Multiple-Work-Unit Frontend for Allo
 
+> **Status (2026-07-09): M1 → M2 → M3 are complete and Codex-confirmed.** The committed scope —
+> the `allo.spmw` frontend, the rolled `spmw.map` dialect/passes, the O(#roles) HLS synthesis-time
+> win, and the hierarchy / collectives / structural-RTL backend — is implemented and verified on
+> real Vitis / Vivado 2023.2 (Alveo U280). **Active work starts at M4.** The M1–M3 milestones,
+> tasks, and §6 subsections below are struck through; delivered code lives in `allo/spmw*.py`,
+> `mlir/.../Dialect/SPMW`, `mlir/lib/Transforms/SPMW*`, and `tests/dataflow/spmw/`, with generated
+> MLIR / HLS / RTL examples in `examples/spmw_generated/`.
+
 ## Goal Description
 
 Build **SPMW**, a Python frontend (`allo.spmw`) plus a new `spmw` MLIR dialect, passes, and
@@ -218,17 +226,17 @@ for `spmw.shard`, while the new `spmw` dialect owns `spmw.map`/`spmw.rank`/topol
 ## Dependencies and Sequence
 
 ### Milestones
-1. **M1 — Frontend + rolled IR on the simulator (committed).** Python surface +
+1. ✅ **DONE** — ~~**M1 — Frontend + rolled IR on the simulator (committed).**~~ Python surface +
    `spmw.build(target=)`; the new `spmw` dialect (ops/attrs/verifier + registration + CMake);
    the logical `space=` memory model; frontend → rolled lowering (reuse `func_predicate_tags`,
    one role func per predicate tag); `spmw-unroll` → per-PID calls. Gate: bit-identical sim vs
    `df` (AC-1/AC-2/AC-3/AC-7).
-2. **M2 — Regularity to HLS, pure HLS (committed).** `spmw-role-partition`;
+2. ✅ **DONE** — ~~**M2 — Regularity to HLS, pure HLS (committed).**~~ `spmw-role-partition`;
    `spmw-resolve-channels` (streams → per-key FIFO arrays); HLS role emission + rolled
    instantiation loop under `#pragma HLS dataflow`. Gate: constant O(#roles) function bodies as
    the array scales + csim match (AC-4); synthesis wall-clock reported. Structural RTL and
    `ap_ctrl_none` are **not** in M2.
-3. **M3 — Hierarchy, collectives, structural RTL glue (committed top of scope).** Nesting +
+3. ✅ **DONE** — ~~**M3 — Hierarchy, collectives, structural RTL glue (committed top of scope).**~~ Nesting +
    `shard` + `scatter`/`gather` (fan-out keys); free-running `ap_ctrl_none` role-IP export;
    structural-Verilog emitter; `.xo`/`v++`/XRT + `target="vitis_rtl"`. Gate: structural `top.v`
    co-sims vs oracle; `test_multi_cache_gemm` L4 hw_emu; `test_systolic` L4 (AC-5).
@@ -259,23 +267,23 @@ Each task carries exactly one routing tag: `coding` (implemented by Claude) or `
 
 | Task ID | Description | Target AC | Tag | Depends On |
 |---------|-------------|-----------|-----|------------|
-| task1.1 | `allo.spmw` Python surface (unit/region/map, Topology/mesh, peer+key links, ctx.rank/port, roles, stream_in/out) | AC-1 | coding | - |
-| task1.2 | New `spmw` dialect: ops/attrs/verifier `.td` + C++, registration (CAPI + Python), CMake IncGen/subdir wiring | AC-2, AC-2.1 | coding | - |
-| task1.3 | Frontend → rolled `spmw.map` lowering (one role func per predicate tag; reuse func_predicate_tags) | AC-2, AC-3 | coding | task1.1, task1.2 |
-| task1.4 | `spmw-unroll` lowering → per-PID `func.call` | AC-3 | coding | task1.2, task1.3 |
-| task1.5 | M1 SPMW twins + oracle-diff harness (incl. mutation/diagnostic negatives) | AC-3, AC-9 | coding | task1.4 |
-| task1.6 | `spmw.build(target=)` dispatch (simulator, vitis_hls) integrated with `Schedule.build` | AC-1 | coding | task1.1 |
-| task1.7 | Logical `space=` memory-level model + resolver to `Memory` (shared/banked/view surface, resource= escape hatch) | AC-7 | coding | task1.1 |
-| task2.1 | `spmw-role-partition` (link-presence × predicate tag; degenerate-grid aware) | AC-4 | coding | task1.3 |
-| task2.2 | `spmw-resolve-channels` (streams): distinct keys → per-key FIFO arrays | AC-4 | coding | task2.1 |
-| task2.3 | HLS role emission + rolled instantiation loop under `#pragma HLS dataflow` | AC-4 | coding | task2.2 |
-| task2.4 | Role-partition soundness / interior-equivalence argument | AC-4 | analyze | task2.1 |
-| task2.5 | Synthesis-time measurement harness + 8/16/32 scaling experiment (defined metric) | AC-4 | analyze | task2.3 |
-| task3.1 | Nesting + `spmw.shard` (→ `allo.grid_map`) + `scatter`/`gather` (declared fan-out/fan-in keys) | AC-5 | coding | task2.2 |
-| task3.2 | Free-running `ap_ctrl_none` role-IP export (new emitter func attr) | AC-5 | coding | task2.3 |
-| task3.3 | Structural-Verilog emitter (walk `spmw.map` → generate loops + one FIFO per key) | AC-5 | coding | task3.2 |
-| task3.4 | `.xo`/`v++`/XRT packaging + `target="vitis_rtl"`; hierarchical IP reuse | AC-5 | coding | task3.3 |
-| task3.5 | Structural `top.v` co-sim vs the M1 oracle | AC-5 | coding | task3.4 |
+| ~~task1.1~~ ✅ | ~~`allo.spmw` Python surface (unit/region/map, Topology/mesh, peer+key links, ctx.rank/port, roles, stream_in/out)~~ | ~~AC-1~~ | ~~coding~~ | ~~-~~ |
+| ~~task1.2~~ ✅ | ~~New `spmw` dialect: ops/attrs/verifier `.td` + C++, registration (CAPI + Python), CMake IncGen/subdir wiring~~ | ~~AC-2, AC-2.1~~ | ~~coding~~ | ~~-~~ |
+| ~~task1.3~~ ✅ | ~~Frontend → rolled `spmw.map` lowering (one role func per predicate tag; reuse func_predicate_tags)~~ | ~~AC-2, AC-3~~ | ~~coding~~ | ~~task1.1, task1.2~~ |
+| ~~task1.4~~ ✅ | ~~`spmw-unroll` lowering → per-PID `func.call`~~ | ~~AC-3~~ | ~~coding~~ | ~~task1.2, task1.3~~ |
+| ~~task1.5~~ ✅ | ~~M1 SPMW twins + oracle-diff harness (incl. mutation/diagnostic negatives)~~ | ~~AC-3, AC-9~~ | ~~coding~~ | ~~task1.4~~ |
+| ~~task1.6~~ ✅ | ~~`spmw.build(target=)` dispatch (simulator, vitis_hls) integrated with `Schedule.build`~~ | ~~AC-1~~ | ~~coding~~ | ~~task1.1~~ |
+| ~~task1.7~~ ✅ | ~~Logical `space=` memory-level model + resolver to `Memory` (shared/banked/view surface, resource= escape hatch)~~ | ~~AC-7~~ | ~~coding~~ | ~~task1.1~~ |
+| ~~task2.1~~ ✅ | ~~`spmw-role-partition` (link-presence × predicate tag; degenerate-grid aware)~~ | ~~AC-4~~ | ~~coding~~ | ~~task1.3~~ |
+| ~~task2.2~~ ✅ | ~~`spmw-resolve-channels` (streams): distinct keys → per-key FIFO arrays~~ | ~~AC-4~~ | ~~coding~~ | ~~task2.1~~ |
+| ~~task2.3~~ ✅ | ~~HLS role emission + rolled instantiation loop under `#pragma HLS dataflow`~~ | ~~AC-4~~ | ~~coding~~ | ~~task2.2~~ |
+| ~~task2.4~~ ✅ | ~~Role-partition soundness / interior-equivalence argument~~ | ~~AC-4~~ | ~~analyze~~ | ~~task2.1~~ |
+| ~~task2.5~~ ✅ | ~~Synthesis-time measurement harness + 8/16/32 scaling experiment (defined metric)~~ | ~~AC-4~~ | ~~analyze~~ | ~~task2.3~~ |
+| ~~task3.1~~ ✅ | ~~Nesting + `spmw.shard` (→ `allo.grid_map`) + `scatter`/`gather` (declared fan-out/fan-in keys)~~ | ~~AC-5~~ | ~~coding~~ | ~~task2.2~~ |
+| ~~task3.2~~ ✅ | ~~Free-running `ap_ctrl_none` role-IP export (new emitter func attr)~~ | ~~AC-5~~ | ~~coding~~ | ~~task2.3~~ |
+| ~~task3.3~~ ✅ | ~~Structural-Verilog emitter (walk `spmw.map` → generate loops + one FIFO per key)~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.2~~ |
+| ~~task3.4~~ ✅ | ~~`.xo`/`v++`/XRT packaging + `target="vitis_rtl"`; hierarchical IP reuse~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.3~~ |
+| ~~task3.5~~ ✅ | ~~Structural `top.v` co-sim vs the M1 oracle~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.4~~ |
 | task4.1 | `fold`/`unroll` map attrs; wire shared/banked/view consumers onto the M1 memory model | AC-6 | coding | task2.2, task1.7 |
 | task4.2 | Channel → buffer reclassification | AC-6 | coding | task4.1 |
 | task4.3 | XOR/partition-function banking + static injectivity verify | AC-6 | coding | task4.2 |
@@ -1103,7 +1111,7 @@ here — the AIE backend is a separate lowering path and is left untouched.
 | **L3 Csynth** | synthesis completes; report captured | `mode="csyn"`; record LUT/FF/DSP/BRAM + latency/II, and synth wall-clock vs the flat `df` baseline |
 | **L4 Hw** | functional match on RTL/board | `mode="hw_emu"` (RTL cosim) or `mode="hw"` (on-board via XRT) |
 
-### M1 — Frontend + rolled IR on the simulator (proves the model)
+### ~~M1 — Frontend + rolled IR on the simulator (proves the model)~~  ✅ DONE
 
 | # | Task | Files | Test gate |
 |---|------|-------|-----------|
@@ -1116,7 +1124,7 @@ here — the AIE backend is a separate lowering path and is left untouched.
 `test_1D_systolic`, `test_cooperative_gemv`. **Gate:** each SPMW twin simulates to the
 same numbers as its `df` original. Deps: 1.1→1.3, 1.2→1.3→1.4.
 
-### M2 — Regularity to HLS (synthesis-time win, no new backend)
+### ~~M2 — Regularity to HLS (synthesis-time win, no new backend)~~  ✅ DONE
 
 | # | Task | Files | Test gate |
 |---|------|-------|-----------|
@@ -1130,7 +1138,7 @@ same numbers as its `df` original. Deps: 1.1→1.3, 1.2→1.3→1.4.
 **Gate:** synthesis wall-clock ~flat as the array scales (16×16→64×64) and csim/hw match.
 Deps: M1→2.1→2.2→2.3.
 
-### M3 — Hierarchy, collectives, structural RTL glue over HLS IPs
+### ~~M3 — Hierarchy, collectives, structural RTL glue over HLS IPs~~  ✅ DONE
 
 | # | Task | Files | Test gate |
 |---|------|-------|-----------|
