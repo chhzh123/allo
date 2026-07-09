@@ -3,10 +3,15 @@
 > **Status (2026-07-09): M1 → M2 → M3 are complete and Codex-confirmed.** The committed scope —
 > the `allo.spmw` frontend, the rolled `spmw.map` dialect/passes, the O(#roles) HLS synthesis-time
 > win, and the hierarchy / collectives / structural-RTL backend — is implemented and verified on
-> real Vitis / Vivado 2023.2 (Alveo U280). **Active work starts at M4.** The M1–M3 milestones,
-> tasks, and §6 subsections below are struck through; delivered code lives in `allo/spmw*.py`,
-> `mlir/.../Dialect/SPMW`, `mlir/lib/Transforms/SPMW*`, and `tests/dataflow/spmw/`, with generated
-> MLIR / HLS / RTL examples in `examples/spmw_generated/`.
+> real Vitis / Vivado 2023.2 (Alveo U280). **M4 is now in progress:** task4.1 (fold/unroll map
+> attrs + the memory-model emitter consumer honoring placed `resource=`) and task4.2 (fold-driven
+> channel→buffer reclassification in `spmw-resolve-channels`) are done and verified on
+> `brg-zhang-xcel`; task4.3 (XOR/F2 partition-function banking + injectivity) is next; task4.4
+> (FFT numerics) ports its datapath verbatim from the `feature/allo-fft` branch
+> (<https://github.com/chhzh123/allo/tree/feature/allo-fft>). Completed
+> milestones/tasks (M1–M3, and task4.1/task4.2) and the §6 subsections below are struck through;
+> delivered code lives in `allo/spmw*.py`, `mlir/.../Dialect/SPMW`, `mlir/lib/Transforms/SPMW*`,
+> and `tests/dataflow/spmw/`, with generated MLIR / HLS / RTL examples in `examples/spmw_generated/`.
 
 ## Goal Description
 
@@ -240,9 +245,11 @@ for `spmw.shard`, while the new `spmw` dialect owns `spmw.map`/`spmw.rank`/topol
    `shard` + `scatter`/`gather` (fan-out keys); free-running `ap_ctrl_none` role-IP export;
    structural-Verilog emitter; `.xo`/`v++`/XRT + `target="vitis_rtl"`. Gate: structural `top.v`
    co-sims vs oracle; `test_multi_cache_gemm` L4 hw_emu; `test_systolic` L4 (AC-5).
-4. **M4 — Folding, buffers, bank conflicts (stretch).** `fold`/`unroll`; channel→buffer
-   reclassification; XOR/`Layout` banking + partition-function + injectivity; non-affine key
-   functions; `test_fft`, `test_mini_tpu`. Gate: AC-6.
+4. **M4 — Folding, buffers, bank conflicts (stretch) — IN PROGRESS.** `fold`/`unroll` (task4.1 ✅);
+   channel→buffer reclassification (task4.2 ✅); XOR/`Layout` banking + partition-function +
+   injectivity (task4.3, next); non-affine key functions; `test_fft` (task4.4, FFT numerics from the
+   `feature/allo-fft` branch at <https://github.com/chhzh123/allo/tree/feature/allo-fft>),
+   `test_mini_tpu`. Gate: AC-6.
 5. **M5 — Fast simulator + perf estimation (stretch).** Coroutine sim; Tier-1 analytic SDF;
    Tier-2 token clock + role area characterization. Gate: AC-8.
 6. **M6 — Non-mesh topologies, sparse, robustness (stretch).** Butterfly/bitonic/crossbar/tree
@@ -284,10 +291,10 @@ Each task carries exactly one routing tag: `coding` (implemented by Claude) or `
 | ~~task3.3~~ ✅ | ~~Structural-Verilog emitter (walk `spmw.map` → generate loops + one FIFO per key)~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.2~~ |
 | ~~task3.4~~ ✅ | ~~`.xo`/`v++`/XRT packaging + `target="vitis_rtl"`; hierarchical IP reuse~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.3~~ |
 | ~~task3.5~~ ✅ | ~~Structural `top.v` co-sim vs the M1 oracle~~ | ~~AC-5~~ | ~~coding~~ | ~~task3.4~~ |
-| task4.1 | `fold`/`unroll` map attrs; wire shared/banked/view consumers onto the M1 memory model | AC-6 | coding | task2.2, task1.7 |
-| task4.2 | Channel → buffer reclassification | AC-6 | coding | task4.1 |
+| ~~task4.1~~ ✅ | ~~`fold`/`unroll` map attrs; wire shared/banked/view consumers onto the M1 memory model~~ | ~~AC-6~~ | ~~coding~~ | ~~task2.2, task1.7~~ |
+| ~~task4.2~~ ✅ | ~~Channel → buffer reclassification~~ | ~~AC-6~~ | ~~coding~~ | ~~task4.1~~ |
 | task4.3 | XOR/partition-function banking + static injectivity verify | AC-6 | coding | task4.2 |
-| task4.4 | Port FFT numerics (twiddle/DSP-skip/SIMD/F2 swizzle) verbatim from `feature/allo-fft` | AC-6 | coding | task4.3 |
+| task4.4 | Port FFT numerics (twiddle/DSP-skip/SIMD/F2 swizzle) verbatim from the [`feature/allo-fft`](https://github.com/chhzh123/allo/tree/feature/allo-fft) branch | AC-6 | coding | task4.3 |
 | task5.1 | Coroutine functional sim on rolled IR (task-per-PID; no OMP-section-per-PE) | AC-8 | coding | task1.4 |
 | task5.2 | Tier-1 analytic SDF model (throughput/latency/min-depth/deadlock) | AC-8 | coding | task5.1 |
 | task5.3 | Tier-2 token clock + role-area characterization; cross-check vs L3/L4 reports | AC-8 | analyze | task5.2, task2.5 |
