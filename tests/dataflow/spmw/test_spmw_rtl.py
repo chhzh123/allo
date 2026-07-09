@@ -250,9 +250,12 @@ def test_vitis_rtl_project_reuses_one_role_ip():
         "package.tcl",
         "build.sh",
     }
-    # hierarchical IP reuse: one pe_interior instantiation site in the synth top (the PE body is the
-    # exported IP RTL, not redefined in the top)
-    assert files["spmw_top.sv"].count("pe_interior #(.DW") == 1
+    # hierarchical IP reuse: the exported PE IP is instantiated exactly once -- inside the
+    # pe_row/pe_col generate loop that stamps it across the grid -- via the HLS IP ABI
+    # (ap_clk/ap_rst + ap_fifo stream ports), not the old parameterized-module form; its body is the
+    # exported IP RTL, never redefined in the top.
+    assert files["spmw_top.sv"].count("pe_interior") == 1
+    assert "pe_interior u_pe (.ap_clk(clk), .ap_rst(~rst_n)" in files["spmw_top.sv"]
     assert "module pe_interior" not in files["spmw_top.sv"]
     # the reusable PE IP is synthesized+exported once, and its RTL is bound into the hierarchy
     assert "export_design -format ip_catalog" in files["synth_ip.tcl"]
