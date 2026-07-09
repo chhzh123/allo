@@ -74,14 +74,18 @@ def SPMW_RoleAttr : SPMW_Attr<"Role", "role"> {
     `unit` is the per-role function; `missing` is the set of boundary port names
     whose absence selects this role. `ports`, when present, names the local port
     each of the role func's stream parameters carries, in signature order -- the
-    declaration-derived stream ABI the unroll pass binds channels by.
+    declaration-derived stream ABI the unroll pass binds channels by. `predicate`,
+    when present, is an affine map from the grid coordinate to an integer tag: grid
+    points that share a link-presence class but differ in this tag are distinct role
+    instances (e.g. a checkerboard interior split by `(i, j) -> (i + j) mod 2`).
   }];
   let parameters = (ins "::mlir::FlatSymbolRefAttr":$unit,
                         "::mlir::ArrayAttr":$missing,
-                        OptionalParameter<"::mlir::ArrayAttr">:$ports);
+                        OptionalParameter<"::mlir::ArrayAttr">:$ports,
+                        OptionalParameter<"::mlir::AffineMapAttr">:$predicate);
   let assemblyFormat = [{
     `<` `unit` `=` $unit `,` `missing` `=` $missing
-    (`,` `ports` `=` $ports^)? `>`
+    (`,` `ports` `=` $ports^)? (`,` `predicate` `=` $predicate^)? `>`
   }];
 }
 

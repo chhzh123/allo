@@ -444,3 +444,47 @@ def test_reciprocal_peer_element_type_mismatch_rejected():
     )
     with pytest.raises(Exception, match="mismatched element type"):
         _parse(bad)
+
+
+_CHECKERBOARD = """
+module {
+  func.func @pe(%a: memref<4x4xf32>) {
+    return
+  }
+  func.func @top(%A: memref<4x4xf32>) {
+    spmw.map (%A)
+      topology = #spmw.topology<grid = [4, 4], dims = 2, links = [
+        #spmw.peer_link<port = "east", map = affine_map<(i, j) -> (i, j + 1)>, peer = "west", depth = 2>,
+        #spmw.peer_link<port = "west", map = affine_map<(i, j) -> (i, j - 1)>, peer = "east", depth = 2>,
+        #spmw.peer_link<port = "north", map = affine_map<(i, j) -> (i - 1, j)>, peer = "south", depth = 2>,
+        #spmw.peer_link<port = "south", map = affine_map<(i, j) -> (i + 1, j)>, peer = "north", depth = 2>
+      ]>
+      roles = [#spmw.role<unit = @pe, missing = [], ports = [], predicate = affine_map<(i, j) -> ((i + j) mod 2)>>]
+      : memref<4x4xf32>
+    return
+  }
+}
+"""
+
+
+def test_role_partition_predicate_tag_splits_classes():
+    # a role carrying a predicate (an affine map from the coordinate to a tag) splits its
+    # link-presence class by that tag -- the AC-4 "link-presence x predicate tag" partition. The
+    # checkerboard predicate (i + j) mod 2 makes the pass classify by (missing ports, parity).
+    import re
+    from allo._mlir.passmanager import PassManager
+
+    module = _parse(_CHECKERBOARD)
+    with module.context:
+        PassManager.parse("builtin.module(spmw-role-partition)").run(module.operation)
+    text = str(module)
+    classes = [
+        int(x)
+        for x in re.search(r"spmw\.link_classes = array<i64: ([^>]*)>", text)
+        .group(1)
+        .split(",")
+    ]
+    # without the predicate a 4x4 mesh has 9 link-presence classes; the parity split makes more,
+    # and the classes still partition the 16 grid points
+    assert len(classes) > 9
+    assert sum(classes) == 16

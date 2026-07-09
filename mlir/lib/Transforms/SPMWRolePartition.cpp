@@ -37,6 +37,38 @@ using namespace mlir::allo;
 
 namespace {
 
+int64_t floorDiv(int64_t a, int64_t b) {
+  int64_t q = a / b, r = a % b;
+  return (r != 0 && ((r < 0) != (b < 0))) ? q - 1 : q;
+}
+
+/// Evaluate an affine expression (dims only) at a constant coordinate. Handles
+/// the full affine grammar -- add, mul, and the semi-affine mod / floordiv /
+/// ceildiv by a constant -- with MLIR's floor-based semantics, so a predicate
+/// like `(i + j) mod 2` folds to a constant tag.
+int64_t evalExpr(AffineExpr expr, ArrayRef<int64_t> coord) {
+  if (auto c = llvm::dyn_cast<AffineConstantExpr>(expr))
+    return c.getValue();
+  if (auto d = llvm::dyn_cast<AffineDimExpr>(expr))
+    return coord[d.getPosition()];
+  auto bin = llvm::cast<AffineBinaryOpExpr>(expr);
+  int64_t l = evalExpr(bin.getLHS(), coord), r = evalExpr(bin.getRHS(), coord);
+  switch (bin.getKind()) {
+  case AffineExprKind::Add:
+    return l + r;
+  case AffineExprKind::Mul:
+    return l * r;
+  case AffineExprKind::FloorDiv:
+    return floorDiv(l, r);
+  case AffineExprKind::CeilDiv:
+    return -floorDiv(-l, r);
+  case AffineExprKind::Mod:
+    return l - r * floorDiv(l, r);
+  default:
+    return 0;
+  }
+}
+
 /// Evaluate a static affine map (dims only, no symbols) at a constant
 /// coordinate.
 LogicalResult evalAffine(AffineMap map, ArrayRef<int64_t> coord,
@@ -44,17 +76,8 @@ LogicalResult evalAffine(AffineMap map, ArrayRef<int64_t> coord,
   if (map.getNumSymbols() != 0 ||
       map.getNumDims() != static_cast<unsigned>(coord.size()))
     return failure();
-  MLIRContext *ctx = map.getContext();
-  SmallVector<AffineExpr> repl;
-  for (int64_t c : coord)
-    repl.push_back(getAffineConstantExpr(c, ctx));
-  for (AffineExpr result : map.getResults()) {
-    auto constant =
-        llvm::dyn_cast<AffineConstantExpr>(result.replaceDims(repl));
-    if (!constant)
-      return failure();
-    out.push_back(constant.getValue());
-  }
+  for (AffineExpr result : map.getResults())
+    out.push_back(evalExpr(result, coord));
   return success();
 }
 
@@ -65,9 +88,12 @@ bool inBounds(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
   return true;
 }
 
-/// A role: the boundary ports whose absence selects it.
+/// A role: the boundary ports whose absence selects it, and an optional
+/// predicate (an affine map from the grid coordinate to an integer tag) that
+/// further splits grid points sharing its link-presence class.
 struct RoleInfo {
   SmallVector<StringRef> missing;
+  AffineMap predicate;
 };
 
 struct SPMWRolePartitionPass
@@ -121,6 +147,8 @@ struct SPMWRolePartitionPass
       RoleInfo info;
       for (Attribute edge : role.getMissing())
         info.missing.push_back(llvm::cast<StringAttr>(edge).getValue());
+      if (auto pred = role.getPredicate())
+        info.predicate = pred.getAffineMap();
       roles.push_back(info);
     }
 
@@ -153,17 +181,27 @@ struct SPMWRolePartitionPass
         if (!inBounds(peerCoord, grid))
           missing.push_back(peer.getPort());
       }
+      int role = selectRole(roles, missing);
+      if (role < 0)
+        return map.emitOpError("no unambiguous role fits a grid point");
+      ++counts[role];
+
       SmallVector<StringRef> sig(missing.begin(), missing.end());
       llvm::sort(sig);
       std::string key;
       for (StringRef port : sig)
         key += (key.empty() ? "" : ",") + port.str();
+      // A predicate on the selected role splits its link-presence class: two
+      // points in the same class but with different predicate tags are distinct
+      // instances.
+      if (AffineMap pred = roles[role].predicate) {
+        SmallVector<int64_t> tag;
+        if (failed(evalAffine(pred, coord, tag)))
+          return map.emitOpError("role predicate is not a static affine map");
+        for (int64_t t : tag)
+          key += "#" + std::to_string(t);
+      }
       ++linkClasses[key];
-
-      int role = selectRole(roles, missing);
-      if (role < 0)
-        return map.emitOpError("no unambiguous role fits a grid point");
-      ++counts[role];
     }
 
     SmallVector<int64_t> classCounts;
