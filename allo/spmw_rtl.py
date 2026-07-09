@@ -45,12 +45,16 @@ _RTL_WIRING = {
 }
 
 
-def emit_structural_verilog(region):
+def emit_structural_verilog(region, behavioral=False):
     """Emit a structural SystemVerilog ``spmw_top`` for the systolic ``region`` from its ``spmw.map``.
 
     Lowers to the rolled ``spmw.map``, runs ``spmw-role-partition`` + ``spmw-resolve-channels``, and
     reads the grid extents, channel families, and compute-role ports off the IR -- so the structure
     is derived from the rolled IR, not the frontend collection (as with the HLS emitter).
+
+    With ``behavioral=True`` the role modules carry simulation bodies (an FP MAC PE, the loaders and
+    drains) instead of the ap_fifo black boxes, so the same ``spmw_top`` is self-contained and can be
+    co-simulated against the numpy oracle. The wiring is identical either way.
     """
     # pylint: disable=import-outside-toplevel
     from .spmw import lower, _run_module_pass
@@ -104,7 +108,9 @@ def emit_structural_verilog(region):
         .split(",")
     ]
     fa_depth, fb_depth = max(depths[0], depth), max(depths[1], depth)
-    return _structural_top_sv(rows, cols, depth, dw, fa_depth, fb_depth, ports)
+    return _structural_top_sv(
+        rows, cols, depth, dw, fa_depth, fb_depth, ports, behavioral
+    )
 
 
 def _stream_port_decls(port, direction):
@@ -184,7 +190,110 @@ def _role_blackbox(name, ports, kind):
     return f"module {name} #(parameter DW = 32, parameter K = 4) (\n{body}\n);\n// role IP body: ap_ctrl_none export\nendmodule\n"
 
 
-def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports):
+def _behavioral_role_modules():
+    """Simulation bodies for the role modules (an FP MAC PE + loaders/drains) for cosim.
+
+    These implement the same ap_fifo ABI as the black boxes; the PE MACs in ``shortreal`` (matching
+    the numpy oracle's accumulation order) so the self-contained top computes ``A @ B``. Simulation
+    only -- ``shortreal`` and ``$bitstoshortreal`` are not synthesizable.
+    """
+    return (
+        "module pe_interior #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] west_dout,\n"
+        "  input  wire          west_empty_n,\n"
+        "  output wire          west_read,\n"
+        "  output wire [DW-1:0] east_din,\n"
+        "  input  wire          east_full_n,\n"
+        "  output wire          east_write,\n"
+        "  input  wire [DW-1:0] north_dout,\n"
+        "  input  wire          north_empty_n,\n"
+        "  output wire          north_read,\n"
+        "  output wire [DW-1:0] south_din,\n"
+        "  input  wire          south_full_n,\n"
+        "  output wire          south_write,\n"
+        "  output wire [DW-1:0] c_out,\n"
+        "  output wire          c_out_valid\n"
+        ");\n"
+        "  localparam READ = 2'd0, WRITE = 2'd1, DONE = 2'd2;\n"
+        "  reg [1:0]    state;\n"
+        "  reg [31:0]   k;\n"
+        "  shortreal    acc;\n"
+        "  reg [DW-1:0] a_reg, b_reg;\n"
+        "  reg          done;\n"
+        "  assign west_read   = (state == READ) && west_empty_n && north_empty_n;\n"
+        "  assign north_read  = west_read;\n"
+        "  assign east_write  = (state == WRITE) && east_full_n && south_full_n;\n"
+        "  assign south_write = east_write;\n"
+        "  assign east_din    = a_reg;\n"
+        "  assign south_din   = b_reg;\n"
+        "  assign c_out       = $shortrealtobits(acc);\n"
+        "  assign c_out_valid = done;\n"
+        "  always @(posedge clk) begin\n"
+        "    if (!rst_n) begin state <= READ; k <= 0; acc <= 0.0; done <= 0; end\n"
+        "    else case (state)\n"
+        "      READ: if (west_empty_n && north_empty_n) begin\n"
+        "              a_reg <= west_dout; b_reg <= north_dout;\n"
+        "              acc <= acc + $bitstoshortreal(west_dout) * $bitstoshortreal(north_dout);\n"
+        "              state <= WRITE;\n"
+        "            end\n"
+        "      WRITE: if (east_full_n && south_full_n) begin\n"
+        "               if (k == K - 1) begin state <= DONE; done <= 1; end\n"
+        "               else begin k <= k + 1; state <= READ; end\n"
+        "             end\n"
+        "      DONE: ;\n"
+        "    endcase\n"
+        "  end\n"
+        "endmodule\n"
+        "\n"
+        "module load_a #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] a_row [0:K-1],\n"
+        "  output wire [DW-1:0] out_din,\n"
+        "  input  wire          out_full_n,\n"
+        "  output wire          out_write\n"
+        ");\n"
+        "  reg [31:0] k; reg active;\n"
+        "  assign out_write = active && out_full_n;\n"
+        "  assign out_din   = a_row[k];\n"
+        "  always @(posedge clk) begin\n"
+        "    if (!rst_n) begin k <= 0; active <= 1; end\n"
+        "    else if (out_write) begin if (k == K - 1) active <= 0; else k <= k + 1; end\n"
+        "  end\n"
+        "endmodule\n"
+        "\n"
+        "module load_b #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] b_col [0:K-1],\n"
+        "  output wire [DW-1:0] out_din,\n"
+        "  input  wire          out_full_n,\n"
+        "  output wire          out_write\n"
+        ");\n"
+        "  reg [31:0] k; reg active;\n"
+        "  assign out_write = active && out_full_n;\n"
+        "  assign out_din   = b_col[k];\n"
+        "  always @(posedge clk) begin\n"
+        "    if (!rst_n) begin k <= 0; active <= 1; end\n"
+        "    else if (out_write) begin if (k == K - 1) active <= 0; else k <= k + 1; end\n"
+        "  end\n"
+        "endmodule\n"
+        "\n"
+        "module drain #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] in_dout,\n"
+        "  input  wire          in_empty_n,\n"
+        "  output wire          in_read\n"
+        ");\n"
+        "  assign in_read = in_empty_n;\n"
+        "endmodule\n"
+    )
+
+
+def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral):
     """The structural ``spmw_top``: one role instance per grid point + one FIFO per channel."""
     del ports  # the systolic wiring is fixed (validated by the caller)
 
@@ -201,17 +310,20 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports):
         )
 
     pe_conn = ",\n".join(conn(port, wire) for port, wire in _RTL_WIRING.items())
+    if behavioral:
+        role_modules = _behavioral_role_modules()
+    else:
+        role_modules = (
+            _role_blackbox("pe_interior", ["west", "east", "north", "south"], "pe")
+            + "\n"
+            + _role_blackbox("load_a", [], "load_a")
+            + "\n"
+            + _role_blackbox("load_b", [], "load_b")
+            + "\n"
+            + _role_blackbox("drain", [], "drain")
+        )
     return (
-        _fifo_module()
-        + "\n"
-        + _role_blackbox("pe_interior", ["west", "east", "north", "south"], "pe")
-        + "\n"
-        + _role_blackbox("load_a", [], "load_a")
-        + "\n"
-        + _role_blackbox("load_b", [], "load_b")
-        + "\n"
-        + _role_blackbox("drain", [], "drain")
-        + "\n"
+        "`timescale 1ns/1ps\n\n" + _fifo_module() + "\n" + role_modules + "\n"
         f"module spmw_top #(parameter M = {rows}, parameter N = {cols}, parameter K = {k},\n"
         f"                  parameter DW = {dw}, parameter DA = {fa_depth}, parameter DB = {fb_depth}) (\n"
         "  input  wire          clk,\n"
@@ -350,3 +462,72 @@ def emit_role_ip_project(region, project=None, part=None, frequency=None):
         with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as handle:
             handle.write(_role_ip_tcl(part, frequency))
     return hls_code
+
+
+def emit_cosim_testbench(region):
+    """A self-checking testbench that drives A/B, runs ``spmw_top``, and checks ``C`` against A@B.
+
+    Both the DUT PE and the reference sum ``sum_k A[i][k]*B[k][j]`` in ``shortreal`` in the same
+    k-order, so the comparison is against the same oracle the M1 twins match numpy on.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _resolve_dims
+
+    rows, cols, k, _dtype = _resolve_dims(region)
+    return (
+        "`timescale 1ns/1ps\n"
+        "module tb;\n"
+        f"  localparam M = {rows}, N = {cols}, K = {k}, DW = 32;\n"
+        "  reg clk = 0, rst_n = 0;\n"
+        "  reg  [DW-1:0] A [0:M-1][0:K-1];\n"
+        "  reg  [DW-1:0] B [0:K-1][0:N-1];\n"
+        "  wire [DW-1:0] C [0:M-1][0:N-1];\n"
+        "  spmw_top dut (.clk(clk), .rst_n(rst_n), .A(A), .B(B), .C(C));\n"
+        "  always #5 clk = ~clk;\n"
+        "  integer i, j, kk, errors;\n"
+        "  shortreal exp_c, got_c;\n"
+        "  initial begin\n"
+        "    for (i = 0; i < M; i = i + 1) for (kk = 0; kk < K; kk = kk + 1)\n"
+        "      A[i][kk] = $shortrealtobits(shortreal'(i + kk + 1) * 0.5);\n"
+        "    for (kk = 0; kk < K; kk = kk + 1) for (j = 0; j < N; j = j + 1)\n"
+        "      B[kk][j] = $shortrealtobits(shortreal'(kk + j + 1) * 0.25);\n"
+        "    rst_n = 0; #20; rst_n = 1;\n"
+        "    #5000;\n"
+        "    errors = 0;\n"
+        "    for (i = 0; i < M; i = i + 1) for (j = 0; j < N; j = j + 1) begin\n"
+        "      exp_c = 0.0;\n"
+        "      for (kk = 0; kk < K; kk = kk + 1)\n"
+        "        exp_c = exp_c + $bitstoshortreal(A[i][kk]) * $bitstoshortreal(B[kk][j]);\n"
+        "      got_c = $bitstoshortreal(C[i][j]);\n"
+        "      if ((got_c - exp_c > 0.001) || (exp_c - got_c > 0.001)) begin\n"
+        "        errors = errors + 1;\n"
+        '        $display("MISMATCH C[%0d][%0d] exp=%f got=%f", i, j, exp_c, got_c);\n'
+        "      end\n"
+        "    end\n"
+        '    if (errors == 0) $display("COSIM PASS");\n'
+        '    else $display("COSIM FAIL %0d", errors);\n'
+        "    $finish;\n"
+        "  end\n"
+        "endmodule\n"
+    )
+
+
+def emit_cosim_project(region, project=None):
+    """Write the self-contained cosim project: the behavioral ``spmw_top`` + testbench + xsim script."""
+    # pylint: disable=import-outside-toplevel
+    import os
+
+    dut = emit_structural_verilog(region, behavioral=True)
+    testbench = emit_cosim_testbench(region)
+    if project is not None:
+        os.makedirs(project, exist_ok=True)
+        with open(os.path.join(project, "dut.sv"), "w", encoding="utf-8") as handle:
+            handle.write(dut)
+        with open(os.path.join(project, "tb.sv"), "w", encoding="utf-8") as handle:
+            handle.write(testbench)
+        with open(os.path.join(project, "run.sh"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "#!/bin/bash\nset -e\n"
+                "xvlog -sv dut.sv tb.sv\nxelab tb -s sim\nxsim sim -R\n"
+            )
+    return dut, testbench

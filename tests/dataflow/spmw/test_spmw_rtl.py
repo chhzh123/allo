@@ -10,7 +10,12 @@ import tempfile
 import pytest
 import allo.spmw as spmw
 import allo.backend.hls as hls
-from allo.spmw_rtl import emit_structural_verilog, emit_role_ip, emit_role_ip_project
+from allo.spmw_rtl import (
+    emit_structural_verilog,
+    emit_role_ip,
+    emit_role_ip_project,
+    emit_cosim_project,
+)
 from allo.ir.types import float32
 
 
@@ -179,3 +184,45 @@ def test_role_ip_csynths_free_running_ap_fifo():
     assert "ap_start" not in header and "ap_done" not in header
     for sig in ("west_dout", "east_din", "north_dout", "south_din", "c_out_din"):
         assert sig in header, header
+
+
+def test_behavioral_top_is_self_contained():
+    # behavioral mode fills the role modules with simulation bodies (an FP MAC PE, loaders, drains)
+    # instead of black boxes, so the same spmw_top is a self-contained, simulatable design
+    sv = emit_structural_verilog(_systolic_twin(2, 2, 2), behavioral=True)
+    assert "// role IP body: ap_ctrl_none export" not in sv
+    assert "$bitstoshortreal" in sv  # the FP MAC datapath in the PE
+    assert "`timescale" in sv
+
+
+@pytest.mark.skipif(shutil.which("xsim") is None, reason="requires Vivado xsim")
+def test_structural_top_cosim_matches_oracle():
+    # the behavioral structural top computes A@B: xsim of the self-contained spmw_top + a self-checking
+    # testbench reports COSIM PASS (C matches the shortreal oracle) -- the RTL-path correctness gate
+    with tempfile.TemporaryDirectory() as tmp:
+        emit_cosim_project(_systolic_twin(2, 2, 2), project=tmp)
+        subprocess.run(
+            ["xvlog", "-sv", "dut.sv", "tb.sv"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+        subprocess.run(
+            ["xelab", "tb", "-s", "sim"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+        result = subprocess.run(
+            ["xsim", "sim", "-R"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+    assert "COSIM PASS" in result.stdout, result.stdout
