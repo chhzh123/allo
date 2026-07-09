@@ -111,7 +111,7 @@ class Partition:
     Cyclic = 2
 
 
-class Schedule:
+class Schedule:  # pylint: disable=too-many-public-methods
     def __init__(
         self,
         module,
@@ -801,6 +801,190 @@ class Schedule:
         eletype = MemRefType(target.result.type).element_type
         memref_type = MemRefType.get(shape, eletype)
         allo_d.ReshapeOp(memref_type, target.result, ip=self.ip)
+
+    @wrapped_apply
+    def bind_storage(self, target, impl, storage_type=""):
+        """
+        Annotates a local array with a bind_storage pragma for HLS synthesis.
+
+        Emits: #pragma HLS bind_storage variable=<target> type=<storage_type> impl=<impl>
+
+        Parameters
+        ----------
+        target: str
+            "func_name:buf_name" identifying the local buffer.
+        impl: str
+            Implementation type: "bram", "uram", "lutram", "srl".
+        storage_type: str
+            Storage interface type: "ram_1p", "ram_2p", "ram_t2p", "ram_s2p", etc.
+            Default "" lets HLS choose.
+        """
+        impl_codes = {"bram": 1, "uram": 2, "lutram": 3, "srl": 4}
+        storage_codes = {
+            "": 0,
+            "ram_1p": 1,
+            "ram_2p": 2,
+            "ram_t2p": 3,
+            "ram_1wnr": 4,
+            "ram_s2p": 5,
+            "rom_1p": 6,
+            "rom_2p": 7,
+            "rom_np": 8,
+        }
+        impl_code = impl_codes.get(impl.lower(), 0)
+        storage_code = storage_codes.get(storage_type.lower(), 0)
+        enc = impl_code * 16 + storage_code
+
+        if isinstance(target, str):
+            func_name, buf_name = target.split(":")
+            target = MockBuffer(func_name, buf_name)
+
+        _, _, mlir_target = find_buffer(self.module, target, self.func_args)
+        i32 = IntegerType.get_signless(32)
+        mlir_target.attributes["bind_storage"] = IntegerAttr.get(i32, enc)
+
+    @wrapped_apply
+    def dependence(self, target, dep_type="inter", direction="false"):
+        """
+        Annotates a local array with a dependence pragma for HLS synthesis.
+
+        Emits: #pragma HLS dependence variable=<target> inter false
+
+        Parameters
+        ----------
+        target: str
+            "func_name:buf_name" identifying the local buffer.
+        dep_type: str
+            "inter" (cross-iteration) or "intra" (within-iteration). Default "inter".
+        direction: str
+            "false" (no dependency) or "true". Default "false".
+        """
+        if dep_type == "inter" and direction == "false":
+            if isinstance(target, str):
+                func_name, buf_name = target.split(":")
+                target = MockBuffer(func_name, buf_name)
+            _, _, mlir_target = find_buffer(self.module, target, self.func_args)
+            mlir_target.attributes["dependence_inter_false"] = UnitAttr.get()
+
+    @wrapped_apply
+    def f2_layout(self, target, n_bits, bank_bits, stride_bit=None, banking="cyclic"):
+        """Apply conflict-free bank partitioning to a 1D buffer.
+
+        Transforms a 1D buffer to 2D [num_banks, depth] with computed
+        bank/offset indexing for conflict-free parallel access.
+
+        Also applies ARRAY_PARTITION complete dim=1, BIND_STORAGE ram_2p lutram,
+        and DEPENDENCE inter false automatically.
+
+        Parameters
+        ----------
+        target: str
+            "func_name:buf_name" identifying the 1D local buffer.
+        n_bits: int
+            Total address bits (= log2(array_size)).
+        bank_bits: int
+            Bank selection bits (= log2(num_banks)).
+        stride_bit: int or None
+            For banking="cyclic": butterfly stride bit for F2 XOR swizzle.
+            Ignored for banking="block".
+        banking: str
+            "cyclic" (default): bank = lower bits with F2 XOR swizzle.
+            "block": bank = upper bits, offset = lower bits.
+        """
+        # pylint: disable=import-outside-toplevel
+        from allo.transform.f2_layout import apply_f2_layout
+
+        if isinstance(target, str):
+            func_name, buf_name = target.split(":")
+        else:
+            func_name, buf_name = target.func, target.name
+
+        # For block banking, pass offset_bits (= n_bits - bank_bits) via stride_bit
+        effective_stride_bit = stride_bit
+        if banking == "block":
+            effective_stride_bit = n_bits - bank_bits
+
+        apply_f2_layout(
+            self.module,
+            func_name,
+            buf_name,
+            self.func_args,
+            n_bits,
+            bank_bits,
+            effective_stride_bit,
+            banking=banking,
+        )
+
+        # Apply partition, bind_storage, and dependence on the new 2D buffer
+        target_buf = MockBuffer(func_name, buf_name)
+        self.partition(target_buf, partition_type=Partition.Complete, dim=1)
+        self.bind_storage(
+            f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p"
+        )
+        self.dependence(f"{func_name}:{buf_name}")
+
+    @wrapped_apply
+    def auto_f2(self, kernel_names=None):
+        """Automatically detect and apply F2 bank-conflict-free layouts.
+
+        Analyzes all 1D buffers in specified kernels and automatically
+        determines the optimal partitioning scheme using F2 symbolic
+        execution of MLIR SSA chains. Replaces manual s.f2_layout() calls.
+
+        For each 1D buffer:
+        1. Walks all load/store accesses and their enclosing loops
+        2. Symbolically executes index expressions over F2
+        3. Builds the conflict subspace from parallel accesses
+        4. Solves for the partition matrix using F2LayoutSolver
+        5. Applies the 1D->2D layout transform with banking and pragmas
+
+        Parameters
+        ----------
+        kernel_names: list[str] or None
+            Kernel function names to analyze, or None for all kernels.
+        """
+        # pylint: disable=import-outside-toplevel
+        from allo.transform.auto_f2 import auto_apply_f2
+
+        applied = auto_apply_f2(
+            self.module,
+            self.top_func_name,
+            self.func_args,
+            kernel_names=kernel_names,
+        )
+
+        # Apply partition, bind_storage, and dependence on each transformed buffer
+        for func_name, buf_name, _banking, _bank_bits, _stride in applied:
+            target_buf = MockBuffer(func_name, buf_name)
+            self.partition(target_buf, partition_type=Partition.Complete, dim=1)
+            self.bind_storage(
+                f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p"
+            )
+            self.dependence(f"{func_name}:{buf_name}")
+
+    @wrapped_apply
+    def partition_global(self, name_prefix):
+        """Mark all global constants whose sym_name starts with `name_prefix`
+        for complete array partitioning.  Emits:
+          ``#pragma HLS array_partition variable=<sym> complete``
+        after each matching global declaration in the generated HLS output.
+
+        Parameters
+        ----------
+        name_prefix: str
+            The Python-level variable name (e.g., "twr").  All MLIR globals
+            whose ``sym_name`` equals ``name_prefix`` or starts with
+            ``name_prefix + "_"`` will be tagged.
+        """
+        matched = 0
+        for op in self.module.body.operations:
+            if isinstance(op, memref_d.GlobalOp):
+                sym = op.sym_name.value
+                if sym == name_prefix or sym.startswith(name_prefix + "_"):
+                    op.attributes["partition_complete"] = UnitAttr.get()
+                    matched += 1
+        if matched == 0:
+            raise RuntimeError(f"No global found matching prefix '{name_prefix}'")
 
     @wrapped_apply
     def pipeline(self, axis, initiation_interval=1, rewind=False):
