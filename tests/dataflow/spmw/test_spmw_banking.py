@@ -16,8 +16,8 @@ from allo.spmw_hls import emit_rolled_hls_ir
 from allo.ir.types import float32
 
 
-def _twin(M, N, K, placements=()):
-    """A systolic GEMM twin with optional ``spmw.place`` calls (each a ``(operand_name, buffer)``)."""
+def _twin(M, N, K, placements=(), fold=None):
+    """A systolic GEMM twin with optional ``spmw.place`` calls and an optional ``fold``."""
     grid = spmw.mesh((M, N))
 
     @spmw.unit
@@ -33,7 +33,7 @@ def _twin(M, N, K, placements=()):
 
     @spmw.region()
     def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
-        spmw.map(pe, grid=grid)
+        spmw.map(pe, grid=grid, fold=fold)
         spmw.stream_in(A, into=pe, flow="W->E")
         spmw.stream_in(B, into=pe, flow="N->S")
         spmw.stream_out(C, from_=pe, where="local", as_="c_local")
@@ -138,3 +138,36 @@ def test_banked_A_operand_rejected_by_emitter():
     )
     with pytest.raises(NotImplementedError, match="output C"):
         emit_rolled_hls_ir(twin)
+
+
+# --- folded buffer families materialized as real banked on-chip buffers -------------------------
+
+
+def test_folded_map_materializes_a_banked_on_chip_buffer():
+    # fold={"col": 2} reclassifies the east/west (A) family to a buffer (spmw.buffer_families); the
+    # emitter no longer rejects it and materializes A as a REAL 2D-banked on-chip buffer that the
+    # loader reads by (bank, offset) -- the A-forwarding now flows through addressed banked storage,
+    # not a FIFO family.
+    cpp = emit_rolled_hls_ir(_twin(4, 4, 4, fold={"col": 2}))
+    assert (
+        "A_bank[2][2][K]" in cpp
+    )  # real [banks][depth][K] on-chip buffer (M=4, 2 banks)
+    assert "#pragma HLS array_partition variable=A_bank complete dim=1" in cpp
+    # the loader reads A through bank/offset (routing the family through the buffer)
+    assert "out.write(A_bank[" in cpp and "][k]);" in cpp
+    # B (north/south) stays a FIFO family
+    assert "fb[M + 1][N]" in cpp
+
+
+def test_unfolded_map_has_no_banked_a_buffer():
+    # the spatial (unfolded) path is unchanged -- A stays a FIFO family, no A_bank buffer
+    cpp = emit_rolled_hls_ir(_twin(4, 4, 4))
+    assert "A_bank" not in cpp
+    assert "load_a(A, i, fa[i][0])" in cpp
+
+
+def test_unsupported_folded_shape_is_rejected():
+    # fold along the row axis reclassifies north/south (B), not east/west -- an unsupported folded
+    # shape the emitter rejects clearly rather than mis-emitting
+    with pytest.raises(NotImplementedError, match="folded rolled emitter"):
+        emit_rolled_hls_ir(_twin(4, 4, 4, fold={"row": 2}))

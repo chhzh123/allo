@@ -288,6 +288,84 @@ def _rolled_top_cpp(  # pylint: disable=too-many-arguments
     )
 
 
+def _folded_top_cpp(rows, cols, depth, elem, pe_defs, pe_dispatch, fb_depth, a_banks):
+    """A *folded* systolic top: the east/west (A) family is reclassified to a real F2-banked on-chip
+    buffer under fold, filled from A and read by the boundary loader via ``bank/offset``; B
+    (north/south) stays a FIFO. Realizes the AC-6 folded channel->buffer->banking path for the
+    systolic mesh -- the A-forwarding no longer flows through a FIFO family but through addressed,
+    conflict-free banked storage.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .transform.f2_layout import F2LayoutSolver
+
+    n_bits = rows.bit_length() - 1
+    bank_bits = a_banks.bit_length() - 1
+    helper = F2LayoutSolver(n_bits, bank_bits).solve([])  # cyclic banking of the row axis
+    num_banks, a_depth = helper.dims()
+    bank_i, off_i = helper.bank_expr("i"), helper.offset_expr("i")
+    return (
+        "#include <hls_stream.h>\n"
+        f"#define M {rows}\n"
+        f"#define N {cols}\n"
+        f"#define K {depth}\n\n"
+        f"{pe_defs}\n"
+        # A lives in a real banked on-chip buffer; the loader reads it by (bank, offset).
+        f"void load_a({elem} A_bank[{num_banks}][{a_depth}][K], int i, "
+        f"hls::stream<{elem}> &out) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        f"    out.write(A_bank[{bank_i}][{off_i}][k]);\n"
+        "}\n\n"
+        f"void load_b({elem} B[K][N], int j, hls::stream<{elem}> &out) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    out.write(B[k][j]);\n"
+        "}\n\n"
+        f"void drain(hls::stream<{elem}> &in) {{\n"
+        "  for (int k = 0; k < K; k++)\n"
+        "    in.read();\n"
+        "}\n\n"
+        f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
+        "#pragma HLS dataflow\n"
+        # materialize the folded A family as a real F2-banked on-chip buffer, filled from A
+        f"  {elem} A_bank[{num_banks}][{a_depth}][K];\n"
+        "#pragma HLS array_partition variable=A_bank complete dim=1\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    for (int k = 0; k < K; k++) {\n"
+        "#pragma HLS unroll\n"
+        f"      A_bank[{bank_i}][{off_i}][k] = A[i][k];\n"
+        "    }\n"
+        "  }\n"
+        f"  hls::stream<{elem}> fa[M][N + 1];\n"
+        f"  hls::stream<{elem}> fb[M + 1][N];\n"
+        f"#pragma HLS stream variable=fa depth={max(depth, 2)}\n"
+        f"#pragma HLS stream variable=fb depth={fb_depth}\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    load_a(A_bank, i, fa[i][0]);\n"
+        "  }\n"
+        "  for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        "    load_b(B, j, fb[0][j]);\n"
+        "  }\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        f"{pe_dispatch}\n"
+        "    }\n"
+        "  }\n"
+        "  for (int i = 0; i < M; i++) {\n"
+        "#pragma HLS unroll\n"
+        "    drain(fa[i][N]);\n"
+        "  }\n"
+        "  for (int j = 0; j < N; j++) {\n"
+        "#pragma HLS unroll\n"
+        "    drain(fb[M][j]);\n"
+        "  }\n"
+        "}\n"
+    )
+
+
 def _rolled_csynth_tcl(part, frequency, with_testbench=False):
     """A Vitis HLS script for a stand-alone rolled ``top`` project.
 
@@ -588,16 +666,29 @@ def emit_rolled_hls_ir(region):
     _run_module_pass(module, "spmw-resolve-channels")
     ir = str(module)
 
-    # The channel families the resolver produced are the FIFO arrays the rolled top declares; the
-    # rolled emitter wires the two systolic families (A along east/west, B along north/south).
-    families = re.findall(
-        r'"([^"]+)"',
-        re.search(r"spmw\.channel_families = \[([^\]]*)\]", ir).group(1),
-    )
-    if sorted(families) != ["east/west", "north/south"]:
+    # The channel families the resolver produced are FIFO arrays the rolled top declares; a family
+    # reclassified to a buffer under fold (spmw.buffer_families) is materialized as a real F2-banked
+    # on-chip buffer instead. The systolic emitter wires A along east/west and B along north/south.
+    def _families(attr):
+        match = re.search(re.escape(attr) + r" = \[([^\]]*)\]", ir)
+        return re.findall(r'"([^"]+)"', match.group(1)) if match else []
+
+    stream_families = _families("spmw.channel_families")
+    buffer_families = _families("spmw.buffer_families")
+    if buffer_families:
+        # A folded systolic mesh: the A-forwarding (east/west) is reclassified to a banked on-chip
+        # buffer; B (north/south) stays a FIFO. Only this shape is realized so far.
+        if sorted(buffer_families) != ["east/west"] or sorted(stream_families) != [
+            "north/south"
+        ]:
+            raise NotImplementedError(
+                f"folded rolled emitter realizes an east/west buffer + north/south stream; got "
+                f"buffer families {buffer_families}, stream families {stream_families}"
+            )
+    elif sorted(stream_families) != ["east/west", "north/south"]:
         raise NotImplementedError(
             f"IR-driven rolled emitter handles the systolic east/west + north/south families; "
-            f"got {families}"
+            f"got {stream_families}"
         )
     # The compute roles (the link-presence interior plus any predicate-selected variants) must
     # together tile the grid; the emitter stamps one distinct body per role, never one per point.
@@ -644,6 +735,24 @@ def emit_rolled_hls_ir(region):
         _bank_functions_from_ir(ir), rows, elem
     )
     pe_dispatch = _pe_dispatch(roles, wired, c_ref)
+    if buffer_families:
+        # Folded map: A (east/west) is reclassified to a banked on-chip buffer; B (north/south) stays
+        # a FIFO. Bank A on the row axis into `a_banks` = the fold factor along the east/west
+        # (column) connection axis.
+        fold = re.search(r"fold = array<i64: ([^>]*)>", ir).group(1).split(",")
+        a_banks = int(fold[1])
+        if a_banks & (a_banks - 1) != 0:
+            raise NotImplementedError(
+                f"folded rolled emitter needs a power-of-two fold factor for banking; got {a_banks}"
+            )
+        b_depth = int(
+            re.search(r"spmw\.channel_family_depths = array<i64: ([^>]*)>", ir)
+            .group(1)
+            .split(",")[0]
+        )
+        return _folded_top_cpp(
+            rows, cols, depth, elem, pe_defs, pe_dispatch, max(b_depth, depth), a_banks
+        )
     # The per-family FIFO depths the resolver recorded, in the canonical family order
     # (channel_families sorted: "east/west" then "north/south"), each floored at K.
     depths = [
