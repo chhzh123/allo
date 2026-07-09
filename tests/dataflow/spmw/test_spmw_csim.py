@@ -126,3 +126,61 @@ def test_rolled_top_csim_matches_reference():
             check=True,
         )
         assert "CSIM MATCH" in result.stdout, result.stdout[-2000:]
+
+
+def _checkerboard_twin(n):
+    grid = spmw.mesh((n, n))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 + d1) mod 2")
+    def pe_odd(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a + b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[n, 4], B: float32[4, n], C: float32[n, n]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_predicate_variant_top_csynths_two_distinct_bodies():
+    # the checkerboard variant top csynths on real Vitis, and the tool synthesizes the two predicate
+    # tags as TWO distinct modules (pe_interior and pe_variant0) -- HLS does not merge them.
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(_checkerboard_twin(4), target="rolled", project=tmp)
+        subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=True,
+        )
+        report = os.path.join(tmp, "rolled.prj", "solution1", "syn", "report")
+        rpts = os.listdir(report)
+    # both predicate-tag bodies are synthesized as their own modules -- not merged into one
+    assert any("pe_interior" in name for name in rpts), rpts
+    assert any("pe_variant0" in name for name in rpts), rpts
