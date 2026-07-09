@@ -730,8 +730,8 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=Non
             if not _is_power_of_2(buf_size):
                 continue
 
-            # Skip buffers with uses that apply_f2_layout can't rewrite
-            # (e.g., allo.stream_put/get, func.return, etc.).
+            # Uses apply_f2_layout can rewrite. A buffer with any *other* use (allo.stream_put/get,
+            # func.return, ...) cannot be safely banked.
             _handled_ops = {
                 "memref.load",
                 "memref.store",
@@ -739,17 +739,13 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=Non
                 "affine.store",
                 "allo.partition",
             }
-            has_unhandled_use = False
-            for use in alloc_op.result.uses:
-                if use.owner.name not in _handled_ops:
-                    _debug_auto_f2 and print(
-                        f"  [auto_f2] {fn_name}:{buf_name} skip: "
-                        f"unhandled use {use.owner.name}"
-                    )
-                    has_unhandled_use = True
-                    break
-            if has_unhandled_use:
-                continue
+            unhandled = sorted(
+                {
+                    use.owner.name
+                    for use in alloc_op.result.uses
+                    if use.owner.name not in _handled_ops
+                }
+            )
 
             n_addr_bits = int(math.log2(buf_size))
             P, parallel_var_bits, loop_info = analyze_buffer_conflicts(
@@ -761,8 +757,18 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=Non
             )
 
             if P.shape[1] == 0:
-                # No conflicts detected
+                # No bank conflicts -> no banking needed, whatever the other uses are.
                 continue
+
+            # Fail closed BEFORE skipping: a buffer that needs a conflict-free layout but is accessed
+            # in a way we cannot remap must reject clearly, not be silently left unbanked.
+            if unhandled:
+                raise RuntimeError(
+                    f"auto_f2: {fn_name}:{buf_name} needs a bank-conflict-free layout (conflict "
+                    f"subspace dim {_gf2_rank(P.T)}) but has accesses this transform cannot rewrite "
+                    f"({unhandled}); refusing to leave it unbanked. Restructure the accesses or "
+                    f"exclude the kernel."
+                )
 
             # Determine bank_bits from parallel variable dimensions
             effective_bank_bits = bank_bits

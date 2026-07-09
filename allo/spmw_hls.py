@@ -199,7 +199,7 @@ def _memory_pragmas(memory_placements):
     return "".join(lines)
 
 
-def _rolled_top_cpp(
+def _rolled_top_cpp(  # pylint: disable=too-many-arguments
     rows,
     cols,
     depth,
@@ -209,6 +209,8 @@ def _rolled_top_cpp(
     fa_depth,
     fb_depth,
     memory_placements=None,
+    bank_decl="",
+    bank_writeback="",
 ):
     """The rolled systolic HLS top for the compute-role body definitions ``pe_defs``.
 
@@ -253,6 +255,7 @@ def _rolled_top_cpp(
         # interface read by more than one dataflow process, plus any bind_storage the memory model
         # pinned.
         f"{_memory_pragmas(memory_placements)}"
+        f"{bank_decl}"
         f"  hls::stream<{elem}> fa[M][N + 1];\n"
         f"  hls::stream<{elem}> fb[M + 1][N];\n"
         f"#pragma HLS stream variable=fa depth={fa_depth}\n"
@@ -280,6 +283,7 @@ def _rolled_top_cpp(
         "#pragma HLS unroll\n"
         "    drain(fb[M][j]);\n"
         "  }\n"
+        f"{bank_writeback}"
         "}\n"
     )
 
@@ -508,6 +512,64 @@ def _memory_placements_from_ir(ir, ordered_operands):
     return placements
 
 
+def _bank_functions_from_ir(ir):
+    """Parse the top func's ``spmw.bank_functions`` -> ``{tensor: {banks, stride, mode, axis}}``."""
+    match = re.search(r"spmw\.bank_functions = \[([^\]]*)\]", ir, re.DOTALL)
+    if not match:
+        return {}
+    functions = {}
+    for entry in re.findall(r'"([^"]+)"', match.group(1)):
+        tensor, banks, stride, mode, axis = entry.split(":")
+        functions[tensor] = {
+            "banks": int(banks),
+            "stride": int(stride),
+            "mode": mode,
+            "axis": int(axis),
+        }
+    return functions
+
+
+def _banked_c_storage(bank_functions, rows, elem):
+    """Realize F2 banking of the output operand ``C`` as real 2D ``[banks][depth]`` storage.
+
+    Returns ``(c_ref, decl, writeback)``: the swizzled write target the PE dispatch writes to
+    (``&C_bank[bank(i)][offset(i)][j]``), the local banked-array declaration, and the writeback loop
+    copying the banked buffer back to the host ``C[M][N]`` (so ``mod(A,B,C)`` is unchanged). The
+    rolled systolic emitter realizes banking of the output ``C`` along the row axis; a banked ``A``/
+    ``B`` or a non-row axis is rejected rather than silently ignored.
+    """
+    if not bank_functions:
+        return "&C[i][j]", "", ""
+    for tensor, spec in bank_functions.items():
+        if tensor != "C" or spec["axis"] != 0:
+            raise NotImplementedError(
+                f"the rolled emitter realizes F2 banking of the output C along the row axis; "
+                f"got a banked {tensor} on axis {spec['axis']}"
+            )
+    # pylint: disable=import-outside-toplevel
+    from .transform.f2_layout import F2LayoutSolver
+
+    spec = bank_functions["C"]
+    n_bits = rows.bit_length() - 1
+    bank_bits = spec["banks"].bit_length() - 1
+    strides = [spec["stride"]] if spec["mode"] == "xor" else []
+    helper = F2LayoutSolver(n_bits, bank_bits).solve(strides)
+    num_banks, depth = helper.dims()
+    bank_i, off_i = helper.bank_expr("i"), helper.offset_expr("i")
+    c_ref = f"&C_bank[{bank_i}][{off_i}][j]"
+    decl = (
+        f"  {elem} C_bank[{num_banks}][{depth}][N];\n"
+        f"#pragma HLS array_partition variable=C_bank complete dim=1\n"
+    )
+    writeback = (
+        "  for (int i = 0; i < M; i++) {\n#pragma HLS unroll\n"
+        "    for (int j = 0; j < N; j++) {\n#pragma HLS unroll\n"
+        f"      C[i][j] = C_bank[{bank_i}][{off_i}][j];\n"
+        "    }\n  }\n"
+    )
+    return c_ref, decl, writeback
+
+
 def emit_rolled_hls_ir(region):
     """The rolled systolic HLS top emitted by *consuming the rolled ``spmw.map`` IR*.
 
@@ -576,7 +638,12 @@ def emit_rolled_hls_ir(region):
         )
     pe_defs = "\n".join(role["definition"] for role in roles)
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
-    pe_dispatch = _pe_dispatch(roles, wired)
+    # F2-banked output: the PE writes to a swizzled slot of a real 2D [banks][depth] C_bank, which
+    # is written back to C at the end (host interface unchanged).
+    c_ref, bank_decl, bank_writeback = _banked_c_storage(
+        _bank_functions_from_ir(ir), rows, elem
+    )
+    pe_dispatch = _pe_dispatch(roles, wired, c_ref)
     # The per-family FIFO depths the resolver recorded, in the canonical family order
     # (channel_families sorted: "east/west" then "north/south"), each floored at K.
     depths = [
@@ -601,6 +668,8 @@ def emit_rolled_hls_ir(region):
         fa_depth,
         fb_depth,
         memory_placements,
+        bank_decl,
+        bank_writeback,
     )
 
 
@@ -704,17 +773,19 @@ def _predicate_c_condition(affine_map_token):
     return f"{expr} != 0"
 
 
-def _pe_dispatch(roles, wired):
+def _pe_dispatch(roles, wired, c_ref="&C[i][j]"):
     """The per-grid-point PE statement: one call, or an if/else chain over the variant predicates.
 
     Because the instantiation loops are fully unrolled, ``i``/``j`` are compile-time constants, so
     the coordinate predicate folds and each grid point is bound to exactly one variant body.
+    ``c_ref`` is where the PE writes its output element -- ``&C[i][j]`` by default, or the swizzled
+    ``&C_bank[bank(i)][offset(i)][j]`` when the output operand is F2-banked.
     """
     base = [role for role in roles if role["predicate"] is None]
     variants = [role for role in roles if role["predicate"] is not None]
 
     def call(name):
-        return f"{name}({wired}, &C[i][j]);"
+        return f"{name}({wired}, {c_ref});"
 
     if not variants:
         return "      " + call(base[0]["name"])

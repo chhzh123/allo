@@ -224,6 +224,40 @@ class F2LayoutSolver:
                 f"Increase bank_bits."
             )
 
+    def solve_subspace(self, P: np.ndarray) -> "SwizzleHelper":
+        """Solve for a conflict-free swizzle from a GF(2) conflict *subspace basis* ``P`` directly.
+
+        ``P`` is an ``n_bits x k`` matrix whose columns are the access deltas that must not collide
+        (the differences of simultaneously-accessed addresses). Returns a ``SwizzleHelper`` whose
+        bank matrix separates every non-zero vector in ``span(P)`` (``rank(S @ P) == rank(P)``), or
+        raises ``ValueError`` when the bank count is too small or the current ``[I|T]`` swizzle (which
+        keeps ``offset = idx >> bank_bits`` valid) cannot realize the layout. ``solve(stride_bits)``
+        is the unit-stride convenience wrapper over this.
+        """
+        P = np.asarray(P, dtype=np.int32) & 1
+        if P.ndim == 1:
+            P = P.reshape(-1, 1)
+        if P.shape[0] != self.n_bits:
+            raise ValueError(
+                f"F2LayoutSolver.solve_subspace: conflict basis has {P.shape[0]} address bits, "
+                f"expected n_bits={self.n_bits}"
+            )
+        strides = []
+        for col in P.T:
+            nz = np.nonzero(col)[0]
+            if len(nz) == 0:
+                continue
+            if len(nz) != 1:
+                # The realized swizzle toggles single address bits into bank rows; a multi-bit
+                # conflict delta would need a general [I|T] the emitter cannot yet realize. Reject
+                # (fail closed) rather than emit a layout the HLS storage cannot honor.
+                raise ValueError(
+                    "F2LayoutSolver.solve_subspace realizes only unit-stride conflict bases "
+                    f"(one set address bit per delta); got the multi-bit delta {col.tolist()}."
+                )
+            strides.append(int(nz[0]))
+        return self.solve(strides)
+
 
 # ---------------------------------------------------------------------------
 # SwizzleHelper – index expressions and 2D shape

@@ -177,3 +177,20 @@ def test_single_swizzle_cannot_separate_two_high_conflict_directions():
     P1 = np.array([[0], [0], [1], [0]], dtype=np.int32)  # column e2
     S1 = _realized_bank_matrix("cyclic", stride_bit=2, bank_bits=1, n_addr_bits=4)
     assert _banking_separates_conflicts(S1, P1)
+
+
+def test_solve_subspace_accepts_a_conflict_basis_directly():
+    import numpy as np
+
+    # a 2-direction conflict subspace {e2, e3} over a 4-bit address
+    P = np.array([[0, 0], [0, 0], [1, 0], [0, 1]], dtype=np.int32)
+    helper = F2LayoutSolver(4, 2).solve_subspace(P)  # 4 banks suffice
+    banks = [helper.swizzle_bank(a) for a in (0, 4, 8, 12)]
+    assert len(set(banks)) == 4
+    # too few banks -> reject
+    with pytest.raises(ValueError):
+        F2LayoutSolver(4, 1).solve_subspace(P)
+    # a multi-bit (non-unit) conflict delta e0^e2 is not yet realizable -> reject, not silent wrong
+    Q = np.array([[1], [0], [1], [0]], dtype=np.int32)
+    with pytest.raises(ValueError, match="unit-stride"):
+        F2LayoutSolver(4, 2).solve_subspace(Q)

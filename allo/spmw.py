@@ -29,6 +29,7 @@ import ast
 import inspect
 import itertools
 import textwrap
+import warnings
 
 __all__ = [
     "SPMWError",
@@ -761,13 +762,32 @@ class LogicalBuffer:
     consumer once the buffer shape and the grid it maps onto are known.
     """
 
-    def __init__(self, dtype, memory, kind, bank_axis=None, shape=None, source=None):
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        dtype,
+        memory,
+        kind,
+        bank_axis=None,
+        shape=None,
+        source=None,
+        banks=None,
+        bank_mode="cyclic",
+        stride_bit=None,
+        on_conflict="error",
+    ):
         self.dtype = dtype
         self.memory = memory
         self.kind = kind
         self.bank_axis = bank_axis
         self.shape = shape
         self.source = source
+        # Partition-function banking (when banks is set): split the banking axis into `banks`
+        # physical banks with an F2 swizzle ("cyclic" = idx % banks, "xor" = a conflict-free
+        # butterfly swizzle at `stride_bit`), realized as real 2D [banks][depth] storage.
+        self.banks = banks
+        self.bank_mode = bank_mode
+        self.stride_bit = stride_bit
+        self.on_conflict = on_conflict
 
     def __repr__(self):
         return f"<spmw.{self.kind} {self.dtype!r} @ {self.memory!r}>"
@@ -778,8 +798,28 @@ def shared(dtype, space=None, resource=None):
     return LogicalBuffer(dtype, _resolve_space(space, resource), "shared")
 
 
-def banked(dtype, on=None, space=None, resource=None):
-    """A buffer banked (partitioned) along the ``on`` tensor axis, placed at a ``space=`` level."""
+_BANK_MODES = ("cyclic", "xor")
+
+
+def banked(
+    dtype,
+    on=None,
+    banks=None,
+    bank="cyclic",
+    stride_bit=None,
+    space=None,
+    resource=None,
+    on_conflict="error",
+):
+    """A buffer banked (partitioned) along the ``on`` tensor axis, placed at a ``space=`` level.
+
+    With no ``banks=`` the buffer is fully partitioned along ``on`` (one bank per index), as before.
+    A *partition function* splits the banking axis into ``banks`` physical banks with an F2 swizzle:
+    ``bank="cyclic"`` (``idx % banks``) or ``bank="xor"`` (a conflict-free butterfly swizzle at
+    ``stride_bit``). The swizzle is validated by the F2 solver at lower time (a non-conflict-free /
+    too-few-banks banking is rejected), and the emitter realizes it as real 2D ``[banks][depth]``
+    banked storage. ``banks`` must be a power of two.
+    """
     if on is None:
         raise SPMWError(
             "spmw.banked requires on= naming the banking axis (e.g. 'row'/'col' or an int)"
@@ -791,9 +831,34 @@ def banked(dtype, on=None, space=None, resource=None):
             )
         axis = _BANK_AXES[on]
     else:
-        axis = int(on)
+        axis = _strict_int(on, "banking axis")
+    if bank not in _BANK_MODES:
+        raise SPMWError(f"spmw.banked bank must be one of {_BANK_MODES}; got {bank!r}")
+    if on_conflict not in ("error", "serialize"):
+        raise SPMWError(
+            f"spmw.banked on_conflict must be 'error' or 'serialize'; got {on_conflict!r}"
+        )
+    if banks is not None:
+        banks = _strict_int(banks, "banks")
+        if banks <= 0 or (banks & (banks - 1)) != 0:
+            raise SPMWError(
+                f"spmw.banked banks must be a positive power of two; got {banks}"
+            )
+    if stride_bit is not None:
+        stride_bit = _strict_int(stride_bit, "stride_bit")
+    if bank == "xor" and (banks is None or stride_bit is None):
+        raise SPMWError(
+            "spmw.banked bank='xor' needs banks= and stride_bit= (the butterfly stage bit)"
+        )
     return LogicalBuffer(
-        dtype, _resolve_space(space, resource), "banked", bank_axis=axis
+        dtype,
+        _resolve_space(space, resource),
+        "banked",
+        bank_axis=axis,
+        banks=banks,
+        bank_mode=bank,
+        stride_bit=stride_bit,
+        on_conflict=on_conflict,
     )
 
 
@@ -1493,6 +1558,73 @@ def _memory_attrs(program, collection):
     return attrs
 
 
+def _bank_function_attrs(program, collection):
+    """``spmw.bank_functions`` entries for placed banked buffers carrying an F2 partition function.
+
+    Each entry ``"<tensor>:<banks>:<stride_bit>:<mode>"`` names a real F2-banked storage layout the
+    emitter realizes as a 2D ``[banks][depth]`` array. The swizzle is **validated by the F2 solver
+    here** — a non-conflict-free or too-few-banks banking raises (or, under ``on_conflict="serialize"``,
+    falls back to a single reported bank) — so nothing unrealizable reaches the emitter. A plain
+    banked buffer (no ``banks=``) emits no entry, so unbanked designs are byte-identical.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .transform.f2_layout import F2LayoutSolver
+
+    annotations = getattr(program.fn, "__annotations__", {})
+    shapes = {
+        name: typ.shape
+        for name, typ in annotations.items()
+        if getattr(typ, "shape", None)
+    }
+    attrs = []
+    for decl in collection.placements:
+        buffer = decl.buffer
+        if buffer.kind != "banked" or buffer.banks is None:
+            continue
+        if decl.tensor not in shapes:
+            continue
+        shape = shapes[decl.tensor]
+        axis = buffer.bank_axis
+        if not 0 <= axis < len(shape):
+            raise SPMWError(
+                f"banked buffer for {decl.tensor!r} banks axis {axis}, out of range for its "
+                f"shape {tuple(shape)}"
+            )
+        size = int(shape[axis])
+        if size & (size - 1) != 0:
+            raise SPMWError(
+                f"banked buffer for {decl.tensor!r}: F2 banking needs a power-of-two banking-axis "
+                f"size, got {size}"
+            )
+        if buffer.banks > size:
+            raise SPMWError(
+                f"banked buffer for {decl.tensor!r} has banks {buffer.banks} > banking-axis "
+                f"size {size}"
+            )
+        n_bits = size.bit_length() - 1
+        bank_bits = buffer.banks.bit_length() - 1
+        stride = buffer.stride_bit if buffer.bank_mode == "xor" else None
+        try:
+            F2LayoutSolver(n_bits, bank_bits).solve([stride] if stride is not None else [])
+        except ValueError as err:
+            if buffer.on_conflict == "serialize":
+                warnings.warn(
+                    f"spmw.banked for {decl.tensor!r} is not conflict-free ({err}); serializing "
+                    f"to a single bank as requested (on_conflict='serialize')",
+                    stacklevel=2,
+                )
+                attrs.append(f'"{decl.tensor}:1:0:cyclic:{axis}"')
+                continue
+            raise SPMWError(
+                f"spmw.banked for {decl.tensor!r} is not a conflict-free banking: {err}"
+            ) from err
+        attrs.append(
+            f'"{decl.tensor}:{buffer.banks}:{stride if stride is not None else 0}:'
+            f'{buffer.bank_mode}:{axis}"'
+        )
+    return attrs
+
+
 def _channel_attrs(program, collection):
     """``#spmw.channel`` attrs for the region's inter-unit channels, preserving them in the rolled IR.
 
@@ -1641,6 +1773,11 @@ def _module_text(program, collection):
     if memory_attrs:
         func_attrs.append(
             "spmw.memory = [\n      " + ",\n      ".join(memory_attrs) + "\n    ]"
+        )
+    bank_attrs = _bank_function_attrs(program, collection)
+    if bank_attrs:
+        func_attrs.append(
+            "spmw.bank_functions = [\n      " + ",\n      ".join(bank_attrs) + "\n    ]"
         )
     attrs_text = " attributes {" + ", ".join(func_attrs) + "}" if func_attrs else ""
     top = (
