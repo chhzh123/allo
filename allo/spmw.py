@@ -29,6 +29,7 @@ import ast
 import inspect
 import itertools
 import textwrap
+import warnings
 
 __all__ = [
     "SPMWError",
@@ -759,15 +760,35 @@ class LogicalBuffer:
     the tensor axis the buffer is partitioned along; ``kind`` is ``"shared"``/``"banked"``/``"view"``;
     ``source`` is the buffer a view aliases. The concrete :class:`allo.memory.Layout` is built by the
     consumer once the buffer shape and the grid it maps onto are known.
+
+    A banked buffer may carry a *partition function*: ``banks`` is how many banks it splits into and
+    ``bank`` is the function that assigns a logical index to a bank (``"cyclic"``/``"xor"``, a list of
+    GF(2)/XOR masks, or a callable). ``on_conflict`` selects what happens when the function is not
+    injective over a cycle's access set (``"error"`` rejects; ``"serialize"`` falls back to one bank
+    with a reported warning). ``bank`` is ``None`` for a plain (fully partitioned) banked buffer.
     """
 
-    def __init__(self, dtype, memory, kind, bank_axis=None, shape=None, source=None):
+    def __init__(
+        self,
+        dtype,
+        memory,
+        kind,
+        bank_axis=None,
+        shape=None,
+        source=None,
+        banks=None,
+        bank=None,
+        on_conflict="error",
+    ):
         self.dtype = dtype
         self.memory = memory
         self.kind = kind
         self.bank_axis = bank_axis
         self.shape = shape
         self.source = source
+        self.banks = banks
+        self.bank = bank
+        self.on_conflict = on_conflict
 
     def __repr__(self):
         return f"<spmw.{self.kind} {self.dtype!r} @ {self.memory!r}>"
@@ -778,8 +799,25 @@ def shared(dtype, space=None, resource=None):
     return LogicalBuffer(dtype, _resolve_space(space, resource), "shared")
 
 
-def banked(dtype, on=None, space=None, resource=None):
-    """A buffer banked (partitioned) along the ``on`` tensor axis, placed at a ``space=`` level."""
+def banked(
+    dtype,
+    on=None,
+    banks=None,
+    bank=None,
+    space=None,
+    resource=None,
+    on_conflict="error",
+):
+    """A buffer banked (partitioned) along the ``on`` tensor axis, placed at a ``space=`` level.
+
+    With no ``bank=``/``banks=`` the buffer is fully partitioned along ``on`` (one bank per index),
+    exactly as before. A *partition function* generalizes that: ``banks`` names how many banks to
+    split into and ``bank`` names the index-to-bank function -- ``"cyclic"`` (``i % banks``),
+    ``"xor"`` (an F2 swizzle that stays conflict-free over aligned windows), a list of GF(2)/XOR
+    masks, or a callable ``i -> bank``. The function is statically checked for injectivity over each
+    cycle's access set at lower time; ``on_conflict="error"`` (default) rejects a colliding function
+    and ``on_conflict="serialize"`` falls back to a single bank with a reported warning.
+    """
     if on is None:
         raise SPMWError(
             "spmw.banked requires on= naming the banking axis (e.g. 'row'/'col' or an int)"
@@ -791,9 +829,173 @@ def banked(dtype, on=None, space=None, resource=None):
             )
         axis = _BANK_AXES[on]
     else:
-        axis = int(on)
+        axis = _strict_int(on, "banking axis")
+    if on_conflict not in ("error", "serialize"):
+        raise SPMWError(
+            f"spmw.banked on_conflict must be 'error' or 'serialize'; got {on_conflict!r}"
+        )
+    if banks is not None:
+        banks = _strict_int(banks, "banks")
+        if banks <= 0:
+            raise SPMWError(f"spmw.banked banks must be positive; got {banks}")
+    if bank is not None and not (
+        callable(bank) or isinstance(bank, (str, list, tuple))
+    ):
+        raise SPMWError(
+            "spmw.banked bank= must be 'cyclic'/'xor', a list of GF(2) masks, or a callable"
+        )
+    if bank is not None and banks is None and not isinstance(bank, (list, tuple)):
+        raise SPMWError(
+            "spmw.banked bank= needs banks= naming how many banks to split into "
+            "(a mask list implies banks = 2**len(masks))"
+        )
     return LogicalBuffer(
-        dtype, _resolve_space(space, resource), "banked", bank_axis=axis
+        dtype,
+        _resolve_space(space, resource),
+        "banked",
+        bank_axis=axis,
+        banks=banks,
+        bank=bank,
+        on_conflict=on_conflict,
+    )
+
+
+def _bank_parity(value, mask):
+    """The GF(2) inner product (XOR of the masked bits) of ``value`` and ``mask``."""
+    return bin(value & mask).count("1") & 1
+
+
+def _resolve_bank_map(bank, banks, axis_size, tensor):
+    """Resolve a partition function to a concrete ``bank_map`` (bank index per logical index).
+
+    ``bank`` is ``"cyclic"``/``"xor"``, a list of GF(2)/XOR masks, or a callable. Returns the
+    ``(bank_map, banks)`` pair with ``bank_map`` a length-``axis_size`` tuple; a mask list overrides
+    ``banks`` to ``2 ** len(masks)``. Every produced bank index is a real ``int`` in ``[0, banks)``
+    (checked here so a stray callable result surfaces as an :class:`SPMWError`, not a later crash).
+    """
+    if callable(bank):
+        bank_map = tuple(
+            _strict_int(bank(i), f"bank function result for index {i} of {tensor!r}")
+            for i in range(axis_size)
+        )
+        return bank_map, banks
+    if isinstance(bank, str):
+        if bank == "cyclic":
+            return tuple(i % banks for i in range(axis_size)), banks
+        if bank == "xor":
+            # (low XOR high) mod banks -- XOR with a per-window constant stays a bijection over each
+            # aligned window, so it is conflict-free by construction (a non-trivial swizzle, unlike
+            # plain cyclic).
+            return (
+                tuple(
+                    ((i % banks) ^ ((i // banks) % banks)) % banks
+                    for i in range(axis_size)
+                ),
+                banks,
+            )
+        raise SPMWError(
+            f"unknown bank function {bank!r} for {tensor!r}; use 'cyclic', 'xor', a mask list, "
+            f"or a callable"
+        )
+    if isinstance(bank, (list, tuple)):
+        masks = [_strict_int(m, f"bank mask for {tensor!r}") for m in bank]
+        if not masks:
+            raise SPMWError(f"bank mask list for {tensor!r} must be non-empty")
+        resolved_banks = 1 << len(masks)
+        if banks is not None and banks != resolved_banks:
+            raise SPMWError(
+                f"bank mask list of length {len(masks)} for {tensor!r} implies banks "
+                f"= {resolved_banks}, but banks = {banks} was given"
+            )
+        bank_map = tuple(
+            sum(_bank_parity(i, m) << k for k, m in enumerate(masks))
+            for i in range(axis_size)
+        )
+        return bank_map, resolved_banks
+    raise SPMWError(
+        f"bank= for {tensor!r} must be 'cyclic'/'xor', a mask list, or a callable; "
+        f"got {type(bank).__name__}"
+    )
+
+
+def _bank_access_windows(axis_size, banks):
+    """The per-cycle access sets a ``banks``-way banked axis must resolve without conflict.
+
+    A conflict-free banked memory accessed ``banks`` ways at a time must map the ``banks`` indices
+    touched together to distinct banks. The access sets are the aligned windows
+    ``{q*banks, ..., q*banks + banks - 1}`` (the ``banks`` simultaneous accesses a fold/unroll of the
+    banking axis makes live in one cycle); the tail window is shorter when ``banks`` does not divide
+    ``axis_size``.
+    """
+    return [
+        list(range(start, min(start + banks, axis_size)))
+        for start in range(0, axis_size, banks)
+    ]
+
+
+def _bank_conflict(bank_map, banks, axis_size):
+    """First bank conflict over a cycle's access set, or ``None`` when the function is injective.
+
+    Returns ``("range", i, None, b)`` if index ``i`` maps outside ``[0, banks)``, or
+    ``("window", i, j, b)`` if the simultaneously-accessed indices ``i`` and ``j`` collide on bank
+    ``b``. ``None`` means every access set maps injectively (conflict-free).
+    """
+    for i in range(axis_size):
+        bank = bank_map[i]
+        if not 0 <= bank < banks:
+            return ("range", i, None, bank)
+    for window in _bank_access_windows(axis_size, banks):
+        seen = {}
+        for i in window:
+            bank = bank_map[i]
+            if bank in seen:
+                return ("window", seen[bank], i, bank)
+            seen[bank] = i
+    return None
+
+
+def _resolve_banking(buffer, tensor, axis_size):
+    """Resolve+verify a banked buffer's partition function against the placed operand's axis size.
+
+    Returns ``(banks, bank_map, serialized)`` for a banking with a partition function, or ``None``
+    for a plain (fully partitioned) banked buffer / non-banked buffer. A non-injective function
+    raises :class:`SPMWError` under ``on_conflict="error"`` and, under ``"serialize"``, falls back to
+    a single bank (``serialized=True``) after a reported :func:`warnings.warn`.
+    """
+    if buffer.kind != "banked" or buffer.bank is None:
+        return None
+    banks = buffer.banks
+    if banks is None and not isinstance(buffer.bank, (list, tuple)):
+        # already guarded in banked(), but keep the resolver total
+        raise SPMWError(f"banked buffer for {tensor!r} needs banks=")
+    bank_map, banks = _resolve_bank_map(buffer.bank, banks, axis_size, tensor)
+    if banks > axis_size:
+        raise SPMWError(
+            f"banked buffer for {tensor!r} has banks {banks} > banking-axis size {axis_size}"
+        )
+    conflict = _bank_conflict(bank_map, banks, axis_size)
+    if conflict is None:
+        return (banks, bank_map, False)
+    kind, i, j, bank = conflict
+    if kind == "range":
+        # an out-of-range bank is a bug in the function itself, not a schedulable conflict, so it is
+        # rejected even under serialize
+        raise SPMWError(
+            f"bank function for {tensor!r} maps index {i} to bank {bank}, outside [0, {banks})"
+        )
+    if buffer.on_conflict == "serialize":
+        warnings.warn(
+            f"spmw.banked bank function for {tensor!r} is not injective over a cycle's access set "
+            f"(indices {i} and {j} both map to bank {bank}); serializing to a single bank as "
+            f"requested (on_conflict='serialize')",
+            stacklevel=2,
+        )
+        return (1, tuple(0 for _ in range(axis_size)), True)
+    raise SPMWError(
+        f"bank function for {tensor!r} is not injective over a cycle's access set: indices {i} and "
+        f"{j} are accessed together but both map to bank {bank}. A conflict-free banking must send "
+        f"each of the {banks} simultaneous accesses to a distinct bank; pass on_conflict='serialize' "
+        f"to fall back to a single bank instead."
     )
 
 
@@ -1493,6 +1695,47 @@ def _memory_attrs(program, collection):
     return attrs
 
 
+def _bank_function_attrs(program, collection):
+    """``spmw.bank_functions`` entries for the region's placed banked buffers with a partition function.
+
+    Each entry ``"<tensor>:<banks>:<b0,b1,...>[:serialized]"`` records the resolved bank index per
+    logical index along the banking axis, so the target emits ``banks`` physical banks and knows the
+    (possibly XOR/F2) index-to-bank map. The map is resolved and statically checked for injectivity
+    here (once the placed operand's axis size is known); a non-injective map is rejected (or, under
+    ``on_conflict="serialize"``, reported and serialized). A plain banked buffer (no ``bank=``) emits
+    no entry, so an unbanked / fully-partitioned design is byte-identical.
+    """
+    annotations = getattr(program.fn, "__annotations__", {})
+    shapes = {
+        name: typ.shape
+        for name, typ in annotations.items()
+        if getattr(typ, "shape", None)
+    }
+    attrs = []
+    for decl in collection.placements:
+        buffer = decl.buffer
+        if buffer.kind != "banked" or buffer.bank is None:
+            continue
+        if decl.tensor not in shapes:
+            # _memory_attrs already rejects a placement on a non-operand; skip defensively here
+            continue
+        shape = shapes[decl.tensor]
+        axis = buffer.bank_axis
+        if not 0 <= axis < len(shape):
+            raise SPMWError(
+                f"banked buffer for {decl.tensor!r} banks axis {axis}, out of range for its "
+                f"shape {tuple(shape)}"
+            )
+        resolved = _resolve_banking(buffer, decl.tensor, shape[axis])
+        if resolved is None:
+            continue
+        banks, bank_map, serialized = resolved
+        table = ",".join(str(bank) for bank in bank_map)
+        flag = ":serialized" if serialized else ""
+        attrs.append(f'"{decl.tensor}:{banks}:{table}{flag}"')
+    return attrs
+
+
 def _channel_attrs(program, collection):
     """``#spmw.channel`` attrs for the region's inter-unit channels, preserving them in the rolled IR.
 
@@ -1641,6 +1884,11 @@ def _module_text(program, collection):
     if memory_attrs:
         func_attrs.append(
             "spmw.memory = [\n      " + ",\n      ".join(memory_attrs) + "\n    ]"
+        )
+    bank_attrs = _bank_function_attrs(program, collection)
+    if bank_attrs:
+        func_attrs.append(
+            "spmw.bank_functions = [\n      " + ",\n      ".join(bank_attrs) + "\n    ]"
         )
     attrs_text = " attributes {" + ", ".join(func_attrs) + "}" if func_attrs else ""
     top = (
