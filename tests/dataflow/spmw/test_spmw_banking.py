@@ -242,3 +242,59 @@ def test_banked_unrealizable_rejects_by_default():
     )
     with pytest.raises(spmw.SPMWError, match="not a conflict-free banking"):
         spmw.lower(twin)
+
+
+# --- emitter correctness fixes (round 6) --------------------------------------------------------
+
+
+def test_serialize_one_bank_emits_valid_cpp():
+    # a serialize/one-bank layout must emit valid C++: a single-bank C_bank indexed by bank 0, not an
+    # empty "()" bank expression.
+    import warnings
+
+    twin = _twin(
+        4,
+        4,
+        4,
+        placements=[
+            (
+                "C",
+                spmw.banked(
+                    float32[4, 4],
+                    on="row",
+                    banks=1,
+                    bank="xor",
+                    stride_bit=1,
+                    on_conflict="serialize",
+                ),
+            )
+        ],
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cpp = emit_rolled_hls_ir(twin)
+    assert "C_bank[1][4][N]" in cpp  # single bank, depth = full row extent
+    assert "[()]" not in cpp  # no empty bank expression
+    assert "&C_bank[0][" in cpp  # bank index 0
+
+
+def test_non_power_of_two_folded_row_extent_rejected():
+    # A is banked on the row axis with an F2 bit-swizzle, so a non-power-of-two M (=6) cannot be
+    # addressed -- rejected clearly instead of under-allocating the buffer.
+    with pytest.raises(NotImplementedError, match="power-of-two row extent"):
+        emit_rolled_hls_ir(_twin(6, 4, 4, fold={"col": 2}))
+
+
+def test_folded_top_honors_placed_resource_pragmas():
+    # a folded map that pins C to a concrete resource must still emit its bind_storage pragma in the
+    # folded top (AC-7: top-level placements are not dropped under fold).
+    twin = _twin(
+        4,
+        4,
+        4,
+        placements=[("C", spmw.shared(float32[4, 4], resource="URAM"))],
+        fold={"col": 2},
+    )
+    cpp = emit_rolled_hls_ir(twin)
+    assert "A_bank[2][2][K]" in cpp  # still a folded top
+    assert "#pragma HLS bind_storage variable=C type=RAM_2P impl=URAM" in cpp

@@ -336,7 +336,17 @@ def _folded_pe_interior(roles, elem):
 
 
 def _folded_top_cpp(
-    rows, cols, depth, elem, roles, c_ref, bank_decl, bank_writeback, fb_depth, a_banks
+    rows,
+    cols,
+    depth,
+    elem,
+    roles,
+    c_ref,
+    bank_decl,
+    bank_writeback,
+    fb_depth,
+    a_banks,
+    memory_placements=None,
 ):
     """A *folded* systolic top: the east/west (A) family, reclassified to a buffer under fold, is a
     real F2-banked on-chip buffer that the PE reads directly by ``(bank, offset)`` -- there is **no**
@@ -374,6 +384,8 @@ def _folded_top_cpp(
         "}\n\n"
         f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
         "#pragma HLS dataflow\n"
+        # top-level operand placements (resource=/bank axis) honored on the folded top too
+        f"{_memory_pragmas(memory_placements)}"
         f"{bank_decl}"
         # materialize the folded A family as a real F2-banked on-chip buffer, filled from A
         f"  {elem} A_bank[{num_banks}][{a_depth}][K];\n"
@@ -776,10 +788,21 @@ def emit_rolled_hls_ir(region):
         _bank_functions_from_ir(ir), rows, elem
     )
     pe_dispatch = _pe_dispatch(roles, wired, c_ref)
+    # Honor the logical-memory placements the region pinned on top-level operands (resolved
+    # resource/bank axis -> bind_storage / partition pragmas); BOTH the spatial and folded tops
+    # thread these, so a folded map does not silently drop a placed operand's resource pragmas.
+    annotations = getattr(region.fn, "__annotations__", {})
+    ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
+    memory_placements = _memory_placements_from_ir(ir, ordered_operands)
     if buffer_families:
         # Folded map: A (east/west) is reclassified to a banked on-chip buffer; B (north/south) stays
-        # a FIFO. Bank A on the row axis into `a_banks` = the fold factor along the east/west
-        # (column) connection axis.
+        # a FIFO. A is banked on the row axis with an F2 bit-swizzle, so the row extent and the fold
+        # factor must both be powers of two.
+        if rows & (rows - 1) != 0:
+            raise NotImplementedError(
+                f"folded rolled emitter banks A on the row axis with an F2 bit-swizzle, which needs "
+                f"a power-of-two row extent; got M={rows}"
+            )
         fold = re.search(r"fold = array<i64: ([^>]*)>", ir).group(1).split(",")
         a_banks = int(fold[1])
         if a_banks & (a_banks - 1) != 0:
@@ -802,6 +825,7 @@ def emit_rolled_hls_ir(region):
             bank_writeback,
             max(b_depth, depth),
             a_banks,
+            memory_placements,
         )
     # The per-family FIFO depths the resolver recorded, in the canonical family order
     # (channel_families sorted: "east/west" then "north/south"), each floored at K.
@@ -812,11 +836,6 @@ def emit_rolled_hls_ir(region):
         .split(",")
     ]
     fa_depth, fb_depth = max(depths[0], depth), max(depths[1], depth)
-    # Honor the logical-memory placements the region pinned: the resolved resource/bank axis on the
-    # top-level operands become bind_storage / banking pragmas on the corresponding rolled-top array.
-    annotations = getattr(region.fn, "__annotations__", {})
-    ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
-    memory_placements = _memory_placements_from_ir(ir, ordered_operands)
     return _rolled_top_cpp(
         rows,
         cols,

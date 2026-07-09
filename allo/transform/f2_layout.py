@@ -326,6 +326,9 @@ class SwizzleHelper:
         idx_sym:
             Name of the integer variable representing the linear address.
         """
+        if self.bank_bits == 0:
+            # a single bank -> always bank index 0 (avoids an empty "()" expression)
+            return "0"
         return self._build_bank_expr(idx_sym)
 
     def offset_expr(self, idx_sym: str) -> str:
