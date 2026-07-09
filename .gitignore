@@ -97,6 +97,4 @@ tests/xlscc_tests/**/test
 
 # humanize plugin working state (RLCR loop artifacts, skill runs)
 .humanize/
-
-# RLCR loop working plan (design of record is tracked as SPMW_IMPLEMENTATION_PLAN.md)
-plan.md
+workspace/

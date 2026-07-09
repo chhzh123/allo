@@ -377,6 +377,7 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, mode):
         )
 
     pe_conn = ",\n".join(conn(port, wire) for port, wire in _RTL_WIRING.items())
+    pe_params = "" if mode == "synth" else "#(.DW(DW), .K(K)) "
     return (
         "`timescale 1ns/1ps\n\n" + _fifo_module() + "\n" + _role_modules(mode) + "\n"
         f"module spmw_top #(parameter M = {rows}, parameter N = {cols}, parameter K = {k},\n"
@@ -434,10 +435,12 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, mode):
         "      load_b #(.DW(DW), .K(K)) u_lb (.clk(clk), .rst_n(rst_n), .b_col(bcol),\n"
         "        .out_din(fb_din[0][j]), .out_full_n(fb_full[0][j]), .out_write(fb_wr[0][j]));\n"
         "    end\n"
-        # one PE per grid point (exported-IP ABI: ap_clk/ap_rst, result on the c_out stream)
+        # one PE per grid point (exported-IP ABI: ap_clk/ap_rst, result on the c_out stream). The
+        # exported ap_ctrl_none IP bakes its width/trip-count as literals (no DW/K parameters), so the
+        # synth path instantiates it bare; the blackbox/behavioral PEs are parameterized.
         "    for (i = 0; i < M; i = i + 1) begin : pe_row\n"
         "      for (j = 0; j < N; j = j + 1) begin : pe_col\n"
-        "        pe_interior #(.DW(DW), .K(K)) u_pe (.ap_clk(clk), .ap_rst(~rst_n),\n"
+        f"        pe_interior {pe_params}u_pe (.ap_clk(clk), .ap_rst(~rst_n),\n"
         f"{pe_conn},\n"
         "          .c_out_din(fc_din[i][j]), .c_out_full_n(fc_full[i][j]), .c_out_write(fc_wr[i][j]));\n"
         "      end\n"
