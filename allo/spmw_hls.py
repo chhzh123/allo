@@ -169,26 +169,29 @@ def emit_rolled_hls(region):
         decl.port_depths.get("south", depth),
         depth,
     )
-    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, fa_depth, fb_depth)
-
-
-def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, fa_depth, fb_depth):
-    """The rolled systolic HLS top for a given ``pe_interior`` function ``pe_fn``.
-
-    Shared by the frontend-transcribed emitter and the IR-driven one: given the compute-role body,
-    it wires the ``load_a``/``load_b``/``drain`` boundary roles and stamps the PE across the whole
-    ``M x N`` grid (both loops unrolled) over the two FIFO families -- so a single csynth sees one
-    body per role instantiated once per grid point. ``fa_depth``/``fb_depth`` are the per-family FIFO
-    depths the resolver recorded (the ``east/west`` A family and the ``north/south`` B family may
-    differ; each PE streams ``K`` elements, so a depth must admit that buffering).
-    """
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
+    dispatch = f"      pe_interior({wired}, &C[i][j]);"
+    return _rolled_top_cpp(rows, cols, depth, elem, pe_fn, dispatch, fa_depth, fb_depth)
+
+
+def _rolled_top_cpp(rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_depth):
+    """The rolled systolic HLS top for the compute-role body definitions ``pe_defs``.
+
+    Shared by the frontend-transcribed emitter and the IR-driven one: given the compute-role body
+    definitions and the per-grid-point ``pe_dispatch`` statement (a single call, or a
+    coordinate-predicate ``if/else`` chain that selects among predicate-variant bodies), it wires
+    the ``load_a``/``load_b``/``drain`` boundary roles and stamps the PE across the whole ``M x N``
+    grid (both loops unrolled) over the two FIFO families -- so a single csynth sees one body per
+    role (never one per grid point). ``fa_depth``/``fb_depth`` are the per-family FIFO depths the
+    resolver recorded (the ``east/west`` A family and the ``north/south`` B family may differ; each
+    PE streams ``K`` elements, so a depth must admit that buffering).
+    """
     return (
         "#include <hls_stream.h>\n"
         f"#define M {rows}\n"
         f"#define N {cols}\n"
         f"#define K {depth}\n\n"
-        f"{pe_fn}\n"
+        f"{pe_defs}\n"
         f"void load_a({elem} A[M][K], int i, hls::stream<{elem}> &out) {{\n"
         "  for (int k = 0; k < K; k++)\n"
         "    out.write(A[i][k]);\n"
@@ -225,7 +228,7 @@ def _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, fa_depth, fb_depth):
         "#pragma HLS unroll\n"
         "    for (int j = 0; j < N; j++) {\n"
         "#pragma HLS unroll\n"
-        f"      pe_interior({wired}, &C[i][j]);\n"
+        f"{pe_dispatch}\n"
         "    }\n"
         "  }\n"
         "  for (int i = 0; i < M; i++) {\n"
@@ -469,8 +472,8 @@ def emit_rolled_hls_ir(region):
             f"IR-driven rolled emitter handles the systolic east/west + north/south families; "
             f"got {families}"
         )
-    # The partition (per compute-role grid-point counts) must be a single compute role covering the
-    # whole grid -- the systolic interior; the emitter stamps one pe_interior body.
+    # The compute roles (the link-presence interior plus any predicate-selected variants) must
+    # together tile the grid; the emitter stamps one distinct body per role, never one per point.
     partition = [
         int(x)
         for x in re.search(r"spmw\.partition = array<i64: ([^>]*)>", ir)
@@ -479,9 +482,9 @@ def emit_rolled_hls_ir(region):
     ]
     grid = re.search(r"grid = \[(\d+), (\d+)\]", ir)
     rows, cols = int(grid.group(1)), int(grid.group(2))
-    if len(partition) != 1 or partition[0] != rows * cols:
+    if sum(partition) != rows * cols:
         raise NotImplementedError(
-            f"IR-driven rolled emitter handles a single-compute-role systolic map; "
+            f"IR-driven rolled emitter handles a systolic map whose compute roles tile the grid; "
             f"got partition {partition} for a {rows}x{cols} grid"
         )
     # A is the first tensor operand, memref<rows x K x elem>: its second extent is the contraction K.
@@ -498,26 +501,17 @@ def emit_rolled_hls_ir(region):
         }[a_shape.group(3)]
     ]
 
-    interior = re.search(r"(func\.func @\w+_interior\(.*?\n  \})", ir, re.DOTALL).group(
-        1
-    )
-    # The interior role declares the local port each of its stream parameters carries (its stream
-    # ABI); the translator binds the datapath's stream ops to those ports by that declaration.
-    role_attr = re.search(
-        r"#spmw\.role<unit = @\w+_interior, missing = \[[^\]]*\], ports = \[([^\]]*)\]>",
-        ir,
-    )
-    ports = re.findall(r'"([^"]+)"', role_attr.group(1))
+    roles = _compute_roles_from_ir(ir, elem)
+    # every compute role streams over the same systolic port set, so the wiring is shared
+    ports = roles[0]["ports"]
     if set(ports) != set(_ROLLED_WIRING):
         raise NotImplementedError(
             f"IR-driven rolled emitter handles the systolic port set {sorted(_ROLLED_WIRING)}; "
             f"got {ports}"
         )
-    body = _interior_body_from_ir(interior, ports, elem)
-    args = (
-        ", ".join(f"hls::stream<{elem}> &{p}" for p in ports) + f", {elem} c_local[1]"
-    )
-    pe_fn = f"void pe_interior({args}) {{\n#pragma HLS inline off\n{body}\n}}\n"
+    pe_defs = "\n".join(role["definition"] for role in roles)
+    wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
+    pe_dispatch = _pe_dispatch(roles, wired)
     # The per-family FIFO depths the resolver recorded, in the canonical family order
     # (channel_families sorted: "east/west" then "north/south"), each floored at K.
     depths = [
@@ -527,4 +521,124 @@ def emit_rolled_hls_ir(region):
         .split(",")
     ]
     fa_depth, fb_depth = max(depths[0], depth), max(depths[1], depth)
-    return _rolled_top_cpp(rows, cols, depth, elem, ports, pe_fn, fa_depth, fb_depth)
+    return _rolled_top_cpp(
+        rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_depth
+    )
+
+
+# Grid coordinate d0, d1, ... map to the unrolled C++ loop variables i, j for predicate conditions.
+_COORD_C = ("i", "j")
+
+
+def _role_cpp_name(sym):
+    """The C++ body name for a compute-role symbol: ``..._interior`` -> ``pe_interior`` etc."""
+    match = re.search(r"_(interior|variant\d+)$", sym)
+    return f"pe_{match.group(1)}" if match else "pe_interior"
+
+
+def _extract_affine_map(text, start):
+    """The full ``affine_map<...>`` token in ``text`` beginning at ``start`` (paren-balanced)."""
+    i = start + len("affine_map<")
+    depth = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == ">" and depth == 0 and text[i - 1] != "-":
+            return text[start : i + 1]
+        i += 1
+    raise NotImplementedError("unterminated affine_map in role predicate")
+
+
+def _compute_roles_from_ir(ir, elem):
+    """The compute roles of the rolled map, each a dict with its C++ body definition + predicate.
+
+    A compute role is a ``#spmw.role`` with an empty missing set: the interior (no predicate, the
+    default) and any predicate-selected variants, in IR order. Each role's transcribed func datapath
+    becomes its own distinct ``pe_<role>`` body, so distinct predicate tags stay distinct HLS bodies
+    rather than being merged.
+    """
+    # MLIR hoists affine maps to top-level aliases (`#map4 = affine_map<...>`) and references them,
+    # so a role predicate prints as `predicate = #map4`; resolve those aliases back to their text.
+    aliases = dict(re.findall(r"^(#\w+) = (affine_map<.*>)$", ir, re.MULTILINE))
+    roles = []
+    for match in re.finditer(r"#spmw\.role<unit = @(\w+), missing = \[\s*\]", ir):
+        sym = match.group(1)
+        tail = ir[match.end() :]
+        ports_match = re.match(r", ports = \[([^\]]*)\]", tail)
+        role_ports = (
+            re.findall(r'"([^"]+)"', ports_match.group(1)) if ports_match else []
+        )
+        rest = tail[ports_match.end() :] if ports_match else tail
+        predicate = None
+        pred_match = re.match(r", predicate = (#\w+|affine_map<)", rest)
+        if pred_match:
+            token = pred_match.group(1)
+            predicate = (
+                aliases[token]
+                if token.startswith("#")
+                else _extract_affine_map(rest, rest.index("affine_map<"))
+            )
+        func = re.search(rf"(func\.func @{sym}\(.*?\n  \}})", ir, re.DOTALL).group(1)
+        body = _interior_body_from_ir(func, role_ports, elem)
+        name = _role_cpp_name(sym)
+        args = (
+            ", ".join(f"hls::stream<{elem}> &{p}" for p in role_ports)
+            + f", {elem} c_local[1]"
+        )
+        definition = f"void {name}({args}) {{\n#pragma HLS inline off\n{body}\n}}\n"
+        roles.append(
+            {
+                "name": name,
+                "ports": role_ports,
+                "predicate": predicate,
+                "definition": definition,
+            }
+        )
+    return roles
+
+
+def _predicate_c_condition(affine_map_token):
+    """Translate an ``affine_map<(d0,...) -> (expr)>`` indicator to a C++ ``expr != 0`` condition."""
+    result = affine_map_token.split("-> ", 1)[1]  # e.g. "((d0 + d1) mod 2)>"
+    expr = result.rsplit(">", 1)[0]  # strip the closing map delimiter
+    if "ceildiv" in expr:
+        raise NotImplementedError(
+            "ceildiv predicates are not supported by the rolled emitter"
+        )
+    expr = re.sub(r"\bd(\d+)\b", lambda m: _COORD_C[int(m.group(1))], expr)
+    expr = expr.replace(" mod ", " % ").replace(" floordiv ", " / ")
+    return f"{expr} != 0"
+
+
+def _pe_dispatch(roles, wired):
+    """The per-grid-point PE statement: one call, or an if/else chain over the variant predicates.
+
+    Because the instantiation loops are fully unrolled, ``i``/``j`` are compile-time constants, so
+    the coordinate predicate folds and each grid point is bound to exactly one variant body.
+    """
+    base = [role for role in roles if role["predicate"] is None]
+    variants = [role for role in roles if role["predicate"] is not None]
+
+    def call(name):
+        return f"{name}({wired}, &C[i][j]);"
+
+    if not variants:
+        return "      " + call(base[0]["name"])
+    if len(base) != 1:
+        raise NotImplementedError(
+            "a predicate-variant map needs exactly one default (unpredicated) compute role"
+        )
+    lines = []
+    for idx, role in enumerate(variants):
+        keyword = "if" if idx == 0 else "} else if"
+        lines.append(
+            f"      {keyword} ({_predicate_c_condition(role['predicate'])}) {{"
+        )
+        lines.append(f"        {call(role['name'])}")
+    lines.append("      } else {")
+    lines.append(f"        {call(base[0]['name'])}")
+    lines.append("      }")
+    return "\n".join(lines)

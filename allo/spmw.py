@@ -364,6 +364,10 @@ class Unit:
         self.interior = fn
         # Each role is (edge_names, body); it specializes the units missing those links.
         self.roles = []
+        # Each variant is (predicate_expr, body): a compute body selected where the affine
+        # indicator ``predicate_expr`` over the grid coordinates (d0, d1, ...) is nonzero. The
+        # base @unit body is the default, applied where no variant's predicate holds.
+        self.variants = []
         # A unit may carry its own topology (e.g. a permutation network defined with it).
         self.topo = None
 
@@ -374,6 +378,23 @@ class Unit:
 
         def register(body):
             self.roles.append((tuple(edges), body))
+            return body
+
+        return register
+
+    def variant(self, when):
+        """Register a coordinate-selected compute variant, applied where ``when`` is nonzero.
+
+        ``when`` is an affine indicator expression over the grid coordinates ``d0, d1, ...`` (e.g.
+        ``"(d0 + d1) mod 2"`` for a checkerboard). The variant body carries a distinct datapath; it
+        lowers to its own ``#spmw.role`` with that predicate, so distinct predicate tags stay
+        distinct role bodies through partition and HLS emission rather than being merged.
+        """
+        if not isinstance(when, str) or not when.strip():
+            raise SPMWError("a variant requires a non-empty affine predicate string")
+
+        def register(body):
+            self.variants.append((when.strip(), body))
             return body
 
         return register
@@ -1071,11 +1092,24 @@ def _affine_map_text(offset):
 
 
 def _roles_of(decl):
-    """The predicate tags for a mapped unit: the interior body plus each declared role."""
-    roles = [("interior", [])]
-    for edges, _ in decl.unit.roles:
-        roles.append(("_".join(edges), list(edges)))
+    """The compute and boundary roles for a mapped unit, each as ``(name, missing, predicate, body)``.
+
+    The interior body is the default compute role (no predicate); each declared variant is an extra
+    compute role over the same (empty) missing set, selected by its coordinate predicate; each
+    declared boundary role specializes the units missing its edges.
+    """
+    roles = [("interior", [], None, decl.unit.interior)]
+    for idx, (when, body) in enumerate(decl.unit.variants):
+        roles.append((f"variant{idx}", [], when, body))
+    for edges, body in decl.unit.roles:
+        roles.append(("_".join(edges), list(edges), None, body))
     return roles
+
+
+def _predicate_map_text(decl, when):
+    """An ``affine_map<(d0, d1, ...) -> (when)>`` over the grid coordinates for a variant predicate."""
+    dims = ", ".join(f"d{i}" for i in range(decl.topology.dims))
+    return f"affine_map<({dims}) -> ({when})>"
 
 
 def _topology_text(decl):
@@ -1117,12 +1151,13 @@ def _interior_ports():
     return sorted(_READ_PORTS)
 
 
-def _interior_role_func(program, decl, sym):
-    """The interior role ``func.func`` with the real transcribed datapath, or ``None``.
+def _interior_role_func(program, decl, sym, body=None):
+    """The compute role ``func.func`` with the real transcribed datapath, or ``None``.
 
-    ``None`` when the region is not the systolic A/B/C operand shape the datapath transcriber
-    handles (e.g. the minimal regions used by the dialect tests), so the caller falls back to the
-    signature-only stub.
+    ``body`` is the work-unit body to transcribe (the interior body by default, or a
+    predicate-selected variant body). ``None`` is returned when the region is not the systolic
+    A/B/C operand shape the datapath transcriber handles (e.g. the minimal regions used by the
+    dialect tests), so the caller falls back to the signature-only stub.
     """
     # pylint: disable=import-outside-toplevel
     from .spmw_mlir import interior_role_func
@@ -1136,7 +1171,9 @@ def _interior_role_func(program, decl, sym):
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
     # A systolic region fails closed: an untranscribable interior body raises rather than silently
     # becoming an empty stub. (Genuinely topology-only regions already returned None above.)
-    return interior_role_func(sym, decl.unit, elem, trip, decl.port_depths, shapes)
+    return interior_role_func(
+        sym, body or decl.unit.interior, elem, trip, decl.port_depths, shapes
+    )
 
 
 def _stream_operand_info(program, stream):
@@ -1404,21 +1441,28 @@ def _module_text(program, collection):
     for decl in collection.maps:
         _check_role_bodies_transcribable(decl)
         role_attrs = []
-        for name, missing in _roles_of(decl):
+        for name, missing, predicate, body in _roles_of(decl):
             sym = f"{program.name}_{decl.unit.name}_{name}"
             func = None
             ports_text = ""
             if not missing:
-                func = _interior_role_func(program, decl, sym)
+                func = _interior_role_func(program, decl, sym, body)
                 if func is not None:
-                    # the transcribed interior func streams over every port, in the sorted
+                    # the transcribed compute func streams over every port, in the sorted
                     # port-name order it lists them -- declare that as the role's stream ABI
                     ports = ", ".join(f'"{p}"' for p in _interior_ports())
                     ports_text = f", ports = [{ports}]"
+            predicate_text = ""
+            if predicate is not None:
+                # a variant needs an explicit (possibly empty) ports list before its predicate so
+                # the RoleAttr parser can tell the two optional trailing fields apart
+                ports_text = ports_text or ", ports = []"
+                predicate_text = f", predicate = {_predicate_map_text(decl, predicate)}"
             role_funcs.append(func or f"  func.func @{sym}() {{\n    return\n  }}")
             missing_text = ", ".join(f'"{edge}"' for edge in missing)
             role_attrs.append(
-                f"#spmw.role<unit = @{sym}, missing = [{missing_text}]{ports_text}>"
+                f"#spmw.role<unit = @{sym}, missing = [{missing_text}]"
+                f"{ports_text}{predicate_text}>"
             )
         # auto-halo loader/drain datapaths are boundary tasks around the grid, emitted as sibling
         # funcs (not compute-grid roles) and referenced from the map's halo list so spmw-unroll wires

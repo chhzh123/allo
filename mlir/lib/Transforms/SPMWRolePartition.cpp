@@ -107,26 +107,53 @@ struct SPMWRolePartitionPass
         return signalPassFailure();
   }
 
-  /// The index of the role that fits a point's missing ports (most specific
-  /// wins), or -1 for none / an ambiguous tie.
-  int selectRole(ArrayRef<RoleInfo> roles, ArrayRef<StringRef> missing) {
-    int bestSize = -1, best = -1, ties = 0;
+  /// The index of the role that fits a grid point (most specific missing set
+  /// wins), or -1 for none / an ambiguous tie. When several roles share the
+  /// most-specific missing set they are compute variants distinguished by a
+  /// coordinate predicate: a predicated role is eligible where its indicator is
+  /// nonzero, and a role without a predicate is the default (chosen where no
+  /// variant is eligible). This is how distinct predicate-selected bodies stay
+  /// separate instances rather than being merged.
+  int selectRole(ArrayRef<RoleInfo> roles, ArrayRef<StringRef> missing,
+                 ArrayRef<int64_t> coord) {
+    int bestSize = -1;
+    SmallVector<int> fits;
     for (auto [i, role] : llvm::enumerate(roles)) {
-      bool fits = llvm::all_of(role.missing, [&](StringRef port) {
+      bool ok = llvm::all_of(role.missing, [&](StringRef port) {
         return llvm::is_contained(missing, port);
       });
-      if (!fits)
+      if (!ok)
         continue;
       int size = static_cast<int>(role.missing.size());
       if (size > bestSize) {
         bestSize = size;
-        best = static_cast<int>(i);
-        ties = 1;
+        fits.assign(1, static_cast<int>(i));
       } else if (size == bestSize) {
-        ++ties;
+        fits.push_back(static_cast<int>(i));
       }
     }
-    return ties == 1 ? best : -1;
+    if (fits.size() <= 1)
+      return fits.empty() ? -1 : fits.front();
+    int eligible = -1, eligibleCount = 0, dflt = -1, dfltCount = 0;
+    for (int i : fits) {
+      if (roles[i].predicate) {
+        SmallVector<int64_t> tag;
+        if (failed(evalAffine(roles[i].predicate, coord, tag)) || tag.empty())
+          return -1;
+        if (llvm::any_of(tag, [](int64_t t) { return t != 0; })) {
+          eligible = i;
+          ++eligibleCount;
+        }
+      } else {
+        dflt = i;
+        ++dfltCount;
+      }
+    }
+    if (eligibleCount == 1)
+      return eligible;
+    if (eligibleCount == 0 && dfltCount == 1)
+      return dflt;
+    return -1;
   }
 
   LogicalResult partition(spmw::MapOp map) {
@@ -181,7 +208,7 @@ struct SPMWRolePartitionPass
         if (!inBounds(peerCoord, grid))
           missing.push_back(peer.getPort());
       }
-      int role = selectRole(roles, missing);
+      int role = selectRole(roles, missing, coord);
       if (role < 0)
         return map.emitOpError("no unambiguous role fits a grid point");
       ++counts[role];
@@ -204,17 +231,25 @@ struct SPMWRolePartitionPass
       ++linkClasses[key];
     }
 
-    SmallVector<int64_t> classCounts;
-    for (const auto &entry : linkClasses)
-      classCounts.push_back(entry.second);
-
     OpBuilder builder(map);
+    SmallVector<int64_t> classCounts;
+    SmallVector<Attribute> classKeys;
+    for (const auto &entry : linkClasses) {
+      classCounts.push_back(entry.second);
+      classKeys.push_back(builder.getStringAttr(entry.first));
+    }
+
     map->setAttr("spmw.partition", builder.getDenseI64ArrayAttr(counts));
     // The number of link-presence classes (array length) is the O(#roles)
     // count; the entries are the per-class grid-point instance counts, which
     // scale with the grid.
     map->setAttr("spmw.link_classes",
                  builder.getDenseI64ArrayAttr(classCounts));
+    // The identity of each class, parallel to spmw.link_classes: the sorted
+    // missing-port signature with a `#<tag>` suffix per predicate tag. This
+    // carries the (missing, predicate tag) identity into the IR so distinct
+    // predicate-selected classes are not merged by downstream emission.
+    map->setAttr("spmw.link_class_keys", builder.getArrayAttr(classKeys));
     return success();
   }
 };

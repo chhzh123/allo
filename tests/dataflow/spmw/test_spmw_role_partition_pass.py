@@ -133,3 +133,61 @@ def test_link_presence_degenerate_grid_has_fewer_classes():
     # a thin grid has fewer link-presence classes than the full nine
     assert len(_link_classes((2, 4))) == 6
     assert len(_link_classes((2, 2))) == 4
+
+
+def _checkerboard_twin(n=4):
+    from allo.ir.types import float32
+
+    grid = spmw.mesh((n, n))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 + d1) mod 2")
+    def pe_odd(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a + b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[n, 4], B: float32[4, n], C: float32[n, n]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+def test_predicate_variants_split_partition_and_carry_class_keys():
+    import re
+
+    module = spmw.lower(_checkerboard_twin(4))
+    spmw._run_module_pass(module, "spmw-role-partition")
+    ir = str(module)
+    # the base interior and the odd variant are DISTINCT compute roles: the partition has two entries
+    # that split the 4x4 grid evenly along the checkerboard (they are not merged into one role)
+    counts = [
+        int(x)
+        for x in re.search(r"spmw\.partition = array<i64: ([^>]*)>", ir)
+        .group(1)
+        .split(",")
+    ]
+    assert len(counts) == 2 and sorted(counts) == [8, 8]
+    # the class-key identities are carried in the IR (not just counts): the predicate splits classes
+    # by a #<tag> suffix, so distinct predicate tags stay distinct classes
+    keys = re.search(r"spmw\.link_class_keys = \[([^\]]*)\]", ir).group(1)
+    assert '"#1"' in keys and '""' in keys

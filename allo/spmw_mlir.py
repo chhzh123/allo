@@ -260,16 +260,18 @@ def _accumulators(body):
     return names
 
 
-def interior_role_func(sym, unit, dtype, trip, depths, shapes):
+def interior_role_func(sym, body_fn, dtype, trip, depths, shapes):
     """Emit a PID-parameterized interior role ``func.func`` carrying the real unit datapath.
 
-    ``trip`` is the k-loop trip count, ``depths`` maps each port name to its stream FIFO depth (so
-    reciprocal families with different declared depths stay distinct, as the op verifier requires),
-    and ``shapes`` is ``(a_shape, b_shape, c_shape)`` as ``(rows, cols)`` tuples. The func takes the
-    A/B/C memrefs, the writer position ``%pi``/``%pj``, and one ``!allo.stream`` per port.
+    ``body_fn`` is the work-unit body to transcribe (the interior body, or a predicate-selected
+    variant body). ``trip`` is the k-loop trip count, ``depths`` maps each port name to its stream
+    FIFO depth (so reciprocal families with different declared depths stay distinct, as the op
+    verifier requires), and ``shapes`` is ``(a_shape, b_shape, c_shape)`` as ``(rows, cols)`` tuples.
+    The func takes the A/B/C memrefs, the writer position ``%pi``/``%pj``, and one ``!allo.stream``
+    per port.
     """
     elem, kind = _mlir_elem(dtype)
-    tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
+    tree = ast.parse(textwrap.dedent(inspect.getsource(body_fn)))
     fn = tree.body[0]
     body = fn.body
     ports = {p: f"%{p}" for p in sorted(_READ_PORTS)}

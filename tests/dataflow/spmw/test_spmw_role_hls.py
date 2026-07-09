@@ -178,3 +178,67 @@ def test_ir_driven_emitter_honors_per_family_fifo_depths():
     # fa is the A (east/west) family -> depth 8; fb is the B (north/south) family -> depth 4
     assert "#pragma HLS stream variable=fa depth=8" in cpp
     assert "#pragma HLS stream variable=fb depth=4" in cpp
+
+
+def _checkerboard_twin(n=4):
+    grid = spmw.mesh((n, n))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 + d1) mod 2")
+    def pe_odd(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a + b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[n, 4], B: float32[4, n], C: float32[n, n]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+def test_variant_lowers_to_distinct_predicated_role():
+    # a declared @pe.variant lowers to its own compute role func (distinct datapath) carrying the
+    # coordinate predicate; the base interior role carries none
+    ir = str(spmw.lower(_checkerboard_twin(4)))
+    assert "@gemm_pe_interior(" in ir and "@gemm_pe_variant0(" in ir
+    assert "predicate = " in ir and "mod 2" in ir
+
+
+def test_predicate_variants_emit_distinct_bodies_not_merged():
+    # a checkerboard map declares a compute variant selected where (i+j) is odd; the IR-driven rolled
+    # emitter keeps the two predicate tags as two DISTINCT pe bodies and dispatches per grid point by
+    # the coordinate predicate -- it does not merge them into one body.
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    cpp = emit_rolled_hls_ir(_checkerboard_twin(4))
+    # two distinct compute bodies, one per predicate tag
+    assert cpp.count("void pe_interior(") == 1
+    assert cpp.count("void pe_variant0(") == 1
+    interior_body = cpp.split("void pe_interior(")[1].split("\nvoid ")[0]
+    variant_body = cpp.split("void pe_variant0(")[1].split("\nvoid ")[0]
+    # the base multiplies (a*b), the odd variant adds (a+b): the datapaths are genuinely different,
+    # so merging the two predicate tags into one body would be unsound
+    assert " * " in interior_body and " * " not in variant_body
+    assert interior_body != variant_body
+    # the per-grid-point dispatch selects the variant by the checkerboard coordinate predicate
+    assert "((i + j) % 2) != 0" in cpp
+    assert "pe_variant0(" in cpp and "} else {" in cpp
