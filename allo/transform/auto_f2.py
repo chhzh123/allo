@@ -1,6 +1,6 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# pylint: disable=no-name-in-module,broad-exception-caught,missing-param-doc,missing-type-doc,unused-variable,unused-argument,expression-not-assigned,too-many-nested-blocks,multiple-imports,unused-import,use-set-for-membership,too-many-return-statements,too-many-try-statements
+# pylint: disable=no-name-in-module,broad-exception-caught,missing-param-doc,missing-type-doc,unused-variable,unused-argument,expression-not-assigned,too-many-nested-blocks,unused-import,use-set-for-membership,too-many-return-statements,too-many-try-statements
 
 """Automatic F2 bank-conflict-free layout analysis and application.
 
@@ -621,6 +621,52 @@ def _determine_banking_mode(P, n_addr_bits, bank_bits):
 _debug_auto_f2 = False
 
 
+def _gf2_rank(M):
+    """Rank over GF(2) of a matrix."""
+    from .f2_layout import _rref_gf2
+
+    M = np.asarray(M, dtype=np.int32) & 1
+    if M.size == 0:
+        return 0
+    if M.ndim == 1:
+        M = M.reshape(1, -1)
+    _, pivots = _rref_gf2(M)
+    return len(pivots)
+
+
+def _realized_bank_matrix(banking_mode, stride_bit, bank_bits, n_addr_bits):
+    """The GF(2) bank matrix S that ``_compute_bank_indices`` realizes for these parameters.
+
+    Mirrors ``_compute_bank_indices``: "cyclic" banks on the low ``bank_bits`` address bits with an
+    optional XOR swizzle of ``stride_bit`` into the top bank bit; "block" banks on the top
+    ``bank_bits`` bits.  Used to *verify* the realized banking is conflict-free (fail closed).
+    """
+    S = np.zeros((bank_bits, n_addr_bits), dtype=np.int32)
+    if banking_mode == "block":
+        offset_bits = n_addr_bits - bank_bits
+        for i in range(bank_bits):
+            S[i, offset_bits + i] = 1
+    else:  # cyclic
+        for i in range(bank_bits):
+            S[i, i] = 1
+        if stride_bit is not None and 0 <= stride_bit < n_addr_bits:
+            S[bank_bits - 1, stride_bit] ^= 1
+    return S
+
+
+def _banking_separates_conflicts(S, P):
+    """Whether bank matrix ``S`` maps every non-zero conflict vector in ``span(P)`` to a non-zero bank.
+
+    True iff ``S`` is injective on ``span(P)``, i.e. ``rank(S @ P) == rank(P)`` over GF(2).  A single
+    XOR-swizzle bit can only separate one high-stride conflict direction, so a conflict subspace with
+    two or more independent high directions fails here -- the signal to reject rather than silently
+    bank with one stride.
+    """
+    if P.shape[1] == 0:
+        return True
+    return _gf2_rank((S @ P) & 1) == _gf2_rank(P)
+
+
 def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=None):
     """Analyze all 1D buffers in a function and apply F2 layouts automatically.
 
@@ -743,6 +789,21 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=Non
             if banking_mode == "cyclic" and stride_bit is None:
                 stride_bit = 0
 
+            # Fail closed: a buffer with a non-empty conflict subspace must get a *provably*
+            # conflict-free banking. The realized single-XOR-swizzle banking can only separate one
+            # high-stride conflict direction; if the conflict subspace needs more (rank of S@P drops
+            # below rank of P), reject rather than silently synthesize a colliding memory.
+            realized = _realized_bank_matrix(
+                banking_mode, stride_bit, effective_bank_bits, n_addr_bits
+            )
+            if not _banking_separates_conflicts(realized, P):
+                raise RuntimeError(
+                    f"auto_f2: {fn_name}:{buf_name} has a conflict subspace (dim "
+                    f"{_gf2_rank(P.T)}) that a single-swizzle {banking_mode} banking with "
+                    f"bank_bits={effective_bank_bits} cannot make conflict-free. Increase banks or "
+                    f"use a multi-row swizzle; refusing to bank it silently."
+                )
+
             # For block banking, stride_bit holds offset_bits = n_bits - bank_bits
             effective_stride = stride_bit
             if banking_mode == "block":
@@ -759,24 +820,22 @@ def auto_apply_f2(module, func_name, func_args, bank_bits=None, kernel_names=Non
                     effective_stride,
                     banking=banking_mode,
                 )
-                applied.append(
-                    (
-                        fn_name,
-                        buf_name,
-                        banking_mode,
-                        effective_bank_bits,
-                        effective_stride,
-                    )
-                )
             except Exception as e:
-                # If layout application fails, skip this buffer
-                import warnings, traceback
-
-                warnings.warn(
-                    f"auto_f2: failed to apply F2 layout to "
-                    f"{fn_name}:{buf_name}: {e}"
+                # A buffer with real bank conflicts that cannot be rewritten would otherwise be left
+                # unbanked -- a silently wrong (conflicting) architecture. Banking is a correctness
+                # pass, not a best-effort optimization: fail closed.
+                raise RuntimeError(
+                    f"auto_f2: buffer {fn_name}:{buf_name} has bank conflicts (subspace dim "
+                    f"{_gf2_rank(P.T)}) but F2 layout could not be applied: {e}"
+                ) from e
+            applied.append(
+                (
+                    fn_name,
+                    buf_name,
+                    banking_mode,
+                    effective_bank_bits,
+                    effective_stride,
                 )
-                if _debug_auto_f2:
-                    traceback.print_exc()
+            )
 
     return applied

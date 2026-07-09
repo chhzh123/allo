@@ -158,38 +158,71 @@ class F2LayoutSolver:
     # Phase 3 – solve for S
     # ------------------------------------------------------------------
 
+    def _unit(self, s: int) -> np.ndarray:
+        """The address delta e_s (a butterfly at stride bit *s* toggles address bit *s*)."""
+        delta = np.zeros(self.n_bits, dtype=np.int32)
+        delta[s] = 1
+        return delta
+
     def solve(self, stride_bits: List[int]) -> "SwizzleHelper":
-        """Compute a minimal-XOR swizzle matrix S for the given strides.
+        """Compute a conflict-free swizzle matrix S for the given strides.
 
-        Strategy (heuristic, matches kernel.cpp's swizzle_bank pattern):
-          - Start from identity S (lower bank_bits bits of address → bank).
-          - For each conflicting stride bit *s*:
-              XOR row (bank_bits - 1) of S with unit vector e_s.
-              This is equivalent to: bank[bank_bits-1] ^= addr_bit[s].
-          - Verify the result is conflict-free; raise if not (should not
-            happen for the standard FFT case).
+        A set of butterfly strides accessed together makes a whole conflict *subspace* live: the
+        addresses that collide are every non-zero vector in ``span({e_s})``, not just the individual
+        ``e_s``.  So each stride the default (low-bit) bank assignment does not already separate must
+        toggle a **distinct** bank row -- if two shared one row, the combined delta ``e_{s_i} ^
+        e_{s_j}`` would cancel to bank 0 (e.g. strides ``[2, 3]`` mapping ``{0,4,8,12}`` to the same
+        bank).  This needs one bank bit per conflicting stride; **reject** when there are more
+        conflicting strides than ``bank_bits`` (too few banks to separate that many simultaneous
+        accesses), and verify the result separates the entire span before returning.
 
-        Returns a SwizzleHelper wrapping the solved S.
+        For a single stride (the common FFT-stage case) this is exactly the original
+        ``bank[bank_bits-1] ^= addr_bit[s]`` swizzle.
+
+        Raises ``ValueError`` when the strides cannot be made conflict-free with ``bank_bits`` banks.
         """
         S = self._S_default.copy()
-        for s in stride_bits:
-            delta = np.zeros(self.n_bits, dtype=np.int32)
-            delta[s] = 1
-            bank_delta = (S @ delta) & 1
-            if not np.any(bank_delta):
-                # Conflict: XOR the MSB row of S with e_s
-                S[self.bank_bits - 1, s] ^= 1
-
-        # Verify: no conflict vector should map to zero bank
-        for s in stride_bits:
-            delta = np.zeros(self.n_bits, dtype=np.int32)
-            delta[s] = 1
-            assert np.any((S @ delta) & 1), (
-                f"F2LayoutSolver: could not resolve bank conflict for stride_bit={s}. "
-                "Consider increasing bank_bits."
+        strides = sorted(set(stride_bits))
+        # A stride s < bank_bits is already its own bank bit (row s), so it "claims" that bank row;
+        # a stride s >= bank_bits maps to bank 0 by default and needs a swizzle. Each such
+        # conflicting stride must toggle a DISTINCT bank row that no other stride in the access set
+        # already occupies -- otherwise two strides drive the same bank bit and their combined delta
+        # cancels to bank 0 (e.g. stride 3 swizzled into the row bank bit 2 already uses).
+        claimed = {s for s in strides if s < self.bank_bits}
+        free_rows = [r for r in range(self.bank_bits - 1, -1, -1) if r not in claimed]
+        conflicting = [s for s in strides if s >= self.bank_bits]
+        if len(conflicting) > len(free_rows):
+            raise ValueError(
+                f"F2LayoutSolver: {len(strides)} simultaneous strides {strides} cannot be made "
+                f"conflict-free with bank_bits={self.bank_bits} ({1 << self.bank_bits} banks); "
+                f"need at least {1 << len(strides)} banks."
             )
+        for row, s in zip(free_rows, conflicting):
+            # top-down free rows: a single stride still lands in row bank_bits-1, the swizzle the
+            # FFT kernel expects.
+            S[row, s] ^= 1
 
+        self._assert_conflict_free(S, strides)
         return SwizzleHelper(S, self.n_bits, self.bank_bits)
+
+    def _assert_conflict_free(self, S: np.ndarray, stride_bits: List[int]) -> None:
+        """Raise unless S separates every non-zero vector in the span of the stride deltas.
+
+        S is conflict-free over ``span({e_s})`` iff the bank-delta images ``{S @ e_s}`` are linearly
+        independent over GF(2) -- then no non-empty XOR of the strides can map to bank 0.  Checking
+        rank is exact and O(#strides^2), unlike enumerating the 2^k span.
+        """
+        strides = sorted(set(stride_bits))
+        if not strides:
+            return
+        images = np.array([(S @ self._unit(s)) & 1 for s in strides], dtype=np.int32)
+        _, pivots = _rref_gf2(images)
+        if len(pivots) < len(strides):
+            raise ValueError(
+                f"F2LayoutSolver: banking is not conflict-free for strides {strides} with "
+                f"bank_bits={self.bank_bits}: some simultaneous access delta maps to bank 0. "
+                f"Increase bank_bits."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +560,20 @@ def apply_f2_layout(
             elif op_name == "allo.partition":
                 op.erase()
 
-        # 5. Remove old alloc
+        # 5. Remove old alloc. Every load/store/partition was rewritten onto the 2D buffer above;
+        # if the old buffer still has uses, the design accesses it in a way this transform does not
+        # handle (an init fill, a copy, a stream put/get, ...). Erasing an op whose result is still
+        # live aborts MLIR, so fail closed with a clear error (and roll back the 2D alloc) instead of
+        # crashing -- banking a buffer whose accesses we cannot fully remap would be silently wrong.
+        remaining = sorted({use.owner.name for use in old_result.uses})
+        if remaining:
+            # Leave the IR as-is and raise: erasing either alloc now (both have live results) would
+            # abort MLIR. The schedule is aborted by this error, so the partial module is discarded.
+            raise ValueError(
+                f"apply_f2_layout: buffer {func_name}:{buf_name} has accesses this transform "
+                f"cannot rewrite ({remaining}); refusing to bank it. Only load/store/partition "
+                f"accesses of the buffer are supported."
+            )
         old_alloc.operation.erase()
 
 

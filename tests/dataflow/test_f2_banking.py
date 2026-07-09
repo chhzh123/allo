@@ -15,6 +15,8 @@ import tempfile
 
 import allo
 from allo.ir.types import int32
+import pytest
+
 from allo.transform.f2_layout import F2LayoutSolver, SwizzleHelper, fft_swizzle
 
 
@@ -62,6 +64,44 @@ def test_bank_and_offset_exprs_are_valid_cpp():
     assert offset == "(idx >> 1)"
 
 
+def test_multiple_conflicting_strides_are_conflict_free_over_the_full_span():
+    # Regression for the conflict-span bug: two conflicting strides [2, 3] make the *whole* span
+    # {e2, e3, e2^e3} collide-prone. A single shared bank row let e2^e3 cancel, mapping
+    # {0, 4, 8, 12} to only two banks. Each simultaneously-accessed group must now be fully distinct.
+    for bank_bits in (2, 3):  # 4 and 8 banks both suffice for 2 conflicting strides
+        helper = F2LayoutSolver(4, bank_bits).solve([2, 3])
+        banks = [helper.swizzle_bank(a) for a in (0, 4, 8, 12)]
+        assert len(set(banks)) == 4, f"bank_bits={bank_bits}: {banks} collide"
+
+
+def test_three_conflicting_strides_need_three_bank_bits():
+    # Three simultaneous strides span an 8-address access set; 8 banks separate them, 4 cannot.
+    helper = F2LayoutSolver(6, 3).solve([3, 4, 5])
+    banks = [helper.swizzle_bank(a) for a in range(0, 64, 8)]
+    assert len(set(banks)) == 8
+
+
+def test_solver_rejects_when_banks_too_few():
+    # Too few banks to separate the simultaneous access set -> reject with a diagnostic, never a
+    # silently-colliding banking.
+    with pytest.raises(ValueError, match="conflict-free"):
+        F2LayoutSolver(4, 1).solve(
+            [2, 3]
+        )  # 2 conflicting strides need 4 banks, only 2 given
+    with pytest.raises(ValueError, match="conflict-free"):
+        F2LayoutSolver(6, 2).solve(
+            [3, 4, 5]
+        )  # 3 conflicting strides need 8 banks, only 4 given
+
+
+def test_single_stride_swizzle_is_unchanged():
+    # The single-stride case (one FFT butterfly stage) still toggles the top bank row, matching the
+    # kernel the FFT expects.
+    helper = F2LayoutSolver(8, 3).solve([5])
+    for i in range(1 << 8):
+        assert helper.swizzle_bank(i) != helper.swizzle_bank(i ^ (1 << 5))
+
+
 def test_fft_swizzle_is_conflict_free_for_its_stage():
     # fft_swizzle is the convenience wrapper the FFT datapath uses. WIDTH=8 -> 8 banks
     # (bank_bits=3); an inter-vector butterfly stage (stride_bit >= bank_bits) must be conflict-free.
@@ -73,25 +113,67 @@ def test_fft_swizzle_is_conflict_free_for_its_stage():
         assert helper.swizzle_bank(i) != helper.swizzle_bank(j)
 
 
-def test_bind_storage_and_dependence_pragmas_emit_in_hls():
-    # The banking machinery pins a buffer's storage resource and marks it dependence-free; these
-    # rode in on the ported EmitVivadoHLS.cpp hunks (emitAlloc). Exercise them directly (the
-    # f2_layout 1D->2D rewrite itself is exercised by the FFT butterfly kernels in task4.4).
-    def banked_copy(inp: int32[16]) -> int32[16]:
-        buf: int32[16] = 0
+def test_f2_layout_rewrites_1d_buffer_to_real_2d_banked_storage():
+    # End-to-end: Schedule.f2_layout rewrites a 1D local buffer into a real 2D [num_banks][depth]
+    # banked array (not a comment) and stamps the array_partition / bind_storage / dependence
+    # pragmas the banking needs. 16 elements, 2 banks -> buf[2][8].
+    def bank16(inp: int32[16]) -> int32[16]:
+        buf: int32[
+            16
+        ]  # no init: the buffer's only uses are the loads/stores f2_layout remaps
         for i in range(16):
-            buf[i] = inp[i] + 1
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(bank16)
+    s.f2_layout("bank16:buf", n_bits=4, bank_bits=1, banking="block")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
+    code = mod.hls_code
+    # real 2D banked storage, banked axis fully partitioned, resource pinned, dependence relaxed
+    assert "[2][8]" in code, code
+    assert "#pragma HLS array_partition" in code and "complete dim=1" in code
+    assert "#pragma HLS bind_storage" in code and "impl=lutram" in code.lower()
+    assert "#pragma HLS dependence" in code and "inter false" in code
+
+
+def test_f2_layout_fails_closed_on_unremappable_access():
+    # A buffer accessed in a way the rewrite can't remap (here an init fill) must be rejected with a
+    # clear error, not silently left unbanked (and never a hard MLIR abort).
+    def bad(inp: int32[16]) -> int32[16]:
+        buf: int32[16] = 0  # the `= 0` init fill is a use f2_layout cannot remap
+        for i in range(16):
+            buf[i] = inp[i]
         out: int32[16] = 0
         for i in range(16):
             out[i] = buf[i]
         return out
 
-    s = allo.customize(banked_copy)
-    s.bind_storage("banked_copy:buf", impl="uram", storage_type="ram_2p")
-    s.dependence("banked_copy:buf")
-    with tempfile.TemporaryDirectory() as tmpdir:
-        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
-    code = mod.hls_code
-    assert "#pragma HLS bind_storage" in code and "impl=uram" in code
-    assert "type=ram_2p" in code
-    assert "#pragma HLS dependence" in code and "inter false" in code
+    s = allo.customize(bad)
+    with pytest.raises(ValueError, match="cannot rewrite"):
+        s.f2_layout("bad:buf", n_bits=4, bank_bits=1, banking="block")
+
+
+def test_single_swizzle_cannot_separate_two_high_conflict_directions():
+    # The auto_f2 fail-closed guard: a single XOR-swizzle banking separates only one high-stride
+    # conflict direction, so a conflict subspace with two (e2, e3) is detected as not-conflict-free
+    # -- the signal for auto_f2 to reject rather than bank silently.
+    import numpy as np
+    from allo.transform.auto_f2 import (
+        _realized_bank_matrix,
+        _banking_separates_conflicts,
+    )
+
+    P = np.array([[0, 0], [0, 0], [1, 0], [0, 1]], dtype=np.int32)  # columns e2, e3
+    for bank_bits in (1, 2):
+        S = _realized_bank_matrix(
+            "cyclic", stride_bit=2, bank_bits=bank_bits, n_addr_bits=4
+        )
+        assert not _banking_separates_conflicts(S, P)
+    # a single high direction IS separable by one swizzle bit
+    P1 = np.array([[0], [0], [1], [0]], dtype=np.int32)  # column e2
+    S1 = _realized_bank_matrix("cyclic", stride_bit=2, bank_bits=1, n_addr_bits=4)
+    assert _banking_separates_conflicts(S1, P1)
