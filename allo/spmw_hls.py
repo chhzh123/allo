@@ -601,12 +601,25 @@ def _compute_roles_from_ir(ir, elem):
 
 
 def _predicate_c_condition(affine_map_token):
-    """Translate an ``affine_map<(d0,...) -> (expr)>`` indicator to a C++ ``expr != 0`` condition."""
+    """Translate an ``affine_map<(d0,...) -> (expr)>`` indicator to a C++ ``expr != 0`` condition.
+
+    Only affine indicators whose ``mod``/``floordiv`` operate on non-negative subexpressions are
+    accepted: C++ ``%`` and ``/`` truncate toward zero, so they diverge from MLIR's floor-based
+    ``mod``/``floordiv`` when an operand can be negative -- which would make the emitted dispatch
+    select a different variant than ``spmw-role-partition``/``spmw-unroll`` (which evaluate with
+    floor semantics). A predicate mixing ``mod``/``floordiv`` with subtraction/negation is rejected
+    (fail closed) rather than silently mistranslated. ``ceildiv`` has no C++ operator and is rejected.
+    """
     result = affine_map_token.split("-> ", 1)[1]  # e.g. "((d0 + d1) mod 2)>"
     expr = result.rsplit(">", 1)[0]  # strip the closing map delimiter
     if "ceildiv" in expr:
         raise NotImplementedError(
             "ceildiv predicates are not supported by the rolled emitter"
+        )
+    if ("mod" in expr or "floordiv" in expr) and "-" in expr:
+        raise NotImplementedError(
+            "the rolled emitter only supports mod/floordiv predicates over non-negative "
+            f"subexpressions (C++ % and / diverge from MLIR floor semantics on negatives); got {expr}"
         )
     expr = re.sub(r"\bd(\d+)\b", lambda m: _COORD_C[int(m.group(1))], expr)
     expr = expr.replace(" mod ", " % ").replace(" floordiv ", " / ")

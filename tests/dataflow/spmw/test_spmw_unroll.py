@@ -141,3 +141,47 @@ def test_ambiguous_role_rejected():
     # the NW corner is missing both west and north; two size-1 roles fit -> ambiguous
     with pytest.raises(spmw.SPMWError, match="ambiguous role"):
         spmw.unroll(r)
+
+
+def _checkerboard_twin(n):
+    grid = spmw.mesh((n, n))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 + d1) mod 2")
+    def pe_odd(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a + b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[n, 4], B: float32[4, n], C: float32[n, n]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+def test_unroll_selects_predicate_variant_per_point():
+    # spmw-unroll is predicate-aware: a checkerboard variant map expands to per-PID calls that select
+    # the base interior body on even cells and the variant body on odd cells -- not an ambiguous tie,
+    # so the predicated spmw.map is consumable by the simulator lowering, not only the HLS emitter
+    text = str(spmw.unroll(_checkerboard_twin(4)))
+    assert text.count("call @gemm_pe_interior(") == 8  # even cells
+    assert text.count("call @gemm_pe_variant0(") == 8  # odd cells

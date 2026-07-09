@@ -220,13 +220,16 @@ struct SPMWRolePartitionPass
         key += (key.empty() ? "" : ",") + port.str();
       // A predicate on the selected role splits its link-presence class: two
       // points in the same class but with different predicate tags are distinct
-      // instances.
+      // instances. The key records the selected role's identity (its index) as
+      // well as the tag values, so two *different* predicate roles that happen
+      // to evaluate to the same tag do not collapse to one class.
       if (AffineMap pred = roles[role].predicate) {
         SmallVector<int64_t> tag;
         if (failed(evalAffine(pred, coord, tag)))
           return map.emitOpError("role predicate is not a static affine map");
+        key += "#" + std::to_string(role);
         for (int64_t t : tag)
-          key += "#" + std::to_string(t);
+          key += ":" + std::to_string(t);
       }
       ++linkClasses[key];
     }

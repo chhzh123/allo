@@ -187,7 +187,9 @@ def test_predicate_variants_split_partition_and_carry_class_keys():
         .split(",")
     ]
     assert len(counts) == 2 and sorted(counts) == [8, 8]
-    # the class-key identities are carried in the IR (not just counts): the predicate splits classes
-    # by a #<tag> suffix, so distinct predicate tags stay distinct classes
+    # the class-key identities are carried in the IR (not just counts): a predicated class records
+    # (selected-role index, tag) as a #<role>:<tag> suffix, so distinct predicate roles stay distinct
+    # classes and never collapse. Here the base interior class is "" and the variant (role 1, tag 1)
+    # class is "#1:1".
     keys = re.search(r"spmw\.link_class_keys = \[([^\]]*)\]", ir).group(1)
-    assert '"#1"' in keys and '""' in keys
+    assert '"#1:1"' in keys and '""' in keys

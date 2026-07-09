@@ -242,3 +242,44 @@ def test_predicate_variants_emit_distinct_bodies_not_merged():
     # the per-grid-point dispatch selects the variant by the checkerboard coordinate predicate
     assert "((i + j) % 2) != 0" in cpp
     assert "pe_variant0(" in cpp and "} else {" in cpp
+
+
+def test_rolled_emitter_rejects_floor_unsafe_predicate():
+    # a mod predicate over a possibly-negative subexpression ((d0 - d1) mod 2) would make C++ % diverge
+    # from MLIR's floor-based mod, so the emitter fails closed rather than emit a wrong dispatch
+    import pytest
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 - d1) mod 2")
+    def pe_skew(ctx):
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a + b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[4, 4], B: float32[4, 4], C: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(NotImplementedError):
+        emit_rolled_hls_ir(gemm)

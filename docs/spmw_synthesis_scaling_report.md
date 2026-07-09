@@ -46,7 +46,7 @@ only with the contraction depth K 4→8, not with grid replication). So the **bo
 (4)** as the grid grows, while instances scale O(P) for the boundary roles and O(P²) copies of the
 single interior body — i.e. "O(#roles) function bodies, not O(P0·P1)".
 
-## Synthesis wall-clock trend (task2.5 harness, real csynth at 8/16/32)
+## Synthesis wall-clock trend (task2.5 harness, real csynth at 4/8/16; 32×32 discussed below)
 
 `scripts/spmw_synth_scaling.py` runs a real `csynth_design` on the rolled top at a sweep of square
 grids (each in its own project, fixed contraction depth K=4 so the interior body is identical across
@@ -83,7 +83,8 @@ present 1024 *distinct* PE bodies to schedule and would not synthesize at all in
   tests/dataflow/spmw/test_spmw_role_partition_pass.py`.
 - Vitis csim (toolchain-guarded): `pytest tests/dataflow/spmw/test_spmw_csim.py` after sourcing the
   Vitis env; `test_rolled_top_csim_matches_reference` exercises the IR-driven rolled path.
-- Synthesis wall-clock trend: `python3 scripts/spmw_synth_scaling.py 8 16 32 --out
+- Synthesis wall-clock trend: `python3 scripts/spmw_synth_scaling.py 4 8 16 --out
   docs/spmw_synth_scaling_data.md` (writes the table above); each size emits `kernel.cpp` + `run.tcl`
   and runs `vitis_hls -f run.tcl`, whose per-module report lands under
-  `rolled.prj/solution1/syn/report/`.
+  `rolled.prj/solution1/syn/report/`. (The harness accepts any sizes; 32×32 exceeds a 40-minute
+  csynth budget as discussed above, so the recorded sweep is 4/8/16.)

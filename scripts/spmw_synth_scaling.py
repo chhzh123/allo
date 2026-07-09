@@ -11,7 +11,7 @@ already-scheduled interior body across the mesh.
 
 Run on the remote host with the Vitis env sourced (see CLAUDE.md):
 
-    python3 scripts/spmw_synth_scaling.py 8 16 32 --out docs/spmw_synth_scaling_data.md
+    python3 scripts/spmw_synth_scaling.py 4 8 16 --out docs/spmw_synth_scaling_data.md
 
 Each size is synthesized in its own temp project; a per-size timeout caps a run that does not finish
 and is reported as ``TIMEOUT`` rather than silently dropped.

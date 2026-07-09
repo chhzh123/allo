@@ -50,8 +50,39 @@ FIFO in the unrolled form (the `spmw-unroll` channel-sharing), and the verifier 
 symmetry (same depth and element type), so the family FIFO carries the same values in the same order
 as the corresponding unrolled channels.
 
+## Why predicate-selected variants stay sound
+
+A work unit may declare coordinate-selected compute variants (`@unit.variant(when)`); each lowers to
+its own `#spmw.role` over the same (empty) missing set with a distinct predicate indicator, and its
+own transcribed role func. Three facts keep this sound:
+
+1. **One body per grid point.** `spmw-role-partition` and `spmw-unroll` select the role for a point
+   by the *same* rule: among the roles sharing its most-specific missing set, the unique predicated
+   role whose indicator is nonzero at the coordinate, else the unique unpredicated default. Both
+   passes evaluate the predicate with MLIR's floor-based affine semantics (`(d0 + d1) mod 2` folds to
+   a constant tag), and both reject an overlap (two eligible predicated roles) as an ambiguity. So
+   every point maps to exactly one role — the partition counts are a true partition of the grid.
+
+2. **The dispatch agrees with the partition.** The rolled HLS emitter emits one distinct `pe_<role>`
+   body per compute role and, per grid point, an `if/else` chain on the *same* coordinate predicate.
+   Because the instantiation loops are fully unrolled, `i`/`j` are compile-time constants and the
+   predicate constant-folds, so HLS binds each point to the same body the partition assigns. To keep
+   the C++ dispatch faithful to the passes' floor semantics, the emitter accepts only indicators whose
+   `mod`/`floordiv` operate on non-negative subexpressions (C++ `%`/`/` truncate toward zero, so a
+   negative operand would diverge); a mixed `mod`/`floordiv`-with-subtraction predicate is rejected
+   rather than mistranslated.
+
+3. **Distinct tags stay distinct.** `spmw.partition` counts each role separately and
+   `spmw.link_class_keys` records each class's `(missing signature, selected-role index, predicate
+   tag)` identity, so two different predicate roles are never conflated — even if their indicators
+   happen to evaluate to the same numeric tag. Real Vitis csynth confirms the tool synthesizes the
+   variants as separate modules (they are not merged).
+
+The per-variant datapaths are transcribed the same way as the interior body, so within each variant
+the argument in "Why the interior datapath is preserved" applies unchanged.
+
 ## Scope
 
-This argument covers the funded systolic-mesh floor (a single auto-halo compute role, peer-link
-interconnect). The predicate-tag interior split (checkerboard) and key-link/collective channels are
-general-model extensions and are out of scope for this note.
+This argument covers the funded systolic-mesh floor (auto-halo compute roles, optional
+coordinate-predicate compute variants, peer-link interconnect). Key-link/collective channels are a
+general-model extension and are out of scope for this note.

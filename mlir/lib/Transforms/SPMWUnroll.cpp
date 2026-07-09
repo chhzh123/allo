@@ -80,6 +80,48 @@ bool inBounds(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
   return true;
 }
 
+/// Floor division matching MLIR affine semantics (rounds toward -inf).
+int64_t predFloorDiv(int64_t a, int64_t b) {
+  int64_t q = a / b, r = a % b;
+  return (r != 0 && ((r < 0) != (b < 0))) ? q - 1 : q;
+}
+
+/// Evaluate a dims-only affine predicate expression at a constant coordinate,
+/// folding the semi-affine mod / floordiv / ceildiv (the peer-map `evalAffine`
+/// above handles only translations, which never need folding). So an indicator
+/// like `(d0 + d1) mod 2` collapses to a constant tag.
+int64_t evalPredExpr(AffineExpr expr, ArrayRef<int64_t> coord) {
+  if (auto c = llvm::dyn_cast<AffineConstantExpr>(expr))
+    return c.getValue();
+  if (auto d = llvm::dyn_cast<AffineDimExpr>(expr))
+    return coord[d.getPosition()];
+  auto bin = llvm::cast<AffineBinaryOpExpr>(expr);
+  int64_t l = evalPredExpr(bin.getLHS(), coord);
+  int64_t r = evalPredExpr(bin.getRHS(), coord);
+  switch (bin.getKind()) {
+  case AffineExprKind::Add:
+    return l + r;
+  case AffineExprKind::Mul:
+    return l * r;
+  case AffineExprKind::FloorDiv:
+    return predFloorDiv(l, r);
+  case AffineExprKind::CeilDiv:
+    return -predFloorDiv(-l, r);
+  case AffineExprKind::Mod:
+    return l - r * predFloorDiv(l, r);
+  default:
+    return 0;
+  }
+}
+
+/// Whether a role's predicate indicator is nonzero at a coordinate.
+bool predicateHolds(AffineMap pred, ArrayRef<int64_t> coord) {
+  for (AffineExpr result : pred.getResults())
+    if (evalPredExpr(result, coord) != 0)
+      return true;
+  return false;
+}
+
 /// Row-major linear index of a coordinate within the grid.
 int64_t linearIndex(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
   int64_t index = 0;
@@ -91,6 +133,7 @@ int64_t linearIndex(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
 /// A role: the func it names, the boundary ports whose absence selects it, and
 /// (optionally) the local port each of its stream parameters carries, in order.
 struct RoleInfo {
+  AffineMap predicate;
   FlatSymbolRefAttr unit;
   SmallVector<StringRef> missing;
   SmallVector<StringRef> ports;
@@ -125,11 +168,15 @@ struct SPMWUnrollPass
         return signalPassFailure();
   }
 
-  /// Select the role for a point given its missing ports: a role fits when its
-  /// missing set is a subset of the point's; the most specific (largest) wins;
-  /// two incomparable fits are a genuine ambiguity.
+  /// Select the role for a point given its missing ports and coordinate: a role
+  /// fits when its missing set is a subset of the point's; the most specific
+  /// (largest) wins. When several roles share the most-specific missing set
+  /// they are predicate-selected compute variants -- a predicated role is
+  /// eligible where its indicator is nonzero, and the unpredicated role is the
+  /// default -- mirroring spmw-role-partition. Any other incomparable fit is a
+  /// genuine ambiguity.
   LogicalResult selectRole(spmw::MapOp map, ArrayRef<RoleInfo> roles,
-                           ArrayRef<StringRef> missing,
+                           ArrayRef<StringRef> missing, ArrayRef<int64_t> coord,
                            const RoleInfo *&selected) {
     int bestSize = -1;
     SmallVector<const RoleInfo *> best;
@@ -149,11 +196,33 @@ struct SPMWUnrollPass
     }
     if (best.empty())
       return map.emitOpError("no role fits a grid point missing ports");
-    if (best.size() > 1)
-      return map.emitOpError("ambiguous role for a grid point; declare a role "
-                             "for that exact boundary");
-    selected = best.front();
-    return success();
+    if (best.size() == 1) {
+      selected = best.front();
+      return success();
+    }
+    const RoleInfo *eligible = nullptr, *dflt = nullptr;
+    int eligibleCount = 0, dfltCount = 0;
+    for (const RoleInfo *role : best) {
+      if (role->predicate) {
+        if (predicateHolds(role->predicate, coord)) {
+          eligible = role;
+          ++eligibleCount;
+        }
+      } else {
+        dflt = role;
+        ++dfltCount;
+      }
+    }
+    if (eligibleCount == 1) {
+      selected = eligible;
+      return success();
+    }
+    if (eligibleCount == 0 && dfltCount == 1) {
+      selected = dflt;
+      return success();
+    }
+    return map.emitOpError("ambiguous role for a grid point; declare a role "
+                           "for that exact boundary");
   }
 
   LogicalResult expand(spmw::MapOp map, SymbolTable &symbolTable);
@@ -192,6 +261,8 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
       return map.emitOpError("each role must be an spmw.role attribute");
     RoleInfo info;
     info.unit = role.getUnit();
+    if (auto pred = role.getPredicate())
+      info.predicate = pred.getAffineMap();
     for (Attribute edge : role.getMissing())
       info.missing.push_back(llvm::cast<StringAttr>(edge).getValue());
     if (ArrayAttr ports = role.getPorts())
@@ -239,7 +310,7 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
     }
 
     const RoleInfo *role = nullptr;
-    if (failed(selectRole(map, roles, missing, role)))
+    if (failed(selectRole(map, roles, missing, coord, role)))
       return failure();
     auto callee = symbolTable.lookup<func::FuncOp>(role->unit.getValue());
     if (!callee)
