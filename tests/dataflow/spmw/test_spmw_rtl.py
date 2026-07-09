@@ -9,7 +9,8 @@ import tempfile
 
 import pytest
 import allo.spmw as spmw
-from allo.spmw_rtl import emit_structural_verilog
+import allo.backend.hls as hls
+from allo.spmw_rtl import emit_structural_verilog, emit_role_ip, emit_role_ip_project
 from allo.ir.types import float32
 
 
@@ -139,3 +140,42 @@ def test_build_target_rtl_returns_structural_verilog():
     sv = spmw.build(_systolic_twin(4, 4, 4), target="rtl")
     assert "module spmw_top" in sv
     assert sv == emit_structural_verilog(_systolic_twin(4, 4, 4))
+
+
+def test_role_ip_is_free_running_all_stream():
+    # the interior PE exports as a free-running ap_ctrl_none IP whose every port is a stream (the
+    # result leaves on a c_out stream, no memref), so it is a pure ap_fifo dataflow block
+    ip = emit_role_ip(_systolic_twin(4, 4, 4))
+    assert "void pe_interior(" in ip
+    assert "#pragma HLS interface ap_ctrl_none port=return" in ip
+    assert "hls::stream<float> &c_out" in ip
+    assert "c_out.write(" in ip
+    assert "c_local" not in ip
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_role_ip_csynths_free_running_ap_fifo():
+    # csynth the role IP: the generated top RTL is free-running (no ap_start/ap_done block-control
+    # ports) and its stream ports are ap_fifo named exactly as the structural top's black box wires
+    # them -- so the exported IP drops straight into spmw_top
+    with tempfile.TemporaryDirectory() as tmp:
+        emit_role_ip_project(_systolic_twin(4, 4, 4), project=tmp)
+        subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=True,
+        )
+        rtl_path = os.path.join(
+            tmp, "role_ip.prj", "solution1", "syn", "verilog", "pe_interior.v"
+        )
+        with open(rtl_path, encoding="utf-8") as handle:
+            rtl = handle.read()
+    header = re.search(r"module pe_interior \(([^;]*)\);", rtl, re.DOTALL).group(1)
+    assert "ap_start" not in header and "ap_done" not in header
+    for sig in ("west_dout", "east_din", "north_dout", "south_din", "c_out_din"):
+        assert sig in header, header

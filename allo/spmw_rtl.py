@@ -274,3 +274,79 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports):
         "  endgenerate\n"
         "endmodule\n"
     )
+
+
+def emit_role_ip(region):
+    """The interior PE as a free-running ``ap_ctrl_none`` HLS IP (fills the structural top's PE block).
+
+    The role top carries ``#pragma HLS interface ap_ctrl_none port=return`` -- no ap_start/ap_done
+    block handshake, so it runs as a persistent dataflow block -- and every port is a
+    ``hls::stream<T>&`` (the compute result leaves on a ``c_out`` stream instead of a memref), so all
+    ports synthesize as ap_fifo: the exact ``<p>_dout/_empty_n/_read`` and ``<p>_din/_full_n/_write``
+    ABI the structural top's black boxes expect. csynth/export turns it into RTL that drops in.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _collect, _validate_collection
+    from .spmw_datapath import _resolve_dims
+    from .spmw_hls import _CPP_TYPE, _ROLLED_WIRING, transcribe_pe_cpp
+
+    collection = _validate_collection(_collect(region))
+    decl = collection.maps[0]
+    _rows, _cols, depth, dtype = _resolve_dims(region)
+    elem = _CPP_TYPE[dtype]
+    ports = sorted(decl.topology.port_names())
+    if set(ports) != set(_ROLLED_WIRING):
+        raise NotImplementedError(
+            f"role-IP export handles the systolic port set {sorted(_ROLLED_WIRING)}; got {ports}"
+        )
+    body_lines = []
+    for stmt in transcribe_pe_cpp(decl.unit):
+        # the compute result is streamed out (c_local[0] = X -> c_out.write(X)) so the whole PE is a
+        # pure ap_fifo dataflow block with no memory interface
+        stmt = re.sub(r"c_local\[0\] = (.+);", r"c_out.write(\1);", stmt)
+        for line in stmt.splitlines():
+            body_lines.append("  " + line)
+    body = "\n".join(body_lines)
+    args = (
+        ", ".join(f"hls::stream<{elem}> &{port}" for port in ports)
+        + f", hls::stream<{elem}> &c_out"
+    )
+    fn = (
+        f"void pe_interior({args}) {{\n"
+        "#pragma HLS interface ap_ctrl_none port=return\n"
+        f"{body}\n}}\n"
+    )
+    return f"#include <hls_stream.h>\n#define K {depth}\n\n{fn}"
+
+
+def _role_ip_tcl(part, frequency):
+    """A Vitis HLS script that csynths the free-running ``pe_interior`` role IP."""
+    return (
+        "open_project role_ip.prj\n"
+        "set_top pe_interior\n"
+        "add_files kernel.cpp\n"
+        "open_solution solution1\n"
+        f"set_part {part}\n"
+        f"create_clock -period {1000 / frequency:.2f} -name default\n"
+        "csynth_design\n"
+        "exit\n"
+    )
+
+
+def emit_role_ip_project(region, project=None, part=None, frequency=None):
+    """Write the free-running role IP as a stand-alone Vitis HLS project (``kernel.cpp`` + ``run.tcl``)."""
+    # pylint: disable=import-outside-toplevel
+    import os
+
+    from .spmw_hls import _DEFAULT_FREQUENCY_MHZ, _DEFAULT_PART
+
+    part = part or _DEFAULT_PART
+    frequency = frequency or _DEFAULT_FREQUENCY_MHZ
+    hls_code = emit_role_ip(region)
+    if project is not None:
+        os.makedirs(project, exist_ok=True)
+        with open(os.path.join(project, "kernel.cpp"), "w", encoding="utf-8") as handle:
+            handle.write(hls_code)
+        with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as handle:
+            handle.write(_role_ip_tcl(part, frequency))
+    return hls_code
