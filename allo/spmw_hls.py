@@ -174,7 +174,42 @@ def emit_rolled_hls(region):
     return _rolled_top_cpp(rows, cols, depth, elem, pe_fn, dispatch, fa_depth, fb_depth)
 
 
-def _rolled_top_cpp(rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_depth):
+_CONCRETE_STORAGE_IMPL = {"URAM", "BRAM", "LUTRAM"}
+
+
+def _memory_pragmas(memory_placements):
+    """The array-partition (+ optional bind_storage) pragmas for the rolled top's A/B/C arrays.
+
+    Each array defaults to a full ``complete dim=0`` partition (the streaming top needs every
+    element independently addressable, so no interface is read by more than one dataflow process).
+    A placement overrides that: ``bank_axis >= 0`` partitions only that (banking) axis, and a
+    concrete ``impl`` adds a ``bind_storage`` pinning the storage resource.
+    """
+    placements = memory_placements or {}
+    lines = []
+    for var in ("A", "B", "C"):
+        place = placements.get(var)
+        bank_axis = place["bank_axis"] if place else None
+        dim = bank_axis + 1 if (bank_axis is not None and bank_axis >= 0) else 0
+        lines.append(f"#pragma HLS array_partition variable={var} complete dim={dim}\n")
+        if place and place["impl"]:
+            lines.append(
+                f"#pragma HLS bind_storage variable={var} type=RAM_2P impl={place['impl']}\n"
+            )
+    return "".join(lines)
+
+
+def _rolled_top_cpp(
+    rows,
+    cols,
+    depth,
+    elem,
+    pe_defs,
+    pe_dispatch,
+    fa_depth,
+    fb_depth,
+    memory_placements=None,
+):
     """The rolled systolic HLS top for the compute-role body definitions ``pe_defs``.
 
     Shared by the frontend-transcribed emitter and the IR-driven one: given the compute-role body
@@ -185,6 +220,13 @@ def _rolled_top_cpp(rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_
     role (never one per grid point). ``fa_depth``/``fb_depth`` are the per-family FIFO depths the
     resolver recorded (the ``east/west`` A family and the ``north/south`` B family may differ; each
     PE streams ``K`` elements, so a depth must admit that buffering).
+
+    ``memory_placements`` maps a top array (``"A"``/``"B"``/``"C"``) to its resolved logical-memory
+    placement ``{"impl": <resource or None>, "bank_axis": <int>}``: a concrete ``impl`` emits a
+    ``bind_storage`` pragma pinning that array's storage, and ``bank_axis >= 0`` partitions along
+    that axis (banking) instead of the default full ``complete`` partition. An array with no
+    placement keeps the default ``complete dim=0`` -- so an unplaced design is byte-for-byte
+    unchanged.
     """
     return (
         "#include <hls_stream.h>\n"
@@ -206,12 +248,11 @@ def _rolled_top_cpp(rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_
         "}\n\n"
         f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
         "#pragma HLS dataflow\n"
-        # Each boundary role reads a distinct slice of A/B and each PE writes one C element;
-        # complete partition gives every element its own memory so no interface is read by more
-        # than one dataflow process.
-        "#pragma HLS array_partition variable=A complete dim=0\n"
-        "#pragma HLS array_partition variable=B complete dim=0\n"
-        "#pragma HLS array_partition variable=C complete dim=0\n"
+        # Each boundary role reads a distinct slice of A/B and each PE writes one C element; the
+        # array-partition pragmas (default full partition, or the placement's banking) keep no
+        # interface read by more than one dataflow process, plus any bind_storage the memory model
+        # pinned.
+        f"{_memory_pragmas(memory_placements)}"
         f"  hls::stream<{elem}> fa[M][N + 1];\n"
         f"  hls::stream<{elem}> fb[M + 1][N];\n"
         f"#pragma HLS stream variable=fa depth={fa_depth}\n"
@@ -443,6 +484,30 @@ def _interior_body_from_ir(func_text, ports, elem):
     return "\n".join(out)
 
 
+def _memory_placements_from_ir(ir, ordered_operands):
+    """Map each top-level ``#spmw.memory`` placement onto its rolled-top C++ array (``A``/``B``/``C``).
+
+    The rolled top names its arrays A, B, C by tensor-operand order, while a placement names its
+    target by the region operand's name; ``ordered_operands`` (the region's shaped operands, in
+    order) bridges the two. A resolved resource of ``AUTO``/``SRL`` carries no ``bind_storage``.
+    """
+    cpp_vars = ("A", "B", "C")
+    placements = {}
+    for tensor, resource, bank_axis in re.findall(
+        r'#spmw\.memory<tensor = "([^"]+)", resource = "([^"]+)", bank_axis = (-?\d+)>',
+        ir,
+    ):
+        if tensor not in ordered_operands:
+            continue
+        idx = ordered_operands.index(tensor)
+        if idx >= len(cpp_vars):
+            continue
+        resource = resource.upper()
+        impl = resource if resource in _CONCRETE_STORAGE_IMPL else None
+        placements[cpp_vars[idx]] = {"impl": impl, "bank_axis": int(bank_axis)}
+    return placements
+
+
 def emit_rolled_hls_ir(region):
     """The rolled systolic HLS top emitted by *consuming the rolled ``spmw.map`` IR*.
 
@@ -521,8 +586,21 @@ def emit_rolled_hls_ir(region):
         .split(",")
     ]
     fa_depth, fb_depth = max(depths[0], depth), max(depths[1], depth)
+    # Honor the logical-memory placements the region pinned: the resolved resource/bank axis on the
+    # top-level operands become bind_storage / banking pragmas on the corresponding rolled-top array.
+    annotations = getattr(region.fn, "__annotations__", {})
+    ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
+    memory_placements = _memory_placements_from_ir(ir, ordered_operands)
     return _rolled_top_cpp(
-        rows, cols, depth, elem, pe_defs, pe_dispatch, fa_depth, fb_depth
+        rows,
+        cols,
+        depth,
+        elem,
+        pe_defs,
+        pe_dispatch,
+        fa_depth,
+        fb_depth,
+        memory_placements,
     )
 
 
