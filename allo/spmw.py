@@ -36,6 +36,8 @@ __all__ = [
     "Grid",
     "mesh",
     "ring",
+    "scatter",
+    "gather",
     "unit",
     "region",
     "map",

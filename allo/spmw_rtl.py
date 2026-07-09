@@ -45,16 +45,17 @@ _RTL_WIRING = {
 }
 
 
-def emit_structural_verilog(region, behavioral=False):
+def emit_structural_verilog(region, mode="blackbox"):
     """Emit a structural SystemVerilog ``spmw_top`` for the systolic ``region`` from its ``spmw.map``.
 
     Lowers to the rolled ``spmw.map``, runs ``spmw-role-partition`` + ``spmw-resolve-channels``, and
     reads the grid extents, channel families, and compute-role ports off the IR -- so the structure
     is derived from the rolled IR, not the frontend collection (as with the HLS emitter).
 
-    With ``behavioral=True`` the role modules carry simulation bodies (an FP MAC PE, the loaders and
-    drains) instead of the ap_fifo black boxes, so the same ``spmw_top`` is self-contained and can be
-    co-simulated against the numpy oracle. The wiring is identical either way.
+    ``mode`` selects the role bodies (the wiring is identical): ``"blackbox"`` (default) emits ap_fifo
+    black boxes -- the integration template; ``"behavioral"`` emits an FP MAC PE + synthesizable
+    loaders/drains/collect so the top is a self-contained cosim; ``"synth"`` emits the synthesizable
+    loaders/drains/collect and leaves the PE to the exported ap_ctrl_none IP (the ``vitis_rtl`` path).
     """
     # pylint: disable=import-outside-toplevel
     from .spmw import lower, _run_module_pass
@@ -113,9 +114,8 @@ def emit_structural_verilog(region, behavioral=False):
         .split(",")
     ]
     fa_depth, fb_depth = max(depths[0], depth), max(depths[1], depth)
-    return _structural_top_sv(
-        rows, cols, depth, dw, fa_depth, fb_depth, ports, behavioral
-    )
+    del ports  # the systolic wiring is fixed (validated above)
+    return _structural_top_sv(rows, cols, depth, dw, fa_depth, fb_depth, mode)
 
 
 def _stream_port_decls(port, direction):
@@ -168,44 +168,118 @@ def _fifo_module():
     )
 
 
-def _role_blackbox(name, ports, kind):
-    """A black-box declaration for a role IP (filled by the ap_ctrl_none role-IP export).
+def _pe_port_decls():
+    """The PE module port list, identical to the exported ap_ctrl_none IP (ap_clk/ap_rst + ap_fifo).
 
-    ``kind`` selects the non-stream ABI: ``"pe"`` takes ``A``/``B`` row/col operands and a ``c_out``;
-    ``"load_a"``/``"load_b"`` take an operand row/column; ``"drain"`` takes nothing extra.
+    The result leaves on a ``c_out`` ap_fifo output stream, so this is exactly the ABI Vitis emits for
+    the role IP -- the exported IP drops into this slot with no adapter beyond the top's clk/rst map.
     """
-    lines = ["  input  wire          clk", "  input  wire          rst_n"]
+    lines = ["  input  wire          ap_clk", "  input  wire          ap_rst"]
+    for port in ("west", "east", "north", "south"):
+        lines += _stream_port_decls(port, "in" if port in {"west", "north"} else "out")
+    lines += _stream_port_decls("c_out", "out")
+    return lines
+
+
+def _role_blackbox(name, kind):
+    """A black-box declaration for a role module (filled by the ap_ctrl_none IP or a synth body).
+
+    ``kind`` selects the ABI: ``"pe"`` matches the exported IP (ap_clk/ap_rst + ap_fifo streams incl.
+    ``c_out``); ``"load_a"``/``"load_b"`` take an operand row/column; ``"drain"`` consumes a stream;
+    ``"collect"`` reads a result stream and latches the ``C`` element.
+    """
     if kind == "pe":
-        for port in ports:
-            lines += _stream_port_decls(
-                port, "in" if port in {"west", "north"} else "out"
-            )
-        lines += ["  output wire [DW-1:0] c_out", "  output wire          c_out_valid"]
+        lines = _pe_port_decls()
     elif kind == "load_a":
+        lines = ["  input  wire          clk", "  input  wire          rst_n"]
         lines += ["  input  wire [DW-1:0] a_row [0:K-1]"] + _stream_port_decls(
             "out", "out"
         )
     elif kind == "load_b":
+        lines = ["  input  wire          clk", "  input  wire          rst_n"]
         lines += ["  input  wire [DW-1:0] b_col [0:K-1]"] + _stream_port_decls(
             "out", "out"
         )
+    elif kind == "collect":
+        lines = ["  input  wire          clk", "  input  wire          rst_n"]
+        lines += _stream_port_decls("in", "in") + ["  output wire [DW-1:0] c_val"]
     else:  # drain
+        lines = ["  input  wire          clk", "  input  wire          rst_n"]
         lines += _stream_port_decls("in", "in")
     body = ",\n".join(lines)
-    return f"module {name} #(parameter DW = 32, parameter K = 4) (\n{body}\n);\n// role IP body: ap_ctrl_none export\nendmodule\n"
+    return f"module {name} #(parameter DW = 32, parameter K = 4) (\n{body}\n);\n// role IP body: ap_ctrl_none export / synth\nendmodule\n"
 
 
-def _behavioral_role_modules():
-    """Simulation bodies for the role modules (an FP MAC PE + loaders/drains) for cosim.
+def _synth_support_modules():
+    """Synthesizable loader/drain/collect bodies (plain RTL, no ``shortreal``).
 
-    These implement the same ap_fifo ABI as the black boxes; the PE MACs in ``shortreal`` (matching
-    the numpy oracle's accumulation order) so the self-contained top computes ``A @ B``. Simulation
-    only -- ``shortreal`` and ``$bitstoshortreal`` are not synthesizable.
+    ``load_a``/``load_b`` stream a ``K``-vector into an ap_fifo; ``drain`` consumes an edge stream;
+    ``collect`` latches a PE's ``c_out`` result FIFO into a ``C`` element. These are real RTL and are
+    reused by both the cosim top and the synthesizable ``vitis_rtl`` hierarchy.
+    """
+    loader = (
+        "module {name} #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] {vec} [0:K-1],\n"
+        "  output wire [DW-1:0] out_din,\n"
+        "  input  wire          out_full_n,\n"
+        "  output wire          out_write\n"
+        ");\n"
+        "  reg [31:0] k; reg active;\n"
+        "  assign out_write = active && out_full_n;\n"
+        "  assign out_din   = {vec}[k];\n"
+        "  always @(posedge clk) begin\n"
+        "    if (!rst_n) begin k <= 0; active <= 1; end\n"
+        "    else if (out_write) begin if (k == K - 1) active <= 0; else k <= k + 1; end\n"
+        "  end\n"
+        "endmodule\n"
+    )
+    return (
+        loader.format(name="load_a", vec="a_row")
+        + "\n"
+        + loader.format(name="load_b", vec="b_col")
+        + "\n"
+        "module drain #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] in_dout,\n"
+        "  input  wire          in_empty_n,\n"
+        "  output wire          in_read\n"
+        ");\n"
+        "  assign in_read = in_empty_n;\n"
+        "endmodule\n"
+        "\n"
+        "module collect #(parameter DW = 32, parameter K = 4) (\n"
+        "  input  wire          clk,\n"
+        "  input  wire          rst_n,\n"
+        "  input  wire [DW-1:0] in_dout,\n"
+        "  input  wire          in_empty_n,\n"
+        "  output wire          in_read,\n"
+        "  output wire [DW-1:0] c_val\n"
+        ");\n"
+        "  reg [DW-1:0] val;\n"
+        "  assign in_read = in_empty_n;\n"
+        "  assign c_val   = val;\n"
+        "  always @(posedge clk) begin\n"
+        "    if (!rst_n) val <= 0;\n"
+        "    else if (in_empty_n) val <= in_dout;\n"
+        "  end\n"
+        "endmodule\n"
+    )
+
+
+def _behavioral_pe():
+    """A simulation FP-MAC PE with the exported-IP ABI (ap_clk/ap_rst + ap_fifo, ``c_out`` stream).
+
+    Accumulates in ``shortreal`` in the numpy k-order and writes the result on the ``c_out`` stream,
+    so the self-contained top computes ``A @ B``. Simulation only (``shortreal`` is not synthesizable);
+    the synthesizable path uses the exported ap_ctrl_none IP in this same slot.
     """
     return (
         "module pe_interior #(parameter DW = 32, parameter K = 4) (\n"
-        "  input  wire          clk,\n"
-        "  input  wire          rst_n,\n"
+        "  input  wire          ap_clk,\n"
+        "  input  wire          ap_rst,\n"
         "  input  wire [DW-1:0] west_dout,\n"
         "  input  wire          west_empty_n,\n"
         "  output wire          west_read,\n"
@@ -218,25 +292,25 @@ def _behavioral_role_modules():
         "  output wire [DW-1:0] south_din,\n"
         "  input  wire          south_full_n,\n"
         "  output wire          south_write,\n"
-        "  output wire [DW-1:0] c_out,\n"
-        "  output wire          c_out_valid\n"
+        "  output wire [DW-1:0] c_out_din,\n"
+        "  input  wire          c_out_full_n,\n"
+        "  output wire          c_out_write\n"
         ");\n"
-        "  localparam READ = 2'd0, WRITE = 2'd1, DONE = 2'd2;\n"
+        "  localparam READ = 2'd0, WRITE = 2'd1, EMIT = 2'd2, DONE = 2'd3;\n"
         "  reg [1:0]    state;\n"
         "  reg [31:0]   k;\n"
         "  shortreal    acc;\n"
         "  reg [DW-1:0] a_reg, b_reg;\n"
-        "  reg          done;\n"
-        "  assign west_read   = (state == READ) && west_empty_n && north_empty_n;\n"
-        "  assign north_read  = west_read;\n"
-        "  assign east_write  = (state == WRITE) && east_full_n && south_full_n;\n"
-        "  assign south_write = east_write;\n"
-        "  assign east_din    = a_reg;\n"
-        "  assign south_din   = b_reg;\n"
-        "  assign c_out       = $shortrealtobits(acc);\n"
-        "  assign c_out_valid = done;\n"
-        "  always @(posedge clk) begin\n"
-        "    if (!rst_n) begin state <= READ; k <= 0; acc <= 0.0; done <= 0; end\n"
+        "  assign west_read    = (state == READ) && west_empty_n && north_empty_n;\n"
+        "  assign north_read   = west_read;\n"
+        "  assign east_write   = (state == WRITE) && east_full_n && south_full_n;\n"
+        "  assign south_write  = east_write;\n"
+        "  assign east_din     = a_reg;\n"
+        "  assign south_din    = b_reg;\n"
+        "  assign c_out_write  = (state == EMIT) && c_out_full_n;\n"
+        "  assign c_out_din    = $shortrealtobits(acc);\n"
+        "  always @(posedge ap_clk) begin\n"
+        "    if (ap_rst) begin state <= READ; k <= 0; acc <= 0.0; end\n"
         "    else case (state)\n"
         "      READ: if (west_empty_n && north_empty_n) begin\n"
         "              a_reg <= west_dout; b_reg <= north_dout;\n"
@@ -244,63 +318,51 @@ def _behavioral_role_modules():
         "              state <= WRITE;\n"
         "            end\n"
         "      WRITE: if (east_full_n && south_full_n) begin\n"
-        "               if (k == K - 1) begin state <= DONE; done <= 1; end\n"
+        "               if (k == K - 1) state <= EMIT;\n"
         "               else begin k <= k + 1; state <= READ; end\n"
         "             end\n"
+        "      EMIT: if (c_out_full_n) state <= DONE;\n"
         "      DONE: ;\n"
         "    endcase\n"
         "  end\n"
         "endmodule\n"
-        "\n"
-        "module load_a #(parameter DW = 32, parameter K = 4) (\n"
-        "  input  wire          clk,\n"
-        "  input  wire          rst_n,\n"
-        "  input  wire [DW-1:0] a_row [0:K-1],\n"
-        "  output wire [DW-1:0] out_din,\n"
-        "  input  wire          out_full_n,\n"
-        "  output wire          out_write\n"
-        ");\n"
-        "  reg [31:0] k; reg active;\n"
-        "  assign out_write = active && out_full_n;\n"
-        "  assign out_din   = a_row[k];\n"
-        "  always @(posedge clk) begin\n"
-        "    if (!rst_n) begin k <= 0; active <= 1; end\n"
-        "    else if (out_write) begin if (k == K - 1) active <= 0; else k <= k + 1; end\n"
-        "  end\n"
-        "endmodule\n"
-        "\n"
-        "module load_b #(parameter DW = 32, parameter K = 4) (\n"
-        "  input  wire          clk,\n"
-        "  input  wire          rst_n,\n"
-        "  input  wire [DW-1:0] b_col [0:K-1],\n"
-        "  output wire [DW-1:0] out_din,\n"
-        "  input  wire          out_full_n,\n"
-        "  output wire          out_write\n"
-        ");\n"
-        "  reg [31:0] k; reg active;\n"
-        "  assign out_write = active && out_full_n;\n"
-        "  assign out_din   = b_col[k];\n"
-        "  always @(posedge clk) begin\n"
-        "    if (!rst_n) begin k <= 0; active <= 1; end\n"
-        "    else if (out_write) begin if (k == K - 1) active <= 0; else k <= k + 1; end\n"
-        "  end\n"
-        "endmodule\n"
-        "\n"
-        "module drain #(parameter DW = 32, parameter K = 4) (\n"
-        "  input  wire          clk,\n"
-        "  input  wire          rst_n,\n"
-        "  input  wire [DW-1:0] in_dout,\n"
-        "  input  wire          in_empty_n,\n"
-        "  output wire          in_read\n"
-        ");\n"
-        "  assign in_read = in_empty_n;\n"
-        "endmodule\n"
     )
 
 
-def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral):
-    """The structural ``spmw_top``: one role instance per grid point + one FIFO per channel."""
-    del ports  # the systolic wiring is fixed (validated by the caller)
+def _role_modules(mode):
+    """The five role module definitions for the requested ``mode``.
+
+    ``"blackbox"`` -> empty declarations (the ``build(target="rtl")`` template); ``"behavioral"`` ->
+    the sim FP-MAC PE + synthesizable loaders/drains/collect (self-contained cosim); ``"synth"`` ->
+    synthesizable loaders/drains/collect only (the PE is supplied by the exported ap_ctrl_none IP).
+    """
+    if mode == "blackbox":
+        return (
+            _role_blackbox("pe_interior", "pe")
+            + "\n"
+            + _role_blackbox("load_a", "load_a")
+            + "\n"
+            + _role_blackbox("load_b", "load_b")
+            + "\n"
+            + _role_blackbox("drain", "drain")
+            + "\n"
+            + _role_blackbox("collect", "collect")
+        )
+    if mode == "behavioral":
+        return _behavioral_pe() + "\n" + _synth_support_modules()
+    if mode == "synth":
+        return _synth_support_modules()
+    raise ValueError(f"unknown role mode {mode!r}")
+
+
+def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, mode):
+    """The structural ``spmw_top``: one role instance per grid point + one FIFO per channel.
+
+    ``mode`` selects the role bodies (``blackbox``/``behavioral``/``synth``). The PE carries the
+    exported IP ABI (ap_clk/ap_rst + a ``c_out`` ap_fifo result stream); each PE's result FIFO is
+    read by a ``collect`` into ``C[i][j]``. ``load_b`` is fed column ``j`` of ``B`` (gathered from
+    ``B[*][j]``), not row ``j``.
+    """
 
     def conn(port, wire):
         read = wire.side == "read"
@@ -315,20 +377,8 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral)
         )
 
     pe_conn = ",\n".join(conn(port, wire) for port, wire in _RTL_WIRING.items())
-    if behavioral:
-        role_modules = _behavioral_role_modules()
-    else:
-        role_modules = (
-            _role_blackbox("pe_interior", ["west", "east", "north", "south"], "pe")
-            + "\n"
-            + _role_blackbox("load_a", [], "load_a")
-            + "\n"
-            + _role_blackbox("load_b", [], "load_b")
-            + "\n"
-            + _role_blackbox("drain", [], "drain")
-        )
     return (
-        "`timescale 1ns/1ps\n\n" + _fifo_module() + "\n" + role_modules + "\n"
+        "`timescale 1ns/1ps\n\n" + _fifo_module() + "\n" + _role_modules(mode) + "\n"
         f"module spmw_top #(parameter M = {rows}, parameter N = {cols}, parameter K = {k},\n"
         f"                  parameter DW = {dw}, parameter DA = {fa_depth}, parameter DB = {fb_depth}) (\n"
         "  input  wire          clk,\n"
@@ -337,16 +387,19 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral)
         "  input  wire [DW-1:0] B [0:K-1][0:N-1],\n"
         "  output wire [DW-1:0] C [0:M-1][0:N-1]\n"
         ");\n"
-        # A family (east/west): (N+1) FIFOs per row; B family (north/south): (M+1) per column.
+        # A family (east/west): (N+1)/row; B family (north/south): (M+1)/column; results: M*N.
         "  wire [DW-1:0] fa_din  [0:M-1][0:N];   wire [DW-1:0] fa_dout [0:M-1][0:N];\n"
         "  wire          fa_full [0:M-1][0:N];   wire          fa_empty[0:M-1][0:N];\n"
         "  wire          fa_wr   [0:M-1][0:N];   wire          fa_rd   [0:M-1][0:N];\n"
         "  wire [DW-1:0] fb_din  [0:M][0:N-1];   wire [DW-1:0] fb_dout [0:M][0:N-1];\n"
         "  wire          fb_full [0:M][0:N-1];   wire          fb_empty[0:M][0:N-1];\n"
         "  wire          fb_wr   [0:M][0:N-1];   wire          fb_rd   [0:M][0:N-1];\n"
-        "  genvar i, j;\n"
+        "  wire [DW-1:0] fc_din  [0:M-1][0:N-1]; wire [DW-1:0] fc_dout [0:M-1][0:N-1];\n"
+        "  wire          fc_full [0:M-1][0:N-1]; wire          fc_empty[0:M-1][0:N-1];\n"
+        "  wire          fc_wr   [0:M-1][0:N-1]; wire          fc_rd   [0:M-1][0:N-1];\n"
+        "  genvar i, j, g;\n"
         "  generate\n"
-        # one FIFO per A-family channel
+        # one FIFO per A-family channel, per B-family channel, and per PE result
         "    for (i = 0; i < M; i = i + 1) begin : fa_row\n"
         "      for (j = 0; j < N + 1; j = j + 1) begin : fa_col\n"
         "        spmw_fifo #(.DW(DW), .DEPTH(DA)) u_fa (.clk(clk), .rst_n(rst_n),\n"
@@ -354,7 +407,6 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral)
         "          .dout(fa_dout[i][j]), .empty_n(fa_empty[i][j]), .read(fa_rd[i][j]));\n"
         "      end\n"
         "    end\n"
-        # one FIFO per B-family channel
         "    for (i = 0; i < M + 1; i = i + 1) begin : fb_row\n"
         "      for (j = 0; j < N; j = j + 1) begin : fb_col\n"
         "        spmw_fifo #(.DW(DW), .DEPTH(DB)) u_fb (.clk(clk), .rst_n(rst_n),\n"
@@ -362,21 +414,40 @@ def _structural_top_sv(rows, cols, k, dw, fa_depth, fb_depth, ports, behavioral)
         "          .dout(fb_dout[i][j]), .empty_n(fb_empty[i][j]), .read(fb_rd[i][j]));\n"
         "      end\n"
         "    end\n"
-        # one loader per row/column at the array edge
+        "    for (i = 0; i < M; i = i + 1) begin : fc_row\n"
+        "      for (j = 0; j < N; j = j + 1) begin : fc_col\n"
+        "        spmw_fifo #(.DW(DW), .DEPTH(2)) u_fc (.clk(clk), .rst_n(rst_n),\n"
+        "          .din(fc_din[i][j]), .full_n(fc_full[i][j]), .write(fc_wr[i][j]),\n"
+        "          .dout(fc_dout[i][j]), .empty_n(fc_empty[i][j]), .read(fc_rd[i][j]));\n"
+        "      end\n"
+        "    end\n"
+        # loaders: load_a feeds row i of A; load_b feeds COLUMN j of B (gathered from B[*][j])
         "    for (i = 0; i < M; i = i + 1) begin : load_a_row\n"
         "      load_a #(.DW(DW), .K(K)) u_la (.clk(clk), .rst_n(rst_n), .a_row(A[i]),\n"
         "        .out_din(fa_din[i][0]), .out_full_n(fa_full[i][0]), .out_write(fa_wr[i][0]));\n"
         "    end\n"
         "    for (j = 0; j < N; j = j + 1) begin : load_b_col\n"
-        "      load_b #(.DW(DW), .K(K)) u_lb (.clk(clk), .rst_n(rst_n), .b_col(B[j]),\n"
+        "      wire [DW-1:0] bcol [0:K-1];\n"
+        "      for (g = 0; g < K; g = g + 1) begin : bcol_gather\n"
+        "        assign bcol[g] = B[g][j];\n"
+        "      end\n"
+        "      load_b #(.DW(DW), .K(K)) u_lb (.clk(clk), .rst_n(rst_n), .b_col(bcol),\n"
         "        .out_din(fb_din[0][j]), .out_full_n(fb_full[0][j]), .out_write(fb_wr[0][j]));\n"
         "    end\n"
-        # one PE per grid point -- the single compute-role module, instantiated over the whole mesh
+        # one PE per grid point (exported-IP ABI: ap_clk/ap_rst, result on the c_out stream)
         "    for (i = 0; i < M; i = i + 1) begin : pe_row\n"
         "      for (j = 0; j < N; j = j + 1) begin : pe_col\n"
-        "        pe_interior #(.DW(DW), .K(K)) u_pe (.clk(clk), .rst_n(rst_n),\n"
+        "        pe_interior #(.DW(DW), .K(K)) u_pe (.ap_clk(clk), .ap_rst(~rst_n),\n"
         f"{pe_conn},\n"
-        "          .c_out(C[i][j]), .c_out_valid());\n"
+        "          .c_out_din(fc_din[i][j]), .c_out_full_n(fc_full[i][j]), .c_out_write(fc_wr[i][j]));\n"
+        "      end\n"
+        "    end\n"
+        # one collector per PE: read its result FIFO into C[i][j]
+        "    for (i = 0; i < M; i = i + 1) begin : collect_row\n"
+        "      for (j = 0; j < N; j = j + 1) begin : collect_col\n"
+        "        collect #(.DW(DW)) u_col (.clk(clk), .rst_n(rst_n),\n"
+        "          .in_dout(fc_dout[i][j]), .in_empty_n(fc_empty[i][j]), .in_read(fc_rd[i][j]),\n"
+        "          .c_val(C[i][j]));\n"
         "      end\n"
         "    end\n"
         # one drain per row/column at the far edge
@@ -522,7 +593,7 @@ def emit_cosim_project(region, project=None):
     # pylint: disable=import-outside-toplevel
     import os
 
-    dut = emit_structural_verilog(region, behavioral=True)
+    dut = emit_structural_verilog(region, mode="behavioral")
     testbench = emit_cosim_testbench(region)
     if project is not None:
         os.makedirs(project, exist_ok=True)
@@ -553,22 +624,25 @@ def _role_ip_export_tcl(part, frequency):
     )
 
 
-def _vitis_rtl_package_tcl():
-    """A Vivado batch script that stages the exported role IP + the structural top for packaging.
+def _vitis_rtl_package_tcl(part):
+    """A Vivado batch script that assembles the synthesizable hierarchy: the reused PE IP + the top.
 
-    Hierarchical IP reuse: the single exported ``pe_interior`` IP is added to the project's IP repo
-    once and instantiated ``M*N`` times by ``spmw_top`` (a generate nest), never re-synthesized per
-    grid point. The final ``package_xo``/``v++`` link into an ``.xo`` + XRT bitstream is the
-    out-of-band hardware build (needs the target platform).
+    Hierarchical IP reuse: the single ``pe_interior`` RTL (synthesized once from the ap_ctrl_none IP)
+    plus the reusable ``spmw_fifo`` are added to the project, and ``spmw_top`` instantiates ``pe_interior``
+    ``M*N`` times over a generate nest -- never re-synthesized per grid point. The synthesizable
+    loaders/drains/collect complete the hierarchy; the PE body is the exported IP RTL. The final
+    ``package_xo``/``v++`` link into an ``.xo`` + XRT bitstream is the out-of-band hardware build.
     """
     return (
-        "# stage the reusable role IP + structural top for the .xo/v++ packaging flow\n"
-        "create_project -force spmw_rtl ./spmw_rtl_vivado -part xcu280-fsvh2892-2L-e\n"
-        "set_property ip_repo_paths ./role_ip.prj/solution1/impl/ip [current_project]\n"
-        "update_ip_catalog\n"
+        "# assemble the reused PE IP RTL + the synthesizable structural top\n"
+        f"create_project -force spmw_rtl ./spmw_rtl_vivado -part {part}\n"
+        "add_files -norecurse [glob ./role_ip.prj/solution1/syn/verilog/*.v]\n"
         "add_files -norecurse spmw_top.sv\n"
         "set_property top spmw_top [current_fileset]\n"
         "update_compile_order -fileset sources_1\n"
+        "# also register the exported IP-catalog package so the PE can be reused as an IP\n"
+        "set_property ip_repo_paths ./role_ip.prj/solution1/impl/ip [current_project]\n"
+        "update_ip_catalog\n"
         "# next (out-of-band, needs the platform): package_xo -xo spmw.xo ...; v++ -l --platform ...\n"
     )
 
@@ -576,10 +650,11 @@ def _vitis_rtl_package_tcl():
 def emit_vitis_rtl_project(region, project=None, part=None, frequency=None):
     """Emit the ``vitis_rtl`` packaging project: one reusable role IP + the structural top + scripts.
 
-    The structural ``spmw_top`` instantiates a *single* ``pe_interior`` IP across the whole grid
-    (hierarchical IP reuse). ``build.sh`` synthesizes and exports that one IP as a Vivado IP catalog
-    entry, then stages it with the top for the ``.xo``/``v++``/XRT packaging flow (the final hardware
-    link is out of band). Returns the ``{filename: contents}`` map that was written.
+    The synthesizable ``spmw_top`` (``mode="synth"``: real loaders/drains/collect, the PE left to the
+    IP) instantiates a *single* ``pe_interior`` across the whole grid (hierarchical IP reuse).
+    ``build.sh`` synthesizes and exports that one IP (its RTL fills the PE slot), then assembles the
+    real synthesizable hierarchy for the ``.xo``/``v++``/XRT packaging flow (the final hardware link
+    is out of band). Returns the ``{filename: contents}`` map that was written.
     """
     # pylint: disable=import-outside-toplevel
     import os
@@ -589,15 +664,15 @@ def emit_vitis_rtl_project(region, project=None, part=None, frequency=None):
     part = part or _DEFAULT_PART
     frequency = frequency or _DEFAULT_FREQUENCY_MHZ
     files = {
-        "spmw_top.sv": emit_structural_verilog(region),
+        "spmw_top.sv": emit_structural_verilog(region, mode="synth"),
         "kernel.cpp": emit_role_ip(region),
         "synth_ip.tcl": _role_ip_export_tcl(part, frequency),
-        "package.tcl": _vitis_rtl_package_tcl(),
+        "package.tcl": _vitis_rtl_package_tcl(part),
         "build.sh": (
             "#!/bin/bash\nset -e\n"
-            "# 1. synthesize + export the single reusable pe_interior role IP\n"
+            "# 1. synthesize + export the single reusable pe_interior role IP (RTL fills the PE slot)\n"
             "vitis_hls -f synth_ip.tcl\n"
-            "# 2. stage the IP + structural top for .xo/v++ packaging (hardware link is out of band)\n"
+            "# 2. assemble the synthesizable hierarchy (PE IP RTL + structural top) for packaging\n"
             "vivado -mode batch -source package.tcl\n"
         ),
     }

@@ -54,7 +54,7 @@ def test_structural_verilog_consumes_spmw_map():
     # grid, wired by one FIFO per channel -- O(#roles) module text, not O(P0*P1)
     sv = emit_structural_verilog(_systolic_twin(4, 4, 4))
     assert "module spmw_top" in sv
-    assert "generate" in sv and "genvar i, j;" in sv
+    assert "generate" in sv and "genvar i, j" in sv
     # exactly one compute-role module and one instantiation site (rolled in a generate nest, not P^2
     # textual copies)
     assert sv.count("module pe_interior") == 1
@@ -87,6 +87,7 @@ def test_structural_module_types_constant_across_grid_sizes():
         "load_a",
         "load_b",
         "drain",
+        "collect",
     }
     assert "parameter M = 4" in small and "parameter M = 8" in large
 
@@ -137,7 +138,15 @@ def test_structural_verilog_parses_with_xvlog():
             check=False,
         )
     assert result.returncode == 0, result.stdout + result.stderr
-    for name in ("spmw_fifo", "pe_interior", "load_a", "load_b", "drain", "spmw_top"):
+    for name in (
+        "spmw_fifo",
+        "pe_interior",
+        "load_a",
+        "load_b",
+        "drain",
+        "collect",
+        "spmw_top",
+    ):
         assert f"analyzing module {name}" in result.stdout, result.stdout
 
 
@@ -190,8 +199,8 @@ def test_role_ip_csynths_free_running_ap_fifo():
 def test_behavioral_top_is_self_contained():
     # behavioral mode fills the role modules with simulation bodies (an FP MAC PE, loaders, drains)
     # instead of black boxes, so the same spmw_top is a self-contained, simulatable design
-    sv = emit_structural_verilog(_systolic_twin(2, 2, 2), behavioral=True)
-    assert "// role IP body: ap_ctrl_none export" not in sv
+    sv = emit_structural_verilog(_systolic_twin(2, 2, 2), mode="behavioral")
+    assert "// role IP body: ap_ctrl_none export / synth" not in sv
     assert "$bitstoshortreal" in sv  # the FP MAC datapath in the PE
     assert "`timescale" in sv
 
@@ -199,9 +208,10 @@ def test_behavioral_top_is_self_contained():
 @pytest.mark.skipif(shutil.which("xsim") is None, reason="requires Vivado xsim")
 def test_structural_top_cosim_matches_oracle():
     # the behavioral structural top computes A@B: xsim of the self-contained spmw_top + a self-checking
-    # testbench reports COSIM PASS (C matches the shortreal oracle) -- the RTL-path correctness gate
+    # testbench reports COSIM PASS (C matches the shortreal oracle) -- the RTL-path correctness gate.
+    # A non-square 2x3x4 grid exercises the B-column feed (load_b gathers B[*][j], not row j).
     with tempfile.TemporaryDirectory() as tmp:
-        emit_cosim_project(_systolic_twin(2, 2, 2), project=tmp)
+        emit_cosim_project(_systolic_twin(2, 3, 4), project=tmp)
         subprocess.run(
             ["xvlog", "-sv", "dut.sv", "tb.sv"],
             cwd=tmp,
@@ -240,11 +250,15 @@ def test_vitis_rtl_project_reuses_one_role_ip():
         "package.tcl",
         "build.sh",
     }
-    # hierarchical IP reuse: one pe_interior module + one instantiation site in the top
+    # hierarchical IP reuse: one pe_interior instantiation site in the synth top (the PE body is the
+    # exported IP RTL, not redefined in the top)
     assert files["spmw_top.sv"].count("pe_interior #(.DW") == 1
-    # the IP is exported once (ip_catalog) and staged into the package project's IP repo
+    assert "module pe_interior" not in files["spmw_top.sv"]
+    # the reusable PE IP is synthesized+exported once, and its RTL is bound into the hierarchy
     assert "export_design -format ip_catalog" in files["synth_ip.tcl"]
-    assert "ip_repo_paths" in files["package.tcl"]
+    assert (
+        "syn/verilog" in files["package.tcl"]
+    )  # the PE IP RTL is added to the project
     assert "set_property top spmw_top" in files["package.tcl"]
 
 
@@ -255,11 +269,13 @@ def test_vitis_rtl_project_writes_files(tmp_path):
 
 
 @pytest.mark.skipif(
-    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+    not hls.is_available("vitis_hls") or shutil.which("xvlog") is None,
+    reason="requires the Vitis HLS toolchain + Vivado xvlog",
 )
-def test_vitis_rtl_role_ip_exports_reusable_package():
-    # the single reusable role IP synthesizes and exports as a real Vivado IP catalog package -- the
-    # concrete artifact the structural top reuses P0*P1 times in the .xo/v++ packaging flow
+def test_vitis_rtl_assembles_reusable_ip_hierarchy():
+    # the reusable PE IP synthesizes + exports as a real Vivado IP catalog package, and its RTL binds
+    # into the synth structural top: xvlog analyzes spmw_top + the exported PE RTL together, so the
+    # single PE IP fills the pe_interior slot across the grid -- a real synthesizable hierarchy
     import glob
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -275,4 +291,17 @@ def test_vitis_rtl_role_ip_exports_reusable_package():
         zips = glob.glob(
             os.path.join(tmp, "role_ip.prj", "solution1", "impl", "ip", "*.zip")
         )
-    assert zips, "expected an exported IP catalog .zip package"
+        assert zips, "expected an exported IP catalog .zip package"
+        pe_rtl = glob.glob(
+            os.path.join(tmp, "role_ip.prj", "solution1", "syn", "verilog", "*.v")
+        )
+        result = subprocess.run(
+            ["xvlog", "-sv", "spmw_top.sv", *pe_rtl],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+    assert "analyzing module pe_interior" in result.stdout, result.stdout
+    assert "analyzing module spmw_top" in result.stdout, result.stdout
