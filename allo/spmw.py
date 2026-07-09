@@ -180,11 +180,17 @@ class Topology:
             )
         return peer_coord, peer_port
 
-    def validate(self):
-        """Run every static check; raise :class:`SPMWError` on the first violation."""
+    def validate(self, external_srcs=frozenset(), external_sinks=frozenset()):
+        """Run every static check; raise :class:`SPMWError` on the first violation.
+
+        ``external_srcs``/``external_sinks`` are key-form channel keys whose otherwise-open endpoint
+        a region-level ``stream_in``/``stream_out`` supplies (the boundary lanes of a permutation
+        network); each such key counts as one extra source/sink so a boundary channel is a valid
+        1->1 peer rather than a dangling half-open key.
+        """
         self._validate_grid_rank()
         self._validate_peer_symmetry()
-        self._validate_key_channels()
+        self._validate_key_channels(external_srcs, external_sinks)
         return self
 
     def _validate_grid_rank(self):
@@ -226,15 +232,20 @@ class Topology:
                         f"{tuple(coord)}.{port})"
                     )
 
-    def _validate_key_channels(self):
-        self.key_channel_roles()  # classifies every key channel and rejects unsupported cardinality
+    def _validate_key_channels(
+        self, external_srcs=frozenset(), external_sinks=frozenset()
+    ):
+        # classifies every key channel and rejects unsupported cardinality
+        self.key_channel_roles(external_srcs, external_sinks)
 
-    def key_channel_roles(self):
+    def key_channel_roles(self, external_srcs=frozenset(), external_sinks=frozenset()):
         """Classify each key channel as ``"peer"`` (1->1), ``"scatter"`` (1->N), or ``"gather"``.
 
         A scatter is one source fanning out to many sinks; a gather is many sources fanning in to one
         sink; a peer channel is the 1->1 case. A key with no source, no sink, or a many-to-many
-        (N->M with both > 1) topology is rejected.
+        (N->M with both > 1) topology is rejected. A key in ``external_srcs``/``external_sinks`` gains
+        a virtual source/sink -- the open boundary lanes a region ``stream_in``/``stream_out`` feeds
+        or drains -- so a boundary channel is a valid 1->1 peer.
         """
         sources, sinks = {}, {}
         for coord in self.coords():
@@ -245,8 +256,9 @@ class Topology:
                 bucket = sources if direction == _SRC else sinks
                 bucket.setdefault(key, []).append((coord, port))
         roles = {}
-        for key in set(sources) | set(sinks):
-            n_src, n_sink = len(sources.get(key, [])), len(sinks.get(key, []))
+        for key in set(sources) | set(sinks) | set(external_srcs) | set(external_sinks):
+            n_src = len(sources.get(key, [])) + (1 if key in external_srcs else 0)
+            n_sink = len(sinks.get(key, [])) + (1 if key in external_sinks else 0)
             if n_src == 1 and n_sink == 1:
                 roles[key] = "peer"
             elif n_src == 1 and n_sink >= 1:
@@ -1035,13 +1047,93 @@ def _check_body_ports(label, fn, ports):
                 reject(aliased)
 
 
+def _key_form_keys(topology):
+    """The set of rendezvous keys the topology's key-form links use."""
+    keys = set()
+    for coord in topology.coords():
+        for target in topology.links_at(coord).values():
+            if _is_key_form(target):
+                keys.add(target[0])
+    return keys
+
+
+def _stream_families(stream):
+    """The lane-family name(s) a key-stage ``stream_in``/``stream_out`` targets, or ``None``.
+
+    A key-stage stream sets ``into=``/``from_=`` to a lane-family name (a string) or a tuple of names
+    -- unlike a mesh stream, whose target is an ``@spmw.unit``. Returns the family tuple, or ``None``
+    when the target is not a family (so the mesh-unit path handles it).
+    """
+    target = stream.unit
+    if isinstance(target, str):
+        return (target,)
+    if isinstance(target, tuple) and target and all(isinstance(t, str) for t in target):
+        return target
+    return None
+
+
+def _boundary_keys(topology, streams):
+    """``(external_srcs, external_sinks)``: the boundary lane keys the region streams feed/drain.
+
+    A lane key is ``(family, stage, slot)``. A key-stage ``stream_in`` into a family at ``at_stage``
+    supplies the source for that family/stage's lane keys (which the topology leaves open at the
+    entry edge); a ``stream_out`` supplies the sink at the exit edge. Keys are matched by family and
+    stage, so :meth:`Topology.validate` can treat the open boundary lanes as 1->1 peers.
+    """
+    keys = _key_form_keys(topology)
+    ext_src, ext_sink = set(), set()
+    for stream in streams:
+        families = _stream_families(stream)
+        if families is None:
+            continue
+        stage = stream.extra.get("at_stage")
+        for key in keys:
+            if (
+                isinstance(key, tuple)
+                and len(key) >= 2
+                and key[0] in families
+                and key[1] == stage
+            ):
+                (ext_src if stream.direction == "in" else ext_sink).add(key)
+    return ext_src, ext_sink
+
+
+def _validate_key_stage_stream(collection, stream, families):
+    """Check a key-stage ``stream_in``/``stream_out``: an integer stage and known lane families."""
+    stage = stream.extra.get("at_stage")
+    if not isinstance(stage, int) or isinstance(stage, bool):
+        raise SPMWError(
+            f"stream_{stream.direction} into a lane family needs an integer at_stage=; got "
+            f"{stage!r}"
+        )
+    known = set()
+    for decl in collection.maps:
+        known |= {
+            k[0] for k in _key_form_keys(decl.topology) if isinstance(k, tuple) and k
+        }
+    for family in families:
+        if family not in known:
+            raise SPMWError(
+                f"stream_{stream.direction} references lane family {family!r}, which no mapped "
+                f"topology declares; declared families: {sorted(known)}"
+            )
+    index = stream.extra.get("index")
+    if stream.direction == "in" and index is not None and not callable(index):
+        raise SPMWError(
+            f"stream_in index= must be a callable slot permutation; got {index!r}"
+        )
+
+
 def _validate_collection(collection):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
     # A region-level channel is a valid port name in any unit body (a unit puts to / gets from it).
     channel_ports = {ch.name for ch in collection.channels}
     for decl in collection.maps:
-        decl.topology.validate()
+        # Key-stage streams feed/drain the topology's open boundary lanes, so pass those keys to the
+        # key-channel check (else a stage-0 sink-only / stage-S source-only lane reads as dangling).
+        ext_src, ext_sink = _boundary_keys(decl.topology, collection.streams)
+        decl.topology.validate(ext_src, ext_sink)
         ports = decl.topology.port_names()
         for edges, _ in decl.unit.roles:
             for edge in edges:
@@ -1068,11 +1160,17 @@ def _validate_collection(collection):
             raise SPMWError(
                 f"stream_{stream.direction} needs a target unit (into=/from_=)"
             )
+        families = _stream_families(stream)
+        if families is not None and stream.flow is None:
+            # Key-stage streaming into a lane family (the permutation-network entry/exit edges): it
+            # uses at_stage=, not a mesh flow=. A family name given with a flow= is a malformed mesh
+            # stream (a unit was expected), so it falls through to the @spmw.unit check below.
+            _validate_key_stage_stream(collection, stream, families)
+            continue
         if not isinstance(target, Unit):
-            # Named-stage / key-form streaming has no lowering path yet; reject it early.
             raise SPMWError(
-                f"stream_{stream.direction} target must be an @spmw.unit (into=/from_=); "
-                f"got {target!r}"
+                f"stream_{stream.direction} target must be an @spmw.unit (into=/from_=) or a "
+                f"lane-family name; got {target!r}"
             )
         decl = _find_map(collection, target)
         if decl is None:
@@ -1605,7 +1703,9 @@ def _bank_function_attrs(program, collection):
         bank_bits = buffer.banks.bit_length() - 1
         stride = buffer.stride_bit if buffer.bank_mode == "xor" else None
         try:
-            F2LayoutSolver(n_bits, bank_bits).solve([stride] if stride is not None else [])
+            F2LayoutSolver(n_bits, bank_bits).solve(
+                [stride] if stride is not None else []
+            )
         except ValueError as err:
             if buffer.on_conflict == "serialize":
                 warnings.warn(

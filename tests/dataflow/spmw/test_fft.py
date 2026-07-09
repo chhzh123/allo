@@ -1,14 +1,15 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Scalar HP-FFT (fft_spatial), ported verbatim from the ``feature/allo-fft`` branch (task4.4).
+"""SPMW spatial FFT: a radix-2 butterfly work unit over a key-form ``lane`` permutation topology.
 
-An N-point Hardware-Pipelined FFT as an ``allo.dataflow`` region: an input loader (N PEs, bit-reversal
-addressing), a butterfly stage (LOG2_N x N/2 PEs, each computing one radix-2 butterfly with a
-compile-time (``ConstExpr``) twiddle and upper/lower indices -- the non-affine key access pattern), and
-an output store. This is the *spatial* FFT: every butterfly is its own PE. It builds on the simulator
-and matches ``numpy.fft.fft`` (the ``fft_spatial`` csim-correct half of the M4 FFT gate). The folded
-FFT + its conflict-free F2 banking is the next milestone.
+An N-point Hardware-Pipelined FFT written once as an SPMW design: a single ``@spmw.unit`` butterfly
+mapped over a (log2 N, N/2) grid, wired by key-form ``("lane_*", stage, slot)`` links (a permutation
+network, not a mesh), and fed/drained by ``spmw.stream_in``/``spmw.stream_out`` at stages 0 and S.
+Every butterfly reads two lanes at its stage and writes two lanes at the next -- the non-affine
+``{upper, lower}`` key access pattern. The spatial variant is fully unrolled (one PE per butterfly,
+all FIFOs); building it on the simulator and matching ``numpy.fft.fft`` proves the key-form topology
+path lowers correctly. The pure-Python helpers are the numerical oracle shared with the design.
 """
 
 from math import log2, cos, sin, pi
@@ -16,12 +17,12 @@ from math import log2, cos, sin, pi
 import numpy as np
 import pytest
 
-import allo.dataflow as df
-from allo.ir.types import float32, int32, ConstExpr, Stream
+import allo.spmw as spmw
+from allo.ir.types import float32, int32, ConstExpr
 
 
 def bit_reverse(x, bits):
-    """Reverse the low ``bits`` bits of x; evaluated at kernel-expansion (compile) time."""
+    """Reverse the low ``bits`` bits of x (the stage-0 input permutation)."""
     result = 0
     for i in range(bits):
         if x & (1 << i):
@@ -57,66 +58,69 @@ def get_tw_imag(stage, butterfly, n_points):
     return sin(-2.0 * pi * tw_idx / n_points)
 
 
-def get_fft_top(N_):
-    """An N-point scalar HP-FFT dataflow region (input_loader -> butterfly stages -> output_store)."""
-    assert N_ > 0 and (N_ & (N_ - 1)) == 0, "N must be a power of 2"
-    LOG2_N_ = int(log2(N_))
-    HALF_N = N_ // 2
+def _fft_region(N):
+    """An N-point spatial FFT as an SPMW region (butterfly unit + key-form ``lane`` topology)."""
+    assert N > 0 and (N & (N - 1)) == 0, "N must be a power of 2"
+    S = int(log2(N))
+    HALF = N // 2
 
-    @df.region()
-    def top(
-        inp_real: float32[N_],
-        inp_imag: float32[N_],
-        out_real: float32[N_],
-        out_imag: float32[N_],
+    @spmw.unit
+    def bfly(ctx):
+        s, b = ctx.rank()
+        a_re: float32 = ctx.a_re.get()
+        a_im: float32 = ctx.a_im.get()
+        b_re: float32 = ctx.b_re.get()
+        b_im: float32 = ctx.b_im.get()
+        tw_r: ConstExpr[float32] = get_tw_real(s, b, N)
+        tw_i: ConstExpr[float32] = get_tw_imag(s, b, N)
+        bw_re: float32 = b_re * tw_r - b_im * tw_i
+        bw_im: float32 = b_re * tw_i + b_im * tw_r
+        ctx.y_re.put(a_re + bw_re)
+        ctx.y_im.put(a_im + bw_im)
+        ctx.z_re.put(a_re - bw_re)
+        ctx.z_im.put(a_im - bw_im)
+
+    def bfly_links(s, b):
+        up = get_upper_idx(s, b)
+        lo = get_lower_idx(s, b)
+        return {
+            "a_re": (("lane_re", s, up), "sink"),
+            "a_im": (("lane_im", s, up), "sink"),
+            "b_re": (("lane_re", s, lo), "sink"),
+            "b_im": (("lane_im", s, lo), "sink"),
+            "y_re": (("lane_re", s + 1, up), "src"),
+            "y_im": (("lane_im", s + 1, up), "src"),
+            "z_re": (("lane_re", s + 1, lo), "src"),
+            "z_im": (("lane_im", s + 1, lo), "src"),
+        }
+
+    topo = spmw.Topology(grid=(S, HALF), link=bfly_links)
+
+    @spmw.region()
+    def fft_spatial(
+        Xr: float32[N],
+        Xi: float32[N],
+        Yr: float32[N],
+        Yi: float32[N],
     ):
-        stage_real: Stream[float32, 4][LOG2_N_ + 1, N_]
-        stage_imag: Stream[float32, 4][LOG2_N_ + 1, N_]
+        spmw.map(bfly, grid=(S, HALF), topo=topo)
+        spmw.stream_in(
+            (Xr, Xi), into=("lane_re", "lane_im"), at_stage=0, index=bit_reverse
+        )
+        spmw.stream_out((Yr, Yi), from_=("lane_re", "lane_im"), at_stage=S)
 
-        @df.kernel(mapping=[N_], args=[inp_real, inp_imag])
-        def input_loader(local_inp_real: float32[N_], local_inp_imag: float32[N_]):
-            idx = df.get_pid()
-            val_real: float32 = local_inp_real[idx]
-            val_imag: float32 = local_inp_imag[idx]
-            stage_real[0, bit_reverse(idx, LOG2_N_)].put(val_real)
-            stage_imag[0, bit_reverse(idx, LOG2_N_)].put(val_imag)
-
-        @df.kernel(mapping=[LOG2_N_, HALF_N])
-        def butterfly():
-            s, b = df.get_pid()
-            upper: ConstExpr[int32] = get_upper_idx(s, b)
-            lower: ConstExpr[int32] = get_lower_idx(s, b)
-            tw_r: ConstExpr[float32] = get_tw_real(s, b, N_)
-            tw_i: ConstExpr[float32] = get_tw_imag(s, b, N_)
-            a_real: float32 = stage_real[s, upper].get()
-            a_imag: float32 = stage_imag[s, upper].get()
-            b_real: float32 = stage_real[s, lower].get()
-            b_imag: float32 = stage_imag[s, lower].get()
-            bw_real: float32 = b_real * tw_r - b_imag * tw_i
-            bw_imag: float32 = b_real * tw_i + b_imag * tw_r
-            stage_real[s + 1, upper].put(a_real + bw_real)
-            stage_imag[s + 1, upper].put(a_imag + bw_imag)
-            stage_real[s + 1, lower].put(a_real - bw_real)
-            stage_imag[s + 1, lower].put(a_imag - bw_imag)
-
-        @df.kernel(mapping=[N_], args=[out_real, out_imag])
-        def output_store(local_out_real: float32[N_], local_out_imag: float32[N_]):
-            idx = df.get_pid()
-            local_out_real[idx] = stage_real[LOG2_N_, idx].get()
-            local_out_imag[idx] = stage_imag[LOG2_N_, idx].get()
-
-    return top
+    return fft_spatial
 
 
-@pytest.mark.parametrize("N_", [8, 16, 32])
-def test_fft_spatial(N_):
-    """The scalar HP-FFT matches numpy.fft.fft on the simulator (fft_spatial csim-correct)."""
+@pytest.mark.parametrize("N", [8, 16, 32])
+def test_fft_spatial(N):
+    """The SPMW spatial FFT matches numpy.fft.fft on the simulator (fft_spatial sim-correct)."""
     np.random.seed(42)
-    inp_real = np.random.rand(N_).astype(np.float32)
-    inp_imag = np.zeros(N_, dtype=np.float32)
-    out_real = np.zeros(N_, dtype=np.float32)
-    out_imag = np.zeros(N_, dtype=np.float32)
-    sim_mod = df.build(get_fft_top(N_), target="simulator")
+    inp_real = np.random.rand(N).astype(np.float32)
+    inp_imag = np.zeros(N, dtype=np.float32)
+    out_real = np.zeros(N, dtype=np.float32)
+    out_imag = np.zeros(N, dtype=np.float32)
+    sim_mod = spmw.build(_fft_region(N), target="simulator")
     sim_mod(inp_real, inp_imag, out_real, out_imag)
     ref = np.fft.fft(inp_real + 1j * inp_imag)
     np.testing.assert_allclose(

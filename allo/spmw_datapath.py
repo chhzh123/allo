@@ -618,6 +618,322 @@ def generate_pipeline_source(region, collection):
     )
 
 
+# --- FFT: key-form `lane` butterfly topology ---------------------------------------------------
+#
+# A radix-2 FFT is a permutation network: butterfly (s, b) reads two lanes at stage s and writes two
+# lanes at stage s+1, wired by key-form `("lane_*", stage, slot)` links rather than mesh neighbors.
+# The butterfly slot function is non-affine, so it is not a rolled representative-point link -- but
+# the simulator desugar evaluates the topology `link` concretely at every (s, b), so it bakes the
+# per-point (upper, lower) slots into compile-time tables and emits the equivalent dataflow FFT: an
+# input loader (bit-reversed feed into stage 0), one rolled butterfly kernel over the (S, HALF) grid,
+# and an output store draining stage S. The butterfly datapath (the twiddle math) is transcribed from
+# the unit body, so the numerics match a hand-written FFT.
+
+
+class _FFTRewriter(ast.NodeTransformer):
+    """Rewrite an FFT butterfly unit body to its dataflow-kernel form.
+
+    ``ctx.rank()`` becomes ``df.get_pid()``; ``ctx.<port>.get()`` / ``ctx.<port>.put(x)`` becomes a
+    read/write of the stage lane array the port's key binds -- ``stage_<family>[<stage>, <slot>]``,
+    where ``<stage>`` is the pid or pid+1 and ``<slot>`` is the injected ``upper``/``lower`` constant.
+    """
+
+    def __init__(self, ctx_name, pid0, ports):
+        self.ctx = ctx_name
+        self.pid0 = pid0  # the first grid pid name (the stage index), e.g. "s"
+        self.ports = ports  # port -> (stage_array, stage_offset in {0,1}, slot_role)
+
+    def _is_ctx(self, node):
+        return isinstance(node, ast.Name) and node.id == self.ctx
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        func = node.func
+        if not isinstance(func, ast.Attribute):
+            return node
+        if func.attr == "rank" and self._is_ctx(func.value):
+            return ast.parse("df.get_pid()", mode="eval").body
+        if func.attr in {"get", "put", "get_or"}:
+            recv = func.value
+            if (
+                isinstance(recv, ast.Attribute)
+                and self._is_ctx(recv.value)
+                and recv.attr in self.ports
+            ):
+                array, offset, role = self.ports[recv.attr]
+                stage = self.pid0 if offset == 0 else f"{self.pid0} + 1"
+                slot = "upper" if role == "upper" else "lower"
+                receiver = ast.parse(f"{array}[{stage}, {slot}]", mode="eval").body
+                node.func = ast.Attribute(
+                    value=receiver, attr=func.attr, ctx=ast.Load()
+                )
+        return node
+
+
+def _stage_array(family):
+    """A dataflow Stream-array identifier for a lane family (``lane_re`` -> ``stage_lane_re``)."""
+    safe = "".join(c if c.isalnum() else "_" for c in family)
+    return f"stage_{safe}"
+
+
+def _is_rank_call(value, ctx_name):
+    return (
+        isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Attribute)
+        and value.func.attr == "rank"
+        and isinstance(value.func.value, ast.Name)
+        and value.func.value.id == ctx_name
+    )
+
+
+def _recognize_fft(collection):
+    """Recognize a key-form butterfly `lane` topology; return a desugar descriptor or raise.
+
+    The topology is checked from first principles -- every link key-form ``(family, stage, slot)``,
+    an in-place radix-2 butterfly (each butterfly reads and writes the same two lanes, at stage s then
+    s+1), and each stage a permutation of the N lanes -- so an unrecognized topology raises rather
+    than mis-lowering. Returns the grid (S, HALF), point count N, the two lane families, the per-(s,b)
+    upper/lower slot tables, and each port's (stage array, stage offset, slot role).
+    """
+    # pylint: disable=import-outside-toplevel,too-many-locals
+    from .spmw import _is_key_form
+
+    if len(collection.maps) != 1:
+        raise NotImplementedError("FFT datapath expects exactly one mapped unit")
+    decl = collection.maps[0]
+    topology = decl.topology
+    if topology.dims != 2:
+        raise NotImplementedError("FFT datapath expects a 2-D (stage, butterfly) grid")
+    n_stages, half = int(topology.grid[0]), int(topology.grid[1])
+    n_points = half * 2
+
+    port_family, port_offset, port_dir = {}, {}, {}
+    up_table, lo_table = {}, {}
+    families = []
+    for coord in topology.coords():
+        stage_idx = coord[0]
+        in_slots, out_slots = set(), set()
+        links = topology.links_at(coord)
+        if not links or not all(_is_key_form(t) for t in links.values()):
+            raise NotImplementedError(
+                "FFT datapath expects an all-key-form `lane` topology"
+            )
+        for port, (key, direction) in links.items():
+            if not (isinstance(key, tuple) and len(key) == 3):
+                raise NotImplementedError("FFT lane key must be (family, stage, slot)")
+            family, stage, slot = key
+            offset = stage - stage_idx
+            if offset not in (0, 1):
+                raise NotImplementedError("FFT lane key stage must be s or s+1")
+            if port in port_family and (
+                port_family[port] != family
+                or port_offset[port] != offset
+                or port_dir[port] != direction
+            ):
+                raise NotImplementedError(
+                    "FFT port binds an inconsistent (family, stage, direction)"
+                )
+            port_family[port], port_offset[port], port_dir[port] = (
+                family,
+                offset,
+                direction,
+            )
+            if family not in families:
+                families.append(family)
+            (in_slots if direction == "sink" else out_slots).add(slot)
+        if len(in_slots) != 2 or in_slots != out_slots:
+            raise NotImplementedError(
+                "FFT butterfly must read and write the same two lanes"
+            )
+        up_table[coord], lo_table[coord] = sorted(in_slots)
+
+    if len(families) != 2:
+        raise NotImplementedError("FFT datapath expects two lane families (real, imag)")
+    for stage_idx in range(n_stages):
+        written = [up_table[(stage_idx, b)] for b in range(half)]
+        written += [lo_table[(stage_idx, b)] for b in range(half)]
+        if sorted(written) != list(range(n_points)):
+            raise NotImplementedError("FFT stage is not a lane permutation")
+
+    port_role = {}
+    for port in port_family:
+        roles = {
+            "upper" if topology.links_at(c)[port][0][2] == up_table[c] else "lower"
+            for c in topology.coords()
+        }
+        if len(roles) != 1:
+            raise NotImplementedError(
+                "FFT port slot role is not constant over the grid"
+            )
+        port_role[port] = roles.pop()
+
+    ports = {
+        p: (_stage_array(fam), port_offset[p], port_role[p])
+        for p, fam in port_family.items()
+    }
+    return {
+        "decl": decl,
+        "S": n_stages,
+        "HALF": half,
+        "N": n_points,
+        "families": families,
+        "up_table": up_table,
+        "lo_table": lo_table,
+        "ports": ports,
+    }
+
+
+def _fft_helpers(unit_fn):
+    """The module-level functions an FFT unit body references (twiddle helpers)."""
+    closure = inspect.getclosurevars(unit_fn)
+    return [
+        v
+        for v in {**closure.nonlocals, **closure.globals}.values()
+        if inspect.isfunction(v)
+    ]
+
+
+def _fam_tensor_pairs(stream):
+    """``[(family, tensor_name)]`` for a key-stage stream, matched positionally."""
+    families = stream.unit if isinstance(stream.unit, tuple) else (stream.unit,)
+    tensors = stream.tensor if isinstance(stream.tensor, tuple) else (stream.tensor,)
+    if len(families) != len(tensors):
+        raise NotImplementedError("FFT stream family/tensor count mismatch")
+    return [(f, getattr(t, "name", None)) for f, t in zip(families, tensors)]
+
+
+def generate_fft_source(region, collection):
+    """The equivalent allo.dataflow source for a key-form `lane` butterfly FFT region."""
+    # pylint: disable=too-many-locals
+    desc = _recognize_fft(collection)
+    decl = desc["decl"]
+    n_stages, half, n_points = desc["S"], desc["HALF"], desc["N"]
+
+    tensors = _region_tensors(region)
+    for name, shape, dtype in tensors:
+        if dtype != "float32" or tuple(shape) != (n_points,):
+            raise NotImplementedError(
+                f"FFT datapath expects float32[{n_points}] operands; {name} is {dtype}{list(shape)}"
+            )
+    stream_ins = [s for s in collection.streams if s.direction == "in"]
+    stream_outs = [s for s in collection.streams if s.direction == "out"]
+    if len(stream_ins) != 1 or len(stream_outs) != 1:
+        raise NotImplementedError(
+            "FFT datapath expects one stream_in and one stream_out"
+        )
+    if stream_ins[0].extra.get("at_stage") != 0:
+        raise NotImplementedError("FFT stream_in must feed at_stage=0")
+    if stream_outs[0].extra.get("at_stage") != n_stages:
+        raise NotImplementedError("FFT stream_out must drain at_stage=S")
+
+    # module-level helpers: twiddle functions from the unit body, plus the stream_in slot permutation
+    helper_fns = {fn.__name__: fn for fn in _fft_helpers(decl.unit.interior)}
+    index_fn = stream_ins[0].extra.get("index")
+    if callable(index_fn):
+        helper_fns[index_fn.__name__] = index_fn
+    helper_src = "\n\n\n".join(
+        textwrap.dedent(inspect.getsource(fn)) for fn in helper_fns.values()
+    )
+    reserved = {"N", "S", "HALF"}
+    consts = {}
+    closure = inspect.getclosurevars(decl.unit.interior)
+    for key, value in {**closure.nonlocals, **closure.globals}.items():
+        if (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and key not in reserved
+        ):
+            consts.setdefault(key, value)
+    const_lines = "".join(f"{key} = {value}\n" for key, value in consts.items())
+
+    up_flat = tuple(
+        desc["up_table"][(s, b)] for s in range(n_stages) for b in range(half)
+    )
+    lo_flat = tuple(
+        desc["lo_table"][(s, b)] for s in range(n_stages) for b in range(half)
+    )
+
+    # transcribe the butterfly datapath from the unit body
+    func = ast.parse(textwrap.dedent(inspect.getsource(decl.unit.interior))).body[0]
+    ctx_name = func.args.args[0].arg
+    first = func.body[0]
+    if not (
+        isinstance(first, ast.Assign)
+        and isinstance(first.targets[0], ast.Tuple)
+        and _is_rank_call(first.value, ctx_name)
+    ):
+        raise NotImplementedError("FFT unit body must start with `s, b = ctx.rank()`")
+    pid_names = [t.id for t in first.targets[0].elts]
+    if len(pid_names) != 2:
+        raise NotImplementedError("FFT unit rank() must unpack two grid indices")
+    pid0, pid1 = pid_names
+    _FFTRewriter(ctx_name, pid0, desc["ports"]).visit(func)
+    ast.fix_missing_locations(func)
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == ctx_name:
+            raise NotImplementedError(
+                f"FFT datapath cannot transcribe unit {decl.unit.name!r}: it uses ctx in an "
+                f"unsupported form"
+            )
+    stmts = [ast.unparse(s) for s in func.body]
+    inject = [
+        f"upper: ConstExpr[int32] = _FFT_UP[{pid0} * HALF + {pid1}]",
+        f"lower: ConstExpr[int32] = _FFT_LO[{pid0} * HALF + {pid1}]",
+    ]
+    kernel_stmts = [stmts[0]] + inject + stmts[1:]
+    kernel_body = "\n".join(
+        " " * 8 + line for stmt in kernel_stmts for line in stmt.splitlines()
+    )
+
+    # input loader (bit-reversed feed into stage 0) and output store (drain stage S)
+    in_pairs = _fam_tensor_pairs(stream_ins[0])
+    out_pairs = _fam_tensor_pairs(stream_outs[0])
+    idx_expr = f"{index_fn.__name__}(idx, S)" if callable(index_fn) else "idx"
+    loader_lines = ["idx = df.get_pid()"]
+    loader_lines += [f"v_{t}: float32 = local_{t}[idx]" for _, t in in_pairs]
+    loader_lines += [
+        f"{_stage_array(f)}[0, {idx_expr}].put(v_{t})" for f, t in in_pairs
+    ]
+    store_lines = ["idx = df.get_pid()"]
+    store_lines += [
+        f"local_{t}[idx] = {_stage_array(f)}[S, idx].get()" for f, t in out_pairs
+    ]
+    loader_body = "\n".join(" " * 8 + line for line in loader_lines)
+    store_body = "\n".join(" " * 8 + line for line in store_lines)
+
+    stage_decls = "\n".join(
+        f"    {_stage_array(f)}: Stream[float32, 4][S + 1, N]" for f in desc["families"]
+    )
+    region_sig = ", ".join(f"{name}: float32[N]" for name, _, _ in tensors)
+    in_args = ", ".join(t for _, t in in_pairs)
+    out_args = ", ".join(t for _, t in out_pairs)
+    in_params = ", ".join(f"local_{t}: float32[N]" for _, t in in_pairs)
+    out_params = ", ".join(f"local_{t}: float32[N]" for _, t in out_pairs)
+    return (
+        "import allo\n"
+        "from allo.ir.types import float32, int32, ConstExpr, Stream\n"
+        "import allo.dataflow as df\n"
+        "from math import cos, sin, pi, log2\n\n"
+        f"N, S, HALF = {n_points}, {n_stages}, {half}\n"
+        f"{const_lines}"
+        f"_FFT_UP = {up_flat!r}\n"
+        f"_FFT_LO = {lo_flat!r}\n\n\n"
+        f"{helper_src}\n\n\n"
+        "@df.region()\n"
+        f"def {region.name}_df({region_sig}):\n"
+        f"{stage_decls}\n\n"
+        f"    @df.kernel(mapping=[N], args=[{in_args}])\n"
+        f"    def input_loader({in_params}):\n"
+        f"{loader_body}\n\n"
+        "    @df.kernel(mapping=[S, HALF])\n"
+        "    def butterfly():\n"
+        f"{kernel_body}\n\n"
+        f"    @df.kernel(mapping=[N], args=[{out_args}])\n"
+        f"    def output_store({out_params}):\n"
+        f"{store_body}\n"
+    )
+
+
 def build_dataflow(region, target="simulator", **kwargs):
     """Desugar a systolic-mesh region to allo.dataflow and build it for a dataflow target.
 
@@ -635,8 +951,9 @@ def build_dataflow(region, target="simulator", **kwargs):
     from .spmw import _collect, _validate_collection
 
     collection = _validate_collection(_collect(region))
-    # Three desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
-    # systolic mesh, and a producer/consumer pipeline (units joined by spmw.channel).
+    # Desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
+    # systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
+    # joined by spmw.channel).
     try:
         source = generate_1d_systolic_source(region, collection)
         systolic = True
@@ -645,8 +962,12 @@ def build_dataflow(region, target="simulator", **kwargs):
             source = generate_source(region, collection)
             systolic = True
         except NotImplementedError:
-            source = generate_pipeline_source(region, collection)
-            systolic = False
+            try:
+                source = generate_fft_source(region, collection)
+                systolic = False
+            except NotImplementedError:
+                source = generate_pipeline_source(region, collection)
+                systolic = False
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
