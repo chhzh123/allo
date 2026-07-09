@@ -15,6 +15,7 @@ from allo.spmw_rtl import (
     emit_role_ip,
     emit_role_ip_project,
     emit_cosim_project,
+    emit_vitis_rtl_project,
 )
 from allo.ir.types import float32
 
@@ -226,3 +227,52 @@ def test_structural_top_cosim_matches_oracle():
             check=True,
         )
     assert "COSIM PASS" in result.stdout, result.stdout
+
+
+def test_vitis_rtl_project_reuses_one_role_ip():
+    # the vitis_rtl packaging project pairs the structural top with a SINGLE reusable role IP: the
+    # top instantiates one pe_interior across the grid, and the IP is synthesized/exported once
+    files = spmw.build(_systolic_twin(4, 4, 4), target="vitis_rtl")
+    assert set(files) == {
+        "spmw_top.sv",
+        "kernel.cpp",
+        "synth_ip.tcl",
+        "package.tcl",
+        "build.sh",
+    }
+    # hierarchical IP reuse: one pe_interior module + one instantiation site in the top
+    assert files["spmw_top.sv"].count("pe_interior #(.DW") == 1
+    # the IP is exported once (ip_catalog) and staged into the package project's IP repo
+    assert "export_design -format ip_catalog" in files["synth_ip.tcl"]
+    assert "ip_repo_paths" in files["package.tcl"]
+    assert "set_property top spmw_top" in files["package.tcl"]
+
+
+def test_vitis_rtl_project_writes_files(tmp_path):
+    files = emit_vitis_rtl_project(_systolic_twin(2, 2, 2), project=str(tmp_path))
+    for name in files:
+        assert (tmp_path / name).exists()
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_vitis_rtl_role_ip_exports_reusable_package():
+    # the single reusable role IP synthesizes and exports as a real Vivado IP catalog package -- the
+    # concrete artifact the structural top reuses P0*P1 times in the .xo/v++ packaging flow
+    import glob
+
+    with tempfile.TemporaryDirectory() as tmp:
+        emit_vitis_rtl_project(_systolic_twin(2, 2, 2), project=tmp)
+        subprocess.run(
+            ["vitis_hls", "-f", "synth_ip.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=True,
+        )
+        zips = glob.glob(
+            os.path.join(tmp, "role_ip.prj", "solution1", "impl", "ip", "*.zip")
+        )
+    assert zips, "expected an exported IP catalog .zip package"

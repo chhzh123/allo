@@ -531,3 +531,74 @@ def emit_cosim_project(region, project=None):
                 "xvlog -sv dut.sv tb.sv\nxelab tb -s sim\nxsim sim -R\n"
             )
     return dut, testbench
+
+
+def _role_ip_export_tcl(part, frequency):
+    """A Vitis HLS script that csynths *and* exports the role as a reusable Vivado IP (ip_catalog)."""
+    return (
+        "open_project role_ip.prj\n"
+        "set_top pe_interior\n"
+        "add_files kernel.cpp\n"
+        "open_solution solution1\n"
+        f"set_part {part}\n"
+        f"create_clock -period {1000 / frequency:.2f} -name default\n"
+        "csynth_design\n"
+        "export_design -format ip_catalog\n"
+        "exit\n"
+    )
+
+
+def _vitis_rtl_package_tcl():
+    """A Vivado batch script that stages the exported role IP + the structural top for packaging.
+
+    Hierarchical IP reuse: the single exported ``pe_interior`` IP is added to the project's IP repo
+    once and instantiated ``M*N`` times by ``spmw_top`` (a generate nest), never re-synthesized per
+    grid point. The final ``package_xo``/``v++`` link into an ``.xo`` + XRT bitstream is the
+    out-of-band hardware build (needs the target platform).
+    """
+    return (
+        "# stage the reusable role IP + structural top for the .xo/v++ packaging flow\n"
+        "create_project -force spmw_rtl ./spmw_rtl_vivado -part xcu280-fsvh2892-2L-e\n"
+        "set_property ip_repo_paths ./role_ip.prj/solution1/impl/ip [current_project]\n"
+        "update_ip_catalog\n"
+        "add_files -norecurse spmw_top.sv\n"
+        "set_property top spmw_top [current_fileset]\n"
+        "update_compile_order -fileset sources_1\n"
+        "# next (out-of-band, needs the platform): package_xo -xo spmw.xo ...; v++ -l --platform ...\n"
+    )
+
+
+def emit_vitis_rtl_project(region, project=None, part=None, frequency=None):
+    """Emit the ``vitis_rtl`` packaging project: one reusable role IP + the structural top + scripts.
+
+    The structural ``spmw_top`` instantiates a *single* ``pe_interior`` IP across the whole grid
+    (hierarchical IP reuse). ``build.sh`` synthesizes and exports that one IP as a Vivado IP catalog
+    entry, then stages it with the top for the ``.xo``/``v++``/XRT packaging flow (the final hardware
+    link is out of band). Returns the ``{filename: contents}`` map that was written.
+    """
+    # pylint: disable=import-outside-toplevel
+    import os
+
+    from .spmw_hls import _DEFAULT_FREQUENCY_MHZ, _DEFAULT_PART
+
+    part = part or _DEFAULT_PART
+    frequency = frequency or _DEFAULT_FREQUENCY_MHZ
+    files = {
+        "spmw_top.sv": emit_structural_verilog(region),
+        "kernel.cpp": emit_role_ip(region),
+        "synth_ip.tcl": _role_ip_export_tcl(part, frequency),
+        "package.tcl": _vitis_rtl_package_tcl(),
+        "build.sh": (
+            "#!/bin/bash\nset -e\n"
+            "# 1. synthesize + export the single reusable pe_interior role IP\n"
+            "vitis_hls -f synth_ip.tcl\n"
+            "# 2. stage the IP + structural top for .xo/v++ packaging (hardware link is out of band)\n"
+            "vivado -mode batch -source package.tcl\n"
+        ),
+    }
+    if project is not None:
+        os.makedirs(project, exist_ok=True)
+        for name, contents in files.items():
+            with open(os.path.join(project, name), "w", encoding="utf-8") as handle:
+                handle.write(contents)
+    return files

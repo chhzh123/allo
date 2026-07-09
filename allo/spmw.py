@@ -1634,6 +1634,11 @@ def build(program, target="simulator", **kwargs):
         from .spmw_rtl import emit_structural_verilog
 
         return emit_structural_verilog(program)
+    if target == "vitis_rtl":
+        # pylint: disable=import-outside-toplevel
+        from .spmw_rtl import emit_vitis_rtl_project
+
+        return emit_vitis_rtl_project(program, project=kwargs.get("project"))
     if target in _DATAFLOW_TARGETS:
         # pylint: disable=import-outside-toplevel
         from .spmw_datapath import build_dataflow
@@ -1641,5 +1646,5 @@ def build(program, target="simulator", **kwargs):
         return build_dataflow(program, target=target, **kwargs)
     raise NotImplementedError(
         f"SPMW code generation for target={target!r} is not yet implemented; use "
-        f"target='simulator'/'vitis_hls'/'ir'/'unroll'/'rolled'/'rtl'"
+        f"target='simulator'/'vitis_hls'/'ir'/'unroll'/'rolled'/'rtl'/'vitis_rtl'"
     )
