@@ -177,11 +177,6 @@ def emit_rolled_hls(region):
 _CONCRETE_STORAGE_IMPL = {"URAM", "BRAM", "LUTRAM"}
 
 
-def _is_cyclic_bank_map(bank_map, banks):
-    """Whether ``bank_map`` is the plain cyclic map ``bank(i) = i % banks`` (so ``cyclic`` says it all)."""
-    return all(bank == i % banks for i, bank in enumerate(bank_map))
-
-
 def _memory_pragmas(memory_placements):
     """The array-partition (+ optional bind_storage) pragmas for the rolled top's A/B/C arrays.
 
@@ -189,39 +184,14 @@ def _memory_pragmas(memory_placements):
     element independently addressable, so no interface is read by more than one dataflow process).
     A placement overrides that: ``bank_axis >= 0`` partitions only that (banking) axis, and a
     concrete ``impl`` adds a ``bind_storage`` pinning the storage resource.
-
-    A placement with a *partition function* (``banks`` set) instead splits the banking axis into
-    ``banks`` physical banks (``cyclic factor=banks``); a non-cyclic (XOR/F2) swizzle also emits the
-    resolved index-to-bank map as a comment so the conflict-free assignment is recorded. A banking
-    that had to serialize (``serialized``) keeps a single bank with a note.
     """
     placements = memory_placements or {}
     lines = []
     for var in ("A", "B", "C"):
         place = placements.get(var)
-        banks = place.get("banks") if place else None
         bank_axis = place["bank_axis"] if place else None
         dim = bank_axis + 1 if (bank_axis is not None and bank_axis >= 0) else 0
-        if place and place.get("serialized"):
-            lines.append(
-                f"// banking for {var} serialized to one bank (bank conflict reported)\n"
-            )
-            lines.append(f"#pragma HLS array_partition variable={var} complete dim=0\n")
-        elif banks is not None:
-            lines.append(
-                f"#pragma HLS array_partition variable={var} cyclic factor={banks} dim={dim}\n"
-            )
-            bank_map = place.get("bank_map") or ()
-            if not _is_cyclic_bank_map(bank_map, banks):
-                table = ", ".join(str(bank) for bank in bank_map)
-                lines.append(
-                    f"// conflict-free F2/XOR banking for {var} (banks={banks}): "
-                    f"bank index by logical index = [{table}]\n"
-                )
-        else:
-            lines.append(
-                f"#pragma HLS array_partition variable={var} complete dim={dim}\n"
-            )
+        lines.append(f"#pragma HLS array_partition variable={var} complete dim={dim}\n")
         if place and place["impl"]:
             lines.append(
                 f"#pragma HLS bind_storage variable={var} type=RAM_2P impl={place['impl']}\n"
@@ -514,42 +484,14 @@ def _interior_body_from_ir(func_text, ports, elem):
     return "\n".join(out)
 
 
-def _bank_functions_from_ir(ir):
-    """Parse the top func's ``spmw.bank_functions`` into ``{tensor: {banks, bank_map, serialized}}``.
-
-    Each entry is ``"<tensor>:<banks>:<b0,b1,...>[:serialized]"`` -- the resolved partition function
-    the frontend verified injective (or serialized). Absent when no placement carries a partition
-    function, so an unbanked design parses to an empty map.
-    """
-    match = re.search(r"spmw\.bank_functions = \[([^\]]*)\]", ir)
-    if not match:
-        return {}
-    functions = {}
-    for entry in re.findall(r'"([^"]+)"', match.group(1)):
-        parts = entry.split(":")
-        tensor, banks, table = parts[0], int(parts[1]), parts[2]
-        serialized = len(parts) > 3 and parts[3] == "serialized"
-        bank_map = tuple(int(x) for x in table.split(",")) if table else ()
-        functions[tensor] = {
-            "banks": banks,
-            "bank_map": bank_map,
-            "serialized": serialized,
-        }
-    return functions
-
-
 def _memory_placements_from_ir(ir, ordered_operands):
     """Map each top-level ``#spmw.memory`` placement onto its rolled-top C++ array (``A``/``B``/``C``).
 
     The rolled top names its arrays A, B, C by tensor-operand order, while a placement names its
     target by the region operand's name; ``ordered_operands`` (the region's shaped operands, in
-    order) bridges the two. A resolved resource of ``AUTO``/``SRL`` carries no ``bind_storage``. A
-    tensor that also carries a ``spmw.bank_functions`` partition function has its ``banks``/
-    ``bank_map``/``serialized`` merged onto the placement so the emitter banks it (rather than fully
-    partitioning it).
+    order) bridges the two. A resolved resource of ``AUTO``/``SRL`` carries no ``bind_storage``.
     """
     cpp_vars = ("A", "B", "C")
-    bank_functions = _bank_functions_from_ir(ir)
     placements = {}
     for tensor, resource, bank_axis in re.findall(
         r'#spmw\.memory<tensor = "([^"]+)", resource = "([^"]+)", bank_axis = (-?\d+)>',
@@ -562,11 +504,7 @@ def _memory_placements_from_ir(ir, ordered_operands):
             continue
         resource = resource.upper()
         impl = resource if resource in _CONCRETE_STORAGE_IMPL else None
-        place = {"impl": impl, "bank_axis": int(bank_axis)}
-        bank_function = bank_functions.get(tensor)
-        if bank_function is not None:
-            place.update(bank_function)
-        placements[cpp_vars[idx]] = place
+        placements[cpp_vars[idx]] = {"impl": impl, "bank_axis": int(bank_axis)}
     return placements
 
 
