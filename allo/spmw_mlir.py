@@ -44,10 +44,10 @@ def _mlir_elem(elem):
 class _Datapath:
     """Emit allo-MLIR statements for a systolic unit body, tracking SSA values and accumulators."""
 
-    def __init__(self, elem, kind, stream_depth, ports, out_memref, out_shape):
+    def __init__(self, elem, kind, depths, ports, out_memref, out_shape):
         self.elem = elem  # "f32"
         self.kind = kind  # "float" | "int"
-        self.stream_depth = stream_depth  # FIFO depth of the port streams
+        self.depths = depths  # port name -> FIFO depth of that port's stream
         self.ports = ports  # port name -> SSA arg (e.g. "west" -> "%west")
         self.out_memref = out_memref  # "%C"
         self.out_shape = out_shape  # "2x2xf32"
@@ -61,8 +61,10 @@ class _Datapath:
         self._n += 1
         return v
 
-    def _stream_ty(self):
-        return f"!allo.stream<{self.elem}, {self.stream_depth}>"
+    def _stream_ty(self, port):
+        # each port carries its own declared FIFO depth, so reciprocal families with different
+        # depths (e.g. A east/west vs B north/south) produce distinct stream types
+        return f"!allo.stream<{self.elem}, {self.depths[port]}>"
 
     def _emit(self, line):
         self.lines.append(line)
@@ -99,7 +101,7 @@ class _Datapath:
             v = self._fresh()
             self._emit(
                 f"      {v} = allo.stream_get({self.ports[port]}, []) : "
-                f"{self._stream_ty()} -> {self.elem}"
+                f"{self._stream_ty(port)} -> {self.elem}"
             )
             return v
         raise self._unsupported(node)
@@ -173,7 +175,7 @@ class _Datapath:
             arg = self._eval(node.value.args[0])
             self._emit(
                 f"      allo.stream_put({self.ports[port]}, [], {arg}) : "
-                f"{self._stream_ty()} contains {self.elem}"
+                f"{self._stream_ty(port)} contains {self.elem}"
             )
             return
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Subscript):
@@ -258,12 +260,13 @@ def _accumulators(body):
     return names
 
 
-def interior_role_func(sym, unit, dtype, trip, stream_depth, shapes):
+def interior_role_func(sym, unit, dtype, trip, depths, shapes):
     """Emit a PID-parameterized interior role ``func.func`` carrying the real unit datapath.
 
-    ``trip`` is the k-loop trip count, ``stream_depth`` the port-stream FIFO depth, and ``shapes``
-    is ``(a_shape, b_shape, c_shape)`` as ``(rows, cols)`` tuples. The func takes the A/B/C memrefs,
-    the writer position ``%pi``/``%pj``, and one ``!allo.stream`` per port.
+    ``trip`` is the k-loop trip count, ``depths`` maps each port name to its stream FIFO depth (so
+    reciprocal families with different declared depths stay distinct, as the op verifier requires),
+    and ``shapes`` is ``(a_shape, b_shape, c_shape)`` as ``(rows, cols)`` tuples. The func takes the
+    A/B/C memrefs, the writer position ``%pi``/``%pj``, and one ``!allo.stream`` per port.
     """
     elem, kind = _mlir_elem(dtype)
     tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
@@ -272,12 +275,13 @@ def interior_role_func(sym, unit, dtype, trip, stream_depth, shapes):
     ports = {p: f"%{p}" for p in sorted(_READ_PORTS)}
     (am, ak), (bk, bn), (cm, cn) = shapes
     out_shape = f"{cm}x{cn}x{elem}"
-    dp = _Datapath(elem, kind, stream_depth, ports, "%C", out_shape)
+    dp = _Datapath(elem, kind, depths, ports, "%C", out_shape)
     dp.mem = {name: None for name in _accumulators(body)}
     dp.transcribe(body, trip)
 
-    stream_ty = f"!allo.stream<{elem}, {stream_depth}>"
-    stream_args = ", ".join(f"%{p}: {stream_ty}" for p in sorted(_READ_PORTS))
+    stream_args = ", ".join(
+        f"%{p}: !allo.stream<{elem}, {depths[p]}>" for p in sorted(_READ_PORTS)
+    )
     signature = (
         f"%A: memref<{am}x{ak}x{elem}>, %B: memref<{bk}x{bn}x{elem}>, "
         f"%C: memref<{cm}x{cn}x{elem}>, %pi: index, %pj: index, {stream_args}"

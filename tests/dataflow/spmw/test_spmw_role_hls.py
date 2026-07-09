@@ -140,3 +140,41 @@ def test_ir_driven_rolled_emitter_consumes_spmw_map():
     assert "east.write(" in pe and "south.write(" in pe
     assert " * " in pe and "acc + " in pe  # the multiply-accumulate
     assert "c_local[0] = acc;" in pe
+
+
+def test_ir_driven_emitter_honors_per_family_fifo_depths():
+    # a region with different declared depths per family (A east/west = 8, B north/south = 4) reaches
+    # the IR path and the emitter declares each FIFO array at its own resolved depth (floored at K=4)
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    M = N = K = 4
+
+    def twin():
+        grid = spmw.mesh((M, N))
+
+        @spmw.unit
+        def pe(ctx):
+            c: float32 = 0
+            for k in range(K):
+                a: float32 = ctx.west.get()
+                b: float32 = ctx.north.get()
+                c += a * b
+                ctx.east.put(a)
+                ctx.south.put(b)
+            ctx.c_local[0] = c
+
+        @spmw.region()
+        def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+            spmw.map(
+                pe, grid=grid, depths={"east": 8, "west": 8, "north": 4, "south": 4}
+            )
+            spmw.stream_in(A, into=pe, flow="W->E")
+            spmw.stream_in(B, into=pe, flow="N->S")
+            spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+        return gemm
+
+    cpp = emit_rolled_hls_ir(twin())
+    # fa is the A (east/west) family -> depth 8; fb is the B (north/south) family -> depth 4
+    assert "#pragma HLS stream variable=fa depth=8" in cpp
+    assert "#pragma HLS stream variable=fb depth=4" in cpp
