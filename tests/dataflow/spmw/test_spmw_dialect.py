@@ -220,15 +220,17 @@ FOLDED_KEY = VALID_KEY.replace(
 )
 
 
-def test_spmw_resolve_channels_rejects_folded_key_links():
+def test_spmw_resolve_channels_folds_key_links_to_buffers():
+    # a folded key family time-muxes onto one PE that random-accesses it, so resolve-channels
+    # reclassifies it from a FIFO stream into an addressed buffer family.
     from allo._mlir.passmanager import PassManager
 
     module = _parse(FOLDED_KEY)
     with module.context:
-        with pytest.raises(Exception, match="folded key_link"):
-            PassManager.parse("builtin.module(spmw-resolve-channels)").run(
-                module.operation
-            )
+        PassManager.parse("builtin.module(spmw-resolve-channels)").run(module.operation)
+    printed = str(module)
+    assert "spmw.buffer_families" in printed and '"c"' in printed
+    assert "spmw.channel_families = []" in printed
 
 
 # A valid map with a west peer link, an interior role, and a west loader halo task.

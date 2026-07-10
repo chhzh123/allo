@@ -58,8 +58,12 @@ def get_tw_imag(stage, butterfly, n_points):
     return sin(-2.0 * pi * tw_idx / n_points)
 
 
-def _fft_region(N):
-    """An N-point spatial FFT as an SPMW region (butterfly unit + key-form ``lane`` topology)."""
+def _fft_region(N, fold=None):
+    """An N-point FFT as an SPMW region (butterfly unit + key-form ``lane`` topology).
+
+    ``fold`` (e.g. ``{1: N // 2}``) time-multiplexes the butterfly axis onto fewer physical PEs; a
+    folded map's ``lane`` families reclassify from FIFO streams into addressed buffers.
+    """
     assert N > 0 and (N & (N - 1)) == 0, "N must be a power of 2"
     S = int(log2(N))
     HALF = N // 2
@@ -97,19 +101,19 @@ def _fft_region(N):
     topo = spmw.Topology(grid=(S, HALF), link=bfly_links)
 
     @spmw.region()
-    def fft_spatial(
+    def fft(
         Xr: float32[N],
         Xi: float32[N],
         Yr: float32[N],
         Yi: float32[N],
     ):
-        spmw.map(bfly, grid=(S, HALF), topo=topo)
+        spmw.map(bfly, grid=(S, HALF), topo=topo, fold=fold)
         spmw.stream_in(
             (Xr, Xi), into=("lane_re", "lane_im"), at_stage=0, index=bit_reverse
         )
         spmw.stream_out((Yr, Yi), from_=("lane_re", "lane_im"), at_stage=S)
 
-    return fft_spatial
+    return fft
 
 
 @pytest.mark.parametrize("N", [8, 16, 32])
@@ -147,4 +151,15 @@ def test_fft_spatial_resolve_channels():
     _run_module_pass(module, "spmw-resolve-channels")
     printed = str(module)
     assert "spmw.channel_families" in printed
+    assert "lane_re" in printed and "lane_im" in printed
+
+
+def test_fft_folded_resolve_channels_buffers():
+    """A folded FFT map reclassifies its lane_re/lane_im key families into addressed buffers."""
+    from allo.spmw import lower, _run_module_pass
+
+    module = lower(_fft_region(8, fold={1: 4}))
+    _run_module_pass(module, "spmw-resolve-channels")
+    printed = str(module)
+    assert "spmw.buffer_families" in printed
     assert "lane_re" in printed and "lane_im" in printed

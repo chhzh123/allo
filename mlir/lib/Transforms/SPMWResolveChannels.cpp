@@ -147,23 +147,28 @@ struct SPMWResolveChannelsPass
       }
     }
 
-    // Key (rendezvous) families. Unfolded they are FIFO streams. A folded map
-    // time-multiplexes several butterflies onto one PE that random-accesses its
-    // lane family (the permutation), which a linear FIFO cannot preserve --
-    // that folded -> banked-buffer lowering is not yet implemented, so fail
-    // closed.
+    // Key (rendezvous) families. A fold time-multiplexes several logical PEs
+    // onto one physical PE, which then random-accesses its lane family (the
+    // butterfly permutation {i, i^(1<<s)}) instead of draining it in FIFO order
+    // -- so a folded key family becomes an addressed buffer (it still needs
+    // conflict-free banking, derived downstream from the access set). Unfolded,
+    // it stays a FIFO stream. This is conservative: any fold reclassifies (the
+    // FFT folds the butterfly axis, the case that matters), and a buffer still
+    // serves FIFO access, so over-classifying is safe.
     bool folded = false;
     for (int64_t f : fold)
       if (f > 1) {
         folded = true;
         break;
       }
-    if (!keyFamilyDepth.empty() && folded)
-      return map.emitOpError("spmw-resolve-channels does not yet resolve "
-                             "folded key_link families");
     for (const auto &entry : keyFamilyDepth) {
-      streamRefs.push_back(entry.first);
-      streamDepths.push_back(entry.second);
+      if (folded) {
+        bufferRefs.push_back(entry.first);
+        bufferDepths.push_back(entry.second);
+      } else {
+        streamRefs.push_back(entry.first);
+        streamDepths.push_back(entry.second);
+      }
     }
 
     OpBuilder builder(map);
