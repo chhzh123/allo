@@ -12,12 +12,14 @@ all FIFOs); building it on the simulator and matching ``numpy.fft.fft`` proves t
 path lowers correctly. The pure-Python helpers are the numerical oracle shared with the design.
 """
 
+import tempfile
 from math import log2, cos, sin, pi
 
 import numpy as np
 import pytest
 
 import allo.spmw as spmw
+import allo.backend.hls as hls
 from allo.ir.types import float32, int32, ConstExpr
 
 
@@ -132,6 +134,36 @@ def test_fft_spatial(N):
     )
     np.testing.assert_allclose(
         out_imag, ref.imag.astype(np.float32), rtol=1e-4, atol=1e-4
+    )
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+@pytest.mark.parametrize("N", [8])
+def test_fft_csim(N):
+    """The SPMW spatial FFT is csim-correct on Vitis HLS (fft_spatial at L2 csim vs numpy).
+
+    Builds the desugared FFT to a Vitis HLS project and runs csim; the emitted C++ butterfly
+    network must produce numpy.fft.fft to float tolerance -- the L2 rung above the L1 simulator
+    check in ``test_fft_spatial``.
+    """
+    np.random.seed(42)
+    inp_real = np.random.rand(N).astype(np.float32)
+    inp_imag = np.zeros(N, dtype=np.float32)
+    out_real = np.zeros(N, dtype=np.float32)
+    out_imag = np.zeros(N, dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(
+            _fft_region(N), target="vitis_hls", mode="csim", project=tmp
+        )
+        module(inp_real, inp_imag, out_real, out_imag)
+    ref = np.fft.fft(inp_real + 1j * inp_imag)
+    np.testing.assert_allclose(
+        out_real, ref.real.astype(np.float32), rtol=1e-3, atol=1e-3
+    )
+    np.testing.assert_allclose(
+        out_imag, ref.imag.astype(np.float32), rtol=1e-3, atol=1e-3
     )
 
 
