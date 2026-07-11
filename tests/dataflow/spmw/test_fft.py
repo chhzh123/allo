@@ -12,6 +12,8 @@ all FIFOs); building it on the simulator and matching ``numpy.fft.fft`` proves t
 path lowers correctly. The pure-Python helpers are the numerical oracle shared with the design.
 """
 
+import os
+import subprocess
 import tempfile
 from math import log2, cos, sin, pi
 
@@ -20,6 +22,7 @@ import pytest
 
 import allo.spmw as spmw
 import allo.backend.hls as hls
+from allo.spmw_hls import emit_rolled_hls_ir
 from allo.ir.types import float32, int32, ConstExpr
 
 
@@ -165,6 +168,47 @@ def test_fft_csim(N):
     np.testing.assert_allclose(
         out_imag, ref.imag.astype(np.float32), rtol=1e-3, atol=1e-3
     )
+
+
+@pytest.mark.parametrize("N", [8, 16])
+def test_fft_rolled_emits_single_butterfly_body(N):
+    """The rolled key-form FFT top has ONE bfly compute body regardless of grid size (O(#roles)).
+
+    The key-form ``lane`` topology survives the rolled O(#roles) HLS emitter: the butterfly datapath
+    is transcribed once (twiddle lifted to parameters) and instantiated across the (stage, butterfly)
+    grid, so the emitted top has a single ``void bfly(`` body while the number of *instantiations*
+    grows with the grid.
+    """
+    cpp = emit_rolled_hls_ir(_fft_region(N))
+    assert cpp.count("void bfly(") == 1  # one compute body, not one per butterfly
+    assert "stage_lane_re[S + 1][N]" in cpp and "stage_lane_im[S + 1][N]" in cpp
+    assert "#pragma HLS dataflow" in cpp
+    # the body count is constant, but the number of butterfly instantiations scales with the grid
+    assert cpp.count("  bfly(") == int(log2(N)) * (N // 2)
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_fft_rolled_csim():
+    """The rolled key-form FFT top is csim-correct on Vitis HLS (fft_spatial via target="rolled").
+
+    Unlike ``test_fft_csim`` (the desugared ``vitis_hls`` path), this exercises the rolled O(#roles)
+    SPMW HLS emitter: the transcribed butterfly body instantiated over the topology's slot wiring,
+    checked against a self-checking DFT testbench.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(_fft_region(8), target="rolled", project=tmp, testbench=True)
+        assert os.path.exists(os.path.join(tmp, "tb.cpp"))
+        result = subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=True,
+        )
+    assert "CSIM MATCH" in result.stdout, result.stdout[-2000:]
 
 
 @pytest.mark.parametrize(

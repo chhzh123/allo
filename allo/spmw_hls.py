@@ -419,6 +419,267 @@ def _folded_top_cpp(
     )
 
 
+def _transcribe_butterfly(unit_fn, elem):
+    """Transcribe a key-form FFT butterfly unit body to a C++ ``bfly`` function body.
+
+    ``ctx.<port>.get()``/``put()`` become ``st_<port>.read()``/``write()``; each ``ConstExpr``
+    assignment (the twiddle factors, which depend on the grid point) is lifted to a scalar function
+    *parameter* so the one body serves every butterfly, with the per-``(s, b)`` value supplied by the
+    instantiation loop. Returns the ordered in/out ports, the const-parameter names, the C++ body, and
+    a callable that evaluates the constants for a given grid point (reusing the unit's own twiddle
+    helpers, exactly as the frontend evaluates a ``ConstExpr``).
+    """
+    # pylint: disable=import-outside-toplevel,eval-used
+    from .spmw_datapath import _fft_helpers, _is_rank_call
+
+    func = ast.parse(textwrap.dedent(inspect.getsource(unit_fn))).body[0]
+    ctx = func.args.args[0].arg
+
+    def cexpr(node):
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.BinOp) and type(node.op) in _CPP_OP:
+            return f"({cexpr(node.left)} {_CPP_OP[type(node.op)]} {cexpr(node.right)})"
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return repr(node.value)
+        raise NotImplementedError(
+            f"FFT butterfly transcriber cannot translate expression {ast.dump(node)}"
+        )
+
+    def _ctx_port(node):
+        # a `ctx.<port>` attribute -> the port name, else None
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == ctx
+        ):
+            return node.attr
+        return None
+
+    in_ports, out_ports, const_specs, body = [], [], [], []
+    pid_names = None
+    for stmt in func.body:
+        if (
+            isinstance(stmt, ast.Assign)
+            and isinstance(stmt.targets[0], ast.Tuple)
+            and _is_rank_call(stmt.value, ctx)
+        ):
+            pid_names = [t.id for t in stmt.targets[0].elts]
+            continue
+        if isinstance(stmt, ast.AnnAssign):
+            name, ann, value = stmt.target.id, stmt.annotation, stmt.value
+            if (
+                isinstance(ann, ast.Subscript)
+                and getattr(ann.value, "id", None) == "ConstExpr"
+            ):
+                const_specs.append((name, value))
+                continue
+            if (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Attribute)
+                and value.func.attr in {"get", "get_or"}
+                and _ctx_port(value.func.value) is not None
+            ):
+                port = _ctx_port(value.func.value)
+                in_ports.append(port)
+                body.append(f"  {elem} {name} = st_{port}.read();")
+                continue
+            body.append(f"  {elem} {name} = {cexpr(value)};")
+            continue
+        if (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Call)
+            and isinstance(stmt.value.func, ast.Attribute)
+            and stmt.value.func.attr == "put"
+            and _ctx_port(stmt.value.func.value) is not None
+        ):
+            port = _ctx_port(stmt.value.func.value)
+            out_ports.append(port)
+            body.append(f"  st_{port}.write({cexpr(stmt.value.args[0])});")
+            continue
+        raise NotImplementedError(
+            f"FFT butterfly transcriber cannot translate statement {ast.dump(stmt)}"
+        )
+
+    if pid_names is None or len(pid_names) != 2:
+        raise NotImplementedError("FFT butterfly must start with `s, b = ctx.rank()`")
+
+    helpers = {fn.__name__: fn for fn in _fft_helpers(unit_fn)}
+    closure = inspect.getclosurevars(unit_fn)
+    scope_consts = {
+        k: v
+        for k, v in {**closure.nonlocals, **closure.globals}.items()
+        if isinstance(v, int) and not isinstance(v, bool)
+    }
+
+    def eval_consts(s_val, b_val):
+        env = {**scope_consts, **helpers, pid_names[0]: s_val, pid_names[1]: b_val}
+        return [
+            float(
+                eval(
+                    compile(ast.Expression(e), "<tw>", "eval"),
+                    {"__builtins__": {}},
+                    env,
+                )
+            )
+            for _, e in const_specs
+        ]
+
+    return {
+        "in_ports": in_ports,
+        "out_ports": out_ports,
+        "const_names": [n for n, _ in const_specs],
+        "body": "\n".join(body),
+        "eval_consts": eval_consts,
+    }
+
+
+def _keyform_fft_top_cpp(region):
+    """The rolled O(#roles) HLS top for a key-form ``lane`` butterfly FFT region.
+
+    Consumes the map's topology recognition (:func:`_recognize_fft`): the ``(S, HALF)`` grid, the two
+    lane families, and the per-``(s, b)`` upper/lower slot wiring the topology ``link`` resolves to.
+    The single butterfly datapath is transcribed from the unit body *once* (twiddle lifted to
+    parameters), so the top has ONE ``bfly`` compute body instantiated across the grid with per-``(s,
+    b)`` constant twiddle args and the topology's slot wiring -- O(#roles) = 1 compute body, not one
+    per butterfly. Stage 0 is loaded bit-reversed and stage S drained, matching the simulator desugar.
+    """
+    # pylint: disable=import-outside-toplevel,too-many-locals
+    from .spmw import _collect
+    from .spmw_datapath import (
+        _recognize_fft,
+        _fam_tensor_pairs,
+        _stage_array,
+        _region_tensors,
+    )
+
+    collection = _collect(region)
+    desc = _recognize_fft(collection)
+    if getattr(desc["decl"], "fold", None):
+        raise NotImplementedError(
+            "folded key-form FFT rolled top is not yet implemented; the spatial map is supported"
+        )
+    S, HALF, N = desc["S"], desc["HALF"], desc["N"]
+    up_table, lo_table, ports = desc["up_table"], desc["lo_table"], desc["ports"]
+    elem = "float"
+
+    stream_ins = [s for s in collection.streams if s.direction == "in"]
+    stream_outs = [s for s in collection.streams if s.direction == "out"]
+    if len(stream_ins) != 1 or len(stream_outs) != 1:
+        raise NotImplementedError(
+            "FFT rolled top expects one stream_in and one stream_out"
+        )
+    index_fn = stream_ins[0].extra.get("index")
+    in_pairs = _fam_tensor_pairs(stream_ins[0])
+    out_pairs = _fam_tensor_pairs(stream_outs[0])
+
+    bfly = _transcribe_butterfly(desc["decl"].unit.interior, elem)
+    sig_ports = bfly["in_ports"] + bfly["out_ports"]
+    if set(sig_ports) != set(ports):
+        raise NotImplementedError(
+            f"FFT butterfly ports {sorted(sig_ports)} do not match the topology ports "
+            f"{sorted(ports)}"
+        )
+    sig = ", ".join(f"hls::stream<{elem}> &st_{p}" for p in sig_ports)
+    sig += "".join(f", {elem} {c}" for c in bfly["const_names"])
+    bfly_def = f"void bfly({sig}) {{\n#pragma HLS inline off\n{bfly['body']}\n}}\n"
+
+    arrays = [_stage_array(f) for f in desc["families"]]
+    decls = "".join(f"  hls::stream<{elem}> {a}[S + 1][N];\n" for a in arrays)
+    depths = "".join(f"#pragma HLS stream variable={a} depth=2\n" for a in arrays)
+
+    load = [
+        f"  {_stage_array(fam)}[0][{index_fn(idx, S) if callable(index_fn) else idx}]"
+        f".write({tensor}[{idx}]);"
+        for fam, tensor in in_pairs
+        for idx in range(N)
+    ]
+    calls = []
+    for s in range(S):
+        for b in range(HALF):
+            up, lo = up_table[(s, b)], lo_table[(s, b)]
+            wires = [
+                f"{ports[p][0]}[{s + ports[p][1]}][{up if ports[p][2] == 'upper' else lo}]"
+                for p in sig_ports
+            ]
+            wires += [f"{v:.9e}f" for v in bfly["eval_consts"](s, b)]
+            calls.append(f"  bfly({', '.join(wires)});")
+    drain = [
+        f"  {tensor}[{idx}] = {_stage_array(fam)}[S][{idx}].read();"
+        for fam, tensor in out_pairs
+        for idx in range(N)
+    ]
+
+    top_sig = ", ".join(f"{elem} {name}[N]" for name, _, _ in _region_tensors(region))
+    return (
+        "#include <hls_stream.h>\n"
+        f"#define N {N}\n"
+        f"#define S {S}\n"
+        f"#define HALF {HALF}\n\n"
+        f"{bfly_def}\n"
+        f"void top({top_sig}) {{\n"
+        "#pragma HLS dataflow\n"
+        f"{decls}"
+        f"{depths}"
+        + "\n".join(load)
+        + "\n"
+        + "\n".join(calls)
+        + "\n"
+        + "\n".join(drain)
+        + "\n}\n"
+    )
+
+
+def _is_keyform_fft_region(region):
+    """True if ``region`` is a recognizable key-form ``lane`` butterfly FFT (vs a systolic mesh)."""
+    # pylint: disable=import-outside-toplevel,broad-except
+    from .spmw import _collect
+    from .spmw_datapath import _recognize_fft
+
+    try:
+        _recognize_fft(_collect(region))
+        return True
+    except Exception:
+        return False
+
+
+def _fft_rolled_testbench(region):
+    """A self-checking C++ testbench that runs the rolled FFT ``top`` vs a naive DFT reference."""
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _collect
+    from .spmw_datapath import _recognize_fft, _fam_tensor_pairs, _region_tensors
+
+    collection = _collect(region)
+    N = _recognize_fft(collection)["N"]
+    stream_ins = [s for s in collection.streams if s.direction == "in"]
+    stream_outs = [s for s in collection.streams if s.direction == "out"]
+    xr, xi = (t for _, t in _fam_tensor_pairs(stream_ins[0]))
+    yr, yi = (t for _, t in _fam_tensor_pairs(stream_outs[0]))
+    names = [name for name, _, _ in _region_tensors(region)]
+    top_sig = ", ".join(f"float {n}[N]" for n in names)
+    return (
+        "#include <cmath>\n#include <cstdio>\n"
+        f"#define N {N}\n"
+        f"void top({top_sig});\n"
+        "int main(){\n"
+        f"  float {', '.join(f'{n}[N]' for n in names)};\n"
+        f"  for(int i=0;i<N;i++){{ {xr}[i]=(float)((i*7+3)%N)/N; {xi}[i]=0.0f; }}\n"
+        f"  top({', '.join(names)});\n"
+        "  int bad=0;\n"
+        "  for(int k=0;k<N;k++){\n"
+        "    float rr=0,ii=0;\n"
+        "    for(int n=0;n<N;n++){\n"
+        "      float ang=-2.0f*3.14159265358979f*k*n/N;\n"
+        f"      rr+={xr}[n]*cosf(ang)-{xi}[n]*sinf(ang);\n"
+        f"      ii+={xr}[n]*sinf(ang)+{xi}[n]*cosf(ang);\n"
+        "    }\n"
+        f"    if(std::fabs(rr-{yr}[k])>1e-2||std::fabs(ii-{yi}[k])>1e-2) bad=1;\n"
+        "  }\n"
+        '  printf(bad?"CSIM MISMATCH\\n":"CSIM MATCH\\n");\n'
+        "  return bad;\n}\n"
+    )
+
+
 def _rolled_csynth_tcl(part, frequency, with_testbench=False):
     """A Vitis HLS script for a stand-alone rolled ``top`` project.
 
@@ -522,8 +783,13 @@ def emit_rolled_project(
         with open(os.path.join(project, "run.tcl"), "w", encoding="utf-8") as handle:
             handle.write(_rolled_csynth_tcl(part, frequency, with_testbench=testbench))
         if testbench:
+            tb = (
+                _fft_rolled_testbench(region)
+                if _is_keyform_fft_region(region)
+                else _rolled_testbench(region)
+            )
             with open(os.path.join(project, "tb.cpp"), "w", encoding="utf-8") as handle:
-                handle.write(_rolled_testbench(region))
+                handle.write(tb)
     return RolledHLSProject(hls_code, project)
 
 
@@ -728,6 +994,15 @@ def emit_rolled_hls_ir(region):
 
     stream_families = _families("spmw.channel_families")
     buffer_families = _families("spmw.buffer_families")
+    # A key-form `lane` topology (the radix-2 FFT butterfly permutation network) is a different
+    # rolled top than the systolic mesh: one transcribed butterfly body instantiated across the
+    # (stage, butterfly) grid with per-(s,b) constant twiddles and the topology's slot wiring. The
+    # systolic east/west + north/south shapes (including their folded variants) keep the path below.
+    if not (set(stream_families) | set(buffer_families)) <= {
+        "east/west",
+        "north/south",
+    }:
+        return _keyform_fft_top_cpp(region)
     if buffer_families:
         # A folded systolic mesh: the A-forwarding (east/west) is reclassified to a banked on-chip
         # buffer; B (north/south) stays a FIFO. Only this shape is realized so far.
