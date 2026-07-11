@@ -227,14 +227,37 @@ def test_fft_folded_rolled_uses_buffers():
     assert "#pragma HLS pipeline II=1" in cpp
 
 
+@pytest.mark.parametrize("F", [2, 4])
+def test_fft_folded_rolled_honors_fold_factor(F):
+    """fold[1]=F emits HALF/F parallel butterfly PEs x F pipelined iterations.
+
+    ``fold[1]=F`` runs F logical butterflies per physical PE, so the butterfly axis (extent HALF)
+    becomes HALF/F unrolled PEs each looping F times. Partial (F=2) and full (F=4) folds therefore
+    emit distinct schedules -- the round-2 review found the fold factor was parsed but ignored, so
+    both produced identical code.
+    """
+    S, HALF = int(log2(8)), 8 // 2
+    cpp = emit_rolled_hls_ir(_fft_region(8, fold={1: F}))
+    assert re.findall(r"for \(int i = 0; i < (\d+); i\+\+\)", cpp) == [str(F)] * S
+    assert (
+        cpp.count("    bfly(") == (HALF // F) * S
+    )  # HALF/F parallel PEs, over S stages
+    other = HALF if F != HALF else 2
+    assert cpp != emit_rolled_hls_ir(_fft_region(8, fold={1: other}))
+
+
 @pytest.mark.skipif(
     not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
 )
-def test_fft_folded_rolled_csim():
-    """The folded key-form FFT (fold -> banked lane buffers) is csim-correct via target="rolled"."""
+@pytest.mark.parametrize("F", [2, 4])
+def test_fft_folded_rolled_csim(F):
+    """The folded key-form FFT (fold -> banked lane buffers) is csim-correct via target="rolled".
+
+    Covers both a partial fold (F=2 -> HALF/2 physical PEs) and a full fold (F=4 -> 1 PE).
+    """
     with tempfile.TemporaryDirectory() as tmp:
         spmw.build(
-            _fft_region(8, fold={1: 4}), target="rolled", project=tmp, testbench=True
+            _fft_region(8, fold={1: F}), target="rolled", project=tmp, testbench=True
         )
         result = subprocess.run(
             ["vitis_hls", "-f", "run.tcl"],
@@ -250,15 +273,17 @@ def test_fft_folded_rolled_csim():
 @pytest.mark.skipif(
     not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
 )
-def test_fft_folded_rolled_csynth_ii1():
+@pytest.mark.parametrize("F", [2, 4])
+def test_fft_folded_rolled_csynth_ii1(F):
     """The folded FFT synthesizes conflict-free banked lane access at II=1 (the AC-6 FFT hard gate).
 
     Per-stage register arrays keep each butterfly-loop iteration's read (stage s) and write (stage
-    s+1) on distinct arrays, so the pipelined folded loops schedule at II=1; and the butterfly is
-    rolled -- far fewer synthesized ``bfly`` bodies than the S*HALF butterflies.
+    s+1) on distinct arrays, so the pipelined folded loops schedule at II=1 for both partial (F=2)
+    and full (F=4) folds; and the butterfly is rolled -- far fewer synthesized ``bfly`` bodies than
+    the S*HALF butterflies.
     """
     with tempfile.TemporaryDirectory() as tmp:
-        spmw.build(_fft_region(8, fold={1: 4}), target="rolled", project=tmp)
+        spmw.build(_fft_region(8, fold={1: F}), target="rolled", project=tmp)
         subprocess.run(
             ["vitis_hls", "-f", "run.tcl"],
             cwd=tmp,

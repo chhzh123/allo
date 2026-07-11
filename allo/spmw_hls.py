@@ -625,6 +625,20 @@ def _keyform_fft_top_cpp(region, ir_info):
             f"resolved IR grid {ir_info['grid']} != recognized FFT grid {(S, HALF)}"
         )
     up_table, lo_table, ports = desc["up_table"], desc["lo_table"], desc["ports"]
+    # Validate the frontend recognition against the resolved-IR key-link endpoints: the IR carries
+    # each port's (family, end); the per-rank (up/lo) slot is not in the IR (it comes from evaluating
+    # the topology link). A disagreement means the recognition and the resolved map have diverged.
+    for port, family, end in ir_info.get("key_links", []):
+        if port not in ports:
+            raise NotImplementedError(
+                f"resolved IR key_link port {port!r} is not a recognized FFT port"
+            )
+        base, offset, _role = ports[port]
+        if base != _stage_array(family) or (end == "sink") != (offset == 0):
+            raise NotImplementedError(
+                f"resolved IR key_link {port!r} -> ({family}, {end}) disagrees with recognition "
+                f"({base}, offset={offset})"
+            )
     arrays = [_stage_array(f) for f in desc["families"]]
     index_fn, in_pairs, out_pairs, top_sig = (
         setup["index_fn"],
@@ -688,26 +702,39 @@ def _keyform_fft_top_cpp(region, ir_info):
             for fam, tensor in in_pairs
             for idx in range(N)
         ]
+        # Fold-factor faithful schedule: fold[1]=F runs F logical butterflies per physical PE, so the
+        # butterfly axis (extent HALF) becomes P = HALF/F physical PEs (unrolled, parallel), each
+        # time-multiplexing F butterflies in a pipelined II=1 fold loop. Butterfly b = p*F + i (PE p,
+        # fold-iteration i), so distinct partial/full folds emit distinct schedules. The per-stage
+        # register arrays keep the P parallel (up, lo) accesses conflict-free.
+        fold_dims = ir_info.get("fold") or []
+        fold_f = fold_dims[1] if len(fold_dims) > 1 and fold_dims[1] else HALF
+        if HALF % fold_f != 0:
+            raise NotImplementedError(
+                f"fold factor {fold_f} must divide the butterfly-axis extent {HALF}"
+            )
+        n_pe = HALF // fold_f
+
+        def wire(port, stage, idx_expr):
+            base, offset, role = ports[port]
+            return (
+                f"{stage_buf(base, stage + offset)}"
+                f"[{'UP' if role == 'upper' else 'LO'}[{idx_expr}]]"
+            )
+
         loops = ""
         for s in range(S):
-            args = [
-                f"{stage_buf(ports[p][0], s + ports[p][1])}"
-                f"[{'up' if ports[p][2] == 'upper' else 'lo'}]"
-                for p in bfly["in_ports"]
-            ]
-            args += [
-                f"TW{ci}[{s} * HALF + b]" for ci in range(len(bfly["const_names"]))
-            ]
-            args += [
-                f"{stage_buf(ports[p][0], s + ports[p][1])}"
-                f"[{'up' if ports[p][2] == 'upper' else 'lo'}]"
-                for p in bfly["out_ports"]
-            ]
+            body = ""
+            for pe in range(n_pe):
+                idx = f"{s} * HALF + {pe} * {fold_f} + i"
+                args = [wire(p, s, idx) for p in bfly["in_ports"]]
+                args += [f"TW{ci}[{idx}]" for ci in range(len(bfly["const_names"]))]
+                args += [wire(p, s, idx) for p in bfly["out_ports"]]
+                body += f"    bfly({', '.join(args)});\n"
             loops += (
-                "  for (int b = 0; b < HALF; b++) {\n"
+                f"  for (int i = 0; i < {fold_f}; i++) {{\n"
                 "#pragma HLS pipeline II=1\n"
-                f"    int up = UP[{s} * HALF + b], lo = LO[{s} * HALF + b];\n"
-                f"    bfly({', '.join(args)});\n"
+                f"{body}"
                 "  }\n"
             )
         drain = [
@@ -802,14 +829,17 @@ def _fft_rolled_testbench(region):
     stream_outs = [s for s in collection.streams if s.direction == "out"]
     xr, xi = (t for _, t in _fam_tensor_pairs(stream_ins[0]))
     yr, yi = (t for _, t in _fam_tensor_pairs(stream_outs[0]))
-    names = [name for name, _, _ in _region_tensors(region)]
-    top_sig = ", ".join(f"float {n}[N]" for n in names)
+    tensors = _region_tensors(region)
+    names = [name for name, _, _ in tensors]
+    # match the kernel's operand element type (derived from the region operands, not hardcoded float)
+    elem = _CPP_TYPE[tensors[0][2]]
+    top_sig = ", ".join(f"{elem} {n}[N]" for n in names)
     return (
         "#include <cmath>\n#include <cstdio>\n"
         f"#define N {N}\n"
         f"void top({top_sig});\n"
         "int main(){\n"
-        f"  float {', '.join(f'{n}[N]' for n in names)};\n"
+        f"  {elem} {', '.join(f'{n}[N]' for n in names)};\n"
         f"  for(int i=0;i<N;i++){{ {xr}[i]=(float)((i*7+3)%N)/N; {xi}[i]=0.0f; }}\n"
         f"  top({', '.join(names)});\n"
         "  int bad=0;\n"
@@ -1158,6 +1188,13 @@ def emit_rolled_hls_ir(region):
         )
         depth_m = re.search(re.escape(depth_attr) + r" = array<i64: ([^>]*)>", ir)
         fold_m = re.search(r"fold = array<i64: ([^>]*)>", ir)
+        # The resolved map records each port's channel endpoint: port -> (key/family, end). The
+        # per-rank (s, b) slot is not in the IR (it comes from evaluating the topology link), so the
+        # emitter validates the frontend recognition against these IR endpoints rather than deriving
+        # the slots from them.
+        key_links = re.findall(
+            r'#spmw\.key_link<port = "([^"]+)", key = "([^"]+)", end = "([^"]+)"', ir
+        )
         ir_info = {
             "grid": (int(grid_m.group(1)), int(grid_m.group(2))) if grid_m else None,
             "folded": folded,
@@ -1172,6 +1209,7 @@ def emit_rolled_hls_ir(region):
                 if fold_m
                 else None
             ),
+            "key_links": key_links,
         }
         return _keyform_fft_top_cpp(region, ir_info)
     if buffer_families:
