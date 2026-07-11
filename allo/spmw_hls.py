@@ -456,7 +456,7 @@ def _transcribe_butterfly(unit_fn, elem):
             return node.attr
         return None
 
-    in_ports, out_ports, const_specs, body = [], [], [], []
+    in_ports, out_ports, const_specs, events = [], [], [], []
     pid_names = None
     for stmt in func.body:
         if (
@@ -482,9 +482,9 @@ def _transcribe_butterfly(unit_fn, elem):
             ):
                 port = _ctx_port(value.func.value)
                 in_ports.append(port)
-                body.append(f"  {elem} {name} = st_{port}.read();")
+                events.append(("read", port))
                 continue
-            body.append(f"  {elem} {name} = {cexpr(value)};")
+            events.append(("compute", name, cexpr(value)))
             continue
         if (
             isinstance(stmt, ast.Expr)
@@ -495,7 +495,7 @@ def _transcribe_butterfly(unit_fn, elem):
         ):
             port = _ctx_port(stmt.value.func.value)
             out_ports.append(port)
-            body.append(f"  st_{port}.write({cexpr(stmt.value.args[0])});")
+            events.append(("write", port, cexpr(stmt.value.args[0])))
             continue
         raise NotImplementedError(
             f"FFT butterfly transcriber cannot translate statement {ast.dump(stmt)}"
@@ -503,6 +503,20 @@ def _transcribe_butterfly(unit_fn, elem):
 
     if pid_names is None or len(pid_names) != 2:
         raise NotImplementedError("FFT butterfly must start with `s, b = ctx.rank()`")
+
+    # Two ABIs from the same ordered events: the streaming body (spatial top -- ports are
+    # hls::stream args, `.read()`/`.write()`) and the value body (folded top -- in-ports are scalar
+    # value args and out-ports reference args written by assignment into the addressed lane buffers).
+    stream_lines, value_lines = [], []
+    for ev in events:
+        if ev[0] == "read":
+            stream_lines.append(f"  {elem} {ev[1]} = st_{ev[1]}.read();")
+        elif ev[0] == "compute":
+            stream_lines.append(f"  {elem} {ev[1]} = {ev[2]};")
+            value_lines.append(f"  {elem} {ev[1]} = {ev[2]};")
+        else:  # write
+            stream_lines.append(f"  st_{ev[1]}.write({ev[2]});")
+            value_lines.append(f"  {ev[1]} = {ev[2]};")
 
     helpers = {fn.__name__: fn for fn in _fft_helpers(unit_fn)}
     closure = inspect.getclosurevars(unit_fn)
@@ -529,39 +543,32 @@ def _transcribe_butterfly(unit_fn, elem):
         "in_ports": in_ports,
         "out_ports": out_ports,
         "const_names": [n for n, _ in const_specs],
-        "body": "\n".join(body),
+        "stream_body": "\n".join(stream_lines),
+        "value_body": "\n".join(value_lines),
         "eval_consts": eval_consts,
     }
 
 
-def _keyform_fft_top_cpp(region):
-    """The rolled O(#roles) HLS top for a key-form ``lane`` butterfly FFT region.
+def _keyform_fft_common(region):
+    """Shared setup for the key-form FFT rolled tops: recognition, element type, ports, and streams.
 
-    Consumes the map's topology recognition (:func:`_recognize_fft`): the ``(S, HALF)`` grid, the two
-    lane families, and the per-``(s, b)`` upper/lower slot wiring the topology ``link`` resolves to.
-    The single butterfly datapath is transcribed from the unit body *once* (twiddle lifted to
-    parameters), so the top has ONE ``bfly`` compute body instantiated across the grid with per-``(s,
-    b)`` constant twiddle args and the topology's slot wiring -- O(#roles) = 1 compute body, not one
-    per butterfly. Stage 0 is loaded bit-reversed and stage S drained, matching the simulator desugar.
+    Returns a dict with the frontend-derived wiring/datapath the resolved IR does not carry (the
+    per-``(s, b)`` slot tables, the transcribed butterfly, the boundary stream ``index`` and
+    family/tensor pairs) plus the element type derived from the region operands.
     """
-    # pylint: disable=import-outside-toplevel,too-many-locals
+    # pylint: disable=import-outside-toplevel
     from .spmw import _collect
-    from .spmw_datapath import (
-        _recognize_fft,
-        _fam_tensor_pairs,
-        _stage_array,
-        _region_tensors,
-    )
+    from .spmw_datapath import _recognize_fft, _fam_tensor_pairs, _region_tensors
 
     collection = _collect(region)
     desc = _recognize_fft(collection)
-    if getattr(desc["decl"], "fold", None):
+    tensors = _region_tensors(region)
+    dtypes = {dt for _, _, dt in tensors}
+    if len(dtypes) != 1 or next(iter(dtypes)) not in _CPP_TYPE:
         raise NotImplementedError(
-            "folded key-form FFT rolled top is not yet implemented; the spatial map is supported"
+            f"key-form FFT rolled top needs uniform supported operands; got {sorted(dtypes)}"
         )
-    S, HALF, N = desc["S"], desc["HALF"], desc["N"]
-    up_table, lo_table, ports = desc["up_table"], desc["lo_table"], desc["ports"]
-    elem = "float"
+    elem = _CPP_TYPE[next(iter(dtypes))]
 
     stream_ins = [s for s in collection.streams if s.direction == "in"]
     stream_outs = [s for s in collection.streams if s.direction == "out"]
@@ -569,25 +576,170 @@ def _keyform_fft_top_cpp(region):
         raise NotImplementedError(
             "FFT rolled top expects one stream_in and one stream_out"
         )
-    index_fn = stream_ins[0].extra.get("index")
-    in_pairs = _fam_tensor_pairs(stream_ins[0])
-    out_pairs = _fam_tensor_pairs(stream_outs[0])
 
     bfly = _transcribe_butterfly(desc["decl"].unit.interior, elem)
     sig_ports = bfly["in_ports"] + bfly["out_ports"]
-    if set(sig_ports) != set(ports):
+    if set(sig_ports) != set(desc["ports"]):
         raise NotImplementedError(
             f"FFT butterfly ports {sorted(sig_ports)} do not match the topology ports "
-            f"{sorted(ports)}"
+            f"{sorted(desc['ports'])}"
         )
+    return {
+        "desc": desc,
+        "elem": elem,
+        "bfly": bfly,
+        "sig_ports": sig_ports,
+        "index_fn": stream_ins[0].extra.get("index"),
+        "in_pairs": _fam_tensor_pairs(stream_ins[0]),
+        "out_pairs": _fam_tensor_pairs(stream_outs[0]),
+        "top_sig": ", ".join(f"{elem} {name}[N]" for name, _, _ in tensors),
+    }
+
+
+def _keyform_fft_top_cpp(region, ir_info):
+    """The rolled O(#roles) HLS top for a key-form ``lane`` butterfly FFT region.
+
+    ``ir_info`` carries the resolved ``spmw.map`` facts the IR is authoritative for -- the ``(S,
+    HALF)`` grid, the lane families, their FIFO/buffer depths, and ``folded``. The per-``(s, b)`` slot
+    wiring, the butterfly datapath, the twiddle values, and the boundary ``index`` come from the
+    frontend recognition (:func:`_recognize_fft` / :func:`_transcribe_butterfly`), which the IR does
+    not carry. The single butterfly datapath is transcribed once (twiddle lifted to parameters), so
+    the top has ONE ``bfly`` compute body -- O(#roles)=1, not one body per butterfly. On the spatial
+    map each lane ``(stage, slot)`` is a FIFO; a folded map materializes each lane stage as an
+    addressed on-chip buffer (partitioned on the slot axis for conflict-free access) read/written by a
+    pipelined butterfly loop. Stage 0 is loaded bit-reversed and stage S drained.
+    """
+    # pylint: disable=import-outside-toplevel,too-many-locals
+    from .spmw_datapath import _stage_array
+
+    setup = _keyform_fft_common(region)
+    desc, elem, bfly, sig_ports = (
+        setup["desc"],
+        setup["elem"],
+        setup["bfly"],
+        setup["sig_ports"],
+    )
+    S, HALF, N = desc["S"], desc["HALF"], desc["N"]
+    if ir_info.get("grid") not in (None, (S, HALF)):
+        raise NotImplementedError(
+            f"resolved IR grid {ir_info['grid']} != recognized FFT grid {(S, HALF)}"
+        )
+    up_table, lo_table, ports = desc["up_table"], desc["lo_table"], desc["ports"]
+    arrays = [_stage_array(f) for f in desc["families"]]
+    index_fn, in_pairs, out_pairs, top_sig = (
+        setup["index_fn"],
+        setup["in_pairs"],
+        setup["out_pairs"],
+        setup["top_sig"],
+    )
+
+    def slot(role, up, lo):
+        return up if role == "upper" else lo
+
+    header = (
+        "#include <hls_stream.h>\n"
+        f"#define N {N}\n"
+        f"#define S {S}\n"
+        f"#define HALF {HALF}\n\n"
+    )
+
+    if ir_info.get("folded"):
+        # Folded: each lane stage is a small addressed on-chip buffer and the butterfly axis is a
+        # pipelined loop (one folded body). The stage index is *unrolled* into compile-time array
+        # names so each iteration's read (stage s) and write (stage s + 1) land on DISTINCT
+        # fully-partitioned register arrays -- the runtime (up, lo) slot access is then a conflict-free
+        # register mux, so the folded butterfly loop schedules at II=1. (A single [stage][slot] buffer
+        # serialises because HLS cannot disambiguate a same-array read/write on a runtime slot.)
+        vsig = (
+            ", ".join(f"{elem} {p}" for p in bfly["in_ports"])
+            + "".join(f", {elem} {c}" for c in bfly["const_names"])
+            + "".join(f", {elem} &{p}" for p in bfly["out_ports"])
+        )
+        bfly_def = (
+            f"void bfly({vsig}) {{\n#pragma HLS inline off\n{bfly['value_body']}\n}}\n"
+        )
+        points = [(s, b) for s in range(S) for b in range(HALF)]
+        tw = [bfly["eval_consts"](s, b) for s, b in points]
+
+        def table(name, values, ctype):
+            return f"static const {ctype} {name}[{len(values)}] = {{{', '.join(values)}}};\n"
+
+        tables = table("UP", [str(up_table[p]) for p in points], "int")
+        tables += table("LO", [str(lo_table[p]) for p in points], "int")
+        for ci, _ in enumerate(bfly["const_names"]):
+            tables += table(
+                f"TW{ci}", [f"{tw[k][ci]:.9e}f" for k in range(len(points))], elem
+            )
+
+        def stage_buf(base, stage):
+            return f"{base}_{stage}"
+
+        buf_decls = "".join(
+            f"  {elem} {stage_buf(a, s)}[N];\n" for a in arrays for s in range(S + 1)
+        )
+        buf_part = "".join(
+            f"#pragma HLS array_partition variable={stage_buf(a, s)} complete dim=0\n"
+            for a in arrays
+            for s in range(S + 1)
+        )
+        load = [
+            f"  {stage_buf(_stage_array(fam), 0)}"
+            f"[{index_fn(idx, S) if callable(index_fn) else idx}] = {tensor}[{idx}];"
+            for fam, tensor in in_pairs
+            for idx in range(N)
+        ]
+        loops = ""
+        for s in range(S):
+            args = [
+                f"{stage_buf(ports[p][0], s + ports[p][1])}"
+                f"[{'up' if ports[p][2] == 'upper' else 'lo'}]"
+                for p in bfly["in_ports"]
+            ]
+            args += [
+                f"TW{ci}[{s} * HALF + b]" for ci in range(len(bfly["const_names"]))
+            ]
+            args += [
+                f"{stage_buf(ports[p][0], s + ports[p][1])}"
+                f"[{'up' if ports[p][2] == 'upper' else 'lo'}]"
+                for p in bfly["out_ports"]
+            ]
+            loops += (
+                "  for (int b = 0; b < HALF; b++) {\n"
+                "#pragma HLS pipeline II=1\n"
+                f"    int up = UP[{s} * HALF + b], lo = LO[{s} * HALF + b];\n"
+                f"    bfly({', '.join(args)});\n"
+                "  }\n"
+            )
+        drain = [
+            f"  {tensor}[{idx}] = {stage_buf(_stage_array(fam), S)}[{idx}];"
+            for fam, tensor in out_pairs
+            for idx in range(N)
+        ]
+        return (
+            header
+            + f"{tables}\n{bfly_def}\n"
+            + f"void top({top_sig}) {{\n"
+            + f"{buf_decls}{buf_part}"
+            + "\n".join(load)
+            + "\n"
+            + loops
+            + "\n".join(drain)
+            + "\n}\n"
+        )
+
+    # Spatial: one FIFO per lane (stage, slot); the butterfly body is stamped per (s, b) with
+    # compile-time constant twiddle args and the topology's slot wiring under #pragma HLS dataflow.
+    depth_of = dict(zip(ir_info.get("families", []), ir_info.get("depths", [])))
     sig = ", ".join(f"hls::stream<{elem}> &st_{p}" for p in sig_ports)
     sig += "".join(f", {elem} {c}" for c in bfly["const_names"])
-    bfly_def = f"void bfly({sig}) {{\n#pragma HLS inline off\n{bfly['body']}\n}}\n"
-
-    arrays = [_stage_array(f) for f in desc["families"]]
+    bfly_def = (
+        f"void bfly({sig}) {{\n#pragma HLS inline off\n{bfly['stream_body']}\n}}\n"
+    )
     decls = "".join(f"  hls::stream<{elem}> {a}[S + 1][N];\n" for a in arrays)
-    depths = "".join(f"#pragma HLS stream variable={a} depth=2\n" for a in arrays)
-
+    depths = "".join(
+        f"#pragma HLS stream variable={a} depth={max(depth_of.get(fam, 2), 2)}\n"
+        for fam, a in zip(desc["families"], arrays)
+    )
     load = [
         f"  {_stage_array(fam)}[0][{index_fn(idx, S) if callable(index_fn) else idx}]"
         f".write({tensor}[{idx}]);"
@@ -599,7 +751,7 @@ def _keyform_fft_top_cpp(region):
         for b in range(HALF):
             up, lo = up_table[(s, b)], lo_table[(s, b)]
             wires = [
-                f"{ports[p][0]}[{s + ports[p][1]}][{up if ports[p][2] == 'upper' else lo}]"
+                f"{ports[p][0]}[{s + ports[p][1]}][{slot(ports[p][2], up, lo)}]"
                 for p in sig_ports
             ]
             wires += [f"{v:.9e}f" for v in bfly["eval_consts"](s, b)]
@@ -609,18 +761,13 @@ def _keyform_fft_top_cpp(region):
         for fam, tensor in out_pairs
         for idx in range(N)
     ]
-
-    top_sig = ", ".join(f"{elem} {name}[N]" for name, _, _ in _region_tensors(region))
     return (
-        "#include <hls_stream.h>\n"
-        f"#define N {N}\n"
-        f"#define S {S}\n"
-        f"#define HALF {HALF}\n\n"
-        f"{bfly_def}\n"
-        f"void top({top_sig}) {{\n"
-        "#pragma HLS dataflow\n"
-        f"{decls}"
-        f"{depths}"
+        header
+        + f"{bfly_def}\n"
+        + f"void top({top_sig}) {{\n"
+        + "#pragma HLS dataflow\n"
+        + f"{decls}"
+        + f"{depths}"
         + "\n".join(load)
         + "\n"
         + "\n".join(calls)
@@ -998,11 +1145,35 @@ def emit_rolled_hls_ir(region):
     # rolled top than the systolic mesh: one transcribed butterfly body instantiated across the
     # (stage, butterfly) grid with per-(s,b) constant twiddles and the topology's slot wiring. The
     # systolic east/west + north/south shapes (including their folded variants) keep the path below.
+    # The resolved IR is authoritative for grid / families / depths / fold; the frontend recognition
+    # supplies only what the IR does not carry (the datapath, per-rank slot wiring, and twiddle).
     if not (set(stream_families) | set(buffer_families)) <= {
         "east/west",
         "north/south",
     }:
-        return _keyform_fft_top_cpp(region)
+        folded = bool(buffer_families)
+        grid_m = re.search(r"grid = \[(\d+), (\d+)\]", ir)
+        depth_attr = (
+            "spmw.buffer_family_depths" if folded else "spmw.channel_family_depths"
+        )
+        depth_m = re.search(re.escape(depth_attr) + r" = array<i64: ([^>]*)>", ir)
+        fold_m = re.search(r"fold = array<i64: ([^>]*)>", ir)
+        ir_info = {
+            "grid": (int(grid_m.group(1)), int(grid_m.group(2))) if grid_m else None,
+            "folded": folded,
+            "families": buffer_families if folded else stream_families,
+            "depths": (
+                [int(x) for x in depth_m.group(1).split(",") if x.strip()]
+                if depth_m
+                else []
+            ),
+            "fold": (
+                [int(x) for x in fold_m.group(1).split(",") if x.strip()]
+                if fold_m
+                else None
+            ),
+        }
+        return _keyform_fft_top_cpp(region, ir_info)
     if buffer_families:
         # A folded systolic mesh: the A-forwarding (east/west) is reclassified to a banked on-chip
         # buffer; B (north/south) stays a FIFO. Only this shape is realized so far.

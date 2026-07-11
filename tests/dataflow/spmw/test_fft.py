@@ -12,7 +12,9 @@ all FIFOs); building it on the simulator and matching ``numpy.fft.fft`` proves t
 path lowers correctly. The pure-Python helpers are the numerical oracle shared with the design.
 """
 
+import glob
 import os
+import re
 import subprocess
 import tempfile
 from math import log2, cos, sin, pi
@@ -209,6 +211,85 @@ def test_fft_rolled_csim():
             check=True,
         )
     assert "CSIM MATCH" in result.stdout, result.stdout[-2000:]
+
+
+def test_fft_folded_rolled_uses_buffers():
+    """A folded FFT map materializes lane stages as addressed on-chip buffers, not FIFOs.
+
+    ``fold={1: F}`` (``spmw.buffer_families``) makes the rolled top a single folded compute body over
+    per-stage register arrays read/written by a pipelined butterfly loop -- no lane ``hls::stream``.
+    """
+    cpp = emit_rolled_hls_ir(_fft_region(8, fold={1: 4}))
+    assert cpp.count("void bfly(") == 1  # one folded compute body
+    assert "hls::stream<" not in cpp  # lanes are addressed buffers, not FIFO streams
+    assert "stage_lane_re_0[N]" in cpp and "stage_lane_im_0[N]" in cpp
+    assert "#pragma HLS array_partition variable=stage_lane_re_0 complete dim=0" in cpp
+    assert "#pragma HLS pipeline II=1" in cpp
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_fft_folded_rolled_csim():
+    """The folded key-form FFT (fold -> banked lane buffers) is csim-correct via target="rolled"."""
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(
+            _fft_region(8, fold={1: 4}), target="rolled", project=tmp, testbench=True
+        )
+        result = subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=True,
+        )
+    assert "CSIM MATCH" in result.stdout, result.stdout[-2000:]
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_fft_folded_rolled_csynth_ii1():
+    """The folded FFT synthesizes conflict-free banked lane access at II=1 (the AC-6 FFT hard gate).
+
+    Per-stage register arrays keep each butterfly-loop iteration's read (stage s) and write (stage
+    s+1) on distinct arrays, so the pipelined folded loops schedule at II=1; and the butterfly is
+    rolled -- far fewer synthesized ``bfly`` bodies than the S*HALF butterflies.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(_fft_region(8, fold={1: 4}), target="rolled", project=tmp)
+        subprocess.run(
+            ["vitis_hls", "-f", "run.tcl"],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=1200,
+            check=True,
+        )
+        report_dir = os.path.join(tmp, "rolled.prj", "solution1", "syn", "report")
+        texts = {
+            os.path.basename(p): open(p, encoding="utf-8").read()
+            for p in glob.glob(os.path.join(report_dir, "*.rpt"))
+        }
+    # every pipelined butterfly loop achieves II=1. The per-loop pipeline report tabulates each loop
+    # as `<name> | latency_min | latency_max | iteration_latency | achieved_II | target_II | count |
+    # yes`; the achieved II is the 4th number.
+    achieved = {}
+    for name, txt in texts.items():
+        if not name.startswith("top_Pipeline_VITIS_LOOP"):
+            continue
+        row = re.search(r"(VITIS_LOOP\S*)\s*((?:\|\s*\d+\s*)+)\|\s*yes", txt)
+        if row:
+            nums = re.findall(r"\d+", row.group(2))
+            if len(nums) >= 4:
+                achieved[row.group(1)] = int(nums[3])
+    assert achieved and all(
+        ii == 1 for ii in achieved.values()
+    ), f"folded butterfly loops must be II=1; got {achieved}"
+    # rolled: the synthesized butterfly bodies are far fewer than the S*HALF butterflies
+    n_bfly = sum(1 for name in texts if name.startswith("bfly"))
+    assert 0 < n_bfly < int(log2(8)) * (8 // 2), f"expected a rolled bfly; got {n_bfly}"
 
 
 @pytest.mark.parametrize(
