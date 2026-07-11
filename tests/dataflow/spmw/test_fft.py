@@ -135,6 +135,41 @@ def test_fft_spatial(N):
     )
 
 
+@pytest.mark.parametrize(
+    "N,fold",
+    [
+        (8, {1: 2}),
+        (8, {1: 4}),
+        (16, {1: 2}),
+        (16, {1: 8}),
+        (32, {1: 4}),
+        (32, {1: 16}),
+    ],
+)
+def test_fft_folded(N, fold):
+    """A folded SPMW FFT still matches numpy.fft.fft on the simulator (fft_folded sim-correct).
+
+    ``fold={1: F}`` time-multiplexes F butterflies of the N/2-wide axis onto one physical PE, which
+    reclassifies each stage's ``lane_re``/``lane_im`` key family from a FIFO into an addressed buffer
+    (see ``test_fft_folded_resolve_channels_buffers``). This asserts the *numeric* result survives
+    that reclassification -- folding changes the spatial-vs-temporal schedule, not the transform.
+    """
+    np.random.seed(42)
+    inp_real = np.random.rand(N).astype(np.float32)
+    inp_imag = np.zeros(N, dtype=np.float32)
+    out_real = np.zeros(N, dtype=np.float32)
+    out_imag = np.zeros(N, dtype=np.float32)
+    sim_mod = spmw.build(_fft_region(N, fold=fold), target="simulator")
+    sim_mod(inp_real, inp_imag, out_real, out_imag)
+    ref = np.fft.fft(inp_real + 1j * inp_imag)
+    np.testing.assert_allclose(
+        out_real, ref.real.astype(np.float32), rtol=1e-4, atol=1e-4
+    )
+    np.testing.assert_allclose(
+        out_imag, ref.imag.astype(np.float32), rtol=1e-4, atol=1e-4
+    )
+
+
 def test_fft_spatial_rolled_ir():
     """The SPMW spatial FFT lowers to rolled spmw.map IR carrying key_link lane families."""
     printed = str(spmw.build(_fft_region(8), target="ir"))
