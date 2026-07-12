@@ -479,57 +479,210 @@ def _pingpong_top_cpp(rows, cols, depth, elem, place):
     )
 
 
-def _pingpong_recognize_mac_gemm(ir):
-    """Fail closed unless the resolved compute role is exactly the output-stationary MAC systolic GEMM.
+# The message prefix for every ping-pong role-mismatch rejection (tests match "output-stationary MAC").
+_PINGPONG_MAC = (
+    "ping-pong double buffering only supports the output-stationary MAC systolic GEMM PE "
+    "(c = 0; per-k c += west * north, forward west->east and north->south; store c to C); "
+)
 
-    The ping-pong top hard-codes ``s += A * B``, so a role body that is not exactly the supported PE
-    (``c = 0``; per-k ``c += west * north``; forward east/south; store ``c``) must be rejected rather
-    than silently emitted as a plain ``A @ B``. Checks a single **unpredicated** compute role whose IR
-    func has exactly the MAC op multiset -- any changed accumulator init, extra arithmetic (bias/scale),
-    missing forward, predicate variant, or non-MAC body trips a mismatch.
+
+def _pingpong_recognize_mac_gemm(ir):
+    """Fail closed unless the resolved compute role is *semantically* the output-stationary MAC GEMM PE.
+
+    The ping-pong top hard-codes ``C = A @ B`` with the standard systolic forwards (A flows west->east,
+    B flows north->south), so it is correct only if the resolved role is exactly that PE **including its
+    data dependencies**. An op-*count*-only check would accept a same-multiset PE with different
+    semantics -- e.g. swapped forwards (``east.put(north); south.put(west)``), which make the systolic
+    array compute a different result than ``A @ B`` -- and silently mis-emit it as a plain matmul. This
+    validator instead walks the resolved role func's SSA dataflow and binds the actual values: it
+    requires a single unpredicated role over ports exactly ``{east, north, south, west}``; an
+    accumulator initialized to 0 before the loop; one contraction loop that reads ``west`` (W) and
+    ``north`` (NO), multiplies exactly ``{W, NO}``, accumulates onto the running accumulator, forwards W
+    to ``east`` and NO to ``south``; and a final store of the accumulator to the output at the grid
+    coordinates. Any extra arithmetic / store / stream op, a predicate, a missing/wrong port, a swapped
+    forward, or a wrong final store raises ``NotImplementedError``.
     """
     roles = re.findall(r"#spmw\.role<unit = @(\w+), missing = \[\s*\]([^>]*)>", ir)
     if len(roles) != 1 or "predicate = " in roles[0][1]:
         raise NotImplementedError(
-            "ping-pong double buffering supports a single unpredicated output-stationary GEMM role; "
-            f"got {len(roles)} compute role(s)"
+            _PINGPONG_MAC
+            + f"needs a single unpredicated compute role, got {len(roles)}"
             + (
                 " with a predicate variant"
                 if roles and "predicate = " in roles[0][1]
                 else ""
             )
         )
-    func = re.search(rf"func\.func @{roles[0][0]}\(.*?\n  \}}", ir, re.DOTALL)
+    sym, tail = roles[0]
+    ports_m = re.search(r"ports = \[([^\]]*)\]", tail)
+    ports = re.findall(r'"([^"]+)"', ports_m.group(1)) if ports_m else []
+    if sorted(ports) != ["east", "north", "south", "west"]:
+        raise NotImplementedError(
+            _PINGPONG_MAC
+            + f"needs the systolic port set east/north/south/west, got {ports}"
+        )
+    func = re.search(rf"func\.func @{sym}\((.*?)\) \{{\n(.*?)\n  \}}", ir, re.DOTALL)
     if not func:
         raise NotImplementedError(
-            "ping-pong could not resolve the compute role func from the IR"
+            _PINGPONG_MAC + "could not resolve the compute role func from the IR"
         )
-    body = func.group(0)
-    counts = {
-        "alloc": len(re.findall(r"memref\.alloc\(\)", body)),
-        "const": len(re.findall(r"arith\.constant ", body)),
-        "zero": len(re.findall(r"arith\.constant 0\.0+e\+00 :", body)),
-        "mulf": len(re.findall(r"arith\.mulf", body)),
-        "addf": len(re.findall(r"arith\.addf", body)),
-        "get": len(re.findall(r"allo\.stream_get", body)),
-        "put": len(re.findall(r"allo\.stream_put", body)),
-        "store": len(re.findall(r"memref\.store", body)),
-    }
-    expected = {
-        "alloc": 1,
-        "const": 1,
-        "zero": 1,
-        "mulf": 1,
-        "addf": 1,
-        "get": 2,
-        "put": 2,
-        "store": 1,
-    }
-    if counts != expected:
+    sig, body = func.group(1), func.group(2)
+    # Stream args appear in the signature in the role's port order (== sorted ports); the two `index`
+    # operands are the PE's grid coordinates (pi, pj); the output C is the last memref operand.
+    stream_args = re.findall(r"(%\w+): !allo\.stream", sig)
+    index_args = re.findall(r"(%\w+): index", sig)
+    memref_args = re.findall(r"(%\w+): memref<", sig)
+    if len(stream_args) != len(ports) or len(index_args) != 2 or not memref_args:
         raise NotImplementedError(
-            "ping-pong double buffering only supports the output-stationary MAC systolic GEMM PE "
-            "(c = 0; c += west * north; forward east/south; store c); the resolved role body has op "
-            f"counts {counts} != {expected}"
+            _PINGPONG_MAC + "role ABI does not match a 2-D systolic GEMM PE"
+        )
+    arg_port = dict(zip(stream_args, ports))  # %argN -> port name
+
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    for_idx = next(
+        (i for i, ln in enumerate(lines) if ln.startswith("affine.for ")), None
+    )
+    close_idx = (
+        next((i for i in range(for_idx + 1, len(lines)) if lines[i] == "}"), None)
+        if for_idx is not None
+        else None
+    )
+    if for_idx is None or close_idx is None:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "needs a single contraction loop over K"
+        )
+    prologue, loop, epilogue = (
+        lines[:for_idx],
+        lines[for_idx + 1 : close_idx],
+        lines[close_idx + 1 :],
+    )
+    if any(
+        ln.startswith("affine.for ") or ln.startswith("scf.") for ln in loop + epilogue
+    ):
+        raise NotImplementedError(
+            _PINGPONG_MAC + "has more than one loop or extra control flow"
+        )
+
+    # Prologue: alloc a scalar accumulator and initialize it to 0.
+    m_alloc = (
+        re.fullmatch(r"(%\w+) = memref\.alloc\(\) : memref<([^>]+)>", prologue[0])
+        if prologue
+        else None
+    )
+    if len(prologue) != 3 or not m_alloc:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must alloc a single scalar accumulator before the loop"
+        )
+    acc, ty = m_alloc.group(1), m_alloc.group(2)
+    m_zero = re.fullmatch(
+        rf"(%\w+) = arith\.constant 0\.0+e\+00 : {re.escape(ty)}", prologue[1]
+    )
+    if (
+        not m_zero
+        or prologue[2] != f"affine.store {m_zero.group(1)}, {acc}[] : memref<{ty}>"
+    ):
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must initialize the accumulator to 0 before the loop"
+        )
+
+    # Loop body: exactly the MAC -- read west/north, multiply them, accumulate, forward west/north.
+    gets, puts = {}, {}
+    accload = mul = add = acc_store = None
+    mul_ops = add_ops = None
+    if len(loop) != 8:
+        raise NotImplementedError(
+            _PINGPONG_MAC
+            + f"contraction loop must be exactly the MAC body, got {len(loop)} ops"
+        )
+    for ln in loop:
+        m_get = re.fullmatch(r"(%\w+) = allo\.stream_get\((%\w+), \[\]\) : .*", ln)
+        m_put = re.fullmatch(r"allo\.stream_put\((%\w+), \[\], (%\w+)\) : .*", ln)
+        m_ld = re.fullmatch(rf"(%\w+) = affine\.load {re.escape(acc)}\[\] : .*", ln)
+        m_mul = re.fullmatch(r"(%\w+) = arith\.mulf (%\w+), (%\w+) : .*", ln)
+        m_add = re.fullmatch(r"(%\w+) = arith\.addf (%\w+), (%\w+) : .*", ln)
+        m_st = re.fullmatch(rf"affine\.store (%\w+), {re.escape(acc)}\[\] : .*", ln)
+        if m_get:
+            port = arg_port.get(m_get.group(2))
+            if port is None or port in gets:
+                raise NotImplementedError(
+                    _PINGPONG_MAC
+                    + "reads a stream that is not a distinct declared port"
+                )
+            gets[port] = m_get.group(1)
+        elif m_put:
+            port = arg_port.get(m_put.group(1))
+            if port is None or port in puts:
+                raise NotImplementedError(
+                    _PINGPONG_MAC
+                    + "writes a stream that is not a distinct declared port"
+                )
+            puts[port] = m_put.group(2)
+        elif m_ld and accload is None:
+            accload = m_ld.group(1)
+        elif m_mul and mul is None:
+            mul, mul_ops = m_mul.group(1), {m_mul.group(2), m_mul.group(3)}
+        elif m_add and add is None:
+            add, add_ops = m_add.group(1), {m_add.group(2), m_add.group(3)}
+        elif m_st and acc_store is None:
+            acc_store = m_st.group(1)
+        else:
+            raise NotImplementedError(
+                _PINGPONG_MAC + f"has an unsupported op in the contraction loop: {ln!r}"
+            )
+    if set(gets) != {"west", "north"} or set(puts) != {"east", "south"}:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must read west+north and forward east+south each iteration"
+        )
+    if None in (accload, mul, add, acc_store):
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must load, multiply, accumulate, and store the accumulator"
+        )
+    west_v, north_v = gets["west"], gets["north"]
+    if mul_ops != {west_v, north_v}:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "the multiply must be of the west and north inputs"
+        )
+    if add_ops != {accload, mul} or acc_store != add:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must accumulate the running sum + the west*north product"
+        )
+    # The standard systolic forwards make the array compute A@B: a swapped forward would not.
+    if puts["east"] != west_v:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "east must forward the west input (A flows west->east)"
+        )
+    if puts["south"] != north_v:
+        raise NotImplementedError(
+            _PINGPONG_MAC + "south must forward the north input (B flows north->south)"
+        )
+
+    # Epilogue: store the accumulator to the output C at the PE's grid coordinates.
+    m_final_ld = (
+        re.fullmatch(rf"(%\w+) = affine\.load {re.escape(acc)}\[\] : .*", epilogue[0])
+        if len(epilogue) == 3 and epilogue[2] == "return"
+        else None
+    )
+    m_store = (
+        re.fullmatch(
+            r"memref\.store (%\w+), (%\w+)\[(%\w+), (%\w+)\] : .*", epilogue[1]
+        )
+        if m_final_ld
+        else None
+    )
+    if not m_store or m_store.group(1) != m_final_ld.group(1):
+        raise NotImplementedError(
+            _PINGPONG_MAC + "must finish by storing the accumulator to C[pi, pj]"
+        )
+    if (
+        m_store.group(2) != memref_args[-1]
+        or [
+            m_store.group(3),
+            m_store.group(4),
+        ]
+        != index_args
+    ):
+        raise NotImplementedError(
+            _PINGPONG_MAC + "the final store must write C at the PE's grid coordinates"
         )
 
 

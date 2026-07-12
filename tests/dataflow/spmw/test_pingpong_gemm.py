@@ -46,6 +46,23 @@ def _gemm(M, N, K, double=None, variant="mac", also_place=None):
                 ctx.south.put(b)
             ctx.c_local[0] = c
 
+    elif variant == "swap":
+        # SAME op multiset as ``mac`` but the forwards are swapped (east<-north, south<-west). This is a
+        # legitimate systolic PE, but it makes the array compute something other than ``A @ B``, so the
+        # ping-pong top (which hard-codes ``A @ B``) must fail closed -- an op-count check would not
+        # catch it because the multiset is identical.
+
+        @spmw.unit
+        def pe(ctx):
+            c: float32 = 0
+            for k in range(K):
+                a: float32 = ctx.west.get()
+                b: float32 = ctx.north.get()
+                c += a * b
+                ctx.east.put(b)  # swapped: forwards the north input east
+                ctx.south.put(a)  # swapped: forwards the west input south
+            ctx.c_local[0] = c
+
     else:  # a non-canonical PE (an extra add on top of the MAC): must fail closed under ping-pong
 
         @spmw.unit
@@ -132,6 +149,21 @@ def test_pingpong_is_role_faithful_and_fails_closed():
         emit_rolled_hls_ir(_gemm(4, 4, 3, double="B"))  # K not divisible into 2 epochs
     with pytest.raises(NotImplementedError, match="does not honor placements"):
         emit_rolled_hls_ir(_gemm(4, 4, 4, double="B", also_place="A"))  # A placed too
+
+
+def test_pingpong_recognizer_is_semantic_not_op_count():
+    """The role recognizer validates the SSA dataflow, not just the op multiset.
+
+    A swapped-forward PE (``east.put(b); south.put(a)``) has the *identical* op multiset to the MAC PE
+    but forwards the wrong operands, so the systolic array it describes computes something other than
+    ``A @ B``. The ping-pong top hard-codes ``A @ B``, so it must fail closed on this PE -- an op-count
+    recognizer would accept it and silently mis-emit a plain matmul. The very same PE still emits fine
+    on the ordinary systolic path, which forwards exactly as written.
+    """
+    with pytest.raises(NotImplementedError, match="east must forward the west"):
+        emit_rolled_hls_ir(_gemm(4, 4, 4, double="B", variant="swap"))
+    # without double buffering it is a legitimate PE the systolic emitter transcribes faithfully
+    emit_rolled_hls_ir(_gemm(4, 4, 4, variant="swap"))
 
 
 def test_pingpong_gemm_simulator_matches_numpy():
