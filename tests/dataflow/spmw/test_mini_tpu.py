@@ -10,20 +10,26 @@ things §3.4 is about: hierarchy by composition (write the MXU once, instantiate
 units (a MAC PE and a bias+ReLU lane on different grids), and two connection kinds (``shared``/
 ``banked`` memory placements for the UB/weights/psum, and streams between the stages).
 
-The simulator desugars the composed region to a two-kernel ``allo.dataflow`` program: the systolic
-MXU streams each interior PE's psum onto a per-element stream, and the activation lane reads its
-column in row order, adds the bias, applies ReLU, and writes ``OUT`` -- so the result matches
-``np.maximum(ACT @ WGT + bias, 0)``. (HLS csim/csynth/hw_emu of the nested heterogeneous top -- L2/L3/
-L4 -- is the next milestone; this file covers L0 structure + L1 simulator correctness.)
+The composed region desugars to a two-kernel ``allo.dataflow`` program: the systolic MXU streams each
+interior PE's psum onto a per-element stream, and the activation lane reads its column in row order,
+adds the bias, applies ReLU, and writes ``OUT`` -- so the result matches
+``np.maximum(ACT @ WGT + bias, 0)``. This drives the full ladder through the same ``target="vitis_hls"``
+path the systolic twin uses: L0 structure, L1 simulator, L2 Vitis csim, L3 csynth (report archived
+under ``examples/spmw_generated/mini_tpu_csynth_report.md``), and L4 hw_emu project emission.
 """
 
+import os
+import tempfile
+
 import numpy as np
+import pytest
 
 import allo.spmw as spmw
+import allo.backend.hls as hls
 from allo.ir.types import float32
 
 
-def _mini_tpu(Rt, Ct, K):
+def _mini_tpu(Rt, Ct, K, psum_bank="col"):
     """The §3.4 Mini-TPU: a nested systolic MXU region + a 1-D bias/ReLU activation stage."""
 
     @spmw.unit
@@ -64,7 +70,7 @@ def _mini_tpu(Rt, Ct, K):
         # on-chip memory hierarchy: activations + weights are shared buffers, psum is banked per column
         ub = spmw.shared(float32[Rt, K], space="L2")
         wbuf = spmw.shared(float32[K, Ct], space="L2")
-        psum = spmw.banked(float32[Rt, Ct], on="col", space="L2")
+        psum = spmw.banked(float32[Rt, Ct], on=psum_bank, space="L2")
         spmw.place(ACT, ub)  # ACT lives in the Unified Buffer
         spmw.place(WGT, wbuf)  # WGT lives in the weight buffer
         mxu(ACT, WGT, psum)  # nested systolic MXU: reads ACT/WGT, writes psum
@@ -97,6 +103,7 @@ def test_mini_tpu_composes_heterogeneous_stages():
     placed = {p.tensor: p.buffer for p in collection.placements}
     assert placed["ACT"].kind == "shared" and placed["WGT"].kind == "shared"
     assert placed["ACT"].memory.resource == "URAM"
+    assert placed["WGT"].memory.resource == "URAM"
     # the psum connecting the two stages is a per-column banked buffer (bank on the col axis == 1)
     psum_buffers = {
         s.tensor
@@ -138,3 +145,57 @@ def test_mini_tpu_relu_actually_clamps():
     assert (pre < 0).any()  # the test actually exercises the clamp
     np.testing.assert_allclose(OUT, np.maximum(pre, 0.0), atol=1e-4)
     assert np.allclose(OUT[pre < 0], 0.0)  # ReLU clamped the negatives to 0
+
+
+def test_mini_tpu_requires_col_banked_psum():
+    """The psum connection must be ``banked(on="col")`` -- the activation reads one column per lane, so
+    per-column banking is what makes that access conflict-free. A row-banked psum fails closed with a
+    hard error (the shape is a mini-TPU, so it is a configuration error, not a fall-through).
+    """
+    with pytest.raises(spmw.SPMWError, match="banked\\(on='col'\\)"):
+        spmw.build(_mini_tpu(4, 4, 8, psum_bank="row"), target="simulator")
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_mini_tpu_vitis_hls_csim():
+    """L2: the composed Mini-TPU csims correct on Vitis HLS vs ``np.maximum(ACT @ WGT + bias, 0)``."""
+    Rt, Ct, K = 4, 4, 8
+    np.random.seed(0)
+    ACT = np.random.rand(Rt, K).astype(np.float32)
+    WGT = np.random.rand(K, Ct).astype(np.float32)
+    bias = np.random.rand(Ct).astype(np.float32)
+    OUT = np.zeros((Rt, Ct), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(
+            _mini_tpu(Rt, Ct, K), target="vitis_hls", mode="csim", project=tmp
+        )
+        module(ACT, WGT, bias, OUT)
+    np.testing.assert_allclose(OUT, _oracle(ACT, WGT, bias), atol=1e-4)
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_mini_tpu_csyn_emits_synthesizable_project():
+    """L3: ``mode="csyn"`` complete-partitions the operands (so HLS dataflow sees a single reader/
+    writer per bank) and emits a synthesizable Vitis project. csynth itself runs out of band -- it
+    completes on Vitis 2023.2/u280 (Fmax ~411 MHz; see the archived report under examples/).
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(_mini_tpu(4, 4, 8), target="vitis_hls", mode="csyn", project=tmp)
+        assert os.path.exists(os.path.join(tmp, "run.tcl"))
+        assert os.path.exists(os.path.join(tmp, "kernel.cpp"))
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_mini_tpu_hw_emu_emits_emulation_project():
+    """L4: ``mode="hw_emu"`` emits a full v++ emulation project (kernel + OpenCL host + Makefile). The
+    RTL hardware-emulation run itself is done out of band."""
+    with tempfile.TemporaryDirectory() as tmp:
+        spmw.build(_mini_tpu(4, 4, 8), target="vitis_hls", mode="hw_emu", project=tmp)
+        for artifact in ("kernel.cpp", "host.cpp", "Makefile"):
+            assert os.path.exists(os.path.join(tmp, artifact))

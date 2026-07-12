@@ -216,6 +216,21 @@ def _recognize_mini_tpu(collection):
         raise NotImplementedError(
             "mini-TPU activation must read the exact buffer the MXU writes (the psum connection)"
         )
+    # The shape above IS a mini-TPU (a 2-D MXU writing a buffer a 1-D activation reads), so a wrong
+    # psum banking is a hard configuration error (SPMWError), not a "try the next generator"
+    # NotImplementedError. The psum must be declared `banked(on="col")`: the activation reads it one
+    # column per lane, so per-column banking is what makes that access conflict-free. Requiring it here
+    # makes the declaration load-bearing (the emitter realizes it as per-column conflict-free psum
+    # streams -- each lane touches only its own column's FIFOs) rather than a cosmetic annotation.
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
+    psum = mesh_out[0].tensor
+    if getattr(psum, "kind", None) != "banked" or getattr(psum, "bank_axis", None) != 1:
+        raise SPMWError(
+            "mini-TPU psum connection must be spmw.banked(on='col') so per-column activation reads are "
+            "conflict-free (each lane reads only its column's psum)"
+        )
     return mesh_decl, act_decl, mesh_out[0], act_in[0], act_out[0]
 
 
@@ -1266,24 +1281,26 @@ def build_dataflow(region, target="simulator", **kwargs):
     # Desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
     # systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
     # joined by spmw.channel).
+    # Each desugar family also declares which region operands to complete-partition for HLS dataflow
+    # (single reader/writer per bank), or ``None`` when the family does not drive the csyn/hw_emu path.
     try:
         source = generate_mini_tpu_source(region, collection)
-        systolic = False
+        hls_operands = ("ACT", "WGT", "bias", "OUT")
     except NotImplementedError:
         try:
             source = generate_1d_systolic_source(region, collection)
-            systolic = True
+            hls_operands = ("A", "B", "C")
         except NotImplementedError:
             try:
                 source = generate_source(region, collection)
-                systolic = True
+                hls_operands = ("A", "B", "C")
             except NotImplementedError:
                 try:
                     source = generate_fft_source(region, collection)
-                    systolic = False
+                    hls_operands = None
                 except NotImplementedError:
                     source = generate_pipeline_source(region, collection)
-                    systolic = False
+                    hls_operands = None
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
@@ -1297,18 +1314,18 @@ def build_dataflow(region, target="simulator", **kwargs):
 
     df_region = getattr(generated, f"{region.name}_df")
     if (
-        systolic
+        hls_operands
         and target != "simulator"
         and kwargs.get("mode") in {"csyn", "hw_emu", "hw"}
     ):
-        # HLS dataflow requires a single writer per array. Each grid point writes a distinct C
-        # element (and reads distinct A/B lanes), so complete-partition the operands into per-lane
-        # banks before synthesis.
+        # HLS dataflow requires a single reader/writer per array. Each grid point / activation lane
+        # reads and writes distinct operand banks (e.g. each activation lane writes one OUT column),
+        # so complete-partition the operands into per-lane banks before synthesis.
         from allo.customize import Partition
 
         schedule = df.customize(df_region)
         top = f"{region.name}_df"
-        for tensor in ("A", "B", "C"):
+        for tensor in hls_operands:
             schedule.partition(
                 f"{top}:{tensor}", partition_type=Partition.Complete, dim=0
             )
