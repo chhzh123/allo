@@ -580,3 +580,96 @@ def test_tree_resolve_channels_uses_per_edge_peer_port():
     text = str(module)
     assert "spmw.channel_families" in text
     assert "left/up" in text and "right/up" in text
+
+
+# --------------------------------------------------------------------------------------------------
+# task6.1 topology hardening: depth-consistency + unhandled-boundary diagnostics.
+# --------------------------------------------------------------------------------------------------
+
+
+def _systolic_mesh_region(depths=None):
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(2):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[3, 2], B: float32[2, 3], C: float32[3, 3]):
+        spmw.map(pe, grid=grid, depths=depths)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    return gemm
+
+
+def _relay_mesh_region():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def relay(ctx):
+        a: float32 = ctx.west.get()
+        ctx.east.put(a)
+
+    @spmw.region()
+    def top(A: float32[3, 3]):
+        spmw.map(relay, grid=grid)  # no flow stream -> west/east/... boundaries dangle
+
+    return top
+
+
+def test_check_topology_accepts_handled_regions():
+    """The strict `spmw.check_topology` diagnostic passes well-formed regions: the systolic mesh (all
+    boundaries handled by the W->E / N->S auto-halo flows, uniform depths) and the edge-form tree (its
+    boundaries are external by design, excluded from the mesh unhandled-boundary check).
+    """
+    spmw.check_topology(_systolic_mesh_region())
+    spmw.check_topology(_tree_region(spmw.tree(4)))
+
+
+def test_check_topology_rejects_inconsistent_depth():
+    """Depth-consistency: `spmw.check_topology` rejects a map that sets `east` deeper than its `west`
+    reciprocal (which stays the default) -- a channel is one FIFO and its two ends must agree.
+    """
+    with pytest.raises(spmw.SPMWError, match="inconsistent FIFO depth"):
+        spmw.check_topology(_systolic_mesh_region(depths={"east": 4}))
+
+
+def test_check_topology_rejects_unhandled_boundary():
+    """Unhandled-boundary: `spmw.check_topology` rejects a mesh region whose unit uses `west`/`east` but
+    declares no flow stream / halo / boundary role, leaving its boundary ports dangling.
+    """
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        spmw.check_topology(_relay_mesh_region())
+
+
+def test_inconsistent_channel_depth_rejected_at_lowering():
+    """The C++ op verifier independently enforces channel depth at lowering: lowering the depth-mismatched
+    mesh (`east`=4, `west`=2) fails even without the opt-in `check_topology`."""
+    with pytest.raises(Exception, match="mismatched depth"):
+        spmw.lower(_systolic_mesh_region(depths={"east": 4}))
+
+
+def test_default_validate_allows_partial_region():
+    """The default `validate`/`lower` path stays permissive: a skeleton mesh region (a `pass` unit, no
+    streams) is NOT rejected by the strict checks (they are opt-in via `check_topology`).
+    """
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def r(A: float32[3, 3]):
+        spmw.map(pe, grid=grid)
+
+    spmw.validate(r)  # permissive: no unhandled-boundary error for a skeleton region

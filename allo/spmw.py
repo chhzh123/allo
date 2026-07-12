@@ -59,6 +59,7 @@ __all__ = [
     "PortContext",
     "PortHandle",
     "validate",
+    "check_topology",
     "role_partition",
     "role_count",
     "resolve_channels",
@@ -1364,6 +1365,71 @@ def _validate_key_stage_stream(collection, stream, families):
         )
 
 
+def _check_depth_consistency(decl):
+    """The two endpoints / members of every channel must agree on FIFO depth (task6.1 topology check).
+
+    A channel is one FIFO (array), so a peer link and its reciprocal (``east``/``west``), the two ends of
+    a per-coordinate ``edge_link`` (the tree's ``up`` <-> ``left``/``right``), and every port sharing a
+    key family must carry the same ``port_depths`` depth. A mismatch is rejected here at the frontend
+    (the C++ op verifier enforces the same at the IR level).
+    """
+    depths = decl.port_depths
+    topology = decl.topology
+    key_family = {}  # family -> (depth, representative port)
+    for coord in topology.coords():
+        for port, target in topology.links_at(coord).items():
+            depth = depths.get(port, DEFAULT_DEPTH)
+            if _is_key_form(target):
+                key = target[0]
+                family = key[0] if isinstance(key, tuple) and key else key
+                seen = key_family.setdefault(family, (depth, port))
+                if seen[0] != depth:
+                    raise SPMWError(
+                        f"channel family {family!r} has inconsistent FIFO depth: port {seen[1]!r} = "
+                        f"{seen[0]} vs {port!r} = {depth}"
+                    )
+            else:
+                _, peer_port = topology._parse_peer(port, target)
+                peer_depth = depths.get(peer_port, DEFAULT_DEPTH)
+                if depth != peer_depth:
+                    raise SPMWError(
+                        f"channel {port!r}/{peer_port!r} has inconsistent FIFO depth: {port!r} = "
+                        f"{depth} vs {peer_port!r} = {peer_depth}"
+                    )
+
+
+def _check_unhandled_boundaries(decl, streams):
+    """Every mesh/ring boundary port must be handled by a producer/consumer (task6.1 topology check).
+
+    A peer-translation boundary port (a :meth:`boundary_ports_at` port whose neighbor is out of bounds)
+    needs an auto-halo flow stream (``_FLOW_PORTS[flow]``) or a declared boundary role to load/drain it;
+    an unhandled one is a dangling edge and is rejected. Edge-form (the tree's ``explicit_ports``) and
+    key-form boundaries are externally fed by design (validated by the edge/key machinery), so they are
+    excluded here.
+    """
+    topology = decl.topology
+    explicit = topology.explicit_ports
+    boundary = set()
+    for coord in topology.coords():
+        boundary.update(
+            p for p in topology.boundary_ports_at(coord) if p not in explicit
+        )
+    if not boundary:
+        return
+    handled = set()
+    for stream in streams:
+        if stream.flow is not None and stream.flow in _FLOW_PORTS:
+            handled.update(_FLOW_PORTS[stream.flow])
+    for edges, _ in decl.unit.roles:
+        handled.update(edges)
+    unhandled = boundary - handled
+    if unhandled:
+        raise SPMWError(
+            f"boundary port(s) {sorted(unhandled)} on unit {decl.unit.name!r} are unhandled: no stream "
+            f"flow, auto-halo, or boundary role produces/consumes them"
+        )
+
+
 def _validate_collection(collection):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
@@ -1601,6 +1667,25 @@ def validate(program):
     if not isinstance(program, Region):
         raise SPMWError("spmw.validate expects an @spmw.region")
     return _validate_collection(_collect(program))
+
+
+def check_topology(program):
+    """Strict topology diagnostics (task6.1), beyond the permissive :func:`validate`.
+
+    On top of the structural checks, this rejects (1) a **depth-inconsistent channel** -- the two
+    endpoints / family members of a channel disagreeing on FIFO depth -- and (2) an **unhandled mesh/ring
+    boundary port** -- a peer-translation boundary port with no auto-halo flow stream or boundary role to
+    load/drain it. It is opt-in: the default ``validate``/``lower`` path stays permissive so partial
+    (skeleton) regions and intentional per-port depth overrides are still usable, while the C++ op
+    verifier independently enforces channel depth at lowering. Returns the validated collection.
+    """
+    if not isinstance(program, Region):
+        raise SPMWError("spmw.check_topology expects an @spmw.region")
+    collection = _validate_collection(_collect(program))
+    for decl in collection.maps:
+        _check_depth_consistency(decl)
+        _check_unhandled_boundaries(decl, collection.streams)
+    return collection
 
 
 def _translation_offset(topology, port):
