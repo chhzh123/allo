@@ -570,6 +570,17 @@ def test_edge_link_verifier_rejects_reciprocal_type_mismatch():
         _parse_spmw(_edge_map_module([a0, _B0, _A1, b1]))
 
 
+def test_edge_link_verifier_rejects_reciprocal_depth_mismatch():
+    """The op verifier independently enforces channel depth (one channel, one FIFO depth): node-0 `a`
+    (depth 2) and its reciprocal node-1 `b` (depth 4) are rejected -- the C++ verifier catches the
+    mismatch even for the non-affine explicit edge table, not only the frontend depth check.
+    """
+    a0 = '#spmw.edge_link<port = "a", at = [0], peer = [1], peer_port = "b", depth = 2>'
+    b1 = '#spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "a", depth = 4>'
+    with pytest.raises(Exception, match="mismatched depth"):
+        _parse_spmw(_edge_map_module([a0, _B0, _A1, b1]))
+
+
 def test_tree_resolve_channels_uses_per_edge_peer_port():
     """`spmw-resolve-channels` groups the tree's edges into channel families by their **true per-edge**
     peer port: a right-child `up` (peer `right`) joins the parent's `right` (`right/up`), a left-child
@@ -611,17 +622,35 @@ def _systolic_mesh_region(depths=None):
     return gemm
 
 
-def _relay_mesh_region():
+def _dangling_mesh_region():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def sink(ctx):
+        ctx.west.get()  # consumes `west` but never relays it onward, with no feeding stream
+
+    @spmw.region()
+    def top(A: float32[3, 3]):
+        spmw.map(
+            sink, grid=grid
+        )  # `west` has no relay partner, no flow stream -> it dangles
+
+    return top
+
+
+def _relay_completing_mesh_region():
     grid = spmw.mesh((3, 3))
 
     @spmw.unit
     def relay(ctx):
         a: float32 = ctx.west.get()
-        ctx.east.put(a)
+        ctx.east.put(
+            a
+        )  # completes the W->E axis -> its edge boundaries are well-defined I/O
 
     @spmw.region()
     def top(A: float32[3, 3]):
-        spmw.map(relay, grid=grid)  # no flow stream -> west/east/... boundaries dangle
+        spmw.map(relay, grid=grid)
 
     return top
 
@@ -643,24 +672,28 @@ def test_check_topology_rejects_inconsistent_depth():
         spmw.check_topology(_systolic_mesh_region(depths={"east": 4}))
 
 
-def test_check_topology_rejects_unhandled_boundary():
-    """Unhandled-boundary: `spmw.check_topology` rejects a mesh region whose unit uses `west`/`east` but
-    declares no flow stream / halo / boundary role, leaving its boundary ports dangling.
-    """
+def test_lower_and_check_topology_reject_unhandled_mesh():
+    """The unhandled-boundary check is enforced on the backend path: a mesh unit that consumes `west` but
+    neither relays it onward (no `east`) nor is fed by a flow stream / halo / boundary role leaves `west`
+    dangling -- rejected by BOTH `spmw.check_topology` and `spmw.lower`, while the permissive default
+    `spmw.validate` still accepts it (skeletal frontend regions stay usable)."""
     with pytest.raises(spmw.SPMWError, match="unhandled"):
-        spmw.check_topology(_relay_mesh_region())
+        spmw.check_topology(_dangling_mesh_region())
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        spmw.lower(_dangling_mesh_region())
+    spmw.validate(_dangling_mesh_region())  # default path stays permissive
 
 
-def test_inconsistent_channel_depth_rejected_at_lowering():
-    """The C++ op verifier independently enforces channel depth at lowering: lowering the depth-mismatched
-    mesh (`east`=4, `west`=2) fails even without the opt-in `check_topology`."""
-    with pytest.raises(Exception, match="mismatched depth"):
-        spmw.lower(_systolic_mesh_region(depths={"east": 4}))
+def test_strict_topology_accepts_relay_completing_mesh():
+    """A through-flow unit that completes a systolic axis (reads `west`, writes `east`) is self-handled --
+    its edge boundaries are well-defined I/O -- so strict `check_topology` accepts it with no explicit
+    flow stream, matching how the canonical rolled mesh emits."""
+    spmw.check_topology(_relay_completing_mesh_region())
 
 
-def test_default_validate_allows_partial_region():
-    """The default `validate`/`lower` path stays permissive: a skeleton mesh region (a `pass` unit, no
-    streams) is NOT rejected by the strict checks (they are opt-in via `check_topology`).
+def test_strict_topology_allows_skeleton_unit():
+    """Usage-aware: a skeleton (`pass`) unit streams over no ports, so strict `check_topology` requires no
+    boundary handling and accepts the region -- the check never false-positives on a skeleton.
     """
     grid = spmw.mesh((3, 3))
 
@@ -672,4 +705,41 @@ def test_default_validate_allows_partial_region():
     def r(A: float32[3, 3]):
         spmw.map(pe, grid=grid)
 
-    spmw.validate(r)  # permissive: no unhandled-boundary error for a skeleton region
+    spmw.check_topology(r)  # a pass unit uses no boundary port -> nothing to handle
+
+
+def test_strict_topology_is_per_map_not_region_wide():
+    """Per-map ownership: in a two-map region, a `W->E` flow stream feeding the first map must NOT mask the
+    second map's dangling `west` -- only a stream targeting a map's own unit handles it. The second unit
+    consumes `west` without relaying it, so without the per-map filter the first map's `W->E` flow would
+    wrongly mark `west` handled region-wide."""
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def handled(ctx):
+        a: float32 = ctx.west.get()
+        b: float32 = ctx.north.get()
+        ctx.east.put(a)
+        ctx.south.put(b)
+
+    @spmw.unit
+    def sink(ctx):
+        ctx.west.get()  # dangling: consumes `west`, never relays it, no stream of its own
+
+    @spmw.region()
+    def top(A: float32[3, 3], B: float32[3, 3]):
+        spmw.map(handled, grid=grid)
+        spmw.map(sink, grid=grid)  # no stream targets `sink` -> its `west` dangles
+        spmw.stream_in(A, into=handled, flow="W->E")
+        spmw.stream_in(B, into=handled, flow="N->S")
+
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        spmw.check_topology(top)
+
+
+def test_inconsistent_channel_depth_rejected_at_lowering():
+    """Depth consistency is enforced on the backend `lower` path (not just opt-in `check_topology`):
+    lowering the depth-mismatched mesh (`east`=4, `west`=2) is rejected by the strict frontend check.
+    """
+    with pytest.raises(spmw.SPMWError, match="inconsistent FIFO depth"):
+        spmw.lower(_systolic_mesh_region(depths={"east": 4}))

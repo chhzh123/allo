@@ -318,7 +318,7 @@ class _RolledSimModule:
         from .spmw import _collect, _validate_collection
         from .spmw_datapath import _recognize, _region_tensors
 
-        collection = _validate_collection(_collect(self.region))
+        collection = _validate_collection(_collect(self.region), strict_topology=True)
         order = [name for name, _, _ in _region_tensors(self.region)]
         if len(args) != len(order):
             raise ValueError(

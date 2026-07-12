@@ -117,11 +117,13 @@ def test_non_systolic_region_rejected():
 
     @spmw.unit
     def pe(ctx):
-        ctx.west.get()
+        ctx.west.get()  # consumes `west`, never relays it, no stream_in -> boundary dangles
 
     @spmw.region()
     def r(A: float32[3, 3]):
-        spmw.map(pe, grid=grid)  # no stream_in flows -> not the systolic pattern
+        spmw.map(pe, grid=grid)  # not the systolic pattern: `west` has no data source
 
-    with pytest.raises(NotImplementedError):
+    # The strict topology check rejects the dangling boundary before the datapath recognizer is reached,
+    # giving the precise root cause (the unhandled `west`) rather than a generic non-systolic error.
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
         spmw.build(r, target="simulator")

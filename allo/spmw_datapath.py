@@ -1277,7 +1277,7 @@ def build_dataflow(region, target="simulator", **kwargs):
 
     from .spmw import _collect, _validate_collection
 
-    collection = _validate_collection(_collect(region))
+    collection = _validate_collection(_collect(region), strict_topology=True)
     # Desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
     # systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
     # joined by spmw.channel).

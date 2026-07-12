@@ -128,7 +128,7 @@ def emit_role_hls(region):
     from .spmw import _collect, _validate_collection
     from .spmw_datapath import _resolve_dims
 
-    collection = _validate_collection(_collect(region))
+    collection = _validate_collection(_collect(region), strict_topology=True)
     decl = collection.maps[0]
     _rows, _cols, depth, dtype = _resolve_dims(region)
     elem = _CPP_TYPE[dtype]
@@ -149,7 +149,7 @@ def emit_rolled_hls(region):
     from .spmw import _collect, _validate_collection
     from .spmw_datapath import _resolve_dims
 
-    collection = _validate_collection(_collect(region))
+    collection = _validate_collection(_collect(region), strict_topology=True)
     decl = collection.maps[0]
     rows, cols, depth, dtype = _resolve_dims(region)
     elem = _CPP_TYPE[dtype]

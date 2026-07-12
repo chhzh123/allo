@@ -1106,6 +1106,12 @@ _FLOW_PORTS = {
     "S->N": ("south", "north"),
 }
 
+# The opposite boundary port on each mesh flow axis: west<->east, north<->south. A unit that streams over
+# BOTH ports of an axis is a through-flow (systolic pass-through), so its two edge boundaries are handled
+# by design -- the entry becomes a well-defined loader/top-level input and the exit a drain/top-level
+# output. Derived from the flow table so the two stay in sync.
+_FLOW_PARTNER = dict(_FLOW_PORTS.values())
+
 
 class _TensorPlaceholder:
     """Stands in for a region's tensor argument while its body is traced."""
@@ -1268,6 +1274,35 @@ def _check_body_ports(label, fn, ports):
                 reject(aliased)
 
 
+def _ports_used_by(fn):
+    """The set of ports a work-unit/role body streams over (``ctx.<port>.get/put/get_or``), for the
+    usage-aware unhandled-boundary check. Only statically-provable string port names are returned;
+    unreadable source, a missing ``ctx`` param, and dynamic ``ctx.port(var)`` are treated conservatively
+    (an incomplete set is safe -- the check only *requires* handling for a boundary port it can prove is
+    used)."""
+    used = set()
+    try:
+        tree_ast = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    except (OSError, TypeError, SyntaxError):
+        return used
+    ctx_name = _ctx_param_name(fn)
+    if ctx_name is None:
+        return used
+    aliases = _collect_port_aliases(tree_ast, ctx_name)
+    for node in ast.walk(tree_ast):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr not in _STREAM_METHODS:
+            continue
+        receiver = node.func.value
+        port = _receiver_port(receiver, ctx_name)
+        if isinstance(port, str):
+            used.add(port)
+        elif isinstance(receiver, ast.Name) and receiver.id in aliases:
+            used.update(p for p in aliases[receiver.id] if isinstance(p, str))
+    return used
+
+
 def _key_form_keys(topology):
     """The set of rendezvous keys the topology's key-form links use."""
     keys = set()
@@ -1399,13 +1434,26 @@ def _check_depth_consistency(decl):
 
 
 def _check_unhandled_boundaries(decl, streams):
-    """Every mesh/ring boundary port must be handled by a producer/consumer (task6.1 topology check).
+    """Every mesh/ring boundary port the interior consumes must be handled by a producer/consumer
+    (task6.1 topology check).
 
     A peer-translation boundary port (a :meth:`boundary_ports_at` port whose neighbor is out of bounds)
-    needs an auto-halo flow stream (``_FLOW_PORTS[flow]``) or a declared boundary role to load/drain it;
-    an unhandled one is a dangling edge and is rejected. Edge-form (the tree's ``explicit_ports``) and
-    key-form boundaries are externally fed by design (validated by the edge/key machinery), so they are
-    excluded here.
+    is handled when any of these is true:
+
+    * the interior **completes the systolic relay on that port's axis** -- it streams over both the port
+      and its :data:`_FLOW_PARTNER` (e.g. reads ``west`` *and* writes ``east``), so the through-flow's
+      entry/exit boundaries are well-defined (a loader/top-level input feeds the entry, a drain/top-level
+      output consumes the exit);
+    * an auto-halo flow ``stream_in``/``stream_out`` **targeting this same unit** loads/drains it
+      (``_FLOW_PORTS[flow]``); or
+    * a declared boundary role covers it.
+
+    A boundary port the interior reads (or writes) with none of the above -- e.g. a unit that consumes
+    ``west`` but never relays it onward and has no feeding stream -- is a dangling edge with no data
+    source/sink and is rejected. Only the interior body defines what *needs* handling: an explicit
+    ``@unit.role`` is itself a boundary handler (its ports are wired by the role), and a skeleton unit
+    that streams over nothing needs nothing. Edge-form (the tree's ``explicit_ports``) and key-form
+    boundaries are externally fed by design (validated by the edge/key machinery), so they are excluded.
     """
     topology = decl.topology
     explicit = topology.explicit_ports
@@ -1416,21 +1464,36 @@ def _check_unhandled_boundaries(decl, streams):
         )
     if not boundary:
         return
-    handled = set()
+    # Usage-aware: only a boundary port the replicated compute (the unit interior) actually reads/writes
+    # needs a producer/consumer, so a skeleton (`pass`) interior needs nothing. Role bodies are handlers,
+    # not consumers, so they define no requirement here.
+    used = _ports_used_by(decl.unit.interior)
+    needed = boundary & used
+    if not needed:
+        return
+    # A through-flow port (both it and its axis partner are streamed over) is self-handled: the axis is a
+    # systolic pass-through whose two edge boundaries are well-defined I/O.
+    handled = {p for p in used if _FLOW_PARTNER.get(p) in used}
     for stream in streams:
-        if stream.flow is not None and stream.flow in _FLOW_PORTS:
+        # Only a flow stream targeting THIS map's unit handles this map's boundaries (a stream feeding a
+        # different map in the same region must not mask an unhandled boundary here).
+        if (
+            stream.unit is decl.unit
+            and stream.flow is not None
+            and stream.flow in _FLOW_PORTS
+        ):
             handled.update(_FLOW_PORTS[stream.flow])
     for edges, _ in decl.unit.roles:
         handled.update(edges)
-    unhandled = boundary - handled
+    unhandled = needed - handled
     if unhandled:
         raise SPMWError(
-            f"boundary port(s) {sorted(unhandled)} on unit {decl.unit.name!r} are unhandled: no stream "
-            f"flow, auto-halo, or boundary role produces/consumes them"
+            f"boundary port(s) {sorted(unhandled)} used by unit {decl.unit.name!r} are unhandled: no "
+            f"relay flow, auto-halo stream, or boundary role produces/consumes them"
         )
 
 
-def _validate_collection(collection):
+def _validate_collection(collection, *, strict_topology=False):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
     # A region-level channel is a valid port name in any unit body (a unit puts to / gets from it).
@@ -1440,6 +1503,11 @@ def _validate_collection(collection):
         # key-channel check (else a stage-0 sink-only / stage-S source-only lane reads as dangling).
         ext_src, ext_sink = _boundary_keys(decl.topology, collection.streams)
         decl.topology.validate(ext_src, ext_sink)
+        # Strict topology hardening (task6.1) runs only on the backend-facing path (lower/HLS/RTL/
+        # datapath/rollsim); the default frontend validate stays permissive for skeleton test regions.
+        if strict_topology:
+            _check_depth_consistency(decl)
+            _check_unhandled_boundaries(decl, collection.streams)
         ports = decl.topology.port_names()
         for edges, _ in decl.unit.roles:
             for edge in edges:
@@ -1582,7 +1650,7 @@ def emit_hls(program):
     signature-level here; the datapath and Vitis synthesis are a later step. This demonstrates the
     hard metric (the count of distinct synthesized function bodies), not the wall-clock trend.
     """
-    collection = _validate_collection(_collect(program))
+    collection = _validate_collection(_collect(program), strict_topology=True)
     if len(collection.maps) != 1:
         raise SPMWError("HLS emission currently handles exactly one mapped unit")
     topology = collection.maps[0].topology
@@ -1662,30 +1730,27 @@ def halo_roles(program):
     return roles
 
 
-def validate(program):
-    """Trace a region and run every static check; return the gathered declarations."""
+def validate(program, strict_topology=False):
+    """Trace a region and run every static check; return the gathered declarations.
+
+    ``strict_topology`` additionally runs the task6.1 hardening checks (depth consistency + usage-aware
+    unhandled-boundary detection). It is off for the default frontend validate so intentionally skeletal
+    regions still pass, and on for every backend-facing entry point (``lower``/HLS/RTL/datapath/rollsim).
+    """
     if not isinstance(program, Region):
         raise SPMWError("spmw.validate expects an @spmw.region")
-    return _validate_collection(_collect(program))
+    return _validate_collection(_collect(program), strict_topology=strict_topology)
 
 
 def check_topology(program):
-    """Strict topology diagnostics (task6.1), beyond the permissive :func:`validate`.
+    """Strict topology diagnostics (task6.1): :func:`validate` with ``strict_topology=True``.
 
-    On top of the structural checks, this rejects (1) a **depth-inconsistent channel** -- the two
-    endpoints / family members of a channel disagreeing on FIFO depth -- and (2) an **unhandled mesh/ring
-    boundary port** -- a peer-translation boundary port with no auto-halo flow stream or boundary role to
-    load/drain it. It is opt-in: the default ``validate``/``lower`` path stays permissive so partial
-    (skeleton) regions and intentional per-port depth overrides are still usable, while the C++ op
-    verifier independently enforces channel depth at lowering. Returns the validated collection.
+    Rejects (1) a **depth-inconsistent channel** -- the two endpoints / family members of a channel
+    disagreeing on FIFO depth -- and (2) an **unhandled mesh/ring boundary port** the datapath uses with
+    no auto-halo flow stream or boundary role to load/drain it. The same checks run automatically on the
+    backend path; this is the explicit front-door for callers that want to fail early.
     """
-    if not isinstance(program, Region):
-        raise SPMWError("spmw.check_topology expects an @spmw.region")
-    collection = _validate_collection(_collect(program))
-    for decl in collection.maps:
-        _check_depth_consistency(decl)
-        _check_unhandled_boundaries(decl, collection.streams)
-    return collection
+    return validate(program, strict_topology=True)
 
 
 def _translation_offset(topology, port):
@@ -2322,7 +2387,7 @@ def lower(program):
     """
     if not isinstance(program, Region):
         raise SPMWError("spmw.lower expects an @spmw.region")
-    collection = _validate_collection(_collect(program))
+    collection = _validate_collection(_collect(program), strict_topology=True)
     return _parse_module(_module_text(program, collection))
 
 
@@ -2386,7 +2451,7 @@ def unroll(program):
     """
     if not isinstance(program, Region):
         raise SPMWError("spmw.unroll expects an @spmw.region")
-    collection = _validate_collection(_collect(program))
+    collection = _validate_collection(_collect(program), strict_topology=True)
     _check_role_assignment(program, collection)
     module = _parse_module(_module_text(program, collection))
     _run_module_pass(module, "spmw-unroll")
