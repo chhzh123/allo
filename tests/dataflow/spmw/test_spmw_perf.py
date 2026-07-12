@@ -18,6 +18,7 @@ non-mesh.
 """
 
 import os
+import sys
 
 import numpy as np
 import pytest
@@ -25,6 +26,7 @@ import pytest
 import allo.spmw as spmw
 from allo.backend.perf import (
     analyze_sdf,
+    analyze_fft_sdf,
     token_clock,
     estimate_area_latency,
     load_csynth_report,
@@ -35,12 +37,17 @@ from allo.backend.perf import (
 from allo.spmw_rollsim import SPMWDeadlockError
 from allo.ir.types import float32
 
+sys.path.insert(0, os.path.dirname(__file__))
+from test_fft import _fft_region  # noqa: E402 (sibling FFT region builder)
+
 _REPORTS = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "examples", "spmw_generated"
 )
 _FFT_REPORT = os.path.join(_REPORTS, "fft_rolled_csynth_report.md")
 _SYSTOLIC_REPORT = os.path.join(_REPORTS, "systolic_rolled_perf_report.md")
+_SYSTOLIC_16_REPORT = os.path.join(_REPORTS, "systolic_rolled_16x16_perf_report.md")
 _MINI_TPU_REPORT = os.path.join(_REPORTS, "mini_tpu_csynth_report.md")
+_U280_DSP = 9024  # DSP slices on the Alveo U280 (the 64x64 systolic overruns this)
 
 
 def _read(path):
@@ -169,6 +176,35 @@ def test_area_latency_matches_systolic_csynth():
     assert est.latency_within(ev.latency, 0.20)  # load(10)+PE(64)=74 vs 79 -> ~6%
 
 
+def test_systolic_area_scale_invariant_extrapolates_to_64x64():
+    """The per-role areas are proven **scale-invariant** across the 8×8 and 16×16 archived csynths, so
+    `Σ(role_area × instances)` extrapolates exactly to the plan's 64×64 array. The 16×16 area law is
+    DSP-exact (256·5 = 1280) with FF/LUT within tolerance, and the 64×64 model predicts 4096·5 = 20480
+    DSP -- which exceeds one U280's 9024 DSP: the analytic model forecasts the resource wall the 64×64
+    systolic hits, without synthesis."""
+    ev8 = load_csynth_report(_read(_SYSTOLIC_REPORT))
+    ev16 = load_csynth_report(_read(_SYSTOLIC_16_REPORT))
+    area8 = {r.name: r.area for r in ev8.roles}
+    area16 = {r.name: r.area for r in ev16.roles}
+    # every per-role area is byte-identical across grids -- the O(#roles) scale-invariance.
+    assert set(area8) == {"pe_interior", "load_a", "load_b", "drain"}
+    assert area8 == area16
+    # the area law holds at 16×16: DSP exact, FF/LUT within the top-level-glue tolerance.
+    est16 = estimate_area_latency(ev16.roles, latency=0)
+    assert est16.total_area.dsp == ev16.top.dsp == 1280  # 256·5, exact
+    assert est16.area_within(ev16.top, 0.15)  # DSP 0% / FF ~2% / LUT ~12% -> within 15%
+    # extrapolate to 64×64 with the SAME (scale-invariant) per-role areas and 64×64 instance counts.
+    counts64 = {"pe_interior": 64 * 64, "load_a": 64, "load_b": 64, "drain": 2 * 64}
+    roles64 = [
+        RoleArea(name=n, area=area16[n], instances=counts64[n]) for n in counts64
+    ]
+    est64 = estimate_area_latency(roles64, latency=0)
+    assert est64.total_area.dsp == 64 * 64 * 5 == 20480  # exact by scale-invariance
+    assert (
+        est64.total_area.dsp > _U280_DSP
+    )  # 64×64 systolic overruns one U280 (model predicts it)
+
+
 def test_area_model_matches_mini_tpu_csynth_multi_role():
     """A multi-role summation over the Mini-TPU's distinct module classes (mxu / act / load_buf /
     store_res): DSP matches the top exactly; FF is within the (interconnect-heavy) tolerance.
@@ -197,6 +233,68 @@ def test_area_model_folded_fft_is_o_roles():
     )  # 2 x 22 = 44, constant across N (O(#roles))
     assert f8["bodies"] == f16["bodies"]
     assert rows[("spatial", 16)]["DSP"] > rows[("spatial", 8)]["DSP"]  # spatial is O(P)
+
+
+def test_fft_first_class_csynth_evidence():
+    """The folded-FFT report loads into the SAME ``CsynthEvidence`` schema as the systolic/Mini-TPU:
+    top resources **and** latency/II **and** per-role areas -- the FFT is a first-class evidence source,
+    not DSP-only. ``load_csynth_report`` is the identical loader used for the systolic report.
+    """
+    ev = load_csynth_report(_read(_FFT_REPORT))
+    assert ev.top.dsp == 44 and ev.top.ff == 10372 and ev.top.lut == 5729
+    assert (
+        ev.latency == 91 and ev.ii == 92
+    )  # machine-parseable latency AND II (not DSP-only)
+    assert {"bfly", "bfly_1", "stage"} <= {r.name for r in ev.roles}
+
+
+def test_area_latency_matches_fft_csynth():
+    """``area = Σ(role_area × instances)`` + an S-stage latency reconstruct the **actual** folded FFT
+    csynth: DSP exactly (compute = the two butterfly bodies), FF/LUT within tolerance, and the S-stage
+    latency within tolerance of the top latency (91) -- validating latency/area, not DSP-only.
+    """
+    ev = load_csynth_report(_read(_FFT_REPORT))
+    compute = [r for r in ev.roles if r.name.startswith("bfly")]
+    stage = next(r for r in ev.roles if r.name == "stage")
+    # the folded FFT runs its S stages sequentially: modeled latency = Σ per-stage-loop latency.
+    est = estimate_area_latency(ev.roles, latency=stage.instances * stage.latency)
+    assert est.total_area.dsp == ev.top.dsp == 44  # 1*24 + 1*20 = 44, exact
+    assert (
+        sum(r.area.dsp * r.instances for r in compute) == 44
+    )  # all compute is the butterflies
+    assert est.area_within(ev.top, 0.20)  # DSP 0% / FF ~9.5% / LUT ~16% -> within 20%
+    assert est.latency_within(ev.latency, 0.20)  # 3*26 = 78 vs 91 -> ~14%
+
+
+def test_fft_sdf_folded_structure_matches_report():
+    """``analyze_fft_sdf`` models the folded FFT (S=log2(N) sequential stages, HALF butterflies/stage,
+    time-shared onto a CONSTANT physical-PE count at II=1) and its structure matches the archived csynth:
+    n_stages == the report's stage-loop instance count; physical PEs constant as N scales (O(#roles),
+    matching the constant DSP); butterfly II == 1 (the report's ``bfly`` II)."""
+    ev = load_csynth_report(_read(_FFT_REPORT))
+    sdf8 = analyze_fft_sdf(_fft_region(8, fold={1: 4}))
+    stage = next(r for r in ev.roles if r.name == "stage")
+    assert (
+        sdf8.n_stages == 3 == stage.instances
+    )  # analytic stages == report stage-loop instances
+    assert sdf8.butterflies == 3 * 4 and sdf8.butterfly_ii == 1
+    # full fold -> ONE physical butterfly PE, constant as N scales (the O(#roles) win -> constant DSP).
+    sdf16 = analyze_fft_sdf(_fft_region(16, fold={1: 8}))
+    assert sdf8.physical_pes == sdf16.physical_pes == 1 and sdf16.n_stages == 4
+    rows = _parse_fft_report_table(_read(_FFT_REPORT))
+    assert (
+        rows[("folded", 8)]["DSP"] == rows[("folded", 16)]["DSP"]
+    )  # constant compute == constant PEs
+
+
+def test_fft_sdf_rejects_non_fft():
+    """Fail-closed: ``analyze_fft_sdf`` rejects the systolic mesh, and ``analyze_sdf`` rejects the FFT --
+    each analytic model validates only the structure it recognizes (no unvalidated numbers).
+    """
+    with pytest.raises(NotImplementedError):
+        analyze_fft_sdf(_systolic(2, 2, 2))
+    with pytest.raises(NotImplementedError):
+        analyze_sdf(_fft_region(8, fold={1: 4}))
 
 
 def test_area_latency_model_rejects_out_of_tolerance():

@@ -15,6 +15,59 @@ Generated from `spmw.build(_fft_region(N, fold=...), target="rolled")` → `csyn
 | spatial | 8  | none | 12 | 174 | 28915 | 18121 | 0 / 0 | — (fully unrolled) | 17.0 s |
 | spatial | 16 | none | 32 | 490 | 77331 | 47959 | 0 / 0 | — (fully unrolled) | 24.8 s |
 
+## Folded FFT (N=8) — top module & per-role area/latency (machine-parseable, systolic schema)
+
+Actual `csynth_design` of the folded N=8 FFT (`fold={1:4}`, full fold) via the O(#roles) rolled path
+(`target="rolled"`), reproduced by `test_fft_folded_rolled_csynth_ii1`. These two tables use the **same**
+`| Metric | Value |` and `| role | instances | LUT | FF | DSP | BRAM | URAM | latency |` schema as
+`systolic_rolled_perf_report.md`, so `allo.backend.perf.load_csynth_report` loads the FFT into the
+identical `CsynthEvidence` (top resources + latency/II + per-role areas) the systolic / Mini-TPU use —
+the FFT is a **first-class** evidence source, not DSP-only.
+
+### Top module `top` — performance & resources (actual csynth)
+| Metric | Value |
+|--------|-------|
+| Pipeline type | dataflow |
+| Latency | 91 cycles |
+| Interval (II) | 92 |
+| Estimated Fmax | 349 MHz |
+| LUT | 5729 |
+| FF | 10372 |
+| DSP | 44 |
+| BRAM | 0 |
+| URAM | 0 |
+| csynth wall-clock | 21.4 s |
+
+### Per-role modules (`Σ(role_area × instances)` inputs — machine-parseable)
+The folded FFT time-shares one physical butterfly PE — synthesized as two bodies, `bfly`/`bfly_1`, the
+emitter's even/odd twiddle specializations — across all `S·HALF` butterflies, and runs `S = log2(N) = 3`
+sequential stage loops (`top_Pipeline_VITIS_LOOP_54/58/62`, latency 26 each). All instances are 1: the
+physical PE and the 3 stage loops are **not** replicated (folding is time-multiplexing, not spatial
+replication), which is exactly why the compute area is O(#roles) and constant as N scales (win table).
+
+| role | instances | LUT | FF | DSP | BRAM | URAM | latency |
+|------|-----------|-----|----|-----|------|------|---------|
+| bfly | 1 | 1620 | 3185 | 24 | 0 | 0 | 17 |
+| bfly_1 | 1 | 1196 | 2485 | 20 | 0 | 0 | 17 |
+| stage | 3 | 668 | 1239 | 0 | 0 | 0 | 26 |
+
+### Area/latency law check (`Σ(role_area × instances)` vs actual top)
+- **DSP** = 1·24 + 1·20 + 3·0 = **44** — matches the top DSP **exactly** (all compute is the two
+  butterfly bodies; the stage loops carry no DSP). This is the FFT compute area law: the butterfly
+  bodies are O(#roles), constant as N scales 8 → 16 (win table), so `ΣDSP` is scale-invariant.
+- **FF** = 3185 + 2485 + 3·1239 = 9387 — within **~9.5%** of the top 10372 (residual: twiddle/lane ROMs
+  72 + top registers 913).
+- **LUT** = 1620 + 1196 + 3·668 = 4820 — within **~15.9%** of the top 5729 (top-level muxing/control).
+- **Latency** = Σ stage latencies = 3·26 = **78** — within **~14.3%** of the top 91 (the folded FFT runs
+  its S=3 stages sequentially; the residual is dataflow fill/drain). The butterfly body itself is
+  pipelined at **II=1** (`bfly`/`bfly_1` II=1, the AC-6 hard gate), so the compute is throughput-optimal.
+
+So `Σ(role_area × instances)` reconstructs the folded FFT within a ~20% tolerance (DSP exact) and the
+S-stage latency model tracks the actual top latency — the **same** area+latency law validated on the
+systolic mesh, now report-backed for the folded key-form FFT (`allo.backend.perf.analyze_fft_sdf`
+supplies the matching analytic structure: S sequential stages, HALF butterflies/stage, II=1, a constant
+physical-PE count).
+
 ## Reading the numbers
 
 - **Folded FFT = the O(#roles) synthesis win.** The synthesized butterfly-body count and the compute

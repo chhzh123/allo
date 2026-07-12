@@ -5,18 +5,23 @@
 
 - **Tier-1 SDF** (`analyze_sdf`): per-role firing rates, per-channel min-depth, steady-state throughput
   (II), a latency estimate, and a deadlock predicate over the resolved rolled graph; validated against
-  the round-14 coroutine simulator's measured cycle count.
+  the round-14 coroutine simulator's measured cycle count. `analyze_fft_sdf` gives the matching Tier-1
+  structure for the folded key-form FFT (S sequential butterfly stages, HALF butterflies/stage, II=1, a
+  constant physical-PE count), validated against the archived FFT csynth.
 - **Tier-2 token clock** (`token_clock`): a timed dataflow (virtual timestamps) giving the systolic
   wavefront latency.
 - **Area/latency model** (`ResourceVector`/`RoleArea`/`AreaLatencyEstimate`/`estimate_area_latency`):
   `area = Σ(role_area × instances)` summed over every role, plus a modeled latency, with structured
   loaders (`load_csynth_report`, `_parse_fft_report_table`) for the archived csynth reports under
   `examples/spmw_generated/`. Validated against the **actual** systolic / Mini-TPU / FFT csynth numbers
-  within a documented tolerance (DSP-exact; FF/LUT within the top-level-glue tolerance).
+  within a documented tolerance (DSP-exact; FF/LUT within the top-level-glue tolerance). `load_csynth_report`
+  loads the systolic, Mini-TPU **and** folded-FFT reports (top resources + latency/II + per-role areas)
+  into the same `CsynthEvidence` schema — the FFT is a first-class evidence source.
 
-Scope: the 2-D output-stationary systolic mesh (`analyze_sdf`/`token_clock`); the area model consumes any
-archived report. Folded/key-form SDF/token-clock coverage is fail-closed (a follow-up). Other patterns
-raise ``NotImplementedError`` rather than returning an unvalidated number.
+Scope: the 2-D output-stationary systolic mesh (`analyze_sdf`/`token_clock`) and the folded key-form FFT
+(`analyze_fft_sdf`); the area model consumes any archived report. Non-FFT key-form SDF/token-clock
+coverage is fail-closed (a follow-up). Other patterns raise ``NotImplementedError`` rather than returning
+an unvalidated number.
 """
 
 import ast
@@ -116,6 +121,61 @@ def analyze_sdf(region):
         )
     _recognize(collection)  # fail closed unless it is the 2-D systolic mesh
     return _analyze_mesh(region, collection)
+
+
+@dataclass
+class FFTSDFReport:
+    """Tier-1 analytic SDF for the folded key-form FFT: ``S = log2(N)`` sequential radix-2 butterfly
+    stages, each streaming ``HALF = N/2`` butterflies through ``physical_pes`` time-shared PEs at II=1.
+
+    ``physical_pes`` (= ``HALF // fold_factor``) is **constant** as N scales for a full fold, so the
+    compute is scale-invariant -- the O(#roles) synthesis win, matching the archived csynth's constant
+    butterfly-body count / DSP. ``compute_cycles = S * passes_per_stage`` is the throughput-bound
+    butterfly count on one PE (a lower bound on the scheduled latency, which adds per-stage fill).
+    """
+
+    pattern: str
+    dims: tuple  # (S, HALF, N)
+    n_stages: int
+    butterflies: int  # S * HALF total butterfly fires
+    physical_pes: int  # butterfly PEs after folding (constant -> O(#roles))
+    passes_per_stage: int  # butterfly fires per stage per PE = HALF // physical_pes
+    butterfly_ii: int
+    compute_cycles: int
+
+
+def analyze_fft_sdf(region):
+    """Tier-1 analytic SDF for the folded key-form FFT (M5 task5.3, FFT coverage).
+
+    Extends the perf model past the systolic mesh to the folded FFT buffer families: it recognizes the
+    key-form butterfly topology from first principles (via :func:`_recognize_fft`), reads ``N`` and the
+    butterfly-axis fold factor, and reports the stage/butterfly/II structure. Non-FFT patterns raise
+    ``NotImplementedError`` (fail-closed) -- the systolic mesh goes through :func:`analyze_sdf` instead.
+    """
+    # pylint: disable=import-outside-toplevel
+    from ..spmw import _collect, _validate_collection
+    from ..spmw_datapath import _recognize_fft
+
+    collection = _validate_collection(_collect(region))
+    # _recognize_fft raises NotImplementedError unless this is a key-form butterfly FFT.
+    desc = _recognize_fft(collection)
+    n_stages, half, n_points = desc["S"], desc["HALF"], desc["N"]
+    fold = desc["decl"].fold
+    # fold factor on the butterfly axis (axis 1): F logical butterflies time-share one physical PE, so
+    # physical_pes = HALF // F (= 1 for a full fold, and constant as N scales -> the O(#roles) win).
+    fold_factor = fold[1] if fold else 1
+    physical_pes = max(1, half // max(1, fold_factor))
+    passes_per_stage = half // physical_pes
+    return FFTSDFReport(
+        pattern="folded_fft",
+        dims=(n_stages, half, n_points),
+        n_stages=n_stages,
+        butterflies=n_stages * half,
+        physical_pes=physical_pes,
+        passes_per_stage=passes_per_stage,
+        butterfly_ii=1,
+        compute_cycles=n_stages * passes_per_stage,
+    )
 
 
 # ====================================================================================================

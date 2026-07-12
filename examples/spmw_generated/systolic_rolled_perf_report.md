@@ -59,3 +59,22 @@ the **PE** compute (`pe_interior`, latency 64); `load_latency + pe_latency = 74`
 the actual top latency 79 (the residual is dataflow fill/drain overhead). The Tier-2 token clock's
 *abstract* II=1 wavefront depth (`K+M+N-2`) is a different, structural quantity (round 16) — it is not
 the HLS-scheduled cycle count, because the rolled PE body here is a non-II=1 sequential K loop.
+
+## Scale-invariance and the 64×64 array (M5 task5.3)
+A second actual csynth point (16×16) is archived in `systolic_rolled_16x16_perf_report.md`; its per-role
+areas are **byte-identical** to the 8×8 table above, so the `Σ(role_area × instances)` area law is
+**scale-invariant** and extrapolates **exactly** to the plan's 64×64 array (DSP = 4096·5 = **20480**,
+validated by `test_spmw_perf.py::test_systolic_area_scale_invariant_extrapolates_to_64x64`).
+
+### 64×64 actual csynth attempt — device-infeasible on a single U280
+A 64×64 rolled csynth was launched on `brg-zhang-xcel` (same flow). The rolled `top` elaborates all
+`M·N = 4096` `pe_interior` dataflow processes at synthesis, so the design blows up to **106,305
+instructions** (Vitis `HLS 200-1995` design-size warnings from the array/struct phase on) and was still
+in HW-transforms after **~30 min** of wall-clock. More fundamentally, the design **cannot be placed on
+one U280**: it needs **20480 DSP vs the U280's 9024** (227%), plus FF 2.76M vs 2.61M and LUT 2.0M vs
+1.3M — over budget on every resource. The 64×64 output-stationary systolic GEMM therefore does **not
+fit a single device**, which is exactly what the analytic model predicts *without* completing synthesis.
+The csynth was stopped (over-mapped, unbounded wall-clock); the validated 64×64 result is the
+scale-invariant `Σ(role_area × instances)` extrapolation above and the device-fit verdict it yields —
+the model earning its keep by forecasting the resource wall before hours of synthesis are spent. (A
+larger array would be tiled across SLRs / multiple U280s or time-folded — an M6 topology concern.)
