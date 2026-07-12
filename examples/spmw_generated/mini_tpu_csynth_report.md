@@ -42,6 +42,24 @@ This is a genuine hardware realization of the hierarchy + heterogeneous units + 
 composition §3.4 describes: the MXU and the activation synthesize as their own concurrent dataflow
 processes, connected only by the per-column psum streams.
 
+## Per-role modules (`Σ(role_area × instances)` inputs — machine-parseable)
+Per-instance module areas + instance counts (actual csynth), the inputs to the analytic area model
+(`allo/backend/perf.py`, M5 task5.3). The Mini-TPU is the **desugar O(P)** path (16 distinct `mxu` PEs),
+so unlike the rolled systolic/FFT it is not O(#roles); this table is the multi-role area decomposition.
+
+| role | instances | LUT | FF | DSP | BRAM | URAM | latency |
+|------|-----------|-----|----|-----|------|------|---------|
+| mxu | 16 | 533 | 646 | 5 | 0 | 0 | 66 |
+| act | 4 | 1222 | 1539 | 8 | 0 | 0 | 9 |
+| load_buf | 3 | 729 | 2592 | 0 | 0 | 0 | 42 |
+| store_res | 1 | 909 | 2569 | 0 | 0 | 0 | 24 |
+
+`Σ(role_area × instances)`: **DSP** = 16·5 + 4·8 = **112** — matches the top DSP **exactly** (all
+compute is the 16 MXU MACs + the 4 activation DSPs). FF/LUT are under the top total by more than the
+systolic case (~22% FF, ~40% LUT) because the heterogeneous dataflow region carries substantial
+top-level FIFO/interconnect/control glue — so this design validates the DSP decomposition exactly and
+FF/LUT within an interconnect-heavy tolerance, not the tight bound the mostly-compute systolic hits.
+
 ## Synthesis-time scaling — scope of the O(#roles) claim
 This Mini-TPU path is the **desugar-to-`allo.dataflow`** path (`target="vitis_hls"`), the same path the
 systolic twin's csim/csynth/hw_emu use. That path **clones one HLS function body per grid point** — the

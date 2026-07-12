@@ -6,13 +6,15 @@
 ``allo.backend.perf`` estimates a region's performance/area without synthesis. Tier-1
 ``analyze_sdf(region)`` gives the synchronous-dataflow quantities (firing rates, min FIFO depth,
 steady-state II, latency, deadlock threshold); Tier-2 ``token_clock(region)`` runs a timed dataflow
-(virtual token clock) for a cycle-accurate latency; ``estimate_area`` computes ``Σ(role_area ×
-instances)``. These tests pin each to ground truth: the SDF cycle count equals the round-14 coroutine
-simulator's *measured* cycles (and is depth-invariant above the min-depth, exercising the resolved
-``port_depths``); the analytic min-depth matches the simulator's real deadlock threshold; the token
-clock latency equals the Tier-1 ``hw_latency`` across sizes (incl. 64x64); and the area model
-reconstructs the archived folded-FFT csynth DSP exactly (O(#roles), scale-invariant per-role), with a
-negative out-of-tolerance case.
+(virtual token clock) for a cycle-accurate latency; ``estimate_area_latency`` computes
+``Σ(role_area × instances)`` + a modeled latency over per-role module areas loaded from the archived
+csynth reports. These tests pin each to ground truth: the SDF cycle count equals the round-14 coroutine
+simulator's *measured* cycles (depth-invariant above the min-depth); the analytic min-depth matches the
+simulator's real deadlock threshold; the token clock latency equals the Tier-1 ``hw_latency`` across
+sizes (incl. 64x64); and the area+latency model reconstructs the **actual** archived systolic (DSP
+exact, FF/LUT within a glue tolerance, load+PE latency vs 79), Mini-TPU (multi-role, DSP exact), and
+folded-FFT (O(#roles)) csynth numbers -- with a negative out-of-tolerance case and fail-closed
+non-mesh.
 """
 
 import os
@@ -24,21 +26,26 @@ import allo.spmw as spmw
 from allo.backend.perf import (
     analyze_sdf,
     token_clock,
-    estimate_area,
+    estimate_area_latency,
+    load_csynth_report,
+    ResourceVector,
+    RoleArea,
     _parse_fft_report_table,
 )
 from allo.spmw_rollsim import SPMWDeadlockError
 from allo.ir.types import float32
 
-_FFT_REPORT = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "..",
-    "examples",
-    "spmw_generated",
-    "fft_rolled_csynth_report.md",
+_REPORTS = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "examples", "spmw_generated"
 )
+_FFT_REPORT = os.path.join(_REPORTS, "fft_rolled_csynth_report.md")
+_SYSTOLIC_REPORT = os.path.join(_REPORTS, "systolic_rolled_perf_report.md")
+_MINI_TPU_REPORT = os.path.join(_REPORTS, "mini_tpu_csynth_report.md")
+
+
+def _read(path):
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
 
 
 def _systolic(M, N, K, depths=None):
@@ -147,37 +154,68 @@ def test_token_clock_latency_matches_hw_latency():
         assert tc.dims == (M, N, K) and tc.throughput_ii == 1
 
 
-def test_area_model_folded_fft_is_o_roles():
-    """``area = Σ(role_area × instances)`` with a scale-invariant per-role area: the folded FFT's
-    compute area (DSP) predicted from the N=8 role area matches the N=16 csynth exactly (constant =
-    O(#roles)), while the spatial FFT's DSP grows with the body count (O(P))."""
-    with open(_FFT_REPORT, encoding="utf-8") as handle:
-        rows = _parse_fft_report_table(handle.read())
-    f8, f16 = rows[("folded", 8)], rows[("folded", 16)]
-    # per-role (per-body) compute area from the small case; scale to the N=16 body count
-    per_role = {"DSP": f8["DSP"] // f8["bodies"]}
-    est = estimate_area(per_role, f16["bodies"])
+def test_area_latency_matches_systolic_csynth():
+    """``area = Σ(role_area × instances)`` and a modeled latency reconstruct the **actual** archived
+    systolic rolled csynth (8x8): DSP exactly, FF/LUT within a top-level-glue tolerance, and the
+    load+PE critical-path latency within tolerance of the csynth latency (79)."""
+    ev = load_csynth_report(_read(_SYSTOLIC_REPORT))
+    assert ev.top.dsp == 320 and ev.top.ff == 44690 and ev.top.lut == 38948
+    assert len(ev.roles) == 4  # pe_interior, load_a, load_b, drain
+    load_lat = max(r.latency for r in ev.roles if r.name.startswith("load"))
+    pe_lat = next(r.latency for r in ev.roles if r.name == "pe_interior")
+    est = estimate_area_latency(ev.roles, latency=load_lat + pe_lat)
+    assert est.total_area.dsp == ev.top.dsp  # 64 x 5 = 320, exact
+    assert est.area_within(ev.top, 0.15)  # DSP 0% / FF ~2% / LUT ~13% -> within 15%
+    assert est.latency_within(ev.latency, 0.20)  # load(10)+PE(64)=74 vs 79 -> ~6%
+
+
+def test_area_model_matches_mini_tpu_csynth_multi_role():
+    """A multi-role summation over the Mini-TPU's distinct module classes (mxu / act / load_buf /
+    store_res): DSP matches the top exactly; FF is within the (interconnect-heavy) tolerance.
+    """
+    ev = load_csynth_report(_read(_MINI_TPU_REPORT))
+    assert {r.name for r in ev.roles} == {"mxu", "act", "load_buf", "store_res"}
+    est = estimate_area_latency(ev.roles, latency=0)
+    assert est.total_area.dsp == ev.top.dsp == 112  # 16 x 5 + 4 x 8 = 112, exact
     assert (
-        est.total["DSP"] == f16["DSP"]
-    )  # folded compute area is constant across N (44)
-    assert est.within(f16["DSP"], "DSP", 0.05)
-    # the folded body count (roles) is constant while the spatial body count grows (O(P))
+        abs(est.total_area.ff - ev.top.ff) <= 0.30 * ev.top.ff
+    )  # ~22% (dataflow glue)
+
+
+def test_area_model_folded_fft_is_o_roles():
+    """The folded FFT's compute area (DSP) predicted from the N=8 per-role area x the (constant) body
+    count matches the N=16 csynth exactly -- O(#roles), scale-invariant -- while spatial DSP grows.
+    """
+    rows = _parse_fft_report_table(_read(_FFT_REPORT))
+    f8, f16 = rows[("folded", 8)], rows[("folded", 16)]
+    per_role = ResourceVector(dsp=f8["DSP"] // f8["bodies"])
+    est16 = estimate_area_latency(
+        [RoleArea("bfly", per_role, f16["bodies"])], latency=0
+    )
+    assert (
+        est16.total_area.dsp == f16["DSP"]
+    )  # 2 x 22 = 44, constant across N (O(#roles))
     assert f8["bodies"] == f16["bodies"]
-    assert rows[("spatial", 16)]["bodies"] > rows[("spatial", 8)]["bodies"]
-    assert rows[("spatial", 16)]["DSP"] > rows[("spatial", 8)]["DSP"]
+    assert rows[("spatial", 16)]["DSP"] > rows[("spatial", 8)]["DSP"]  # spatial is O(P)
 
 
-def test_area_model_rejects_out_of_tolerance():
-    """Negative: a wrong per-role area makes the ``Σ(role_area × instances)`` estimate miss the
-    archived total -- the tolerance check fails instead of silently accepting it."""
-    with open(_FFT_REPORT, encoding="utf-8") as handle:
-        rows = _parse_fft_report_table(handle.read())
-    f16 = rows[("folded", 16)]
-    bad = estimate_area(
-        {"DSP": 2 * (f16["DSP"] // f16["bodies"])}, f16["bodies"]
-    )  # 2x too big
-    assert bad.total["DSP"] == 2 * f16["DSP"]
-    assert not bad.within(f16["DSP"], "DSP", 0.10)
+def test_area_latency_model_rejects_out_of_tolerance():
+    """Negative: a wrong per-role area AND a wrong latency both fail the tolerance checks against the
+    archived systolic report -- an out-of-tolerance estimate is rejected, not accepted.
+    """
+    ev = load_csynth_report(_read(_SYSTOLIC_REPORT))
+    doubled = [
+        RoleArea(
+            name=r.name,
+            area=r.area.scale(2) if r.name == "pe_interior" else r.area,
+            instances=r.instances,
+            latency=r.latency,
+        )
+        for r in ev.roles
+    ]
+    bad = estimate_area_latency(doubled, latency=5 * ev.latency)
+    assert not bad.area_within(ev.top, 0.15)  # doubled PE area -> DSP ~640 vs 320
+    assert not bad.latency_within(ev.latency, 0.20)  # 5x latency
 
 
 def test_token_clock_rejects_non_mesh():

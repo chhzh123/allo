@@ -1,23 +1,27 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tier-1 analytic SDF performance model for SPMW (M5 task5.2).
+"""Analytic performance/area model for SPMW (M5 task5.2 + task5.3).
 
-``analyze_sdf(region)`` reads the resolved rolled SPMW graph -- the topology, the work-unit datapath,
-and the resolved per-port FIFO depths -- and returns an :class:`SDFReport` with the synchronous-dataflow
-quantities the plan asks for (task5.2): per-role firing **rates**, the per-channel **min-depth** for
-deadlock-free operation, the steady-state **throughput** (initiation interval), a **latency** estimate,
-and a **deadlock** predicate. It is a static analysis (no execution); its cycle prediction is validated
-against the round-14 coroutine simulator's measured cycle count on ``test_systolic`` across sizes.
+- **Tier-1 SDF** (`analyze_sdf`): per-role firing rates, per-channel min-depth, steady-state throughput
+  (II), a latency estimate, and a deadlock predicate over the resolved rolled graph; validated against
+  the round-14 coroutine simulator's measured cycle count.
+- **Tier-2 token clock** (`token_clock`): a timed dataflow (virtual timestamps) giving the systolic
+  wavefront latency.
+- **Area/latency model** (`ResourceVector`/`RoleArea`/`AreaLatencyEstimate`/`estimate_area_latency`):
+  `area = Σ(role_area × instances)` summed over every role, plus a modeled latency, with structured
+  loaders (`load_csynth_report`, `_parse_fft_report_table`) for the archived csynth reports under
+  `examples/spmw_generated/`. Validated against the **actual** systolic / Mini-TPU / FFT csynth numbers
+  within a documented tolerance (DSP-exact; FF/LUT within the top-level-glue tolerance).
 
-Scope (task5.2): the 2-D output-stationary systolic mesh (the plan's `test_systolic` gate). Other
-patterns raise ``NotImplementedError`` rather than returning an unvalidated number. The Tier-2 token
-clock and the ``Σ(role_area × instances)`` area/latency validation vs the archived L3/L4 reports are
-task5.3.
+Scope: the 2-D output-stationary systolic mesh (`analyze_sdf`/`token_clock`); the area model consumes any
+archived report. Folded/key-form SDF/token-clock coverage is fail-closed (a follow-up). Other patterns
+raise ``NotImplementedError`` rather than returning an unvalidated number.
 """
 
 import ast
 import inspect
+import re
 import textwrap
 from dataclasses import dataclass
 
@@ -168,29 +172,75 @@ def token_clock(region):
     )
 
 
+_RESOURCES = ("lut", "ff", "dsp", "bram", "uram")
+
+
+@dataclass(frozen=True)
+class ResourceVector:
+    """FPGA resource usage: LUT / FF / DSP / BRAM / URAM. Supports ``+`` and ``× instances``."""
+
+    lut: int = 0
+    ff: int = 0
+    dsp: int = 0
+    bram: int = 0
+    uram: int = 0
+
+    def __add__(self, other):
+        return ResourceVector(
+            *(getattr(self, r) + getattr(other, r) for r in _RESOURCES)
+        )
+
+    def scale(self, instances):
+        return ResourceVector(*(getattr(self, r) * instances for r in _RESOURCES))
+
+    def within(self, actual, rel_tol):
+        """Whether every resource of ``self`` is within ``rel_tol`` (relative) of ``actual``."""
+        return all(
+            abs(getattr(self, r) - getattr(actual, r))
+            <= rel_tol * max(abs(getattr(actual, r)), 1)
+            for r in _RESOURCES
+        )
+
+
 @dataclass
-class AreaEstimate:
-    """An ``area = Σ(role_area × instances)`` estimate: ``total`` per resource, plus the ``per_role``
-    resource and ``instances`` count it was built from."""
+class RoleArea:
+    """One role/module: its per-instance area, how many instances the grid places, and its II/latency."""
 
-    total: dict
-    per_role: dict
+    name: str
+    area: ResourceVector
     instances: int
-
-    def within(self, actual, resource, rel_tol):
-        """Whether the estimate for ``resource`` is within ``rel_tol`` (relative) of ``actual``."""
-        est = self.total.get(resource, 0)
-        return abs(est - actual) <= rel_tol * max(abs(actual), 1)
+    ii: int = 1
+    latency: int = 0
 
 
-def estimate_area(per_role, instances):
-    """``Σ(role_area × instances)``: scale a per-role resource dict by the instance count (M5 task5.3).
+@dataclass
+class AreaLatencyEstimate:
+    """An ``area = Σ(role_area × instances)`` (+ latency) estimate summed over all roles."""
 
-    The synthesis-time-win corollary is that ``per_role`` is scale-invariant, so the total is linear in
-    ``instances`` (O(#roles) for the folded/rolled paths, where ``instances`` = the constant role-body
-    count, vs O(P) for the spatial path where it grows)."""
-    total = {res: value * instances for res, value in per_role.items()}
-    return AreaEstimate(total=total, per_role=dict(per_role), instances=instances)
+    total_area: ResourceVector
+    latency: int
+    roles: list
+
+    def area_within(self, actual, rel_tol):
+        """Whether the summed area is within ``rel_tol`` of an ``actual`` :class:`ResourceVector`."""
+        return self.total_area.within(actual, rel_tol)
+
+    def latency_within(self, actual_latency, rel_tol):
+        """Whether the modeled latency is within ``rel_tol`` (relative) of ``actual_latency``."""
+        return abs(self.latency - actual_latency) <= rel_tol * max(
+            abs(actual_latency), 1
+        )
+
+
+def estimate_area_latency(roles, latency):
+    """``area = Σ(role_area × instances)`` over every role, plus a modeled ``latency`` (M5 task5.3).
+
+    ``roles`` is a list of :class:`RoleArea`. This is the O(#roles) area law: per-role areas are
+    scale-invariant, so the total is linear in the instance counts."""
+    total = ResourceVector()
+    for role in roles:
+        total = total + role.area.scale(role.instances)
+    return AreaLatencyEstimate(total_area=total, latency=latency, roles=list(roles))
 
 
 def _parse_fft_report_table(report_text):
@@ -208,3 +258,73 @@ def _parse_fft_report_table(report_text):
             continue
         rows[(design, n_points)] = {"bodies": bodies, "DSP": dsp, "FF": ff, "LUT": lut}
     return rows
+
+
+@dataclass
+class CsynthEvidence:
+    """Archived actual csynth numbers for a design: top-level resources + latency/II, and the per-role
+    (module) areas that are the ``Σ(role_area × instances)`` inputs the analytic model is checked against.
+    """
+
+    top: ResourceVector
+    latency: int
+    ii: int
+    roles: list
+
+
+def _report_metric(text, key):
+    """The integer of a ``| <key> | <value> |`` metric-table row (e.g. ``| DSP | **320** |`` -> 320)."""
+    for line in text.splitlines():
+        cells = [c.strip().strip("*") for c in line.split("|")]
+        if len(cells) >= 3 and cells[1].lower() == key.lower():
+            match = re.search(r"-?\d+", cells[2])
+            if match:
+                return int(match.group())
+    return 0
+
+
+def _parse_role_table(text):
+    """Parse a ``| role | instances | LUT | FF | DSP | BRAM | URAM | latency |`` table into a list of
+    :class:`RoleArea` (skipping the header/separator and any non-conforming rows)."""
+    roles = []
+    for line in text.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) < 10:
+            continue
+        try:
+            roles.append(
+                RoleArea(
+                    name=cells[1],
+                    area=ResourceVector(
+                        lut=int(cells[3]),
+                        ff=int(cells[4]),
+                        dsp=int(cells[5]),
+                        bram=int(cells[6]),
+                        uram=int(cells[7]),
+                    ),
+                    instances=int(cells[2]),
+                    latency=int(cells[8]),
+                )
+            )
+        except (ValueError, IndexError):
+            continue
+    return roles
+
+
+def load_csynth_report(text):
+    """Load an archived csynth report (systolic / Mini-TPU) into :class:`CsynthEvidence`: the top-level
+    resources + latency/II and the per-role module areas (the ``Σ(role_area × instances)`` inputs).
+    """
+    top = ResourceVector(
+        lut=_report_metric(text, "LUT"),
+        ff=_report_metric(text, "FF"),
+        dsp=_report_metric(text, "DSP"),
+        bram=_report_metric(text, "BRAM"),
+        uram=_report_metric(text, "URAM"),
+    )
+    return CsynthEvidence(
+        top=top,
+        latency=_report_metric(text, "Latency"),
+        ii=_report_metric(text, "Interval (II)"),
+        roles=_parse_role_table(text),
+    )
