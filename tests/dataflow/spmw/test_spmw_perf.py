@@ -1,24 +1,44 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""SPMW Tier-1 analytic SDF performance model (M5 task5.2, plan.md M5).
+"""SPMW analytic perf/area model (M5 task5.2 + task5.3, plan.md M5).
 
-``allo.backend.perf.analyze_sdf(region)`` statically estimates the synchronous-dataflow quantities of a
-region (firing rates, min FIFO depth, steady-state II, latency, deadlock threshold). These tests pin it
-to ground truth: its predicted cycle count equals the round-14 coroutine simulator's *measured* cycle
-count on the systolic mesh across sizes (and is depth-invariant above the min-depth); its analytic
-min-depth matches the simulator's actual deadlock threshold (depth 0 deadlocks, depth >= 1 runs). The
-rollsim now sizes its mesh FIFOs from the map's resolved ``port_depths`` (not a hard-coded constant),
-which the depth-0/-1 cases exercise.
+``allo.backend.perf`` estimates a region's performance/area without synthesis. Tier-1
+``analyze_sdf(region)`` gives the synchronous-dataflow quantities (firing rates, min FIFO depth,
+steady-state II, latency, deadlock threshold); Tier-2 ``token_clock(region)`` runs a timed dataflow
+(virtual token clock) for a cycle-accurate latency; ``estimate_area`` computes ``Σ(role_area ×
+instances)``. These tests pin each to ground truth: the SDF cycle count equals the round-14 coroutine
+simulator's *measured* cycles (and is depth-invariant above the min-depth, exercising the resolved
+``port_depths``); the analytic min-depth matches the simulator's real deadlock threshold; the token
+clock latency equals the Tier-1 ``hw_latency`` across sizes (incl. 64x64); and the area model
+reconstructs the archived folded-FFT csynth DSP exactly (O(#roles), scale-invariant per-role), with a
+negative out-of-tolerance case.
 """
+
+import os
 
 import numpy as np
 import pytest
 
 import allo.spmw as spmw
-from allo.backend.perf import analyze_sdf
+from allo.backend.perf import (
+    analyze_sdf,
+    token_clock,
+    estimate_area,
+    _parse_fft_report_table,
+)
 from allo.spmw_rollsim import SPMWDeadlockError
 from allo.ir.types import float32
+
+_FFT_REPORT = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "..",
+    "..",
+    "examples",
+    "spmw_generated",
+    "fft_rolled_csynth_report.md",
+)
 
 
 def _systolic(M, N, K, depths=None):
@@ -113,3 +133,69 @@ def test_sdf_rejects_non_mesh():
 
     with pytest.raises(NotImplementedError, match="systolic mesh"):
         analyze_sdf(top)
+
+
+def test_token_clock_latency_matches_hw_latency():
+    """Tier-2 token clock (timed dataflow) latency equals the Tier-1 analytic ``hw_latency`` across
+    systolic sizes -- including the 64x64 array the plan calls out -- an independent cross-check
+    (the token clock runs the wavefront recurrence; the SDF model reports a closed form).
+    """
+    for M, N, K in [(2, 2, 2), (3, 3, 3), (2, 3, 4), (4, 4, 4), (8, 8, 8), (64, 64, 8)]:
+        tc = token_clock(_systolic(M, N, K))
+        sdf = analyze_sdf(_systolic(M, N, K))
+        assert tc.latency == sdf.hw_latency, (M, N, K, tc.latency, sdf.hw_latency)
+        assert tc.dims == (M, N, K) and tc.throughput_ii == 1
+
+
+def test_area_model_folded_fft_is_o_roles():
+    """``area = Σ(role_area × instances)`` with a scale-invariant per-role area: the folded FFT's
+    compute area (DSP) predicted from the N=8 role area matches the N=16 csynth exactly (constant =
+    O(#roles)), while the spatial FFT's DSP grows with the body count (O(P))."""
+    with open(_FFT_REPORT, encoding="utf-8") as handle:
+        rows = _parse_fft_report_table(handle.read())
+    f8, f16 = rows[("folded", 8)], rows[("folded", 16)]
+    # per-role (per-body) compute area from the small case; scale to the N=16 body count
+    per_role = {"DSP": f8["DSP"] // f8["bodies"]}
+    est = estimate_area(per_role, f16["bodies"])
+    assert (
+        est.total["DSP"] == f16["DSP"]
+    )  # folded compute area is constant across N (44)
+    assert est.within(f16["DSP"], "DSP", 0.05)
+    # the folded body count (roles) is constant while the spatial body count grows (O(P))
+    assert f8["bodies"] == f16["bodies"]
+    assert rows[("spatial", 16)]["bodies"] > rows[("spatial", 8)]["bodies"]
+    assert rows[("spatial", 16)]["DSP"] > rows[("spatial", 8)]["DSP"]
+
+
+def test_area_model_rejects_out_of_tolerance():
+    """Negative: a wrong per-role area makes the ``Σ(role_area × instances)`` estimate miss the
+    archived total -- the tolerance check fails instead of silently accepting it."""
+    with open(_FFT_REPORT, encoding="utf-8") as handle:
+        rows = _parse_fft_report_table(handle.read())
+    f16 = rows[("folded", 16)]
+    bad = estimate_area(
+        {"DSP": 2 * (f16["DSP"] // f16["bodies"])}, f16["bodies"]
+    )  # 2x too big
+    assert bad.total["DSP"] == 2 * f16["DSP"]
+    assert not bad.within(f16["DSP"], "DSP", 0.10)
+
+
+def test_token_clock_rejects_non_mesh():
+    """The token clock is fail-closed on patterns it has not validated (a channel pipeline)."""
+
+    @spmw.unit
+    def producer(ctx):
+        ctx.pipe.put(ctx.A[0])
+
+    @spmw.unit
+    def consumer(ctx):
+        ctx.B[0] = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A: float32[1], B: float32[1]):
+        spmw.map(producer, grid=(1,))
+        spmw.map(consumer, grid=(1,))
+        spmw.channel("pipe", float32, depth=2)
+
+    with pytest.raises(NotImplementedError, match="systolic mesh"):
+        token_clock(top)

@@ -112,3 +112,99 @@ def analyze_sdf(region):
         )
     _recognize(collection)  # fail closed unless it is the 2-D systolic mesh
     return _analyze_mesh(region, collection)
+
+
+# ====================================================================================================
+# M5 task5.3 -- Tier-2 token clock (timed dataflow) + Σ(role_area × instances) area model.
+# ====================================================================================================
+@dataclass
+class TokenClockReport:
+    """A Tier-2 timed-dataflow estimate: the cycle-accurate completion ``latency`` of the region on a
+    virtual token clock (each fire resolves at ``max(input-token-ready, actor-free)`` and produces its
+    output tokens one register later), plus the steady-state ``throughput_ii``."""
+
+    pattern: str
+    dims: tuple
+    latency: int
+    throughput_ii: int
+
+
+def token_clock(region):
+    """Tier-2 token-clock latency for ``region`` (M5 task5.3): a timed dataflow run over the resolved
+    graph with virtual timestamps. For the output-stationary systolic mesh, actor ``PE(i,j)`` fire ``k``
+    resolves at ``max(west_token, north_token, its own previous fire + II)`` and emits its forwarded
+    tokens one cycle later, so the model is the exact systolic wavefront. Non-mesh patterns fail closed.
+    """
+    # pylint: disable=import-outside-toplevel
+    from ..spmw import _collect, _validate_collection
+    from ..spmw_datapath import _recognize, _region_tensors
+
+    collection = _validate_collection(_collect(region))
+    if collection.channels:
+        raise NotImplementedError(
+            "token clock (task5.3) covers the 2-D systolic mesh; pipeline/key-form patterns are follow-ups"
+        )
+    _recognize(collection)
+    shape = {name: shp for name, shp, _ in _region_tensors(region)}
+    rows_m, depth_k = shape["A"]
+    cols_n = shape["B"][1]
+
+    # Ready time of each PE(i,j)'s fire k. A west/north token arrives one register after the neighbor's
+    # same-k fire (or at cycle k from the edge loader, which emits one element per cycle). II = 1.
+    fire = {}
+    for i in range(1, rows_m + 1):
+        for j in range(1, cols_n + 1):
+            for k in range(depth_k):
+                west = fire[(i, j - 1, k)] + 1 if j > 1 else k
+                north = fire[(i - 1, j, k)] + 1 if i > 1 else k
+                prev = fire[(i, j, k - 1)] + 1 if k > 0 else 0
+                fire[(i, j, k)] = max(west, north, prev)
+    latency = fire[(rows_m, cols_n, depth_k - 1)] + 1  # + the output store
+    return TokenClockReport(
+        pattern="systolic_mesh",
+        dims=(rows_m, cols_n, depth_k),
+        latency=latency,
+        throughput_ii=1,
+    )
+
+
+@dataclass
+class AreaEstimate:
+    """An ``area = Σ(role_area × instances)`` estimate: ``total`` per resource, plus the ``per_role``
+    resource and ``instances`` count it was built from."""
+
+    total: dict
+    per_role: dict
+    instances: int
+
+    def within(self, actual, resource, rel_tol):
+        """Whether the estimate for ``resource`` is within ``rel_tol`` (relative) of ``actual``."""
+        est = self.total.get(resource, 0)
+        return abs(est - actual) <= rel_tol * max(abs(actual), 1)
+
+
+def estimate_area(per_role, instances):
+    """``Σ(role_area × instances)``: scale a per-role resource dict by the instance count (M5 task5.3).
+
+    The synthesis-time-win corollary is that ``per_role`` is scale-invariant, so the total is linear in
+    ``instances`` (O(#roles) for the folded/rolled paths, where ``instances`` = the constant role-body
+    count, vs O(P) for the spatial path where it grows)."""
+    total = {res: value * instances for res, value in per_role.items()}
+    return AreaEstimate(total=total, per_role=dict(per_role), instances=instances)
+
+
+def _parse_fft_report_table(report_text):
+    """Parse the archived FFT csynth report's resource table into
+    ``{(design, N): {bodies, DSP, FF, LUT}}`` (the ``| folded | 8 | ... |`` rows)."""
+    rows = {}
+    for line in report_text.splitlines():
+        cells = [c.strip().strip("*") for c in line.split("|")]
+        if len(cells) < 9 or cells[1] not in {"folded", "spatial"}:
+            continue
+        try:
+            design, n_points, bodies = cells[1], int(cells[2]), int(cells[4])
+            dsp, ff, lut = int(cells[5]), int(cells[6]), int(cells[7])
+        except ValueError:
+            continue
+        rows[(design, n_points)] = {"bodies": bodies, "DSP": dsp, "FF": ff, "LUT": lut}
+    return rows
