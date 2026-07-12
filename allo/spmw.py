@@ -786,6 +786,7 @@ class LogicalBuffer:
         bank_mode="cyclic",
         stride_bit=None,
         on_conflict="error",
+        double=False,
     ):
         self.dtype = dtype
         self.memory = memory
@@ -793,6 +794,11 @@ class LogicalBuffer:
         self.bank_axis = bank_axis
         self.shape = shape
         self.source = source
+        # Double buffering (ping-pong): two physical copies of the buffer are alternated so the next
+        # tile loads while the current one is consumed, realized via the ``buffer_at`` path. It is a
+        # throughput/scheduling choice -- functionally transparent -- so it rides the placement IR and
+        # is honored by the backend rather than changing the computed result.
+        self.double = double
         # Partition-function banking (when banks is set): split the banking axis into `banks`
         # physical banks with an F2 swizzle ("cyclic" = idx % banks, "xor" = a conflict-free
         # butterfly swizzle at `stride_bit`), realized as real 2D [banks][depth] storage.
@@ -805,9 +811,15 @@ class LogicalBuffer:
         return f"<spmw.{self.kind} {self.dtype!r} @ {self.memory!r}>"
 
 
-def shared(dtype, space=None, resource=None):
-    """A buffer shared across the grid, placed at a logical ``space=`` level (or a ``resource=``)."""
-    return LogicalBuffer(dtype, _resolve_space(space, resource), "shared")
+def shared(dtype, space=None, resource=None, double=False):
+    """A buffer shared across the grid, placed at a logical ``space=`` level (or a ``resource=``).
+
+    ``double=True`` requests ping-pong double buffering (two alternating physical copies, the
+    ``buffer_at`` path) so a producer can fill the next copy while a consumer drains the current one.
+    """
+    return LogicalBuffer(
+        dtype, _resolve_space(space, resource), "shared", double=double
+    )
 
 
 _BANK_MODES = ("cyclic", "xor")
@@ -1674,6 +1686,24 @@ def _memory_attrs(program, collection):
     return attrs
 
 
+def _double_buffer_attrs(program, collection):
+    """The tensor names of ``spmw.place`` buffers requesting ping-pong double buffering.
+
+    Carried on a plain ``spmw.double_buffers`` string list (a builtin ArrayAttr) alongside the typed
+    ``#spmw.memory`` placements, so the ``double=True`` request survives to codegen without extending
+    the ``spmw`` dialect. The backend realizes it as a double-buffered on-chip storage (``buffer_at``).
+    """
+    annotations = getattr(program.fn, "__annotations__", {})
+    tensor_names = {
+        name for name, typ in annotations.items() if getattr(typ, "shape", None)
+    }
+    return [
+        f'"{decl.tensor}"'
+        for decl in collection.placements
+        if decl.tensor in tensor_names and getattr(decl.buffer, "double", False)
+    ]
+
+
 def _bank_function_attrs(program, collection):
     """``spmw.bank_functions`` entries for placed banked buffers carrying an F2 partition function.
 
@@ -1897,6 +1927,9 @@ def _module_text(program, collection):
         func_attrs.append(
             "spmw.bank_functions = [\n      " + ",\n      ".join(bank_attrs) + "\n    ]"
         )
+    double_attrs = _double_buffer_attrs(program, collection)
+    if double_attrs:
+        func_attrs.append("spmw.double_buffers = [" + ", ".join(double_attrs) + "]")
     attrs_text = " attributes {" + ", ".join(func_attrs) + "}" if func_attrs else ""
     top = (
         f"  func.func @{program.name}({top_params}){attrs_text} {{\n"

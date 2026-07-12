@@ -192,7 +192,14 @@ def _memory_pragmas(memory_placements):
         bank_axis = place["bank_axis"] if place else None
         dim = bank_axis + 1 if (bank_axis is not None and bank_axis >= 0) else 0
         lines.append(f"#pragma HLS array_partition variable={var} complete dim={dim}\n")
-        if place and place["impl"]:
+        if place and place.get("double"):
+            # Ping-pong / double-buffered storage: a true dual-port RAM so the next tile can be
+            # written while the current one is read (the buffer_at double-buffer, honored on-chip).
+            impl = f" impl={place['impl']}" if place["impl"] else ""
+            lines.append(
+                f"#pragma HLS bind_storage variable={var} type=RAM_T2P{impl}\n"
+            )
+        elif place and place["impl"]:
             lines.append(
                 f"#pragma HLS bind_storage variable={var} type=RAM_2P impl={place['impl']}\n"
             )
@@ -1115,6 +1122,12 @@ def _memory_placements_from_ir(ir, ordered_operands):
     order) bridges the two. A resolved resource of ``AUTO``/``SRL`` carries no ``bind_storage``.
     """
     cpp_vars = ("A", "B", "C")
+    # Double-buffered (ping-pong) operands ride on a separate `spmw.double_buffers` string list (a
+    # builtin ArrayAttr) rather than on the typed `#spmw.memory` attr, so no dialect change is needed.
+    double_match = re.search(r"spmw\.double_buffers = \[([^\]]*)\]", ir)
+    double_tensors = (
+        set(re.findall(r'"([^"]+)"', double_match.group(1))) if double_match else set()
+    )
     placements = {}
     for tensor, resource, bank_axis in re.findall(
         r'#spmw\.memory<tensor = "([^"]+)", resource = "([^"]+)", bank_axis = (-?\d+)>',
@@ -1127,7 +1140,11 @@ def _memory_placements_from_ir(ir, ordered_operands):
             continue
         resource = resource.upper()
         impl = resource if resource in _CONCRETE_STORAGE_IMPL else None
-        placements[cpp_vars[idx]] = {"impl": impl, "bank_axis": int(bank_axis)}
+        placements[cpp_vars[idx]] = {
+            "impl": impl,
+            "bank_axis": int(bank_axis),
+            "double": tensor in double_tensors,
+        }
     return placements
 
 
