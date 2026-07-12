@@ -82,7 +82,9 @@ def SPMW_TopologyAttr : SPMW_Attr<"Topology", "topology"> {
   let summary = "A grid plus the links that wire its work units.";
   let description = [{
     `grid` is the extent along each dimension, `dims` is the grid rank, and `links`
-    is the array of `peer_link`/`key_link` attributes describing the interconnect.
+    is the array of `peer_link` / `key_link` / `edge_link` attributes describing the
+    interconnect (affine grid-neighbor links, rendezvous-by-key endpoints, and
+    explicit per-coordinate edges of an irregular topology, respectively).
   }];
   let parameters = (ins ArrayRefParameter<"int64_t">:$grid,
                         "int64_t":$dims,

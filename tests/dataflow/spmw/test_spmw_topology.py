@@ -507,30 +507,67 @@ def test_tree_wrong_peer_port_rejected_by_frontend():
         spmw.lower(_tree_region(topo))
 
 
-def test_edge_link_verifier_rejects_non_reciprocal():
-    """The op **verifier** itself rejects an explicit edge table whose in-bounds reciprocal points to the
-    wrong peer port: node 1's `b` edge below binds `WRONG` instead of `a`, so the reciprocal edge at
-    `(0, a)`'s peer does not point back -- caught independent of the frontend."""
+def _edge_map_module(links):
+    """A minimal `spmw.map` over a grid-[2] topology whose links are the given ``#spmw.edge_link`` list,
+    for exercising the op verifier directly via ``Module.parse``."""
+    return (
+        "module {\n"
+        "  func.func @u() { return }\n"
+        "  func.func @top(%arg0: memref<1xf32>) {\n"
+        "    spmw.map(%arg0) topology = <grid = [2], dims = 1, links = [\n"
+        + ",\n".join("      " + link for link in links)
+        + "\n    ]> roles = [#spmw.role<unit = @u, missing = []>] : memref<1xf32>\n"
+        "    return\n  }\n}\n"
+    )
+
+
+def _parse_spmw(ir):
     from allo._mlir.ir import Context, Location, Module
     import allo._mlir.dialects.allo as allo_d
 
-    bad = """
-    module {
-      func.func @u() { return }
-      func.func @top(%arg0: memref<1xf32>) {
-        spmw.map(%arg0) topology = <grid = [2], dims = 1, links = [
-          #spmw.edge_link<port = "a", at = [0], peer = [1], peer_port = "b", depth = 2>,
-          #spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "WRONG", depth = 2>
-        ]> roles = [#spmw.role<unit = @u, missing = []>] : memref<1xf32>
-        return
-      }
-    }
-    """
     ctx = Context()
     allo_d.register_dialect(ctx)
     with ctx, Location.unknown():
-        with pytest.raises(Exception, match="reciprocal"):
-            Module.parse(bad)
+        return Module.parse(ir)
+
+
+# A complete, reciprocal, type-consistent grid-[2] edge table: node-0 `a` <-> node-1 `b` (in bounds),
+# with node-0 `b` and node-1 `a` as out-of-bounds boundary edges (so every port has an edge at every
+# coordinate). The tests below corrupt one property at a time.
+_A0 = '#spmw.edge_link<port = "a", at = [0], peer = [1], peer_port = "b", depth = 2>'
+_B0 = '#spmw.edge_link<port = "b", at = [0], peer = [-1], peer_port = "a", depth = 2>'
+_A1 = '#spmw.edge_link<port = "a", at = [1], peer = [2], peer_port = "b", depth = 2>'
+_B1 = '#spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "a", depth = 2>'
+
+
+def test_edge_link_verifier_accepts_complete_consistent_table():
+    """The op verifier accepts a complete, reciprocal, type-consistent explicit edge table."""
+    _parse_spmw(_edge_map_module([_A0, _B0, _A1, _B1]))  # verifies without error
+
+
+def test_edge_link_verifier_rejects_non_reciprocal():
+    """The op verifier rejects a table whose in-bounds reciprocal points to the wrong peer port: node-1's
+    `b` binds `WRONG` instead of `a`, so `(0, a)`'s peer does not point back."""
+    bad_b1 = '#spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "WRONG", depth = 2>'
+    with pytest.raises(Exception, match="reciprocal"):
+        _parse_spmw(_edge_map_module([_A0, _B0, _A1, bad_b1]))
+
+
+def test_edge_link_verifier_requires_complete_table():
+    """The op verifier requires a COMPLETE per-coordinate table: omitting node-1's `b` boundary edge (so
+    port `b` has no edge at grid point 1) fails to verify -- role partition must never treat a missing
+    entry as a present port."""
+    with pytest.raises(Exception, match="no edge at grid point|complete"):
+        _parse_spmw(_edge_map_module([_A0, _B0, _A1]))  # missing b@1
+
+
+def test_edge_link_verifier_rejects_reciprocal_type_mismatch():
+    """The op verifier requires reciprocal edges' element types to agree (the peer-link ABI rule): node-0
+    `a` (f32) and its reciprocal node-1 `b` (i32) are rejected."""
+    a0 = '#spmw.edge_link<port = "a", at = [0], peer = [1], peer_port = "b", depth = 2, type = f32>'
+    b1 = '#spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "a", depth = 2, type = i32>'
+    with pytest.raises(Exception, match="element type"):
+        _parse_spmw(_edge_map_module([a0, _B0, _A1, b1]))
 
 
 def test_tree_resolve_channels_uses_per_edge_peer_port():

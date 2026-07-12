@@ -62,6 +62,7 @@ struct EdgeRec {
   SmallVector<int64_t> peer;
   StringRef peerPort;
   int64_t depth;
+  Type type;
 };
 
 LogicalResult MapOp::verify() {
@@ -139,9 +140,11 @@ LogicalResult MapOp::verify() {
       if (!edgeIndex.try_emplace(key, edgeList.size()).second)
         return emitOpError("duplicate edge link at one coordinate for port '")
                << edge.getPort() << "'";
-      edgeList.push_back({SmallVector<int64_t>(edge.getAt()), edge.getPort(),
-                          SmallVector<int64_t>(edge.getPeer()),
-                          edge.getPeerPort(), edge.getDepth()});
+      edgeList.push_back(
+          {SmallVector<int64_t>(edge.getAt()), edge.getPort(),
+           SmallVector<int64_t>(edge.getPeer()), edge.getPeerPort(),
+           edge.getDepth(),
+           edge.getElementType() ? edge.getElementType().getValue() : Type()});
     } else {
       return emitOpError("topology link must be a peer_link, key_link, or "
                          "edge_link attribute");
@@ -218,6 +221,24 @@ LogicalResult MapOp::verify() {
   llvm::StringSet<> edgePorts;
   for (const EdgeRec &e : edgeList)
     edgePorts.insert(e.port);
+  // Every explicit edge port must declare exactly one edge at EVERY grid
+  // coordinate (including the boundary edges whose peer is out of bounds), so
+  // the per-coordinate edge table is complete: role partition reads a port's
+  // presence directly from the table, so a missing entry must be a hard error,
+  // not a silently-present port.
+  if (!edgePorts.empty()) {
+    int64_t edgeTotal = 1;
+    for (int64_t extent : grid)
+      edgeTotal *= extent;
+    for (const auto &portEntry : edgePorts) {
+      StringRef port = portEntry.getKey();
+      for (int64_t point = 0; point < edgeTotal; ++point)
+        if (edgeIndex.count({point, port}) == 0)
+          return emitOpError("edge link port '")
+                 << port << "' has no edge at grid point " << point
+                 << "; the per-coordinate edge table must be complete";
+    }
+  }
   for (const EdgeRec &e : edgeList) {
     if (!coordInBounds(e.peer, grid))
       continue;
@@ -235,6 +256,12 @@ LogicalResult MapOp::verify() {
     if (back.depth != e.depth)
       return emitOpError("edge link '")
              << e.port << "' and its reciprocal have mismatched depth";
+    // Reciprocal edges share one FIFO, so a specified element type must agree
+    // (as peer links require): a type on one endpoint but not the other, or two
+    // different types, is rejected.
+    if (back.type != e.type)
+      return emitOpError("edge link '")
+             << e.port << "' and its reciprocal have mismatched element type";
   }
 
   for (Attribute roleAttr : getRoles()) {
