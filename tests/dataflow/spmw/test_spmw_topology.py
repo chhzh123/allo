@@ -1,8 +1,11 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import re
+
 import pytest
 import allo.spmw as spmw
+from allo.ir.types import float32
 
 
 def test_mesh_2d_ports_and_validate():
@@ -265,21 +268,28 @@ def test_crossbar_scatter_gather():
 
 
 def test_tree_reduction_structure():
-    """``spmw.tree(n)`` is a binary reduction tree over ``n`` leaves: ``2n-1`` heap-ordered nodes with
-    reciprocal peer parent/child links; the root has no parent and leaves have no children; peer
-    symmetry validates."""
+    """``spmw.tree(n)`` is a binary reduction tree over ``n`` leaves: ``2n-1`` heap-ordered nodes. Every
+    node declares ``up``/``left``/``right``; the root's ``up`` and each leaf's ``left``/``right`` point
+    out of bounds, so ``role_partition`` sees **three** link-presence classes -- root ``{up}`` / internal
+    ``{}`` / leaf ``{left, right}`` -- the correct role structure for a reduction tree (not one class).
+    """
     topo = spmw.tree(4)
     assert topo.grid == (7,)  # 2*4 - 1
-    topo.validate()
-    assert set(topo.links_at((0,))) == {"left", "right"}  # root: children only
-    assert set(topo.links_at((1,))) == {
-        "up",
+    topo.validate()  # in-bounds parent/child links are reciprocal; out-of-bounds ones are boundary
+    assert topo.boundary_ports_at((0,)) == {"up"}  # root: result leaves the tree
+    assert topo.boundary_ports_at((1,)) == set()  # internal
+    assert topo.boundary_ports_at((3,)) == {
         "left",
         "right",
-    }  # internal: parent + children
-    for leaf in (3, 4, 5, 6):
-        assert set(topo.links_at((leaf,))) == {"up"}  # leaves: parent only
-    assert topo.links_at((1,))["up"] == ((0,), "left")  # reciprocal peer link
+    }  # leaf: inputs enter the tree
+    partition = spmw.role_partition(topo)
+    assert len(partition) == 3 and spmw.role_count(topo) == 3
+    assert sorted(len(v) for v in partition.values()) == [
+        1,
+        2,
+        4,
+    ]  # 1 root, 2 internal, 4 leaves
+    assert topo.links_at((1,))["up"] == ((0,), "left")  # reciprocal in-bounds peer link
     assert topo.links_at((0,))["left"] == ((1,), "up")
 
 
@@ -304,3 +314,109 @@ def test_topology_generators_reject_bad_input():
     )
     with pytest.raises(spmw.SPMWError):
         bad_key.validate()
+
+
+# --------------------------------------------------------------------------------------------------
+# Emitted-IR proof: the key-form permutation generators lower to a real `spmw.map` and survive the
+# `spmw-role-partition` pass; the scatter/gather crossbar and the non-affine heap tree fail closed.
+# --------------------------------------------------------------------------------------------------
+
+
+def _link_classes(module_text):
+    """The `spmw.link_classes = array<i64: ...>` sizes the role-partition pass emits (per class)."""
+    match = re.search(r"spmw\.link_classes = array<i64: ([^>]*)>", module_text)
+    return [int(x) for x in match.group(1).split(",")] if match else None
+
+
+def test_butterfly_lowers_to_spmw_map():
+    """A region mapping a passthrough over `spmw.butterfly(8)` lowers to ONE `spmw.map` with the (3,4)
+    grid and a `#spmw.key_link` over the `lane` family, and `spmw-role-partition` emits a single
+    link-presence class of all 12 butterflies (the O(#roles) body) -- the emitted-IR proof, not just a
+    Python-object check."""
+
+    @spmw.unit
+    def relay(ctx):
+        a: float32 = ctx.a.get()
+        b: float32 = ctx.b.get()
+        ctx.y.put(a)
+        ctx.z.put(b)
+
+    @spmw.region()
+    def net(X: float32[8], Y: float32[8]):
+        spmw.map(relay, grid=(3, 4), topo=spmw.butterfly(8))
+        spmw.stream_in(X, into="lane", at_stage=0)
+        spmw.stream_out(Y, from_="lane", at_stage=3)
+
+    module = spmw.lower(net)
+    text = str(module)
+    assert text.count("spmw.map") == 1 and "grid = [3, 4]" in text
+    assert (
+        'key = "lane"' in text
+    )  # key-form lane interconnect survives to the rolled op
+    spmw._run_module_pass(module, "spmw-role-partition")
+    assert _link_classes(str(module)) == [12]  # one role body over all 3*4 butterflies
+
+
+def test_bitonic_lowers_to_spmw_map():
+    """A region over `spmw.bitonic(8)` lowers to one `spmw.map` with the (6,4) grid + `lane` key link;
+    `spmw-role-partition` emits a single class of all 24 comparators."""
+
+    @spmw.unit
+    def compare(ctx):
+        a: float32 = ctx.a.get()
+        b: float32 = ctx.b.get()
+        ctx.hi.put(a)
+        ctx.lo.put(b)
+
+    @spmw.region()
+    def net(X: float32[8], Y: float32[8]):
+        spmw.map(compare, grid=(6, 4), topo=spmw.bitonic(8))
+        spmw.stream_in(X, into="lane", at_stage=0)
+        spmw.stream_out(Y, from_="lane", at_stage=6)
+
+    module = spmw.lower(net)
+    text = str(module)
+    assert text.count("spmw.map") == 1 and "grid = [6, 4]" in text
+    assert 'key = "lane"' in text
+    spmw._run_module_pass(module, "spmw-role-partition")
+    assert _link_classes(str(module)) == [24]  # one role body over all 6*4 comparators
+
+
+def test_crossbar_lowering_fails_closed_without_boundary_keys():
+    """The crossbar's per-input/-output scatter/gather boundary keys (`("in", i)` / `("out", j)`) cannot
+    be supplied by the lane-family stream API, so lowering a crossbar region **fails closed** (a
+    half-open scatter) rather than emitting an unfed interconnect."""
+
+    @spmw.unit
+    def switch(ctx):
+        v: float32 = ctx.row_in.get()
+        ctx.col_out.put(v)
+
+    @spmw.region()
+    def net(X: float32[4], Y: float32[4]):
+        spmw.map(switch, grid=(4, 4), topo=spmw.crossbar(4))
+        spmw.stream_in(X, into="in")
+        spmw.stream_out(Y, from_="out")
+
+    with pytest.raises(spmw.SPMWError):
+        spmw.lower(net)
+
+
+def test_tree_lowering_fails_closed_non_affine():
+    """The heap tree's parent map `(i-1)//2` is not a constant translation (each node has a different
+    parent offset), so it is not lowerable to the affine-`peer_link` rolled IR: `spmw.lower` **fails
+    closed** with a clear diagnostic. The frontend role structure is still correct (3 classes above); a
+    per-coordinate peer-edge IR is future work."""
+
+    @spmw.unit
+    def reduce_node(ctx):
+        left_val: float32 = ctx.left.get()
+        right_val: float32 = ctx.right.get()
+        ctx.up.put(left_val + right_val)
+
+    @spmw.region()
+    def net(X: float32[4], Y: float32[1]):
+        spmw.map(reduce_node, grid=(7,), topo=spmw.tree(4))
+
+    with pytest.raises(spmw.SPMWError, match="affine-translation"):
+        spmw.lower(net)

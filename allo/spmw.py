@@ -469,24 +469,30 @@ def crossbar_boundary_keys(n):
 def tree(n):
     """A binary reduction/broadcast tree over ``n`` (power-of-two) leaves: ``2n-1`` nodes in heap order
     (node ``i`` has parent ``(i-1)//2`` and children ``2i+1``/``2i+2``), wired by peer-form parent/child
-    links (``up`` <-> ``left``/``right``). The root has no ``up`` (its result leaves the tree) and leaves
-    have no children -- the open endpoints a region reads/feeds.
+    links (``up`` <-> ``left``/``right``).
+
+    Every node declares all three ports; the root's ``up`` and each leaf's ``left``/``right`` point at
+    *out-of-bounds* coordinates so they register as boundary ports (the root's result leaves the tree; the
+    leaves' inputs enter it). This gives three link-presence roles -- root ``{up}`` / internal ``{}`` /
+    leaf ``{left, right}`` -- under :func:`role_partition`. The heap parent map ``(i-1)//2`` is *not* a
+    constant translation (each node has a different parent offset), so the tree is a valid frontend
+    topology but is **not** lowerable to the affine-`peer_link` rolled IR (``lower`` fails closed); a
+    per-coordinate peer-edge representation is future work.
     """
     n, _ = _pow2_lanes(n, "tree")
     total = 2 * n - 1
 
     def link(i):
-        ports = {}
-        if i > 0:
-            parent = (i - 1) // 2
-            side = "left" if i == 2 * parent + 1 else "right"
-            ports["up"] = ((parent,), side)
-        left, right = 2 * i + 1, 2 * i + 2
-        if left < total:
-            ports["left"] = ((left,), "up")
-        if right < total:
-            ports["right"] = ((right,), "up")
-        return ports
+        parent = (i - 1) // 2  # root (i == 0): (-1)//2 == -1, out of bounds -> boundary
+        side = "left" if i == 2 * parent + 1 else "right"
+        return {
+            "up": ((parent,), side),  # boundary at the root
+            "left": (
+                (2 * i + 1,),
+                "up",
+            ),  # boundary at the leaves (child index >= total)
+            "right": ((2 * i + 2,), "up"),  # boundary at the leaves
+        }
 
     return Topology(grid=(total,), link=link)
 
