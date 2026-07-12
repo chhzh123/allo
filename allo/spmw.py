@@ -471,6 +471,32 @@ class Region:
     def __repr__(self):
         return f"<spmw.region {self.name!r}>"
 
+    def __call__(self, *args, **kwargs):
+        """Instantiate this region inside another region: inline its spatial content into the caller.
+
+        Invoking a region within an active region body (``mxu(ub, wbuf, psum)``) traces this region's
+        body with the caller's operands bound to its parameters, then merges the resulting maps,
+        streams, channels, and placements into the enclosing collection -- so a design is written once
+        (the sub-region) and instantiated, while the collected form the backends consume stays flat.
+        """
+        if _active_collector is None:
+            raise SPMWError(
+                f"region {self.name!r} can only be invoked inside another region body"
+            )
+        parent = _active_collector
+        sub = _collect_body(self, args, kwargs)
+        for channel_decl in sub.channels:
+            if any(existing.name == channel_decl.name for existing in parent.channels):
+                raise SPMWError(
+                    f"nested region {self.name!r} redeclares channel {channel_decl.name!r}"
+                )
+        parent.maps.extend(sub.maps)
+        parent.streams.extend(sub.streams)
+        parent.channels.extend(sub.channels)
+        parent.placements.extend(sub.placements)
+        parent.nested.append(self.name)
+        parent.nested.extend(sub.nested)
+
 
 def region():
     """Decorator factory marking a function as an SPMW composition scope."""
@@ -544,6 +570,10 @@ class _RegionCollection:
         self.streams = []
         self.channels = []
         self.placements = []
+        # Names of sub-regions invoked (inlined) in this region body, in call order -- a region can
+        # instantiate another region (``mxu(ub, wbuf, psum)``), which merges the sub-region's spatial
+        # content here. Recorded so codegen/tests can see the hierarchy the flat collection came from.
+        self.nested = []
 
 
 # The collector active while a region body is being traced (None outside a trace).
@@ -930,10 +960,12 @@ def _make_arguments(fn):
     return args, kwargs
 
 
-def _collect(program):
+def _collect_body(program, args, kwargs):
+    """Trace ``program``'s body with ``args``/``kwargs`` bound to its parameters into a fresh
+    collection, restoring the previously active collector afterward (so nested traces compose).
+    """
     global _active_collector
     collection = _RegionCollection()
-    args, kwargs = _make_arguments(program.fn)
     previous = _active_collector
     _active_collector = collection
     try:
@@ -941,6 +973,11 @@ def _collect(program):
     finally:
         _active_collector = previous
     return collection
+
+
+def _collect(program):
+    args, kwargs = _make_arguments(program.fn)
+    return _collect_body(program, args, kwargs)
 
 
 def _find_map(collection, work_unit):
@@ -1156,7 +1193,14 @@ def _validate_collection(collection):
                         f"role on unit {decl.unit.name!r} references undeclared port "
                         f"{edge!r}; declared ports: {sorted(ports)}"
                     )
-        body_ports = ports | channel_ports
+        # A non-mesh (e.g. 1-D vector) unit names its stream ports with ``as_=`` on the stream_in/out
+        # targeting it (``ctx.<as_>.get()``/``.put()``), since it has no mesh flow ports; add those.
+        stream_ports = {
+            stream.extra["as_"]
+            for stream in collection.streams
+            if stream.unit is decl.unit and isinstance(stream.extra.get("as_"), str)
+        }
+        body_ports = ports | channel_ports | stream_ports
         _check_body_ports(f"unit {decl.unit.name!r}", decl.unit.interior, body_ports)
         for edges, body in decl.unit.roles:
             _check_body_ports(

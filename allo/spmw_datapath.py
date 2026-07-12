@@ -170,6 +170,318 @@ def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
 """
 
 
+def _recognize_mini_tpu(collection):
+    """Detect the §3.4 Mini-TPU: a 2-D systolic MXU stage feeding a 1-D activation stage.
+
+    Returns ``(mesh_decl, act_decl, mesh_out, act_in, act_out)`` or raises ``NotImplementedError``.
+    The two stages are connected by a buffer that the MXU writes (``stream_out``) and the activation
+    reads (``stream_in``) -- recognized by identity of the shared tensor, not by name.
+    """
+    if len(collection.maps) != 2:
+        raise NotImplementedError("mini-TPU expects exactly two mapped stages")
+    mesh = [d for d in collection.maps if d.topology.dims == 2]
+    vec = [d for d in collection.maps if d.topology.dims == 1]
+    if len(mesh) != 1 or len(vec) != 1:
+        raise NotImplementedError(
+            "mini-TPU expects one 2-D mesh (MXU) stage and one 1-D vector (activation) stage"
+        )
+    mesh_decl, act_decl = mesh[0], vec[0]
+    in_flows = sorted(
+        s.flow
+        for s in collection.streams
+        if s.direction == "in" and s.unit is mesh_decl.unit and s.flow
+    )
+    if in_flows != ["N->S", "W->E"]:
+        raise NotImplementedError(
+            "mini-TPU MXU stage expects a W->E / N->S output-stationary systolic mesh"
+        )
+    mesh_out = [
+        s
+        for s in collection.streams
+        if s.direction == "out" and s.unit is mesh_decl.unit
+    ]
+    act_in = [
+        s for s in collection.streams if s.direction == "in" and s.unit is act_decl.unit
+    ]
+    act_out = [
+        s
+        for s in collection.streams
+        if s.direction == "out" and s.unit is act_decl.unit
+    ]
+    if len(mesh_out) != 1 or len(act_in) != 1 or len(act_out) != 1:
+        raise NotImplementedError(
+            "mini-TPU expects the MXU to write one buffer that the activation reads and writes one out"
+        )
+    if mesh_out[0].tensor is not act_in[0].tensor:
+        raise NotImplementedError(
+            "mini-TPU activation must read the exact buffer the MXU writes (the psum connection)"
+        )
+    return mesh_decl, act_decl, mesh_out[0], act_in[0], act_out[0]
+
+
+def _mesh_store_to_psum_put(stmt_text):
+    """Turn the systolic interior's ``local_C[i - 1, j - 1] = <rhs>`` store into a per-element psum
+    stream ``psum_fifo[i - 1, j - 1].put(<rhs>)`` -- so the MXU streams its output to the activation
+    stage (a sound one-put/one-get connection) instead of writing a shared array (which races).
+    """
+    node = ast.parse(stmt_text).body[0]
+    if (
+        isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Subscript)
+        and isinstance(node.targets[0].value, ast.Name)
+        and node.targets[0].value.id == "local_C"
+    ):
+        put = ast.Expr(
+            ast.Call(
+                func=ast.Attribute(
+                    value=ast.Subscript(
+                        value=ast.Name("psum_fifo", ast.Load()),
+                        slice=node.targets[0].slice,
+                        ctx=ast.Load(),
+                    ),
+                    attr="put",
+                    ctx=ast.Load(),
+                ),
+                args=[node.value],
+                keywords=[],
+            )
+        )
+        return ast.unparse(ast.fix_missing_locations(put))
+    return stmt_text
+
+
+class _ActRewriter(ast.NodeTransformer):
+    """Rewrite the 1-D activation unit body to its dataflow-kernel form.
+
+    ``ctx.rank()`` -> ``df.get_pid()``; the input port ``ctx.<in_port>.get()`` -> the per-row psum
+    stream ``psum_fifo[<row>, j].get()``; ``ctx.<bias_attr>`` (a region operand) -> ``local_bias``;
+    and the output port ``ctx.<out_port>.put(x)`` -> the per-row store ``local_OUT[<row>, j] = x``.
+    ``<row>`` is the enclosing ``for`` loop variable, so the activation consumes its column in row
+    order (each psum element is its own stream, so ordering is deterministic).
+    """
+
+    def __init__(self, ctx_name, in_port, out_port, bias_attr):
+        self.ctx = ctx_name
+        self.in_port = in_port
+        self.out_port = out_port
+        self.bias_attr = bias_attr
+        self.rowvars = []
+
+    @staticmethod
+    def _expr(text):
+        return ast.parse(text, mode="eval").body
+
+    def _ctx_attr(self, node):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == self.ctx
+        ):
+            return node.attr
+        return None
+
+    def _row(self):
+        return self.rowvars[-1] if self.rowvars else "r"
+
+    def visit_For(self, node):
+        rowvar = node.target.id if isinstance(node.target, ast.Name) else None
+        self.rowvars.append(rowvar)
+        self.generic_visit(node)
+        self.rowvars.pop()
+        # Unroll the row loop at compile time (``for r in range(n)`` -> ``with allo.meta_for(0, n)
+        # as r``) so each per-element psum stream index ``psum_fifo[r, j]`` is a constant row + the
+        # lane pid ``j`` -- a runtime loop variable is not a resolvable stream index.
+        if (
+            isinstance(node.iter, ast.Call)
+            and isinstance(node.iter.func, ast.Name)
+            and node.iter.func.id == "range"
+            and rowvar is not None
+        ):
+            args = node.iter.args
+            lb, ub = (
+                (ast.Constant(0), args[0]) if len(args) == 1 else (args[0], args[1])
+            )
+            item = ast.withitem(
+                context_expr=ast.Call(
+                    func=ast.Attribute(
+                        ast.Name("allo", ast.Load()), "meta_for", ast.Load()
+                    ),
+                    args=[lb, ub],
+                    keywords=[],
+                ),
+                optional_vars=ast.Name(rowvar, ast.Store()),
+            )
+            return ast.copy_location(ast.With(items=[item], body=node.body), node)
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        func = node.func
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "rank"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == self.ctx
+        ):
+            return self._expr("df.get_pid()")
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr in {"get", "get_or"}
+            and self._ctx_attr(func.value) == self.in_port
+        ):
+            func.value = self._expr(f"psum_fifo[{self._row()}, j]")
+        return node
+
+    def visit_Attribute(self, node):
+        self.generic_visit(node)
+        if self._ctx_attr(node) == self.bias_attr:
+            return ast.copy_location(ast.Name("local_bias", ast.Load()), node)
+        return node
+
+    def visit_Expr(self, node):
+        self.generic_visit(node)
+        val = node.value
+        if (
+            isinstance(val, ast.Call)
+            and isinstance(val.func, ast.Attribute)
+            and val.func.attr == "put"
+            and self._ctx_attr(val.func.value) == self.out_port
+        ):
+            target = self._expr(f"local_OUT[{self._row()}, j]")
+            target.ctx = ast.Store()
+            return ast.copy_location(
+                ast.Assign(targets=[target], value=val.args[0]), node
+            )
+        return node
+
+
+def generate_mini_tpu_source(region, collection):
+    """The allo.dataflow source for the §3.4 Mini-TPU: a systolic MXU stage streaming per-element
+    psum to a 1-D bias+ReLU activation stage.
+
+    The MXU is the §3.1 output-stationary systolic mesh verbatim (bit-identical accumulation), except
+    each interior PE, instead of storing to a shared array, ``put``s its result onto a per-element
+    ``psum_fifo`` stream. The activation is a distinct 1-D vector unit: lane ``j`` reads its column's
+    psum in row order, adds the bias, applies ReLU, and writes ``OUT``. The two heterogeneous stages
+    run concurrently, connected only by the stream -- exactly the memory/stream composition §3.4 shows.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
+    mesh_decl, act_decl, mesh_out, act_in, act_out = _recognize_mini_tpu(collection)
+    tensors = _region_tensors(region)
+    shape_of = {name: shape for name, shape, _ in tensors}
+    dtype = tensors[0][2]
+
+    mesh_ins = [
+        s
+        for s in collection.streams
+        if s.direction == "in" and s.unit is mesh_decl.unit
+    ]
+    act_name = next(s.tensor.name for s in mesh_ins if s.flow == "W->E")
+    wgt_name = next(s.tensor.name for s in mesh_ins if s.flow == "N->S")
+    out_name = act_out.tensor.name
+    for needed in (act_name, wgt_name, out_name):
+        if needed not in shape_of:
+            raise NotImplementedError(
+                f"mini-TPU operand {needed!r} is not a shaped region tensor"
+            )
+    rows, depth = shape_of[act_name]  # ACT is [M, K]
+    cols = shape_of[wgt_name][1]  # WGT is [K, N]
+    if tuple(mesh_decl.topology.grid) != (rows, cols):
+        raise SPMWError(
+            f"mini-TPU MXU mesh {tuple(mesh_decl.topology.grid)} does not match the operand-derived "
+            f"grid {(rows, cols)} (ACT is [M, K], WGT is [K, N], so the mesh is M x N)"
+        )
+    if tuple(act_decl.topology.grid) != (cols,):
+        raise SPMWError(
+            f"mini-TPU activation grid {tuple(act_decl.topology.grid)} must be the output-column "
+            f"count ({cols},)"
+        )
+    bias_name = next(
+        (
+            name
+            for name, shape in shape_of.items()
+            if shape == (cols,) and name not in (act_name, wgt_name, out_name)
+        ),
+        None,
+    )
+    if bias_name is None:
+        raise NotImplementedError(
+            f"mini-TPU needs a 1-D bias operand of length {cols} distinct from ACT/WGT/OUT"
+        )
+
+    out_attr = mesh_out.extra.get("as_", "c_local")
+    interior = _transcribe_interior(
+        mesh_decl.unit, {out_attr: ("local_C", "i - 1", "j - 1")}
+    )
+    interior = [_mesh_store_to_psum_put(stmt) for stmt in interior]
+    mesh_body = "\n".join(
+        " " * 12 + line for text in interior for line in text.splitlines()
+    )
+
+    in_port = act_in.extra.get("as_")
+    out_port = act_out.extra.get("as_")
+    if not isinstance(in_port, str) or not isinstance(out_port, str):
+        raise NotImplementedError(
+            "mini-TPU activation streams need as_= port names (the col_in/col_out ports)"
+        )
+    tree = ast.parse(textwrap.dedent(inspect.getsource(act_decl.unit.interior)))
+    func = tree.body[0]
+    ctx_name = func.args.args[0].arg
+    _ActRewriter(ctx_name, in_port, out_port, "bias").visit(func)
+    ast.fix_missing_locations(func)
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == ctx_name:
+            raise NotImplementedError(
+                "mini-TPU activation body uses a ctx reference the rewriter does not handle"
+            )
+    act_body = "\n".join(
+        " " * 8 + line for stmt in func.body for line in ast.unparse(stmt).splitlines()
+    )
+
+    return f"""import allo
+from allo.ir.types import {dtype}, Stream
+import allo.dataflow as df
+
+Rt, Ct, K = {rows}, {cols}, {depth}
+M, N = Rt, Ct
+P0, P1 = M + 2, N + 2
+
+
+@df.region()
+def {region.name}_df(ACT: {dtype}[M, K], WGT: {dtype}[K, N], bias: {dtype}[N], OUT: {dtype}[M, N]):
+    fifo_A: Stream[{dtype}, 4][P0, P1]
+    fifo_B: Stream[{dtype}, 4][P0, P1]
+    psum_fifo: Stream[{dtype}, 2][M, N]
+
+    @df.kernel(mapping=[P0, P1], args=[ACT, WGT])
+    def mxu(local_A: {dtype}[M, K], local_B: {dtype}[K, N]):
+        i, j = df.get_pid()
+        with allo.meta_if(i in {{0, M + 1}} and j in {{0, N + 1}}):
+            pass
+        with allo.meta_elif(j == 0):
+            for k in range(K):
+                fifo_A[i, j + 1].put(local_A[i - 1, k])
+        with allo.meta_elif(i == 0):
+            for k in range(K):
+                fifo_B[i + 1, j].put(local_B[k, j - 1])
+        with allo.meta_elif(i == M + 1 and j > 0):
+            for k in range(K):
+                _b: {dtype} = fifo_B[i, j].get()
+        with allo.meta_elif(j == N + 1 and i > 0):
+            for k in range(K):
+                _a: {dtype} = fifo_A[i, j].get()
+        with allo.meta_else():
+{mesh_body}
+
+    @df.kernel(mapping=[N], args=[bias, OUT])
+    def act(local_bias: {dtype}[N], local_OUT: {dtype}[M, N]):
+{act_body}
+"""
+
+
 def _region_tensors(region):
     """Ordered ``[(name, shape_tuple, dtype_name)]`` for the region's shaped operands."""
     annotations = getattr(region.fn, "__annotations__", {})
@@ -955,19 +1267,23 @@ def build_dataflow(region, target="simulator", **kwargs):
     # systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
     # joined by spmw.channel).
     try:
-        source = generate_1d_systolic_source(region, collection)
-        systolic = True
+        source = generate_mini_tpu_source(region, collection)
+        systolic = False
     except NotImplementedError:
         try:
-            source = generate_source(region, collection)
+            source = generate_1d_systolic_source(region, collection)
             systolic = True
         except NotImplementedError:
             try:
-                source = generate_fft_source(region, collection)
-                systolic = False
+                source = generate_source(region, collection)
+                systolic = True
             except NotImplementedError:
-                source = generate_pipeline_source(region, collection)
-                systolic = False
+                try:
+                    source = generate_fft_source(region, collection)
+                    systolic = False
+                except NotImplementedError:
+                    source = generate_pipeline_source(region, collection)
+                    systolic = False
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
