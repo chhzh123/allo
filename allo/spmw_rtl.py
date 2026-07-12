@@ -481,7 +481,9 @@ def emit_role_ip(region):
     from .spmw_datapath import _resolve_dims
     from .spmw_hls import _CPP_TYPE, _ROLLED_WIRING, transcribe_pe_cpp
 
-    collection = _validate_collection(_collect(region))
+    # Backend-facing export: enforce the strict topology contract (task6.1) so a region with a dangling
+    # mesh boundary never emits kernel.cpp. emit_role_ip_project delegates here, so both are covered.
+    collection = _validate_collection(_collect(region), strict_topology=True)
     decl = collection.maps[0]
     _rows, _cols, depth, dtype = _resolve_dims(region)
     elem = _CPP_TYPE[dtype]

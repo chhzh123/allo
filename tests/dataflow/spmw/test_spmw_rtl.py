@@ -44,8 +44,32 @@ def _systolic_twin(M, N, K):
     return gemm
 
 
+def _dangling_role_region(M=4, N=4, K=4):
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        ctx.west.get()  # dangling: reads `west`, never relays it, no stream feeds it
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+
+    return gemm
+
+
 def _module_types(sv):
     return set(re.findall(r"module (\w+)", sv))
+
+
+def test_role_ip_export_enforces_strict_topology():
+    """`emit_role_ip` / `emit_role_ip_project` are backend-facing exports: they must not emit `kernel.cpp`
+    for a region with a dangling mesh boundary. Strict topology (task6.1) is enforced before emission.
+    """
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        emit_role_ip(_dangling_role_region())
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        emit_role_ip_project(_dangling_role_region())
 
 
 def test_structural_verilog_consumes_spmw_map():

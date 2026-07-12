@@ -1106,12 +1106,6 @@ _FLOW_PORTS = {
     "S->N": ("south", "north"),
 }
 
-# The opposite boundary port on each mesh flow axis: west<->east, north<->south. A unit that streams over
-# BOTH ports of an axis is a through-flow (systolic pass-through), so its two edge boundaries are handled
-# by design -- the entry becomes a well-defined loader/top-level input and the exit a drain/top-level
-# output. Derived from the flow table so the two stay in sync.
-_FLOW_PARTNER = dict(_FLOW_PORTS.values())
-
 
 class _TensorPlaceholder:
     """Stands in for a region's tensor argument while its body is traced."""
@@ -1274,33 +1268,43 @@ def _check_body_ports(label, fn, ports):
                 reject(aliased)
 
 
-def _ports_used_by(fn):
-    """The set of ports a work-unit/role body streams over (``ctx.<port>.get/put/get_or``), for the
-    usage-aware unhandled-boundary check. Only statically-provable string port names are returned;
-    unreadable source, a missing ``ctx`` param, and dynamic ``ctx.port(var)`` are treated conservatively
-    (an incomplete set is safe -- the check only *requires* handling for a boundary port it can prove is
-    used)."""
-    used = set()
+def _port_ops_by(fn):
+    """``{port: {op-kind, ...}}`` -- the stream ops a work-unit body performs on each port, where each
+    op-kind is one of ``_STREAM_METHODS`` (``"get"``/``"get_or"`` are reads, ``"put"`` is a write), for
+    the **direction-aware** unhandled-boundary check. Only statically-provable string port names are
+    returned; unreadable source, a missing ``ctx`` param, and dynamic ``ctx.port(var)`` are treated
+    conservatively (an incomplete map is safe -- the check only *requires* handling for a boundary op it
+    can prove is performed)."""
+    ops = {}
     try:
         tree_ast = ast.parse(textwrap.dedent(inspect.getsource(fn)))
     except (OSError, TypeError, SyntaxError):
-        return used
+        return ops
     ctx_name = _ctx_param_name(fn)
     if ctx_name is None:
-        return used
+        return ops
     aliases = _collect_port_aliases(tree_ast, ctx_name)
     for node in ast.walk(tree_ast):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
-        if node.func.attr not in _STREAM_METHODS:
+        kind = node.func.attr
+        if kind not in _STREAM_METHODS:
             continue
         receiver = node.func.value
         port = _receiver_port(receiver, ctx_name)
         if isinstance(port, str):
-            used.add(port)
+            targets = [port]
         elif isinstance(receiver, ast.Name) and receiver.id in aliases:
-            used.update(p for p in aliases[receiver.id] if isinstance(p, str))
-    return used
+            targets = [p for p in aliases[receiver.id] if isinstance(p, str)]
+        else:
+            targets = []
+        for target in targets:
+            ops.setdefault(target, set()).add(kind)
+    return ops
+
+
+_READ_OPS = {"get", "get_or"}
+_WRITE_OPS = {"put"}
 
 
 def _key_form_keys(topology):
@@ -1434,26 +1438,27 @@ def _check_depth_consistency(decl):
 
 
 def _check_unhandled_boundaries(decl, streams):
-    """Every mesh/ring boundary port the interior consumes must be handled by a producer/consumer
-    (task6.1 topology check).
+    """Every mesh/ring boundary op the interior performs must be handled by a producer/consumer
+    (task6.1 topology check), **direction-aware**: a boundary **read** needs a producer, a boundary
+    **write** needs a consumer -- the two are tracked separately, so merely *mentioning* a port on both
+    sides of an axis is not enough.
 
-    A peer-translation boundary port (a :meth:`boundary_ports_at` port whose neighbor is out of bounds)
-    is handled when any of these is true:
+    For a peer-translation boundary port (a :meth:`boundary_ports_at` port whose neighbor is out of
+    bounds):
 
-    * the interior **completes the systolic relay on that port's axis** -- it streams over both the port
-      and its :data:`_FLOW_PARTNER` (e.g. reads ``west`` *and* writes ``east``), so the through-flow's
-      entry/exit boundaries are well-defined (a loader/top-level input feeds the entry, a drain/top-level
-      output consumes the exit);
-    * an auto-halo flow ``stream_in``/``stream_out`` **targeting this same unit** loads/drains it
-      (``_FLOW_PORTS[flow]``); or
-    * a declared boundary role covers it.
+    * a boundary **read** on ``entry`` is handled when the interior **completes the systolic relay** on
+      that axis -- it reads ``entry`` *and* writes ``exit`` (a through-flow whose entry is a well-defined
+      top-level input / loader), or when a ``stream_in`` flow whose entry is that port feeds it;
+    * a boundary **write** on ``exit`` is handled when the interior completes the relay, or when a
+      ``stream_in`` **or** ``stream_out`` flow whose exit is that port drains it (both synthesize an exit
+      drain/collector -- see :func:`halo_roles`);
+    * a declared boundary role handles all ops on its declared edge ports.
 
-    A boundary port the interior reads (or writes) with none of the above -- e.g. a unit that consumes
-    ``west`` but never relays it onward and has no feeding stream -- is a dangling edge with no data
-    source/sink and is rejected. Only the interior body defines what *needs* handling: an explicit
-    ``@unit.role`` is itself a boundary handler (its ports are wired by the role), and a skeleton unit
-    that streams over nothing needs nothing. Edge-form (the tree's ``explicit_ports``) and key-form
-    boundaries are externally fed by design (validated by the edge/key machinery), so they are excluded.
+    Direction matters: a ``stream_out(flow="W->E")`` drains ``east`` but does *not* feed ``west``, so it
+    cannot handle a ``west.get()``; a body that reads both ``west`` and ``east`` never writes ``east`` and
+    so does not complete the ``W->E`` relay. Only the interior body defines what *needs* handling (roles
+    are handlers, a ``pass`` interior needs nothing). Edge-form (the tree's ``explicit_ports``) and
+    key-form boundaries are externally fed by design and excluded.
     """
     topology = decl.topology
     explicit = topology.explicit_ports
@@ -1464,32 +1469,50 @@ def _check_unhandled_boundaries(decl, streams):
         )
     if not boundary:
         return
-    # Usage-aware: only a boundary port the replicated compute (the unit interior) actually reads/writes
-    # needs a producer/consumer, so a skeleton (`pass`) interior needs nothing. Role bodies are handlers,
-    # not consumers, so they define no requirement here.
-    used = _ports_used_by(decl.unit.interior)
-    needed = boundary & used
-    if not needed:
+    # Usage-aware + direction-aware: split the interior's boundary ops into reads (need a producer) and
+    # writes (need a consumer). A skeleton (`pass`) interior performs neither, so it needs nothing.
+    interior_ops = _port_ops_by(decl.unit.interior)
+    reads = {p for p, kinds in interior_ops.items() if kinds & _READ_OPS}
+    writes = {p for p, kinds in interior_ops.items() if kinds & _WRITE_OPS}
+    needed_reads = boundary & reads
+    needed_writes = boundary & writes
+    if not needed_reads and not needed_writes:
         return
-    # A through-flow port (both it and its axis partner are streamed over) is self-handled: the axis is a
-    # systolic pass-through whose two edge boundaries are well-defined I/O.
-    handled = {p for p in used if _FLOW_PARTNER.get(p) in used}
+    handled_reads, handled_writes = set(), set()
+    # Relay completion: the interior reads `entry` AND writes `exit` of a real axis flow -> entry is a
+    # well-defined top-level input, exit a well-defined top-level output.
+    for entry, exit_edge in _FLOW_PORTS.values():
+        if entry in reads and exit_edge in writes:
+            handled_reads.add(entry)
+            handled_writes.add(exit_edge)
     for stream in streams:
         # Only a flow stream targeting THIS map's unit handles this map's boundaries (a stream feeding a
         # different map in the same region must not mask an unhandled boundary here).
-        if (
-            stream.unit is decl.unit
-            and stream.flow is not None
-            and stream.flow in _FLOW_PORTS
-        ):
-            handled.update(_FLOW_PORTS[stream.flow])
+        if stream.unit is not decl.unit or stream.flow not in _FLOW_PORTS:
+            continue
+        entry, exit_edge = _FLOW_PORTS[stream.flow]
+        # `stream_in` loads the entry read and drains the exit write; `stream_out` only drains the exit.
+        if stream.direction == "in":
+            handled_reads.add(entry)
+        handled_writes.add(exit_edge)
     for edges, _ in decl.unit.roles:
-        handled.update(edges)
-    unhandled = needed - handled
-    if unhandled:
+        handled_reads.update(edges)
+        handled_writes.update(edges)
+    unhandled_reads = needed_reads - handled_reads
+    unhandled_writes = needed_writes - handled_writes
+    if unhandled_reads or unhandled_writes:
+        parts = []
+        if unhandled_reads:
+            parts.append(
+                f"read boundary port(s) {sorted(unhandled_reads)} with no producer"
+            )
+        if unhandled_writes:
+            parts.append(
+                f"written boundary port(s) {sorted(unhandled_writes)} with no consumer"
+            )
         raise SPMWError(
-            f"boundary port(s) {sorted(unhandled)} used by unit {decl.unit.name!r} are unhandled: no "
-            f"relay flow, auto-halo stream, or boundary role produces/consumes them"
+            f"unit {decl.unit.name!r} has unhandled {' and '.join(parts)}: no relay flow, auto-halo "
+            f"stream, or boundary role produces/consumes them"
         )
 
 

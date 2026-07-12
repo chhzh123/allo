@@ -655,6 +655,54 @@ def _relay_completing_mesh_region():
     return top
 
 
+def _reads_both_axis_ports_region():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def sink(ctx):
+        a: float32 = ctx.west.get()
+        b: float32 = (
+            ctx.east.get()
+        )  # reads BOTH ends of the W-E axis, writes neither -> no relay
+
+    @spmw.region()
+    def top(A: float32[3, 3]):
+        spmw.map(sink, grid=grid)
+
+    return top
+
+
+def _writes_both_axis_ports_region():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def src(ctx):
+        ctx.west.put(1.0)
+        ctx.east.put(1.0)  # writes BOTH ends of the W-E axis, reads neither -> no relay
+
+    @spmw.region()
+    def top(A: float32[3, 3]):
+        spmw.map(src, grid=grid)
+
+    return top
+
+
+def _stream_out_masks_read_region():
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def sink(ctx):
+        ctx.west.get()  # a boundary READ needing a producer
+
+    @spmw.region()
+    def top(A: float32[3, 3]):
+        spmw.map(sink, grid=grid)
+        # a stream_out drains `east` (the exit) but does NOT feed `west` (the entry) -> cannot mask the read
+        spmw.stream_out(A, from_=sink, flow="W->E")
+
+    return top
+
+
 def test_check_topology_accepts_handled_regions():
     """The strict `spmw.check_topology` diagnostic passes well-formed regions: the systolic mesh (all
     boundaries handled by the W->E / N->S auto-halo flows, uniform depths) and the edge-form tree (its
@@ -735,6 +783,29 @@ def test_strict_topology_is_per_map_not_region_wide():
 
     with pytest.raises(spmw.SPMWError, match="unhandled"):
         spmw.check_topology(top)
+
+
+def test_relay_completion_is_direction_aware():
+    """A relay is "completed" only when the interior READS the axis entry and WRITES the exit. A body that
+    reads both ends (`west`+`east`) or writes both ends never relays -- both ports still dangle (a read with
+    no producer / a write with no consumer). Rejected by both `check_topology` and `lower` (these passed
+    under the direction-blind check that only compared port-name sets)."""
+    for build in (_reads_both_axis_ports_region, _writes_both_axis_ports_region):
+        with pytest.raises(spmw.SPMWError, match="unhandled"):
+            spmw.check_topology(build())
+        with pytest.raises(spmw.SPMWError, match="unhandled"):
+            spmw.lower(build())
+
+
+def test_stream_out_does_not_mask_boundary_read():
+    """Direction-aware auto-halo: a `stream_out(flow="W->E")` synthesizes only an `east` (exit) drain, so it
+    cannot supply a `west.get()` (entry read). The dangling read is rejected by both `check_topology` and
+    `lower`; a `stream_in` on the same flow WOULD feed it (proven by the systolic positive).
+    """
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        spmw.check_topology(_stream_out_masks_read_region())
+    with pytest.raises(spmw.SPMWError, match="unhandled"):
+        spmw.lower(_stream_out_masks_read_region())
 
 
 def test_inconsistent_channel_depth_rejected_at_lowering():
