@@ -276,7 +276,7 @@ def test_halo_port_not_peer_rejected():
     bad = VALID_HALO.replace(
         'port = "west", kind = "load"', 'port = "north", kind = "load"'
     )
-    with pytest.raises(Exception, match="not a declared peer-link port"):
+    with pytest.raises(Exception, match="not a declared peer-link"):
         _parse(bad)
 
 
@@ -331,7 +331,7 @@ def test_non_positive_grid_rejected():
 
 def test_role_missing_non_peer_port_rejected():
     bad = VALID_PEER.replace("missing = []", 'missing = ["bogus"]')
-    with pytest.raises(Exception, match="not a declared peer-link port"):
+    with pytest.raises(Exception, match="not a declared peer-link"):
         _parse(bad)
 
 
@@ -370,7 +370,7 @@ def test_role_ports_non_peer_rejected():
     bad = VALID_ROLE_PORTS.replace(
         'ports = ["east", "west"]', 'ports = ["east", "bogus"]'
     )
-    with pytest.raises(Exception, match="not a declared peer-link port"):
+    with pytest.raises(Exception, match="not a declared peer-link"):
         _parse(bad)
 
 

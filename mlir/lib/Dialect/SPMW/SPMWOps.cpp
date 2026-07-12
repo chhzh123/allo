@@ -36,33 +36,33 @@ using namespace mlir::spmw;
 namespace mlir {
 namespace spmw {
 
-// Whether an affine map is a pure per-dim translation ``(d0, d1, ...) -> (d0 +
-// c0, d1 + c1, ...)`` -- the mesh/ring peer links whose reciprocal is a
-// well-defined inverse. A general-affine peer map (e.g. the heap reduction
-// tree's
-// ``(d0 - 1) floordiv 2`` / ``d0 * 2 + 1``) is not a translation; it is an
-// explicit, possibly non-reciprocal edge whose only role-partition use is the
-// in-bounds check of its evaluated peer coordinate.
-static bool isTranslationMap(AffineMap map) {
-  if (map.getNumSymbols() != 0 || map.getNumResults() != map.getNumDims())
+// Row-major linear index of a grid coordinate, and whether a coordinate is in
+// bounds -- used to validate the explicit per-coordinate `edge_link`s of an
+// irregular topology (the tree) whose reciprocal peer port varies by
+// coordinate.
+static int64_t linearizeCoord(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
+  int64_t idx = 0;
+  for (size_t d = 0; d < grid.size(); ++d)
+    idx = idx * grid[d] + coord[d];
+  return idx;
+}
+static bool coordInBounds(ArrayRef<int64_t> coord, ArrayRef<int64_t> grid) {
+  if (coord.size() != grid.size())
     return false;
-  for (unsigned i = 0, e = map.getNumResults(); i < e; ++i) {
-    AffineExpr expr = map.getResult(i);
-    if (auto dim = llvm::dyn_cast<AffineDimExpr>(expr)) {
-      if (dim.getPosition() != i)
-        return false;
-    } else if (auto bin = llvm::dyn_cast<AffineBinaryOpExpr>(expr)) {
-      auto dim = llvm::dyn_cast<AffineDimExpr>(bin.getLHS());
-      auto cst = llvm::dyn_cast<AffineConstantExpr>(bin.getRHS());
-      if (bin.getKind() != AffineExprKind::Add || !dim || !cst ||
-          dim.getPosition() != i)
-        return false;
-    } else {
+  for (size_t d = 0; d < grid.size(); ++d)
+    if (coord[d] < 0 || coord[d] >= grid[d])
       return false;
-    }
-  }
   return true;
 }
+
+// One concrete explicit interconnect edge, collected from an `edge_link`.
+struct EdgeRec {
+  SmallVector<int64_t> at;
+  StringRef port;
+  SmallVector<int64_t> peer;
+  StringRef peerPort;
+  int64_t depth;
+};
 
 LogicalResult MapOp::verify() {
   TopologyAttr topology = getTopology();
@@ -80,6 +80,8 @@ LogicalResult MapOp::verify() {
   // The src and sink sharing a key must agree on depth and element type.
   llvm::DenseMap<Attribute, std::pair<int64_t, Type>> keyAbi;
   llvm::StringMap<PeerLinkAttr> peerByPort;
+  SmallVector<EdgeRec> edgeList;
+  llvm::DenseMap<std::pair<int64_t, StringRef>, unsigned> edgeIndex;
   for (Attribute linkAttr : topology.getLinks()) {
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr)) {
       AffineMap map = peer.getPeerMap().getAffineMap();
@@ -120,9 +122,29 @@ LogicalResult MapOp::verify() {
           return emitOpError("key '")
                  << key.getKey() << "' endpoints have mismatched element type";
       }
+    } else if (auto edge = llvm::dyn_cast<EdgeLinkAttr>(linkAttr)) {
+      if (static_cast<int64_t>(edge.getAt().size()) != dims ||
+          static_cast<int64_t>(edge.getPeer().size()) != dims)
+        return emitOpError("edge link '")
+               << edge.getPort()
+               << "' coord rank does not match topology dims (" << dims << ")";
+      if (edge.getDepth() <= 0)
+        return emitOpError("edge link '")
+               << edge.getPort() << "' has non-positive depth";
+      if (!coordInBounds(edge.getAt(), grid))
+        return emitOpError("edge link '")
+               << edge.getPort() << "' local coordinate is out of bounds";
+      std::pair<int64_t, StringRef> key = {linearizeCoord(edge.getAt(), grid),
+                                           edge.getPort()};
+      if (!edgeIndex.try_emplace(key, edgeList.size()).second)
+        return emitOpError("duplicate edge link at one coordinate for port '")
+               << edge.getPort() << "'";
+      edgeList.push_back({SmallVector<int64_t>(edge.getAt()), edge.getPort(),
+                          SmallVector<int64_t>(edge.getPeer()),
+                          edge.getPeerPort(), edge.getDepth()});
     } else {
-      return emitOpError(
-          "topology link must be a peer_link or key_link attribute");
+      return emitOpError("topology link must be a peer_link, key_link, or "
+                         "edge_link attribute");
     }
   }
   // A channel key names a channel family: 1->1 (peer), 1->N (scatter), N->1
@@ -163,14 +185,6 @@ LogicalResult MapOp::verify() {
       static_cast<unsigned>(dims), getContext());
   for (const auto &entry : peerByPort) {
     PeerLinkAttr link = entry.second;
-    // A non-translation peer map (e.g. the heap tree's `(d0-1) floordiv 2`) is
-    // an explicit, possibly non-reciprocal edge: its reciprocal is
-    // coordinate-dependent (the tree's `up` peers a parent's `left` or `right`
-    // by child parity), so the strict inverse-composition reciprocity below
-    // does not apply. The role-partition pass classifies it purely by its
-    // evaluated peer coordinate's in-bounds-ness.
-    if (!isTranslationMap(link.getPeerMap().getAffineMap()))
-      continue;
     auto peerIt = peerByPort.find(link.getPeerPort());
     if (peerIt == peerByPort.end())
       return emitOpError("peer link '")
@@ -196,6 +210,33 @@ LogicalResult MapOp::verify() {
              << "' and its reciprocal have mismatched element type";
   }
 
+  // Explicit edges (irregular topologies): each in-bounds edge must have a
+  // matching reciprocal edge at its peer on `peerPort` pointing back; an
+  // out-of-bounds peer is a boundary edge. The channel/unroll passes
+  // canonicalize a FIFO on this per-edge peer port, so a wrong reciprocal peer
+  // port is rejected.
+  llvm::StringSet<> edgePorts;
+  for (const EdgeRec &e : edgeList)
+    edgePorts.insert(e.port);
+  for (const EdgeRec &e : edgeList) {
+    if (!coordInBounds(e.peer, grid))
+      continue;
+    auto it = edgeIndex.find({linearizeCoord(e.peer, grid), e.peerPort});
+    if (it == edgeIndex.end())
+      return emitOpError("edge link '")
+             << e.port << "' has no reciprocal edge at its peer on peer port '"
+             << e.peerPort << "'";
+    const EdgeRec &back = edgeList[it->second];
+    if (ArrayRef<int64_t>(back.peer) != ArrayRef<int64_t>(e.at) ||
+        back.peerPort != e.port)
+      return emitOpError("edge link '")
+             << e.port << "' and its reciprocal on peer port '" << e.peerPort
+             << "' are not reciprocal";
+    if (back.depth != e.depth)
+      return emitOpError("edge link '")
+             << e.port << "' and its reciprocal have mismatched depth";
+  }
+
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
     if (!role)
@@ -205,9 +246,11 @@ LogicalResult MapOp::verify() {
       auto port = llvm::dyn_cast<StringAttr>(missing);
       if (!port)
         return emitOpError("role missing entry must be a string");
-      if (!peerByPort.contains(port.getValue()))
+      if (!peerByPort.contains(port.getValue()) &&
+          !edgePorts.contains(port.getValue()))
         return emitOpError("role missing port '")
-               << port.getValue() << "' is not a declared peer-link port";
+               << port.getValue()
+               << "' is not a declared peer-link or edge-link port";
       if (!seenMissing.insert(port.getValue()).second)
         return emitOpError("role missing port '")
                << port.getValue() << "' is repeated";
@@ -218,9 +261,11 @@ LogicalResult MapOp::verify() {
         auto port = llvm::dyn_cast<StringAttr>(portAttr);
         if (!port)
           return emitOpError("role port entry must be a string");
-        if (!peerByPort.contains(port.getValue()))
+        if (!peerByPort.contains(port.getValue()) &&
+            !edgePorts.contains(port.getValue()))
           return emitOpError("role port '")
-                 << port.getValue() << "' is not a declared peer-link port";
+                 << port.getValue()
+                 << "' is not a declared peer-link or edge-link port";
         if (!seenPorts.insert(port.getValue()).second)
           return emitOpError("role port '")
                  << port.getValue() << "' is repeated";

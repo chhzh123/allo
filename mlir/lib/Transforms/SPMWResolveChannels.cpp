@@ -97,6 +97,22 @@ struct SPMWResolveChannelsPass
           else if (it->second != key.getDepth())
             return map.emitOpError("key channel family '")
                    << name << "' has links with mismatched depth";
+        } else if (auto edge = llvm::dyn_cast<spmw::EdgeLinkAttr>(link)) {
+          // An explicit edge groups into a family by its own per-edge unordered
+          // {port, peerPort} pair -- the tree's right-child `up` (peer `right`)
+          // joins the parent's `right` (peer `up`) family, distinct from a
+          // left-child `up` (peer `left`) -- so the true per-edge peer port
+          // drives the channel family.
+          StringRef ea = edge.getPort(), eb = edge.getPeerPort();
+          std::string family = (ea <= eb ? (llvm::Twine(ea) + "/" + eb)
+                                         : (llvm::Twine(eb) + "/" + ea))
+                                   .str();
+          auto it = familyDepth.find(family);
+          if (it == familyDepth.end())
+            familyDepth[family] = edge.getDepth();
+          else if (it->second != edge.getDepth())
+            return map.emitOpError("channel family '")
+                   << family << "' has links with mismatched depth";
         }
         continue;
       }

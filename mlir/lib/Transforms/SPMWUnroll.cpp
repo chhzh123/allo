@@ -246,13 +246,19 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
     sortedPorts.push_back(peer.getPort());
   llvm::sort(sortedPorts);
 
-  // key_link channels are resolved by rendezvous key, not by grid neighbor, so
-  // this grid-expansion pass cannot wire them. Fail closed rather than silently
-  // drop them (channel-resolution will own key links).
-  for (Attribute link : topology.getLinks())
+  // key_link channels rendezvous by key, and edge_link channels are explicit
+  // per-coordinate edges of an irregular topology -- neither is a uniform grid
+  // neighbor this grid-expansion pass wires. Fail closed rather than silently
+  // drop them (channel-resolution owns key links; edge links carry their own
+  // true per-edge peer port there).
+  for (Attribute link : topology.getLinks()) {
     if (llvm::isa<spmw::KeyLinkAttr>(link))
       return map.emitOpError(
           "spmw-unroll does not yet lower key_link channels");
+    if (llvm::isa<spmw::EdgeLinkAttr>(link))
+      return map.emitOpError(
+          "spmw-unroll does not yet lower edge_link channels");
+  }
 
   SmallVector<RoleInfo> roles;
   for (Attribute roleAttr : map.getRoles()) {

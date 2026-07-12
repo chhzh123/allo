@@ -50,6 +50,30 @@ def SPMW_KeyLinkAttr : SPMW_Attr<"KeyLink", "key_link"> {
   }];
 }
 
+def SPMW_EdgeLinkAttr : SPMW_Attr<"EdgeLink", "edge_link"> {
+  let summary = "An explicit per-coordinate interconnect edge for an irregular topology.";
+  let description = [{
+    An edge link binds the local `port` at grid coordinate `at` to the `peerPort` of
+    the work unit at coordinate `peer` (which may be out of bounds, marking a boundary
+    edge). Unlike `peer_link`, each concrete edge is listed explicitly, so an irregular
+    topology whose reciprocal peer port varies by coordinate -- e.g. a binary reduction
+    tree's `up` edge, which peers a parent's `left` or `right` by child parity -- is
+    represented faithfully. `depth` is the FIFO depth; `elementType`, when present, is
+    the element type carried.
+  }];
+  let parameters = (ins StringRefParameter<>:$port,
+                        ArrayRefParameter<"int64_t">:$at,
+                        ArrayRefParameter<"int64_t">:$peer,
+                        StringRefParameter<>:$peerPort,
+                        "int64_t":$depth,
+                        OptionalParameter<"::mlir::TypeAttr">:$elementType);
+  let assemblyFormat = [{
+    `<` `port` `=` $port `,` `at` `=` `[` $at `]` `,` `peer` `=` `[` $peer `]`
+    `,` `peer_port` `=` $peerPort `,` `depth` `=` $depth
+    (`,` `type` `=` $elementType^)? `>`
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 // Topology and roles
 //===----------------------------------------------------------------------===//

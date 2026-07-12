@@ -438,12 +438,7 @@ def test_crossbar_missing_boundary_family_fails_closed():
         spmw.lower(net)
 
 
-def test_tree_lowers_to_spmw_map_three_role_classes():
-    """A `tree(4)` region lowers to one `spmw.map`: the heap `up`/`left`/`right` become general affine
-    `#spmw.peer_link` maps (`(d0-1) floordiv 2`, `d0*2+1`, `d0*2+2`), and `spmw-role-partition` evaluates
-    them to the **three** link-presence classes by identity + count -- root `up`=1, internal ``=2, leaf
-    `left,right`=4."""
-
+def _tree_region(topo):
     @spmw.unit
     def reduce_node(ctx):
         left_val: float32 = ctx.left.get()
@@ -452,13 +447,99 @@ def test_tree_lowers_to_spmw_map_three_role_classes():
 
     @spmw.region()
     def net(X: float32[4], Y: float32[1]):
-        spmw.map(reduce_node, grid=(7,), topo=spmw.tree(4))
+        spmw.map(reduce_node, grid=topo.grid, topo=topo)
 
-    module = spmw.lower(net)
+    return net
+
+
+def test_tree_lowers_to_spmw_map_three_role_classes():
+    """A `tree(4)` region lowers to one `spmw.map`: the heap `up`/`left`/`right` become explicit
+    per-coordinate `#spmw.edge_link`s (not affine peer_links), and `spmw-role-partition` classifies them
+    by their per-edge peer coord's in-bounds-ness into the **three** link-presence classes -- root `up`=1,
+    internal ``=2, leaf `left,right`=4."""
+    module = spmw.lower(_tree_region(spmw.tree(4)))
     text = str(module)
     assert text.count("spmw.map") == 1 and "grid = [7]" in text
-    assert (
-        "floordiv" in text
-    )  # the non-translation heap parent map lowered as a general affine map
+    assert "spmw.edge_link" in text and "spmw.peer_link" not in text
     spmw._run_module_pass(module, "spmw-role-partition")
     assert _link_class_map(str(module)) == {"up": 1, "": 2, "left,right": 4}
+
+
+def test_tree_edges_carry_true_per_parity_peer_port():
+    """The rolled tree wiring is **truthful**: a right child's `up` edge binds to the parent's `right`
+    port, a left child's `up` binds to `left` -- not a single representative peer port. This is the exact
+    defect Round 22's affine encoding hid (all `up` edges said `peer = "left"`)."""
+    text = str(spmw.lower(_tree_region(spmw.tree(4))))
+
+    def up_peer_port(node):  # the peer_port of node's `up` edge
+        match = re.search(
+            r'edge_link<port = "up", at = \[%d\], peer = \[\d+\], peer_port = "(\w+)"'
+            % node,
+            text,
+        )
+        return match.group(1) if match else None
+
+    assert up_peer_port(1) == "left"  # node 1 is a left child (2*0+1)
+    assert up_peer_port(2) == "right"  # node 2 is a right child (2*0+2)
+    assert up_peer_port(3) == "left" and up_peer_port(4) == "right"
+
+
+def test_tree_wrong_peer_port_rejected_by_frontend():
+    """A tree whose node-2 `up` edge wrongly binds the parent's `left` (it is a right child) is rejected
+    up front by the frontend symmetry check -- a malformed wiring never reaches lowering.
+    """
+
+    def bad_link(i):
+        parent = (i - 1) // 2
+        side = "left" if i == 2 * parent + 1 else "right"
+        if i == 2:
+            side = "left"  # WRONG: node 2 is a right child; its up should peer "right"
+        return {
+            "up": ((parent,), side),
+            "left": ((2 * i + 1,), "up"),
+            "right": ((2 * i + 2,), "up"),
+        }
+
+    topo = spmw.Topology(
+        grid=(7,), link=bad_link, explicit_ports={"up", "left", "right"}
+    )
+    with pytest.raises(spmw.SPMWError, match="asymmetric"):
+        spmw.lower(_tree_region(topo))
+
+
+def test_edge_link_verifier_rejects_non_reciprocal():
+    """The op **verifier** itself rejects an explicit edge table whose in-bounds reciprocal points to the
+    wrong peer port: node 1's `b` edge below binds `WRONG` instead of `a`, so the reciprocal edge at
+    `(0, a)`'s peer does not point back -- caught independent of the frontend."""
+    from allo._mlir.ir import Context, Location, Module
+    import allo._mlir.dialects.allo as allo_d
+
+    bad = """
+    module {
+      func.func @u() { return }
+      func.func @top(%arg0: memref<1xf32>) {
+        spmw.map(%arg0) topology = <grid = [2], dims = 1, links = [
+          #spmw.edge_link<port = "a", at = [0], peer = [1], peer_port = "b", depth = 2>,
+          #spmw.edge_link<port = "b", at = [1], peer = [0], peer_port = "WRONG", depth = 2>
+        ]> roles = [#spmw.role<unit = @u, missing = []>] : memref<1xf32>
+        return
+      }
+    }
+    """
+    ctx = Context()
+    allo_d.register_dialect(ctx)
+    with ctx, Location.unknown():
+        with pytest.raises(Exception, match="reciprocal"):
+            Module.parse(bad)
+
+
+def test_tree_resolve_channels_uses_per_edge_peer_port():
+    """`spmw-resolve-channels` groups the tree's edges into channel families by their **true per-edge**
+    peer port: a right-child `up` (peer `right`) joins the parent's `right` (`right/up`), a left-child
+    `up` (peer `left`) joins `left/up` -- distinct families, proving the wiring is per-edge correct.
+    """
+    module = spmw.lower(_tree_region(spmw.tree(4)))
+    spmw._run_module_pass(module, "spmw-resolve-channels")
+    text = str(module)
+    assert "spmw.channel_families" in text
+    assert "left/up" in text and "right/up" in text

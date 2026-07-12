@@ -26,8 +26,10 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringSet.h"
 
 #include <map>
 #include <string>
@@ -166,6 +168,24 @@ struct SPMWRolePartitionPass
       if (auto peer = llvm::dyn_cast<spmw::PeerLinkAttr>(link))
         peers.push_back(peer);
 
+    // Explicit per-coordinate edges (irregular topologies like the tree): map
+    // (linearized coord, port) -> peer coord, so a port is "missing" at a coord
+    // exactly when its edge's peer coordinate is out of bounds -- the same
+    // link-presence signal as an out-of-bounds affine peer map.
+    llvm::DenseMap<std::pair<int64_t, StringRef>, SmallVector<int64_t>>
+        edgesByAt;
+    SmallVector<StringRef> edgePortNames;
+    llvm::StringSet<> edgePortSeen;
+    for (Attribute link : topology.getLinks())
+      if (auto edge = llvm::dyn_cast<spmw::EdgeLinkAttr>(link)) {
+        int64_t lin = 0;
+        for (unsigned d = 0; d < dims; ++d)
+          lin = lin * grid[d] + edge.getAt()[d];
+        edgesByAt[{lin, edge.getPort()}] = SmallVector<int64_t>(edge.getPeer());
+        if (edgePortSeen.insert(edge.getPort()).second)
+          edgePortNames.push_back(edge.getPort());
+      }
+
     SmallVector<RoleInfo> roles;
     for (Attribute roleAttr : map.getRoles()) {
       auto role = llvm::dyn_cast<spmw::RoleAttr>(roleAttr);
@@ -207,6 +227,11 @@ struct SPMWRolePartitionPass
                  << peer.getPort() << "' has a non-static map";
         if (!inBounds(peerCoord, grid))
           missing.push_back(peer.getPort());
+      }
+      for (StringRef port : edgePortNames) {
+        auto it = edgesByAt.find({point, port});
+        if (it != edgesByAt.end() && !inBounds(it->second, grid))
+          missing.push_back(port);
       }
       int role = selectRole(roles, missing, coord);
       if (role < 0)

@@ -100,17 +100,20 @@ class Topology:
         with no interconnect.
     """
 
-    def __init__(self, grid, link=None, affine_links=None):
+    def __init__(self, grid, link=None, explicit_ports=None):
         if not isinstance(grid, (tuple, list)) or len(grid) == 0:
             raise SPMWError(f"grid must be a non-empty shape; got {grid!r}")
         self.grid = tuple(int(n) for n in grid)
         if any(n <= 0 for n in self.grid):
             raise SPMWError(f"grid extents must be positive; got {self.grid}")
         self._link = link
-        # Optional explicit affine peer maps for non-translation peer ports (e.g. the heap tree's
-        # ``up``/``left``/``right``): ``{port: (affine_expr_over_d0.., peer_port)}``. Consumed by
-        # ``_topology_text`` when a port's peer offset is not a constant translation.
-        self.affine_links = dict(affine_links) if affine_links else {}
+        # Ports whose reciprocal peer port varies by coordinate (an irregular topology like the heap
+        # tree's ``up``/``left``/``right``): ``_topology_text`` emits one explicit ``edge_link`` per
+        # ``(coord, port)`` carrying the true per-edge peer port, rather than a single affine
+        # ``peer_link`` (which can only hold one static peer port for the whole grid).
+        self.explicit_ports = (
+            frozenset(explicit_ports) if explicit_ports else frozenset()
+        )
 
     @property
     def dims(self):
@@ -478,11 +481,12 @@ def tree(n):
     Every node declares all three ports; the root's ``up`` and each leaf's ``left``/``right`` point at
     *out-of-bounds* coordinates so they register as boundary ports (the root's result leaves the tree; the
     leaves' inputs enter it). This gives three link-presence roles -- root ``{up}`` / internal ``{}`` /
-    leaf ``{left, right}`` -- under :func:`role_partition`. The heap maps are *not* constant translations
-    (each node has a different parent/child offset), so they lower via ``affine_links`` as general affine
-    `peer_link` maps -- ``up = (d0-1) floordiv 2``, ``left = d0*2+1``, ``right = d0*2+2`` -- which the
-    role-partition pass evaluates (marking the root's ``up`` / the leaves' ``left``/``right`` out of
-    bounds), so a `tree` region lowers to `spmw.map` and partitions into the three classes.
+    leaf ``{left, right}`` -- under :func:`role_partition`. The reciprocal peer port of ``up`` varies by
+    coordinate (a left child's ``up`` peers its parent's ``left``; a right child's peers ``right``), which
+    a single affine ``peer_link`` cannot carry, so the heap ports are ``explicit_ports``: ``_topology_text``
+    emits one ``edge_link`` per ``(coord, port)`` with the true per-edge peer port, and the C++
+    verifier / role-partition / channel passes consume it. So a `tree` region lowers to a `spmw.map` whose
+    wiring is faithful and role-partitions into the three classes.
     """
     n, _ = _pow2_lanes(n, "tree")
     total = 2 * n - 1
@@ -491,7 +495,10 @@ def tree(n):
         parent = (i - 1) // 2  # root (i == 0): (-1)//2 == -1, out of bounds -> boundary
         side = "left" if i == 2 * parent + 1 else "right"
         return {
-            "up": ((parent,), side),  # boundary at the root
+            "up": (
+                (parent,),
+                side,
+            ),  # boundary at root; peer port is left/right by child parity
             "left": (
                 (2 * i + 1,),
                 "up",
@@ -499,18 +506,7 @@ def tree(n):
             "right": ((2 * i + 2,), "up"),  # boundary at the leaves
         }
 
-    return Topology(
-        grid=(total,),
-        link=link,
-        affine_links={
-            "up": (
-                "(d0 - 1) floordiv 2",
-                "left",
-            ),  # peer port is representative (see _topology_text)
-            "left": ("d0 * 2 + 1", "up"),
-            "right": ("d0 * 2 + 2", "up"),
-        },
-    )
+    return Topology(grid=(total,), link=link, explicit_ports={"up", "left", "right"})
 
 
 class PortHandle:
@@ -1662,11 +1658,38 @@ def _predicate_map_text(decl, when):
     return f"affine_map<({dims}) -> ({when})>"
 
 
+def _edge_link_text(topology, port, depth):
+    """Explicit per-coordinate ``edge_link`` attrs for an ``explicit_ports`` port: one edge per grid
+    coordinate carrying that unit's true peer coordinate + peer port (out-of-bounds peers are boundary
+    edges). Used for irregular topologies whose reciprocal peer port varies by coordinate (the tree).
+    """
+    edges = []
+    for coord in topology.coords():
+        target = topology.links_at(coord).get(port)
+        if target is None or _is_key_form(target):
+            continue
+        peer_coord, peer_port = topology._parse_peer(port, target)
+        at_text = ", ".join(str(c) for c in coord)
+        peer_text = ", ".join(str(c) for c in peer_coord)
+        edges.append(
+            f'#spmw.edge_link<port = "{port}", at = [{at_text}], '
+            f'peer = [{peer_text}], peer_port = "{peer_port}", depth = {depth}>'
+        )
+    return edges
+
+
 def _topology_text(decl):
     topology = decl.topology
     rep = tuple(0 for _ in topology.grid)
+    explicit = topology.explicit_ports
     links = []
+    for port in sorted(explicit):
+        links.extend(
+            _edge_link_text(topology, port, decl.port_depths.get(port, DEFAULT_DEPTH))
+        )
     for port, target in sorted(topology.links_at(rep).items()):
+        if port in explicit:
+            continue  # emitted above as explicit per-coordinate edge_links
         depth = decl.port_depths.get(port, DEFAULT_DEPTH)
         if _is_key_form(target):
             # A key-form link rendezvous by key: the rolled IR names the channel-group *family*
@@ -1687,24 +1710,10 @@ def _topology_text(decl):
             continue
         offset = _translation_offset(topology, port)
         if offset is None:
-            affine = topology.affine_links.get(port)
-            if affine is None:
-                raise SPMWError(
-                    f"port {port!r}: only affine-translation peer links (or a declared "
-                    f"affine_links map) are lowerable so far"
-                )
-            # A general affine peer map (e.g. the heap tree's ``(d0-1) floordiv 2``). The role-partition
-            # pass classifies by whether the evaluated peer coordinate is in bounds -- it never reads the
-            # peer *port* -- so the reduction tree's parity-dependent ``up`` reciprocal is a wiring detail
-            # and a representative peer port is emitted.
-            expr, peer_port = affine
-            dims = ", ".join(f"d{k}" for k in range(topology.dims))
-            links.append(
-                f'#spmw.peer_link<port = "{port}", '
-                f"map = affine_map<({dims}) -> ({expr})>, "
-                f'peer = "{peer_port}", depth = {depth}>'
+            raise SPMWError(
+                f"port {port!r}: a peer link must be a constant affine translation; irregular "
+                f"topologies (varying reciprocal peer port) must list the port in explicit_ports"
             )
-            continue
         _, peer_port = topology._parse_peer(port, target)
         links.append(
             f'#spmw.peer_link<port = "{port}", map = {_affine_map_text(offset)}, '
