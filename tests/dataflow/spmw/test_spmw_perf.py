@@ -28,6 +28,7 @@ from allo.backend.perf import (
     analyze_sdf,
     analyze_fft_sdf,
     token_clock,
+    token_clock_fft,
     estimate_area_latency,
     load_csynth_report,
     ResourceVector,
@@ -335,3 +336,52 @@ def test_token_clock_rejects_non_mesh():
 
     with pytest.raises(NotImplementedError, match="systolic mesh"):
         token_clock(top)
+
+
+def test_fft_token_clock_latency_matches_csynth():
+    """Tier-2 token clock over the **folded FFT butterfly schedule** (not a stage count): a timed run
+    with per-``(family, stage, lane)`` token readiness, per-PE II=1 chaining, and staged feed/drain. The
+    modeled latency is within tolerance of the archived folded-FFT top latency (91), using the
+    report-backed butterfly pipeline latency (the ``bfly`` role latency). The residual is the rolled
+    implementation's sequential per-stage loop fill/drain/control that the ideal wavefront overlaps.
+    """
+    ev = load_csynth_report(_read(_FFT_REPORT))
+    bfly_lat = next(r.latency for r in ev.roles if r.name == "bfly")  # 17
+    tc = token_clock_fft(_fft_region(8, fold={1: 4}), bfly_latency=bfly_lat)
+    assert tc.pattern == "folded_fft" and tc.dims == (3, 4, 8)
+    assert tc.throughput_ii == 1 and tc.physical_pes == 1 and tc.passes_per_stage == 4
+    # modeled 69 vs archived 91 -> ~24%; the residual is the rolled per-stage loop serialization.
+    assert tc.latency_within(ev.latency, 0.30)
+    assert not tc.latency_within(
+        ev.latency, 0.05
+    )  # it is a real timed model, not the report number
+
+
+def test_fft_token_clock_fold_factor_changes_schedule():
+    """The fold factor changes the timed schedule: a partial fold (``{1:2}``) time-multiplexes fewer
+    butterflies onto MORE physical PEs (2 vs 1) running in parallel, so its per-PE firing chain is
+    shorter and its modeled latency is <= the full fold's -- proving the model tracks the actual folded
+    schedule, not just N."""
+    full = token_clock_fft(_fft_region(8, fold={1: 4}), bfly_latency=17)
+    partial = token_clock_fft(_fft_region(8, fold={1: 2}), bfly_latency=17)
+    assert (full.physical_pes, full.passes_per_stage) == (1, 4)
+    assert (partial.physical_pes, partial.passes_per_stage) == (2, 2)
+    assert partial.latency <= full.latency  # 67 <= 69 (more parallel -> shorter chain)
+    assert partial.throughput_ii == full.throughput_ii == 1
+
+
+def test_fft_token_clock_fails_closed():
+    """Fail-closed: the FFT token clock covers only the folded butterfly-axis case. Spatial (no fold), a
+    stage-axis fold, and a non-FFT (systolic) region all raise; and the systolic ``token_clock`` still
+    rejects the folded FFT -- each timed model validates only the structure it recognizes.
+    """
+    with pytest.raises(NotImplementedError):
+        token_clock_fft(_fft_region(8))  # spatial, no fold
+    with pytest.raises(NotImplementedError):
+        token_clock_fft(_fft_region(8, fold={0: 3}))  # stage-axis fold
+    with pytest.raises(NotImplementedError):
+        token_clock_fft(_systolic(2, 2, 2))  # non-FFT
+    with pytest.raises(NotImplementedError):
+        token_clock(
+            _fft_region(8, fold={1: 4})
+        )  # systolic token clock stays fail-closed on the FFT

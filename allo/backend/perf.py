@@ -8,8 +8,10 @@
   the round-14 coroutine simulator's measured cycle count. `analyze_fft_sdf` gives the matching Tier-1
   structure for the folded key-form FFT (S sequential butterfly stages, HALF butterflies/stage, II=1, a
   constant physical-PE count), validated against the archived FFT csynth.
-- **Tier-2 token clock** (`token_clock`): a timed dataflow (virtual timestamps) giving the systolic
-  wavefront latency.
+- **Tier-2 token clock** (`token_clock` / `token_clock_fft`): a timed dataflow (virtual timestamps)
+  giving the systolic wavefront latency, and -- for the folded key-form FFT -- a timed run over the
+  actual folded butterfly schedule (per-stage/per-PE/per-fold-iteration lane-token readiness), whose
+  latency is validated within tolerance of the archived FFT csynth.
 - **Area/latency model** (`ResourceVector`/`RoleArea`/`AreaLatencyEstimate`/`estimate_area_latency`):
   `area = Σ(role_area × instances)` summed over every role, plus a modeled latency, with structured
   loaders (`load_csynth_report`, `_parse_fft_report_table`) for the archived csynth reports under
@@ -19,9 +21,9 @@
   into the same `CsynthEvidence` schema — the FFT is a first-class evidence source.
 
 Scope: the 2-D output-stationary systolic mesh (`analyze_sdf`/`token_clock`) and the folded key-form FFT
-(`analyze_fft_sdf`); the area model consumes any archived report. Non-FFT key-form SDF/token-clock
-coverage is fail-closed (a follow-up). Other patterns raise ``NotImplementedError`` rather than returning
-an unvalidated number.
+(`analyze_fft_sdf` Tier-1 structure + `token_clock_fft` Tier-2 timed schedule); the area model consumes
+any archived report. Non-FFT key-form (bitonic/crossbar/tree) SDF/token-clock coverage is fail-closed (a
+follow-up). Other patterns raise ``NotImplementedError`` rather than returning an unvalidated number.
 """
 
 import ast
@@ -229,6 +231,116 @@ def token_clock(region):
         dims=(rows_m, cols_n, depth_k),
         latency=latency,
         throughput_ii=1,
+    )
+
+
+@dataclass
+class FFTTokenClockReport:
+    """A Tier-2 timed-dataflow (token clock) estimate for the **folded** key-form FFT: the cycle-accurate
+    completion ``latency`` of a virtual token clock run over the *actual* folded butterfly schedule -- not
+    a stage count.
+
+    The clock tracks a ready time per ``(family, stage, lane)`` token. For each stage ``s``, each physical
+    PE ``p`` (there are ``physical_pes = HALF // fold_factor`` of them, running in parallel), and each
+    fold iteration ``i`` (``fold_factor`` of them, time-multiplexed on the PE), the butterfly
+    ``b = p*fold_factor + i`` fires at ``max(its four input-lane ready times, the PE's previous fire + II)``
+    and emits its two output lanes at stage ``s+1`` after ``bfly_latency`` cycles. ``physical_pes`` /
+    ``passes_per_stage`` change with the fold factor, so the schedule is fold-dependent.
+    """
+
+    pattern: str
+    dims: tuple  # (S, HALF, N)
+    physical_pes: int
+    fold_factor: int
+    passes_per_stage: int  # butterfly fires per stage per PE = fold_factor
+    throughput_ii: int
+    latency: int
+
+    def latency_within(self, actual_latency, rel_tol):
+        """Whether the modeled latency is within ``rel_tol`` (relative) of ``actual_latency``."""
+        return abs(self.latency - actual_latency) <= rel_tol * max(
+            abs(actual_latency), 1
+        )
+
+
+def token_clock_fft(region, bfly_latency=1, ii=1):
+    """Tier-2 token clock for the **folded** key-form FFT (M5 task5.3): a timed dataflow run over the
+    actual folded butterfly schedule with virtual timestamps.
+
+    Covers only the folded butterfly-axis case the rolled emitter supports -- a rank-2 fold with
+    ``fold[0] == 1``, ``fold[1] > 1`` and ``HALF % fold[1] == 0``; spatial (no fold), stage-axis folds and
+    non-FFT patterns raise ``NotImplementedError`` (fail-closed). ``bfly_latency`` is the butterfly's
+    pipeline depth (the archived ``bfly`` role latency = 17); pass it to get a report-backed latency, or
+    leave it 1 for pure-II timing. The model composes that measured module latency structurally over the
+    dependency graph (mirroring the systolic ``load + PE`` critical path); it does **not** read the top
+    latency from any report. The modeled latency is compared to the archived folded-FFT top latency (91)
+    with a stated tolerance in ``test_spmw_perf.py`` (the residual is the rolled implementation's
+    sequential per-stage loop fill/drain/control, which the ideal butterfly wavefront overlaps away).
+    """
+    # pylint: disable=import-outside-toplevel
+    from ..spmw import _collect, _validate_collection
+    from ..spmw_datapath import _recognize_fft
+
+    collection = _validate_collection(_collect(region))
+    # _recognize_fft raises NotImplementedError unless this is a key-form butterfly FFT.
+    desc = _recognize_fft(collection)
+    n_stages, half, n_points = desc["S"], desc["HALF"], desc["N"]
+    fold = desc["decl"].fold
+    if (
+        fold is None
+        or len(fold) != 2
+        or fold[0] != 1
+        or fold[1] <= 1
+        or half % fold[1] != 0
+    ):
+        raise NotImplementedError(
+            "FFT token clock covers the folded butterfly-axis case (rank-2 fold, fold[0]=1, "
+            "fold[1]>1, HALF % fold[1] == 0); spatial and stage-axis folds are follow-ups"
+        )
+    fold_factor = fold[1]
+    physical_pes = half // fold_factor
+    families = desc["families"]
+    up_table, lo_table = desc["up_table"], desc["lo_table"]
+
+    # ready[(family, stage, lane)] = the cycle a lane's value at that stage becomes available. Stage-0
+    # lanes are produced by the streamed input feed: model lane ``l`` ready at cycle ``l`` (a one-element-
+    # per-cycle staggered feed of the N points).
+    ready = {}
+    for fam in families:
+        for lane in range(n_points):
+            ready[(fam, 0, lane)] = lane
+
+    for s in range(n_stages):
+        for p in range(physical_pes):
+            prev = None
+            for i in range(fold_factor):
+                b = p * fold_factor + i
+                up = up_table[(s, b)]  # == get_upper_idx(s, b)
+                lo = lo_table[(s, b)]  # == get_lower_idx(s, b)
+                start = max(
+                    ready[(fam, s, lane)] for fam in families for lane in (up, lo)
+                )
+                if prev is not None:
+                    start = max(start, prev + ii)
+                prev = start
+                out = start + bfly_latency
+                for fam in families:
+                    ready[(fam, s + 1, up)] = out
+                    ready[(fam, s + 1, lo)] = out
+
+    # Finish when the last stage-S output lane is ready and drained (one-element-per-cycle output store).
+    last_ready = max(
+        ready[(fam, n_stages, lane)] for fam in families for lane in range(n_points)
+    )
+    latency = last_ready + n_points
+    return FFTTokenClockReport(
+        pattern="folded_fft",
+        dims=(n_stages, half, n_points),
+        physical_pes=physical_pes,
+        fold_factor=fold_factor,
+        passes_per_stage=fold_factor,
+        throughput_ii=ii,
+        latency=latency,
     )
 
 
