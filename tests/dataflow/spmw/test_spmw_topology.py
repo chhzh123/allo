@@ -184,3 +184,123 @@ def test_shard_lowers_to_map_attr():
     ir = str(spmw.lower(gemm))
     # the 2-level hierarchy (2x2 shards of the 4x4 grid) is recorded on the map op
     assert "spmw.shard = array<i64: 2, 2>" in ir
+
+
+# --------------------------------------------------------------------------------------------------
+# M6 non-mesh topology generators: butterfly / bitonic / crossbar / tree. Each builds on the same
+# key-/peer-link machinery as mesh/ring/scatter/gather; the tests build, run the static checks, assert
+# structure, tie the network to the emitted spmw.map role count (O(#roles)), and fail closed on bad input.
+# --------------------------------------------------------------------------------------------------
+
+
+def _upper(stage, butterfly):
+    """The radix-2 butterfly's upper lane index (== the FFT twin's ``get_upper_idx``)."""
+    span = 1 << stage
+    return (butterfly // span) * (span << 1) + (butterfly % span)
+
+
+def test_butterfly_matches_fft_interconnect():
+    """``spmw.butterfly(n)`` is the ``(log2 n, n/2)`` radix-2 butterfly network the FFT twin wires by
+    hand: it validates, every internal lane channel is a 1->1 peer, each butterfly touches the expected
+    upper/lower lanes, and the emitted ``spmw.map`` is one role body (O(#roles))."""
+    topo = spmw.butterfly(8)
+    assert topo.grid == (3, 4)  # (log2 8, 8/2)
+    srcs, sinks = spmw.boundary_lane_keys(8)
+    topo.validate(external_srcs=srcs, external_sinks=sinks)
+    roles = topo.key_channel_roles(srcs, sinks)
+    assert roles and all(
+        r == "peer" for r in roles.values()
+    )  # a permutation network is all 1->1
+    for stage in range(3):
+        for but in range(4):
+            links = topo.links_at((stage, but))
+            up = _upper(stage, but)
+            assert links["a"] == (("lane", stage, up), "sink")
+            assert links["b"] == (("lane", stage, up + (1 << stage)), "sink")
+            assert links["y"] == (("lane", stage + 1, up), "src")
+            assert links["z"] == (("lane", stage + 1, up + (1 << stage)), "src")
+    assert (
+        spmw.role_count(topo) == 1
+    )  # one butterfly body -> the O(#roles) rolled spmw.map
+
+
+def test_bitonic_sorting_network_structure():
+    """``spmw.bitonic(n)`` is the bitonic sorter: ``log2(n)*(log2(n)+1)/2`` comparator stages of ``n/2``
+    compare-exchange units; each stage is a perfect matching of the ``n`` lanes; validates as an
+    all-peer network with a single role body."""
+    topo = spmw.bitonic(8)
+    n_stages = 3 * (3 + 1) // 2  # log2(8)*(log2(8)+1)/2 = 6
+    assert topo.grid == (n_stages, 4)
+    srcs, sinks = spmw.boundary_lane_keys(8, stages=n_stages)
+    topo.validate(external_srcs=srcs, external_sinks=sinks)
+    roles = topo.key_channel_roles(srcs, sinks)
+    assert all(r == "peer" for r in roles.values())
+    for stage in range(n_stages):  # every lane compared exactly once per stage
+        lanes = []
+        for comp in range(4):
+            links = topo.links_at((stage, comp))
+            lanes += [links["a"][0][2], links["b"][0][2]]
+        assert sorted(lanes) == list(range(8))
+    assert spmw.role_count(topo) == 1
+
+
+def test_crossbar_scatter_gather():
+    """``spmw.crossbar(n)`` is an ``n x n`` switch matrix: each input row scatters over its switches and
+    each output column gathers them, so it classifies as ``n`` scatters + ``n`` gathers over one switch
+    body."""
+    topo = spmw.crossbar(4)
+    assert topo.grid == (4, 4)
+    srcs, sinks = spmw.crossbar_boundary_keys(4)
+    topo.validate(external_srcs=srcs, external_sinks=sinks)
+    roles = topo.key_channel_roles(srcs, sinks)
+    ins = {k: r for k, r in roles.items() if k[0] == "in"}
+    outs = {k: r for k, r in roles.items() if k[0] == "out"}
+    assert len(ins) == 4 and all(r == "scatter" for r in ins.values())
+    assert len(outs) == 4 and all(r == "gather" for r in outs.values())
+    assert spmw.role_count(topo) == 1
+    with pytest.raises(
+        spmw.SPMWError
+    ):  # without the external input/output endpoints it is half-open
+        topo.validate()
+
+
+def test_tree_reduction_structure():
+    """``spmw.tree(n)`` is a binary reduction tree over ``n`` leaves: ``2n-1`` heap-ordered nodes with
+    reciprocal peer parent/child links; the root has no parent and leaves have no children; peer
+    symmetry validates."""
+    topo = spmw.tree(4)
+    assert topo.grid == (7,)  # 2*4 - 1
+    topo.validate()
+    assert set(topo.links_at((0,))) == {"left", "right"}  # root: children only
+    assert set(topo.links_at((1,))) == {
+        "up",
+        "left",
+        "right",
+    }  # internal: parent + children
+    for leaf in (3, 4, 5, 6):
+        assert set(topo.links_at((leaf,))) == {"up"}  # leaves: parent only
+    assert topo.links_at((1,))["up"] == ((0,), "left")  # reciprocal peer link
+    assert topo.links_at((0,))["left"] == ((1,), "up")
+
+
+def test_topology_generators_reject_bad_input():
+    """Hardening: the generators fail closed on malformed sizes, and ``Topology.validate`` rejects a
+    malformed (asymmetric peer / many-to-many key) topology before any backend emission.
+    """
+    for gen in (spmw.butterfly, spmw.bitonic, spmw.tree):
+        with pytest.raises(spmw.SPMWError):
+            gen(6)  # not a power of two
+        with pytest.raises(spmw.SPMWError):
+            gen(1)  # too small
+    with pytest.raises(spmw.SPMWError):
+        spmw.crossbar(0)  # non-positive size
+    # an asymmetric peer topology is rejected.
+    bad_peer = spmw.Topology(grid=(2,), link=lambda i: {"x": ((i + 1,), "y")})
+    with pytest.raises(spmw.SPMWError, match="asymmetric"):
+        bad_peer.validate()
+    # a many-to-many key channel (2 sources AND 2 sinks) is rejected.
+    bad_key = spmw.Topology(
+        grid=(4,), link=lambda i: {"p": ("bus", "src" if i < 2 else "sink")}
+    )
+    with pytest.raises(spmw.SPMWError):
+        bad_key.validate()

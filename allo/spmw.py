@@ -39,6 +39,12 @@ __all__ = [
     "ring",
     "scatter",
     "gather",
+    "butterfly",
+    "bitonic",
+    "crossbar",
+    "tree",
+    "boundary_lane_keys",
+    "crossbar_boundary_keys",
     "unit",
     "region",
     "map",
@@ -338,6 +344,151 @@ def gather(n, key="gather"):
         return {"in": (key, _SINK)} if i == n - 1 else {"out": (key, _SRC)}
 
     return Topology(grid=(n,), link=link)
+
+
+# --------------------------------------------------------------------------------------------------
+# Non-mesh topology generators (M6). Each returns a :class:`Topology` whose ``link`` closure emits
+# well-formed peer- or key-form links, so it validates and classifies (``key_channel_roles`` / peer
+# symmetry) exactly like the hand-written topologies above. They are pure *connectivity* -- the compute
+# is the mapped unit's business, as with ``mesh``. Butterfly/bitonic use key-form ``lane`` channels whose
+# open boundary lanes (stage 0 sinks, last-stage sources) a region ``stream_in``/``stream_out`` feeds;
+# ``boundary_lane_keys`` returns those so a caller can validate them.
+# --------------------------------------------------------------------------------------------------
+
+
+def _pow2_lanes(n, what):
+    """Validate ``n`` is a power of two >= 2 and return ``(n, log2 n)`` (a permutation-network width)."""
+    n = int(n)
+    if n < 2 or (n & (n - 1)) != 0:
+        raise SPMWError(f"{what} needs a power-of-two lane count >= 2; got {n}")
+    return n, n.bit_length() - 1
+
+
+def boundary_lane_keys(n, family="lane", stages=None):
+    """The open boundary lane keys of a ``family`` permutation network of width ``n``: the stage-0 lanes
+    (external sources, fed by ``stream_in``) and the last-stage lanes (external sinks, drained by
+    ``stream_out``). Pass these as ``external_srcs``/``external_sinks`` to :meth:`Topology.validate`.
+    """
+    n, log2n = _pow2_lanes(n, "a permutation network")
+    last = log2n if stages is None else int(stages)
+    srcs = frozenset((family, 0, lane) for lane in range(n))
+    sinks = frozenset((family, last, lane) for lane in range(n))
+    return srcs, sinks
+
+
+def butterfly(n, family="lane"):
+    """A radix-2 butterfly permutation network: a ``(log2 n, n/2)`` grid of butterflies, each reading two
+    lanes at its stage and writing them at the next stage (the Cooley-Tukey / FFT interconnect).
+
+    Butterfly ``(s, b)`` touches lanes ``upper = (b // 2^s) * 2^(s+1) + (b % 2^s)`` and
+    ``lower = upper + 2^s`` -- the same pattern the FFT twin wires by hand -- as key-form ``(family,
+    stage, lane)`` channels: it sinks the two lanes at stage ``s`` and sources them at stage ``s+1``.
+    """
+    n, stages = _pow2_lanes(n, "butterfly")
+    half = n // 2
+
+    def link(s, b):
+        span = 1 << s
+        up_lane = (b // span) * (span << 1) + (b % span)
+        lo_lane = up_lane + span
+        return {
+            "a": ((family, s, up_lane), _SINK),
+            "b": ((family, s, lo_lane), _SINK),
+            "y": ((family, s + 1, up_lane), _SRC),
+            "z": ((family, s + 1, lo_lane), _SRC),
+        }
+
+    return Topology(grid=(stages, half), link=link)
+
+
+def _bitonic_stages(n):
+    """The bitonic sorting network's comparator schedule: a list (one per stage) of the ``n/2`` lane
+    pairs ``(a, a+d)`` each stage compares (``d`` the stage's compare distance)."""
+    _, log2n = _pow2_lanes(n, "bitonic")
+    stages = []
+    for size_log in range(1, log2n + 1):  # merge a bitonic sequence of size 2^size_log
+        for step in range(size_log, 0, -1):  # successive halving compare distances
+            dist = 1 << (step - 1)
+            stages.append(tuple((i, i + dist) for i in range(n) if (i & dist) == 0))
+    return stages
+
+
+def bitonic(n, family="lane"):
+    """A bitonic sorting network: ``log2(n)*(log2(n)+1)/2`` stages of ``n/2`` compare-exchange units.
+
+    Comparator ``(s, c)`` connects the two lanes ``_bitonic_stages(n)[s][c]`` -- lanes ``i`` and ``i+d``
+    for the stage's compare distance ``d`` -- as key-form ``(family, stage, lane)`` channels (sink at
+    stage ``s``, source at ``s+1``), exactly like :func:`butterfly`. The compare *direction* is the
+    mapped unit's business; the generator supplies the connectivity.
+    """
+    n, _ = _pow2_lanes(n, "bitonic")
+    stages = _bitonic_stages(n)
+
+    def link(s, c):
+        low, high = stages[s][c]
+        return {
+            "a": ((family, s, low), _SINK),
+            "b": ((family, s, high), _SINK),
+            "hi": ((family, s + 1, low), _SRC),
+            "lo": ((family, s + 1, high), _SRC),
+        }
+
+    return Topology(grid=(len(stages), n // 2), link=link)
+
+
+def crossbar(n):
+    """An ``n x n`` crossbar switch matrix: switch ``(i, j)`` sinks input row ``i``'s broadcast and
+    sources output column ``j``'s gather. Each input ``i`` scatters over its row of switches (key
+    ``("in", i)``); each output ``j`` gathers its column (key ``("out", j)``). Validate with
+    ``external_srcs = {("in", i)}`` (the ``n`` inputs) and ``external_sinks = {("out", j)}`` (the ``n``
+    outputs); the ``n`` scatters + ``n`` gathers then classify cleanly.
+    """
+    n = int(n)
+    if n < 1:
+        raise SPMWError(f"crossbar needs a positive size; got {n}")
+
+    def link(i, j):
+        return {
+            "row_in": (("in", i), _SINK),  # input i broadcasts across row i
+            "col_out": (("out", j), _SRC),  # column j gathers to output j
+        }
+
+    return Topology(grid=(n, n), link=link)
+
+
+def crossbar_boundary_keys(n):
+    """The ``external_srcs``/``external_sinks`` for :func:`crossbar` -- the ``n`` inputs and ``n`` outputs
+    whose otherwise-open scatter/gather endpoints a region feeds/drains."""
+    n = int(n)
+    return (
+        frozenset(("in", i) for i in range(n)),
+        frozenset(("out", j) for j in range(n)),
+    )
+
+
+def tree(n):
+    """A binary reduction/broadcast tree over ``n`` (power-of-two) leaves: ``2n-1`` nodes in heap order
+    (node ``i`` has parent ``(i-1)//2`` and children ``2i+1``/``2i+2``), wired by peer-form parent/child
+    links (``up`` <-> ``left``/``right``). The root has no ``up`` (its result leaves the tree) and leaves
+    have no children -- the open endpoints a region reads/feeds.
+    """
+    n, _ = _pow2_lanes(n, "tree")
+    total = 2 * n - 1
+
+    def link(i):
+        ports = {}
+        if i > 0:
+            parent = (i - 1) // 2
+            side = "left" if i == 2 * parent + 1 else "right"
+            ports["up"] = ((parent,), side)
+        left, right = 2 * i + 1, 2 * i + 2
+        if left < total:
+            ports["left"] = ((left,), "up")
+        if right < total:
+            ports["right"] = ((right,), "up")
+        return ports
+
+    return Topology(grid=(total,), link=link)
 
 
 class PortHandle:
@@ -1031,7 +1182,7 @@ def _receiver_port(receiver, ctx_name):
     return None
 
 
-def _collect_port_aliases(tree, ctx_name):
+def _collect_port_aliases(tree_ast, ctx_name):
     """Local variables bound to a port handle: ``h = ctx.<port>`` or ``h = ctx.port("...")``.
 
     Maps each such name to the set of port names (or the dynamic sentinel) it was bound to; a name
@@ -1039,7 +1190,7 @@ def _collect_port_aliases(tree, ctx_name):
     unrelated object is left alone.
     """
     aliases = {}
-    for node in ast.walk(tree):
+    for node in ast.walk(tree_ast):
         if not isinstance(node, ast.Assign):
             continue
         port = _receiver_port(node.value, ctx_name)
@@ -1064,13 +1215,13 @@ def _check_body_ports(label, fn, ports):
     except (OSError, TypeError):
         return
     try:
-        tree = ast.parse(source)
+        tree_ast = ast.parse(source)
     except SyntaxError:
         return
     ctx_name = _ctx_param_name(fn)
     if ctx_name is None:
         return
-    aliases = _collect_port_aliases(tree, ctx_name)
+    aliases = _collect_port_aliases(tree_ast, ctx_name)
 
     def reject(port):
         if port is _DYNAMIC_PORT:
@@ -1084,7 +1235,7 @@ def _check_body_ports(label, fn, ports):
                 f"{sorted(ports)}"
             )
 
-    for node in ast.walk(tree):
+    for node in ast.walk(tree_ast):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
         if node.func.attr not in _STREAM_METHODS:
@@ -1673,11 +1824,11 @@ def _channel_endpoints(program, collection):
         sym = f"{program.name}_{decl.unit.name}_interior"
         try:
             source = textwrap.dedent(inspect.getsource(decl.unit.interior))
-            tree = ast.parse(source)
+            tree_ast = ast.parse(source)
         except (OSError, TypeError, SyntaxError):
             continue
         ctx_name = _ctx_param_name(decl.unit.interior)
-        for node in ast.walk(tree):
+        for node in ast.walk(tree_ast):
             if not (
                 isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             ):
@@ -1859,8 +2010,8 @@ def _tensor_operands(program):
 
 def _role_body_is_trivial(body):
     """Whether an ``@pe.role`` body is empty (only ``pass`` / a docstring) and so needs no datapath."""
-    tree = ast.parse(textwrap.dedent(inspect.getsource(body)))
-    stmts = tree.body[0].body
+    tree_ast = ast.parse(textwrap.dedent(inspect.getsource(body)))
+    stmts = tree_ast.body[0].body
     meaningful = [
         node
         for node in stmts
