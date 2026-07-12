@@ -192,14 +192,7 @@ def _memory_pragmas(memory_placements):
         bank_axis = place["bank_axis"] if place else None
         dim = bank_axis + 1 if (bank_axis is not None and bank_axis >= 0) else 0
         lines.append(f"#pragma HLS array_partition variable={var} complete dim={dim}\n")
-        if place and place.get("double"):
-            # Ping-pong / double-buffered storage: a true dual-port RAM so the next tile can be
-            # written while the current one is read (the buffer_at double-buffer, honored on-chip).
-            impl = f" impl={place['impl']}" if place["impl"] else ""
-            lines.append(
-                f"#pragma HLS bind_storage variable={var} type=RAM_T2P{impl}\n"
-            )
-        elif place and place["impl"]:
+        if place and place["impl"]:
             lines.append(
                 f"#pragma HLS bind_storage variable={var} type=RAM_2P impl={place['impl']}\n"
             )
@@ -422,6 +415,63 @@ def _folded_top_cpp(
         "    drain(fb[M][j]);\n"
         "  }\n"
         f"{bank_writeback}"
+        "}\n"
+    )
+
+
+def _pingpong_top_cpp(rows, cols, depth, elem, place):
+    """A two-epoch K-tiled GEMM with genuine ping-pong double buffering of the B operand.
+
+    ``spmw.shared(B, double=True)`` requests double buffering: two physical on-chip copies of a
+    K-tile of B (``B_buf[2][KT][N]``, partitioned on the ping/pong axis) alternate by ``epoch & 1``.
+    Each epoch preloads the *next* tile into the alternate copy while it consumes the current copy
+    (the overlap), computes a partial GEMM over its K-tile, and accumulates into ``C``. This is a
+    tiled compute -- a pure systolic streaming GEMM has no epoch boundary to double-buffer -- so a
+    ``double=True`` placement lowers to this ping-pong top rather than the streaming systolic one.
+    ``place['impl']`` (a concrete resource) pins the ping-pong buffer's storage.
+    """
+    kt = depth // 2
+    impl = f" impl={place['impl']}" if place.get("impl") else ""
+    return (
+        "#include <hls_stream.h>\n"
+        f"#define M {rows}\n"
+        f"#define N {cols}\n"
+        f"#define K {depth}\n"
+        f"#define KT {kt}\n\n"
+        f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
+        # two physical copies of a K-tile of B (ping + pong); partition the ping/pong axis so the two
+        # copies are independent RAMs, and bind them to real dual-port storage
+        f"  {elem} B_buf[2][KT][N];\n"
+        "#pragma HLS array_partition variable=B_buf complete dim=1\n"
+        f"#pragma HLS bind_storage variable=B_buf type=RAM_2P{impl}\n"
+        f"  {elem} acc[M][N];\n"
+        "  for (int i = 0; i < M; i++)\n"
+        "    for (int j = 0; j < N; j++)\n"
+        "      acc[i][j] = 0;\n"
+        # preload epoch 0's tile into the ping copy
+        "  for (int k = 0; k < KT; k++)\n"
+        "    for (int j = 0; j < N; j++)\n"
+        "      B_buf[0][k][j] = B[k][j];\n"
+        "  for (int e = 0; e < 2; e++) {\n"
+        "    int cur = e & 1;\n"
+        "    int nxt = (e + 1) & 1;\n"
+        # preload the next epoch's tile into the alternate copy (overlaps this epoch's compute)
+        "    if (e + 1 < 2)\n"
+        "      for (int k = 0; k < KT; k++)\n"
+        "        for (int j = 0; j < N; j++)\n"
+        "          B_buf[nxt][k][j] = B[(e + 1) * KT + k][j];\n"
+        # consume: partial GEMM over this K-tile using the current copy, accumulate into acc
+        "    for (int i = 0; i < M; i++)\n"
+        "      for (int j = 0; j < N; j++) {\n"
+        f"        {elem} s = 0;\n"
+        "        for (int k = 0; k < KT; k++)\n"
+        "          s += A[i][e * KT + k] * B_buf[cur][k][j];\n"
+        "        acc[i][j] += s;\n"
+        "      }\n"
+        "  }\n"
+        "  for (int i = 0; i < M; i++)\n"
+        "    for (int j = 0; j < N; j++)\n"
+        "      C[i][j] = acc[i][j];\n"
         "}\n"
     )
 
@@ -1340,6 +1390,23 @@ def emit_rolled_hls_ir(region):
     annotations = getattr(region.fn, "__annotations__", {})
     ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
     memory_placements = _memory_placements_from_ir(ir, ordered_operands)
+    # A `double=True` placement requests real ping-pong double buffering: emit a two-epoch K-tiled
+    # GEMM with two alternating on-chip copies of the operand's tile (preload-next while consuming
+    # current), not the streaming systolic top -- fail closed on a shape the schedule cannot cover.
+    double_ops = sorted(
+        v for v, place in memory_placements.items() if place.get("double")
+    )
+    if double_ops:
+        if double_ops != ["B"]:
+            raise NotImplementedError(
+                f"ping-pong double buffering is implemented for the B operand only; got {double_ops}"
+            )
+        if buffer_families or depth % 2 != 0:
+            raise NotImplementedError(
+                f"ping-pong double buffering needs a non-folded systolic GEMM whose contraction "
+                f"K={depth} splits into two epochs (folded={bool(buffer_families)})"
+            )
+        return _pingpong_top_cpp(rows, cols, depth, elem, memory_placements["B"])
     if buffer_families:
         # Folded map: A (east/west) is reclassified to a banked on-chip buffer; B (north/south) stays
         # a FIFO. A is banked on the row axis with an F2 bit-swizzle, so the row extent and the fold

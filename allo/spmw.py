@@ -794,10 +794,11 @@ class LogicalBuffer:
         self.bank_axis = bank_axis
         self.shape = shape
         self.source = source
-        # Double buffering (ping-pong): two physical copies of the buffer are alternated so the next
-        # tile loads while the current one is consumed, realized via the ``buffer_at`` path. It is a
-        # throughput/scheduling choice -- functionally transparent -- so it rides the placement IR and
-        # is honored by the backend rather than changing the computed result.
+        # Double buffering (ping-pong): the rolled HLS emitter lowers a `double=True` placement to a
+        # two-epoch K-tiled GEMM top with two alternating on-chip copies of the operand's tile (the
+        # next tile is preloaded while the current one is consumed). It is a throughput/scheduling
+        # choice -- functionally transparent -- so it rides the placement IR (`spmw.double_buffers`)
+        # and reshapes the generated backend structure rather than changing the computed result.
         self.double = double
         # Partition-function banking (when banks is set): split the banking axis into `banks`
         # physical banks with an F2 swizzle ("cyclic" = idx % banks, "xor" = a conflict-free
@@ -814,8 +815,9 @@ class LogicalBuffer:
 def shared(dtype, space=None, resource=None, double=False):
     """A buffer shared across the grid, placed at a logical ``space=`` level (or a ``resource=``).
 
-    ``double=True`` requests ping-pong double buffering (two alternating physical copies, the
-    ``buffer_at`` path) so a producer can fill the next copy while a consumer drains the current one.
+    ``double=True`` requests ping-pong double buffering: the rolled emitter lowers the placement to a
+    two-epoch K-tiled GEMM top with two alternating on-chip copies, filling the next copy while the
+    current one is consumed (see :func:`allo.spmw_hls._pingpong_top_cpp`).
     """
     return LogicalBuffer(
         dtype, _resolve_space(space, resource), "shared", double=double
@@ -1691,7 +1693,8 @@ def _double_buffer_attrs(program, collection):
 
     Carried on a plain ``spmw.double_buffers`` string list (a builtin ArrayAttr) alongside the typed
     ``#spmw.memory`` placements, so the ``double=True`` request survives to codegen without extending
-    the ``spmw`` dialect. The backend realizes it as a double-buffered on-chip storage (``buffer_at``).
+    the ``spmw`` dialect. The rolled emitter consumes it to emit a two-copy ping-pong GEMM top
+    (:func:`allo.spmw_hls._pingpong_top_cpp`).
     """
     annotations = getattr(program.fn, "__annotations__", {})
     tensor_names = {
