@@ -15,6 +15,8 @@ operands are complete-partitioned so HLS dataflow sees a single reader/writer pe
 - Vitis HLS 2023.2 (Build 4023990), Vivado IP flow
 - Target: `xcu280-fsvh2892-2L-e` (Alveo U280, `virtexuplusHBM`)
 - csynth `csynth_design` completed cleanly (`EXIT=0`, "All loop constraints were satisfied")
+- **Synthesis wall-clock:** `csynth_design` 62.18 s elapsed; total `vitis_hls -f run.tcl` 64.62 s
+  (peak allocated memory 1013 MB) on `brg-zhang-xcel`.
 
 ## Top module `mini_tpu_df` — performance & resources
 | Metric | Value |
@@ -40,8 +42,43 @@ This is a genuine hardware realization of the hierarchy + heterogeneous units + 
 composition §3.4 describes: the MXU and the activation synthesize as their own concurrent dataflow
 processes, connected only by the per-column psum streams.
 
+## Synthesis-time scaling — scope of the O(#roles) claim
+This Mini-TPU path is the **desugar-to-`allo.dataflow`** path (`target="vitis_hls"`), the same path the
+systolic twin's csim/csynth/hw_emu use. That path **clones one HLS function body per grid point** — the
+16 distinct `mxu_i_j` PE modules + 4 `act_i` lanes above are O(P), not O(#roles). **The O(#roles)
+synthesis-time win is therefore NOT claimed for the Mini-TPU here**; it is scoped to the *rolled*
+emitter paths (`target="rolled"`: the systolic rolled top stays 9 role bodies as the grid grows, and
+the folded FFT stays a constant `bfly` count — see `fft_rolled_csynth_report.md`). The Mini-TPU's
+contribution to the plan is the *hierarchy + heterogeneous units + memory hierarchy* surface reaching
+real hardware, not a body-count-scaling claim.
+
+## L4 — hw_emu RTL co-simulation (strict, plan.md §6.8)
+Run on `brg-zhang-xcel` (`XDEVICE = xilinx_u280_gen3x16_xdma_1_202211_1`), Vitis 2023.2. Build for
+`mode="hw_emu"` and call the module with deterministic inputs (`np.random.seed(0)`), which runs
+`make run TARGET=hw_emu PLATFORM=$XDEVICE` (builds the emulation `.xclbin`, runs the OpenCL host under
+`XCL_EMULATION_MODE=hw_emu`) and reads `OUT` back:
+
+```
+cd <project>; make run TARGET=hw_emu PLATFORM=$XDEVICE
+...
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+Finished execution!
+HWEMU_RESULT match=True maxerr=2.38419e-07 elapsed_s=752.9
+OUT_ROW0 = [2.66427064, 2.18002462, 3.20723176, 1.55044007]
+REF_ROW0 = [2.66427064, 2.18002486, 3.20723152, 1.55044007]   # np.maximum(ACT@WGT + bias, 0)
+```
+
+- **Result:** the emulation exits cleanly (`EXIT=0`) and `OUT` matches numpy `np.maximum(ACT @ WGT +
+  bias, 0)` (**max abs error 2.38e-07**, float round-off).
+- **Wall-clock:** 752.9 s end-to-end (`mode="hw_emu"` xclbin build + RTL co-sim + host run) on
+  `brg-zhang-xcel`.
+
+Covered in-tree by `test_mini_tpu_hw_emu_runs_and_matches_numpy` (guarded on `hls.is_available` **and**
+`XDEVICE`, so it runs where the emulation platform is configured and skips otherwise).
+
 ## Ladder status
 - **L2 csim**: MATCH vs `np.maximum(ACT @ WGT + bias, 0)` (`test_mini_tpu_vitis_hls_csim`).
-- **L3 csynth**: this report (project emitted in-test; synthesis run + numbers archived here).
-- **L4 hw_emu**: emulation project emitted (`test_mini_tpu_hw_emu_emits_emulation_project`); the RTL
-  emulation run is out of band.
+- **L3 csynth**: this report (project emitted in-test; synthesis run + resources/latency/II/wall-clock
+  archived here).
+- **L4 hw_emu**: RTL co-simulation runs and matches numpy — see the L4 section above
+  (`test_mini_tpu_hw_emu_runs_and_matches_numpy`).

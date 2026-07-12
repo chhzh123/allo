@@ -14,8 +14,8 @@ The composed region desugars to a two-kernel ``allo.dataflow`` program: the syst
 interior PE's psum onto a per-element stream, and the activation lane reads its column in row order,
 adds the bias, applies ReLU, and writes ``OUT`` -- so the result matches
 ``np.maximum(ACT @ WGT + bias, 0)``. This drives the full ladder through the same ``target="vitis_hls"``
-path the systolic twin uses: L0 structure, L1 simulator, L2 Vitis csim, L3 csynth (report archived
-under ``examples/spmw_generated/mini_tpu_csynth_report.md``), and L4 hw_emu project emission.
+path the systolic twin uses: L0 structure, L1 simulator, L2 Vitis csim, L3 csynth, and L4 hw_emu RTL
+co-simulation matching numpy (all archived under ``examples/spmw_generated/mini_tpu_csynth_report.md``).
 """
 
 import os
@@ -193,9 +193,38 @@ def test_mini_tpu_csyn_emits_synthesizable_project():
     not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
 )
 def test_mini_tpu_hw_emu_emits_emulation_project():
-    """L4: ``mode="hw_emu"`` emits a full v++ emulation project (kernel + OpenCL host + Makefile). The
-    RTL hardware-emulation run itself is done out of band."""
+    """L4: ``mode="hw_emu"`` emits a full v++ emulation project (kernel + OpenCL host + Makefile).
+
+    This asserts only that the project is emitted (fast). The strict §6.8 L4 bar -- actually running
+    the RTL co-simulation and matching numpy -- is covered by ``test_mini_tpu_hw_emu_runs_and_matches_numpy``
+    below (guarded on XDEVICE because the emulation build takes tens of minutes)."""
     with tempfile.TemporaryDirectory() as tmp:
         spmw.build(_mini_tpu(4, 4, 8), target="vitis_hls", mode="hw_emu", project=tmp)
         for artifact in ("kernel.cpp", "host.cpp", "Makefile"):
             assert os.path.exists(os.path.join(tmp, artifact))
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls") or "XDEVICE" not in os.environ,
+    reason="requires the Vitis HLS toolchain and an XDEVICE emulation platform",
+)
+def test_mini_tpu_hw_emu_runs_and_matches_numpy():
+    """L4 (strict, plan.md §6.8): build for ``hw_emu``, run the RTL co-simulation, and match numpy.
+
+    Calling the built module triggers ``make run TARGET=hw_emu PLATFORM=$XDEVICE`` -- it builds the
+    emulation xclbin and runs the OpenCL host under ``XCL_EMULATION_MODE=hw_emu``, then reads ``OUT``
+    back. Guarded on ``XDEVICE`` so it only runs where the emulation platform is configured (it builds
+    for tens of minutes; on ``brg-zhang-xcel`` it matches numpy -- see the archived report).
+    """
+    Rt, Ct, K = 4, 4, 8
+    np.random.seed(0)
+    ACT = np.random.rand(Rt, K).astype(np.float32)
+    WGT = np.random.rand(K, Ct).astype(np.float32)
+    bias = np.random.rand(Ct).astype(np.float32)
+    OUT = np.zeros((Rt, Ct), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(
+            _mini_tpu(Rt, Ct, K), target="vitis_hls", mode="hw_emu", project=tmp
+        )
+        module(ACT, WGT, bias, OUT)
+    np.testing.assert_allclose(OUT, _oracle(ACT, WGT, bias), atol=1e-3)
