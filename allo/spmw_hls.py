@@ -596,6 +596,54 @@ def _keyform_fft_common(region):
     }
 
 
+def _validate_key_links(key_links, ports, families):
+    """Fail-closed check of the resolved-IR ``#spmw.key_link`` endpoints against the recognized ports.
+
+    The IR records each port's ``(family, end)`` (the per-rank up/lo slot is not in the IR -- it comes
+    from evaluating the topology link). Requires the parsed endpoint set to be present and **exactly**
+    the recognized FFT port set (no missing / duplicate / unknown), each endpoint to agree with the
+    recognition on family + direction, and each endpoint family to be a resolved channel/buffer
+    family. Any deviation raises rather than silently skipping validation.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _stage_array
+
+    if not key_links:
+        raise NotImplementedError(
+            "no resolved #spmw.key_link endpoints parsed from the map: cannot validate the "
+            "key-form FFT wiring (fail closed)"
+        )
+    endpoints = {}
+    for port, family, end in key_links:
+        if port in endpoints:
+            raise NotImplementedError(
+                f"duplicate resolved #spmw.key_link endpoint for port {port!r}"
+            )
+        endpoints[port] = (family, end)
+    if set(endpoints) != set(ports):
+        raise NotImplementedError(
+            f"resolved #spmw.key_link ports {sorted(endpoints)} are not exactly the recognized "
+            f"FFT ports {sorted(ports)}"
+        )
+    resolved_families = set(families or [])
+    if not resolved_families:
+        raise NotImplementedError(
+            "no resolved channel/buffer families parsed for the key-form FFT (fail closed)"
+        )
+    for port, (family, end) in endpoints.items():
+        base, offset, _role = ports[port]
+        if base != _stage_array(family) or (end == "sink") != (offset == 0):
+            raise NotImplementedError(
+                f"resolved #spmw.key_link {port!r} -> ({family}, {end}) disagrees with the "
+                f"recognition ({base}, offset={offset})"
+            )
+        if family not in resolved_families:
+            raise NotImplementedError(
+                f"resolved #spmw.key_link family {family!r} for port {port!r} is not a resolved "
+                f"channel/buffer family {sorted(resolved_families)}"
+            )
+
+
 def _keyform_fft_top_cpp(region, ir_info):
     """The rolled O(#roles) HLS top for a key-form ``lane`` butterfly FFT region.
 
@@ -625,20 +673,8 @@ def _keyform_fft_top_cpp(region, ir_info):
             f"resolved IR grid {ir_info['grid']} != recognized FFT grid {(S, HALF)}"
         )
     up_table, lo_table, ports = desc["up_table"], desc["lo_table"], desc["ports"]
-    # Validate the frontend recognition against the resolved-IR key-link endpoints: the IR carries
-    # each port's (family, end); the per-rank (up/lo) slot is not in the IR (it comes from evaluating
-    # the topology link). A disagreement means the recognition and the resolved map have diverged.
-    for port, family, end in ir_info.get("key_links", []):
-        if port not in ports:
-            raise NotImplementedError(
-                f"resolved IR key_link port {port!r} is not a recognized FFT port"
-            )
-        base, offset, _role = ports[port]
-        if base != _stage_array(family) or (end == "sink") != (offset == 0):
-            raise NotImplementedError(
-                f"resolved IR key_link {port!r} -> ({family}, {end}) disagrees with recognition "
-                f"({base}, offset={offset})"
-            )
+    # Fail-closed check of the resolved-IR key-link endpoints against the recognition.
+    _validate_key_links(ir_info.get("key_links"), ports, ir_info.get("families"))
     arrays = [_stage_array(f) for f in desc["families"]]
     index_fn, in_pairs, out_pairs, top_sig = (
         setup["index_fn"],
@@ -707,8 +743,17 @@ def _keyform_fft_top_cpp(region, ir_info):
         # time-multiplexing F butterflies in a pipelined II=1 fold loop. Butterfly b = p*F + i (PE p,
         # fold-iteration i), so distinct partial/full folds emit distinct schedules. The per-stage
         # register arrays keep the P parallel (up, lo) accesses conflict-free.
+        # Only butterfly-axis (dim 1) folding is implemented. Any fold factor > 1 on any axis makes
+        # the map's lane families reclassify to buffers and enter this branch, so a stage-axis fold
+        # (e.g. fold={0:3}) would otherwise be emitted as if the butterfly axis were unfolded -- reject
+        # it fail-closed rather than mis-scheduling.
         fold_dims = ir_info.get("fold") or []
-        fold_f = fold_dims[1] if len(fold_dims) > 1 and fold_dims[1] else HALF
+        if len(fold_dims) != 2 or fold_dims[0] != 1 or fold_dims[1] <= 1:
+            raise NotImplementedError(
+                "folded key-form FFT rolled top only implements butterfly-axis folding "
+                f"(a rank-2 fold with fold[0] == 1 and fold[1] > 1); got fold={fold_dims or None}"
+            )
+        fold_f = fold_dims[1]
         if HALF % fold_f != 0:
             raise NotImplementedError(
                 f"fold factor {fold_f} must divide the butterfly-axis extent {HALF}"

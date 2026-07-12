@@ -24,7 +24,7 @@ import pytest
 
 import allo.spmw as spmw
 import allo.backend.hls as hls
-from allo.spmw_hls import emit_rolled_hls_ir
+from allo.spmw_hls import emit_rolled_hls_ir, _validate_key_links
 from allo.ir.types import float32, int32, ConstExpr
 
 
@@ -174,12 +174,16 @@ def test_fft_csim(N):
 
 @pytest.mark.parametrize("N", [8, 16])
 def test_fft_rolled_emits_single_butterfly_body(N):
-    """The rolled key-form FFT top has ONE bfly compute body regardless of grid size (O(#roles)).
+    """The spatial rolled key-form FFT top has ONE bfly compute body in *source* regardless of N.
 
-    The key-form ``lane`` topology survives the rolled O(#roles) HLS emitter: the butterfly datapath
-    is transcribed once (twiddle lifted to parameters) and instantiated across the (stage, butterfly)
-    grid, so the emitted top has a single ``void bfly(`` body while the number of *instantiations*
-    grows with the grid.
+    The key-form ``lane`` topology survives the rolled emitter: the butterfly datapath is transcribed
+    once (twiddle lifted to parameters) and instantiated across the (stage, butterfly) grid, so the
+    emitted C++ has a single ``void bfly(`` body while the number of *instantiations* grows with the
+    grid. NOTE: this is a **source-level** rolled-body count. At synthesis the spatial top passes a
+    compile-time constant twiddle per instance, so HLS specializes ``bfly`` per butterfly (O(P)
+    bodies) -- the constant-O(#roles) *synthesis* win is the folded path
+    (``test_fft_folded_rolled_body_count_constant_across_scale``), which reads twiddles from a runtime
+    table. See ``examples/spmw_generated/fft_rolled_csynth_report.md``.
     """
     cpp = emit_rolled_hls_ir(_fft_region(N))
     assert cpp.count("void bfly(") == 1  # one compute body, not one per butterfly
@@ -244,6 +248,46 @@ def test_fft_folded_rolled_honors_fold_factor(F):
     )  # HALF/F parallel PEs, over S stages
     other = HALF if F != HALF else 2
     assert cpp != emit_rolled_hls_ir(_fft_region(8, fold={1: other}))
+
+
+def test_fft_folded_rolled_rejects_stage_axis_fold():
+    """The folded key-form rolled top only implements butterfly-axis folding.
+
+    A stage-axis fold (``fold={0:3}``) still reclassifies the lane families to buffers and enters the
+    folded key-form branch, but must be rejected fail-closed rather than emitted as if the butterfly
+    axis were unfolded (a round-3 review gap).
+    """
+    with pytest.raises(NotImplementedError, match="butterfly-axis folding"):
+        emit_rolled_hls_ir(_fft_region(8, fold={0: 3}))
+
+
+def test_keyform_key_link_validation_is_fail_closed():
+    """Resolved ``#spmw.key_link`` endpoints are validated fail-closed against the recognized ports.
+
+    An empty/malformed parse or an endpoint set that is not exactly the recognized ports (missing,
+    duplicate, unknown, family/direction mismatch, or no resolved families) must raise, not silently
+    skip validation.
+    """
+    ports = {"a": ("stage_lane_re", 0, "upper"), "y": ("stage_lane_re", 1, "upper")}
+    families = ["lane_re"]
+    good = [("a", "lane_re", "sink"), ("y", "lane_re", "src")]
+    _validate_key_links(good, ports, families)  # exact recognized set -> OK
+    with pytest.raises(NotImplementedError, match="no resolved #spmw.key_link"):
+        _validate_key_links([], ports, families)  # empty parse
+    with pytest.raises(NotImplementedError, match="duplicate"):
+        _validate_key_links(good + [("a", "lane_re", "sink")], ports, families)
+    with pytest.raises(NotImplementedError, match="not exactly"):
+        _validate_key_links([("a", "lane_re", "sink")], ports, families)  # missing y
+    with pytest.raises(NotImplementedError, match="not exactly"):
+        _validate_key_links(
+            good + [("z", "lane_re", "sink")], ports, families
+        )  # unknown z
+    with pytest.raises(NotImplementedError, match="disagrees"):
+        _validate_key_links(
+            [("a", "lane_im", "sink"), ("y", "lane_re", "src")], ports, families
+        )
+    with pytest.raises(NotImplementedError, match="no resolved channel"):
+        _validate_key_links(good, ports, [])  # no resolved families
 
 
 @pytest.mark.skipif(
@@ -315,6 +359,44 @@ def test_fft_folded_rolled_csynth_ii1(F):
     # rolled: the synthesized butterfly bodies are far fewer than the S*HALF butterflies
     n_bfly = sum(1 for name in texts if name.startswith("bfly"))
     assert 0 < n_bfly < int(log2(8)) * (8 // 2), f"expected a rolled bfly; got {n_bfly}"
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls"), reason="requires the Vitis HLS toolchain"
+)
+def test_fft_folded_rolled_body_count_constant_across_scale():
+    """The folded FFT synthesizes a CONSTANT number of butterfly bodies as N scales (O(#roles)).
+
+    The folded top reads twiddles from a runtime table, so HLS does not clone ``bfly`` per butterfly;
+    the synthesized body count (and the compute DSP) stays constant from N=8 to N=16 -- the O(#roles)
+    synthesis-time win, archived in ``examples/spmw_generated/fft_rolled_csynth_report.md``. (The
+    spatial top passes compile-time constant twiddle *args*, so HLS specializes ``bfly`` per butterfly
+    -> O(P) bodies; it is the full-parallel correctness variant, not the synthesis win.)
+    """
+
+    def synthesized_bfly_bodies(N, F):
+        with tempfile.TemporaryDirectory() as tmp:
+            spmw.build(_fft_region(N, fold={1: F}), target="rolled", project=tmp)
+            subprocess.run(
+                ["vitis_hls", "-f", "run.tcl"],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+                check=True,
+            )
+            report_dir = os.path.join(tmp, "rolled.prj", "solution1", "syn", "report")
+            return sum(
+                1
+                for p in glob.glob(os.path.join(report_dir, "*.rpt"))
+                if os.path.basename(p).startswith("bfly")
+            )
+
+    n8 = synthesized_bfly_bodies(8, 4)  # full fold, HALF=4
+    n16 = synthesized_bfly_bodies(16, 8)  # full fold, HALF=8
+    assert (
+        n8 == n16 and 0 < n8 < 4
+    ), f"folded FFT synthesized body count must be constant O(#roles); N=8:{n8}, N=16:{n16}"
 
 
 @pytest.mark.parametrize(
