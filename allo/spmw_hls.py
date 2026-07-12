@@ -423,12 +423,14 @@ def _pingpong_top_cpp(rows, cols, depth, elem, place):
     """A two-epoch K-tiled GEMM with genuine ping-pong double buffering of the B operand.
 
     ``spmw.shared(B, double=True)`` requests double buffering: two physical on-chip copies of a
-    K-tile of B (``B_buf[2][KT][N]``, partitioned on the ping/pong axis) alternate by ``epoch & 1``.
-    Each epoch preloads the *next* tile into the alternate copy while it consumes the current copy
-    (the overlap), computes a partial GEMM over its K-tile, and accumulates into ``C``. This is a
-    tiled compute -- a pure systolic streaming GEMM has no epoch boundary to double-buffer -- so a
-    ``double=True`` placement lowers to this ping-pong top rather than the streaming systolic one.
-    ``place['impl']`` (a concrete resource) pins the ping-pong buffer's storage.
+    K-tile of B (``B_buf[2][KT][N]``, partitioned on the ping/pong axis). The load and compute over
+    the two copies are emitted as named stage functions (``load_b_tile``/``compute_b_tile``) invoked
+    as **sibling tasks inside a** ``#pragma HLS dataflow`` **region**, so the load of one ping/pong
+    copy structurally overlaps the compute of the other (not two sequential loops). Each epoch's
+    output-stationary MAC over its K-tile is accumulated as an epoch partial, and the two partials are
+    summed into ``C``. A pure systolic *streaming* GEMM has no epoch boundary to double-buffer, so a
+    ``double=True`` placement lowers to this tiled ping-pong top rather than the streaming systolic
+    one. ``place['impl']`` (a concrete resource) pins the ping-pong buffer's storage.
     """
     kt = depth // 2
     impl = f" impl={place['impl']}" if place.get("impl") else ""
@@ -438,42 +440,97 @@ def _pingpong_top_cpp(rows, cols, depth, elem, place):
         f"#define N {cols}\n"
         f"#define K {depth}\n"
         f"#define KT {kt}\n\n"
+        # stage function: load one K-tile of B into a ping/pong copy
+        f"void load_b_tile(int epoch, {elem} B[K][N], {elem} B_tile[KT][N]) {{\n"
+        "#pragma HLS inline off\n"
+        "  for (int k = 0; k < KT; k++)\n"
+        "    for (int j = 0; j < N; j++)\n"
+        "      B_tile[k][j] = B[epoch * KT + k][j];\n"
+        "}\n\n"
+        # stage function: output-stationary MAC over one K-tile -> epoch partial
+        f"void compute_b_tile(int epoch, {elem} A[M][K], {elem} B_tile[KT][N], {elem} acc[M][N]) {{\n"
+        "#pragma HLS inline off\n"
+        "  for (int i = 0; i < M; i++)\n"
+        "    for (int j = 0; j < N; j++) {\n"
+        f"      {elem} s = 0;\n"
+        "      for (int k = 0; k < KT; k++)\n"
+        "        s += A[i][epoch * KT + k] * B_tile[k][j];\n"
+        "      acc[i][j] = s;\n"
+        "    }\n"
+        "}\n\n"
         f"void top({elem} A[M][K], {elem} B[K][N], {elem} C[M][N]) {{\n"
-        # two physical copies of a K-tile of B (ping + pong); partition the ping/pong axis so the two
+        "#pragma HLS dataflow\n"
+        # two physical copies of a K-tile of B (ping + pong): partition the ping/pong axis so the two
         # copies are independent RAMs, and bind them to real dual-port storage
         f"  {elem} B_buf[2][KT][N];\n"
         "#pragma HLS array_partition variable=B_buf complete dim=1\n"
         f"#pragma HLS bind_storage variable=B_buf type=RAM_2P{impl}\n"
-        f"  {elem} acc[M][N];\n"
+        f"  {elem} acc0[M][N], acc1[M][N];\n"
+        # sibling dataflow tasks: the load of one ping/pong copy overlaps the compute of the other
+        "  load_b_tile(0, B, B_buf[0]);\n"
+        "  compute_b_tile(0, A, B_buf[0], acc0);\n"
+        "  load_b_tile(1, B, B_buf[1]);\n"
+        "  compute_b_tile(1, A, B_buf[1], acc1);\n"
+        # sum the two epoch partials into C
         "  for (int i = 0; i < M; i++)\n"
         "    for (int j = 0; j < N; j++)\n"
-        "      acc[i][j] = 0;\n"
-        # preload epoch 0's tile into the ping copy
-        "  for (int k = 0; k < KT; k++)\n"
-        "    for (int j = 0; j < N; j++)\n"
-        "      B_buf[0][k][j] = B[k][j];\n"
-        "  for (int e = 0; e < 2; e++) {\n"
-        "    int cur = e & 1;\n"
-        "    int nxt = (e + 1) & 1;\n"
-        # preload the next epoch's tile into the alternate copy (overlaps this epoch's compute)
-        "    if (e + 1 < 2)\n"
-        "      for (int k = 0; k < KT; k++)\n"
-        "        for (int j = 0; j < N; j++)\n"
-        "          B_buf[nxt][k][j] = B[(e + 1) * KT + k][j];\n"
-        # consume: partial GEMM over this K-tile using the current copy, accumulate into acc
-        "    for (int i = 0; i < M; i++)\n"
-        "      for (int j = 0; j < N; j++) {\n"
-        f"        {elem} s = 0;\n"
-        "        for (int k = 0; k < KT; k++)\n"
-        "          s += A[i][e * KT + k] * B_buf[cur][k][j];\n"
-        "        acc[i][j] += s;\n"
-        "      }\n"
-        "  }\n"
-        "  for (int i = 0; i < M; i++)\n"
-        "    for (int j = 0; j < N; j++)\n"
-        "      C[i][j] = acc[i][j];\n"
+        "      C[i][j] = acc0[i][j] + acc1[i][j];\n"
         "}\n"
     )
+
+
+def _pingpong_recognize_mac_gemm(ir):
+    """Fail closed unless the resolved compute role is exactly the output-stationary MAC systolic GEMM.
+
+    The ping-pong top hard-codes ``s += A * B``, so a role body that is not exactly the supported PE
+    (``c = 0``; per-k ``c += west * north``; forward east/south; store ``c``) must be rejected rather
+    than silently emitted as a plain ``A @ B``. Checks a single **unpredicated** compute role whose IR
+    func has exactly the MAC op multiset -- any changed accumulator init, extra arithmetic (bias/scale),
+    missing forward, predicate variant, or non-MAC body trips a mismatch.
+    """
+    roles = re.findall(r"#spmw\.role<unit = @(\w+), missing = \[\s*\]([^>]*)>", ir)
+    if len(roles) != 1 or "predicate = " in roles[0][1]:
+        raise NotImplementedError(
+            "ping-pong double buffering supports a single unpredicated output-stationary GEMM role; "
+            f"got {len(roles)} compute role(s)"
+            + (
+                " with a predicate variant"
+                if roles and "predicate = " in roles[0][1]
+                else ""
+            )
+        )
+    func = re.search(rf"func\.func @{roles[0][0]}\(.*?\n  \}}", ir, re.DOTALL)
+    if not func:
+        raise NotImplementedError(
+            "ping-pong could not resolve the compute role func from the IR"
+        )
+    body = func.group(0)
+    counts = {
+        "alloc": len(re.findall(r"memref\.alloc\(\)", body)),
+        "const": len(re.findall(r"arith\.constant ", body)),
+        "zero": len(re.findall(r"arith\.constant 0\.0+e\+00 :", body)),
+        "mulf": len(re.findall(r"arith\.mulf", body)),
+        "addf": len(re.findall(r"arith\.addf", body)),
+        "get": len(re.findall(r"allo\.stream_get", body)),
+        "put": len(re.findall(r"allo\.stream_put", body)),
+        "store": len(re.findall(r"memref\.store", body)),
+    }
+    expected = {
+        "alloc": 1,
+        "const": 1,
+        "zero": 1,
+        "mulf": 1,
+        "addf": 1,
+        "get": 2,
+        "put": 2,
+        "store": 1,
+    }
+    if counts != expected:
+        raise NotImplementedError(
+            "ping-pong double buffering only supports the output-stationary MAC systolic GEMM PE "
+            "(c = 0; c += west * north; forward east/south; store c); the resolved role body has op "
+            f"counts {counts} != {expected}"
+        )
 
 
 def _transcribe_butterfly(unit_fn, elem):
@@ -1406,6 +1463,21 @@ def emit_rolled_hls_ir(region):
                 f"ping-pong double buffering needs a non-folded systolic GEMM whose contraction "
                 f"K={depth} splits into two epochs (folded={bool(buffer_families)})"
             )
+        # Do not silently drop other memory placements: the ping-pong top honors only B's resource=,
+        # so a simultaneous placement on A/C or a banked B is rejected rather than ignored.
+        other_placed = [v for v in ("A", "C") if v in memory_placements]
+        if other_placed:
+            raise NotImplementedError(
+                f"ping-pong double buffering does not honor placements on {other_placed} while B is "
+                f"double-buffered"
+            )
+        if memory_placements["B"].get("bank_axis", -1) >= 0:
+            raise NotImplementedError(
+                "ping-pong double buffering of a banked B operand is not supported"
+            )
+        # The ping-pong top hard-codes A@B, so require the resolved role to be exactly the supported
+        # output-stationary MAC GEMM PE (else fail closed rather than mis-emitting a different PE).
+        _pingpong_recognize_mac_gemm(ir)
         return _pingpong_top_cpp(rows, cols, depth, elem, memory_placements["B"])
     if buffer_families:
         # Folded map: A (east/west) is reclassified to a banked on-chip buffer; B (north/south) stays
