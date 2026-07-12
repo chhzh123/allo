@@ -382,10 +382,21 @@ def test_bitonic_lowers_to_spmw_map():
     assert _link_classes(str(module)) == [24]  # one role body over all 6*4 comparators
 
 
-def test_crossbar_lowering_fails_closed_without_boundary_keys():
-    """The crossbar's per-input/-output scatter/gather boundary keys (`("in", i)` / `("out", j)`) cannot
-    be supplied by the lane-family stream API, so lowering a crossbar region **fails closed** (a
-    half-open scatter) rather than emitting an unfed interconnect."""
+def _link_class_map(module_text):
+    """``{missing-port-signature: count}`` pairing ``spmw.link_class_keys`` with ``spmw.link_classes``."""
+    counts = _link_classes(module_text)
+    keys_match = re.search(r"spmw\.link_class_keys = \[([^\]]*)\]", module_text)
+    if counts is None or keys_match is None:
+        return None
+    keys = re.findall(r'"([^"]*)"', keys_match.group(1))
+    return dict(zip(keys, counts))
+
+
+def test_crossbar_lowers_to_spmw_map():
+    """A `crossbar(4)` region -- each input row scattering over its switches, each output column
+    gathering them -- lowers to one `spmw.map` carrying `#spmw.key_link` for `key="in"` and `key="out"`,
+    with the external stream endpoints recorded so the half-open scatter/gather keys verify;
+    `spmw-role-partition` classifies all 16 identical switches as one link class."""
 
     @spmw.unit
     def switch(ctx):
@@ -395,18 +406,43 @@ def test_crossbar_lowering_fails_closed_without_boundary_keys():
     @spmw.region()
     def net(X: float32[4], Y: float32[4]):
         spmw.map(switch, grid=(4, 4), topo=spmw.crossbar(4))
-        spmw.stream_in(X, into="in")
-        spmw.stream_out(Y, from_="out")
+        spmw.stream_in(X, into="in")  # feeds every ("in", i) scatter source
+        spmw.stream_out(Y, from_="out")  # drains every ("out", j) gather sink
+
+    module = spmw.lower(net)
+    text = str(module)
+    assert text.count("spmw.map") == 1 and "grid = [4, 4]" in text
+    assert 'key = "in"' in text and 'key = "out"' in text
+    spmw._run_module_pass(module, "spmw-role-partition")
+    assert _link_class_map(str(module)) == {
+        "": 16
+    }  # one switch body over all 16 switches
+
+
+def test_crossbar_missing_boundary_family_fails_closed():
+    """Negative: omitting a boundary family (no `stream_out` for `out`) leaves the gather sink open, so
+    the region fails closed before backend emission -- the external endpoints are required, not optional.
+    """
+
+    @spmw.unit
+    def switch(ctx):
+        v: float32 = ctx.row_in.get()
+        ctx.col_out.put(v)
+
+    @spmw.region()
+    def net(X: float32[4], Y: float32[4]):
+        spmw.map(switch, grid=(4, 4), topo=spmw.crossbar(4))
+        spmw.stream_in(X, into="in")  # no stream_out for "out" -> gather sink is open
 
     with pytest.raises(spmw.SPMWError):
         spmw.lower(net)
 
 
-def test_tree_lowering_fails_closed_non_affine():
-    """The heap tree's parent map `(i-1)//2` is not a constant translation (each node has a different
-    parent offset), so it is not lowerable to the affine-`peer_link` rolled IR: `spmw.lower` **fails
-    closed** with a clear diagnostic. The frontend role structure is still correct (3 classes above); a
-    per-coordinate peer-edge IR is future work."""
+def test_tree_lowers_to_spmw_map_three_role_classes():
+    """A `tree(4)` region lowers to one `spmw.map`: the heap `up`/`left`/`right` become general affine
+    `#spmw.peer_link` maps (`(d0-1) floordiv 2`, `d0*2+1`, `d0*2+2`), and `spmw-role-partition` evaluates
+    them to the **three** link-presence classes by identity + count -- root `up`=1, internal ``=2, leaf
+    `left,right`=4."""
 
     @spmw.unit
     def reduce_node(ctx):
@@ -418,5 +454,11 @@ def test_tree_lowering_fails_closed_non_affine():
     def net(X: float32[4], Y: float32[1]):
         spmw.map(reduce_node, grid=(7,), topo=spmw.tree(4))
 
-    with pytest.raises(spmw.SPMWError, match="affine-translation"):
-        spmw.lower(net)
+    module = spmw.lower(net)
+    text = str(module)
+    assert text.count("spmw.map") == 1 and "grid = [7]" in text
+    assert (
+        "floordiv" in text
+    )  # the non-translation heap parent map lowered as a general affine map
+    spmw._run_module_pass(module, "spmw-role-partition")
+    assert _link_class_map(str(module)) == {"up": 1, "": 2, "left,right": 4}

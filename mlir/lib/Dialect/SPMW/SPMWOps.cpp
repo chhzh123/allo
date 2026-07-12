@@ -16,6 +16,7 @@
 #include "allo/Dialect/SPMW/SPMWAttrs.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -34,6 +35,34 @@ using namespace mlir::spmw;
 
 namespace mlir {
 namespace spmw {
+
+// Whether an affine map is a pure per-dim translation ``(d0, d1, ...) -> (d0 +
+// c0, d1 + c1, ...)`` -- the mesh/ring peer links whose reciprocal is a
+// well-defined inverse. A general-affine peer map (e.g. the heap reduction
+// tree's
+// ``(d0 - 1) floordiv 2`` / ``d0 * 2 + 1``) is not a translation; it is an
+// explicit, possibly non-reciprocal edge whose only role-partition use is the
+// in-bounds check of its evaluated peer coordinate.
+static bool isTranslationMap(AffineMap map) {
+  if (map.getNumSymbols() != 0 || map.getNumResults() != map.getNumDims())
+    return false;
+  for (unsigned i = 0, e = map.getNumResults(); i < e; ++i) {
+    AffineExpr expr = map.getResult(i);
+    if (auto dim = llvm::dyn_cast<AffineDimExpr>(expr)) {
+      if (dim.getPosition() != i)
+        return false;
+    } else if (auto bin = llvm::dyn_cast<AffineBinaryOpExpr>(expr)) {
+      auto dim = llvm::dyn_cast<AffineDimExpr>(bin.getLHS());
+      auto cst = llvm::dyn_cast<AffineConstantExpr>(bin.getRHS());
+      if (bin.getKind() != AffineExprKind::Add || !dim || !cst ||
+          dim.getPosition() != i)
+        return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
 
 LogicalResult MapOp::verify() {
   TopologyAttr topology = getTopology();
@@ -101,10 +130,26 @@ LogicalResult MapOp::verify() {
   // many 1->1 slots). Precise per-instance cardinality is a frontend concern
   // (key_channel_roles over the concrete keys); the rolled family must only
   // have a producer and a consumer, so a src-only or sink-only (dangling) key
-  // fails.
+  // fails -- UNLESS the missing endpoint is supplied externally by a region
+  // stream (a scatter's source / a gather's sink), which the frontend records
+  // on the op via the `spmw.external_srcs` / `spmw.external_sinks` discardable
+  // attributes (families whose src / sink is an external stream_in /
+  // stream_out).
+  llvm::StringSet<> externalSrc, externalSink;
+  if (auto arr = (*this)->getAttrOfType<ArrayAttr>("spmw.external_srcs"))
+    for (Attribute a : arr)
+      if (auto s = llvm::dyn_cast<StringAttr>(a))
+        externalSrc.insert(s.getValue());
+  if (auto arr = (*this)->getAttrOfType<ArrayAttr>("spmw.external_sinks"))
+    for (Attribute a : arr)
+      if (auto s = llvm::dyn_cast<StringAttr>(a))
+        externalSink.insert(s.getValue());
   for (const auto &entry : keyCounts) {
-    int numSrc = entry.second.first;
-    int numSink = entry.second.second;
+    StringRef family;
+    if (auto s = llvm::dyn_cast<StringAttr>(entry.first))
+      family = s.getValue();
+    int numSrc = entry.second.first + (externalSrc.contains(family) ? 1 : 0);
+    int numSink = entry.second.second + (externalSink.contains(family) ? 1 : 0);
     if (numSrc < 1 || numSink < 1)
       return emitOpError(
                  "channel key must have at least one src and one sink; got ")
@@ -118,6 +163,14 @@ LogicalResult MapOp::verify() {
       static_cast<unsigned>(dims), getContext());
   for (const auto &entry : peerByPort) {
     PeerLinkAttr link = entry.second;
+    // A non-translation peer map (e.g. the heap tree's `(d0-1) floordiv 2`) is
+    // an explicit, possibly non-reciprocal edge: its reciprocal is
+    // coordinate-dependent (the tree's `up` peers a parent's `left` or `right`
+    // by child parity), so the strict inverse-composition reciprocity below
+    // does not apply. The role-partition pass classifies it purely by its
+    // evaluated peer coordinate's in-bounds-ness.
+    if (!isTranslationMap(link.getPeerMap().getAffineMap()))
+      continue;
     auto peerIt = peerByPort.find(link.getPeerPort());
     if (peerIt == peerByPort.end())
       return emitOpError("peer link '")

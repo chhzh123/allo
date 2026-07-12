@@ -100,13 +100,17 @@ class Topology:
         with no interconnect.
     """
 
-    def __init__(self, grid, link=None):
+    def __init__(self, grid, link=None, affine_links=None):
         if not isinstance(grid, (tuple, list)) or len(grid) == 0:
             raise SPMWError(f"grid must be a non-empty shape; got {grid!r}")
         self.grid = tuple(int(n) for n in grid)
         if any(n <= 0 for n in self.grid):
             raise SPMWError(f"grid extents must be positive; got {self.grid}")
         self._link = link
+        # Optional explicit affine peer maps for non-translation peer ports (e.g. the heap tree's
+        # ``up``/``left``/``right``): ``{port: (affine_expr_over_d0.., peer_port)}``. Consumed by
+        # ``_topology_text`` when a port's peer offset is not a constant translation.
+        self.affine_links = dict(affine_links) if affine_links else {}
 
     @property
     def dims(self):
@@ -474,10 +478,11 @@ def tree(n):
     Every node declares all three ports; the root's ``up`` and each leaf's ``left``/``right`` point at
     *out-of-bounds* coordinates so they register as boundary ports (the root's result leaves the tree; the
     leaves' inputs enter it). This gives three link-presence roles -- root ``{up}`` / internal ``{}`` /
-    leaf ``{left, right}`` -- under :func:`role_partition`. The heap parent map ``(i-1)//2`` is *not* a
-    constant translation (each node has a different parent offset), so the tree is a valid frontend
-    topology but is **not** lowerable to the affine-`peer_link` rolled IR (``lower`` fails closed); a
-    per-coordinate peer-edge representation is future work.
+    leaf ``{left, right}`` -- under :func:`role_partition`. The heap maps are *not* constant translations
+    (each node has a different parent/child offset), so they lower via ``affine_links`` as general affine
+    `peer_link` maps -- ``up = (d0-1) floordiv 2``, ``left = d0*2+1``, ``right = d0*2+2`` -- which the
+    role-partition pass evaluates (marking the root's ``up`` / the leaves' ``left``/``right`` out of
+    bounds), so a `tree` region lowers to `spmw.map` and partitions into the three classes.
     """
     n, _ = _pow2_lanes(n, "tree")
     total = 2 * n - 1
@@ -494,7 +499,18 @@ def tree(n):
             "right": ((2 * i + 2,), "up"),  # boundary at the leaves
         }
 
-    return Topology(grid=(total,), link=link)
+    return Topology(
+        grid=(total,),
+        link=link,
+        affine_links={
+            "up": (
+                "(d0 - 1) floordiv 2",
+                "left",
+            ),  # peer port is representative (see _topology_text)
+            "left": ("d0 * 2 + 1", "up"),
+            "right": ("d0 * 2 + 2", "up"),
+        },
+    )
 
 
 class PortHandle:
@@ -1296,35 +1312,55 @@ def _boundary_keys(topology, streams):
             continue
         stage = stream.extra.get("at_stage")
         for key in keys:
-            if (
-                isinstance(key, tuple)
-                and len(key) >= 2
-                and key[0] in families
-                and key[1] == stage
-            ):
+            if not (isinstance(key, tuple) and len(key) >= 2 and key[0] in families):
+                continue
+            # Staged lane keys (family, stage, slot) match by their at_stage; flat scatter/gather keys
+            # (family, index) -- streamed with no at_stage -- supply every index of the family.
+            if stage is None:
+                matched = len(key) == 2
+            else:
+                matched = len(key) >= 3 and key[1] == stage
+            if matched:
                 (ext_src if stream.direction == "in" else ext_sink).add(key)
     return ext_src, ext_sink
 
 
 def _validate_key_stage_stream(collection, stream, families):
-    """Check a key-stage ``stream_in``/``stream_out``: an integer stage and known lane families."""
+    """Check a key-family ``stream_in``/``stream_out``: known families, and ``at_stage`` present iff the
+    family's keys are staged lane keys ``(family, stage, slot)`` -- flat scatter/gather keys
+    ``(family, index)`` (e.g. the crossbar) take no ``at_stage``."""
     stage = stream.extra.get("at_stage")
-    if not isinstance(stage, int) or isinstance(stage, bool):
-        raise SPMWError(
-            f"stream_{stream.direction} into a lane family needs an integer at_stage=; got "
-            f"{stage!r}"
-        )
-    known = set()
+    ranks = (
+        {}
+    )  # family -> the set of key ranks (tuple lengths) the mapped topologies declare
     for decl in collection.maps:
-        known |= {
-            k[0] for k in _key_form_keys(decl.topology) if isinstance(k, tuple) and k
-        }
+        for key in _key_form_keys(decl.topology):
+            if isinstance(key, tuple) and key:
+                ranks.setdefault(key[0], set()).add(len(key))
     for family in families:
-        if family not in known:
+        if family not in ranks:
             raise SPMWError(
                 f"stream_{stream.direction} references lane family {family!r}, which no mapped "
-                f"topology declares; declared families: {sorted(known)}"
+                f"topology declares; declared families: {sorted(ranks)}"
             )
+    family_ranks = set().union(*(ranks[f] for f in families))
+    staged = any(r >= 3 for r in family_ranks)  # (family, stage, slot)
+    flat = 2 in family_ranks  # (family, index)
+    if staged and flat:
+        raise SPMWError(
+            f"stream_{stream.direction} families {sorted(families)} mix staged lane keys and flat "
+            f"scatter/gather keys; feed them with separate streams"
+        )
+    if staged and (not isinstance(stage, int) or isinstance(stage, bool)):
+        raise SPMWError(
+            f"stream_{stream.direction} into a staged lane family needs an integer at_stage=; got "
+            f"{stage!r}"
+        )
+    if flat and stage is not None:
+        raise SPMWError(
+            f"stream_{stream.direction} into a flat scatter/gather family {sorted(families)} takes no "
+            f"at_stage=; got {stage!r}"
+        )
     index = stream.extra.get("index")
     if stream.direction == "in" and index is not None and not callable(index):
         raise SPMWError(
@@ -1651,9 +1687,24 @@ def _topology_text(decl):
             continue
         offset = _translation_offset(topology, port)
         if offset is None:
-            raise SPMWError(
-                f"port {port!r}: only affine-translation peer links are lowerable so far"
+            affine = topology.affine_links.get(port)
+            if affine is None:
+                raise SPMWError(
+                    f"port {port!r}: only affine-translation peer links (or a declared "
+                    f"affine_links map) are lowerable so far"
+                )
+            # A general affine peer map (e.g. the heap tree's ``(d0-1) floordiv 2``). The role-partition
+            # pass classifies by whether the evaluated peer coordinate is in bounds -- it never reads the
+            # peer *port* -- so the reduction tree's parity-dependent ``up`` reciprocal is a wiring detail
+            # and a representative peer port is emitted.
+            expr, peer_port = affine
+            dims = ", ".join(f"d{k}" for k in range(topology.dims))
+            links.append(
+                f'#spmw.peer_link<port = "{port}", '
+                f"map = affine_map<({dims}) -> ({expr})>, "
+                f'peer = "{peer_port}", depth = {depth}>'
             )
+            continue
         _, peer_port = topology._parse_peer(port, target)
         links.append(
             f'#spmw.peer_link<port = "{port}", map = {_affine_map_text(offset)}, '
@@ -2091,6 +2142,18 @@ def _module_text(program, collection):
             role_funcs.append(func_text)
         roles_text = "[\n      " + ",\n      ".join(role_attrs) + "\n    ]"
         map_attrs = []
+        # Families whose src/sink is supplied externally by a region stream (a scatter's source fed by
+        # ``stream_in``, a gather's sink drained by ``stream_out``). Recorded so the op verifier does not
+        # reject the otherwise-half-open scatter/gather key (e.g. the crossbar's ``in``/``out``).
+        ext_src_keys, ext_sink_keys = _boundary_keys(decl.topology, collection.streams)
+        ext_src_fams = sorted({k[0] for k in ext_src_keys if isinstance(k, tuple)})
+        ext_sink_fams = sorted({k[0] for k in ext_sink_keys if isinstance(k, tuple)})
+        if ext_src_fams:
+            joined = ", ".join(f'"{f}"' for f in ext_src_fams)
+            map_attrs.append(f"spmw.external_srcs = [{joined}]")
+        if ext_sink_fams:
+            joined = ", ".join(f'"{f}"' for f in ext_sink_fams)
+            map_attrs.append(f"spmw.external_sinks = [{joined}]")
         if decl.shard:
             shard_dims = ", ".join(str(s) for s in decl.shard)
             map_attrs.append(f"spmw.shard = array<i64: {shard_dims}>")
