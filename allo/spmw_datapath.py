@@ -1297,7 +1297,10 @@ def build_dataflow(region, target="simulator", **kwargs):
             except NotImplementedError:
                 try:
                     source = generate_fft_source(region, collection)
-                    hls_operands = None
+                    # The FFT input_loader/output_store kernels read/write each region operand per
+                    # lane (mapping=[N]); complete-partition them so the HLS Makefile (hw_emu/hw) flow
+                    # sees a single reader/writer per bank (else HLS 200-779, as the Mini-TPU hit).
+                    hls_operands = tuple(name for name, _, _ in _region_tensors(region))
                 except NotImplementedError:
                     source = generate_pipeline_source(region, collection)
                     hls_operands = None

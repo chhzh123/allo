@@ -462,3 +462,67 @@ def test_fft_folded_resolve_channels_buffers():
     printed = str(module)
     assert "spmw.buffer_families" in printed
     assert "lane_re" in printed and "lane_im" in printed
+
+
+def _fft_hw_io(N):
+    """Deterministic FFT inputs/outputs + the numpy oracle (shared by the hw_emu / hw run tests)."""
+    np.random.seed(42)
+    inp_real = np.random.rand(N).astype(np.float32)
+    inp_imag = np.zeros(N, dtype=np.float32)
+    out_real = np.zeros(N, dtype=np.float32)
+    out_imag = np.zeros(N, dtype=np.float32)
+    ref = np.fft.fft(inp_real + 1j * inp_imag)
+    return inp_real, inp_imag, out_real, out_imag, ref
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls") or "XDEVICE" not in os.environ,
+    reason="requires the Vitis HLS toolchain and an XDEVICE emulation platform",
+)
+def test_fft_hw_emu_runs_and_matches_numpy():
+    """L4 emulation checkpoint: build the FFT for ``hw_emu``, run the RTL co-simulation, match numpy.
+
+    The FFT desugars through the ``target="vitis_hls"`` path (``fft_spatial``); calling the built module
+    runs ``make run TARGET=hw_emu`` (emulation xclbin + OpenCL host under ``XCL_EMULATION_MODE=hw_emu``).
+    Guarded on ``XDEVICE`` (the build takes ~tens of minutes). The strict §6.8 FFT L4 is the on-board
+    ``mode="hw"`` run below."""
+    N = 8
+    inp_real, inp_imag, out_real, out_imag, ref = _fft_hw_io(N)
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(
+            _fft_region(N), target="vitis_hls", mode="hw_emu", project=tmp
+        )
+        module(inp_real, inp_imag, out_real, out_imag)
+    np.testing.assert_allclose(
+        out_real, ref.real.astype(np.float32), rtol=1e-3, atol=1e-3
+    )
+    np.testing.assert_allclose(
+        out_imag, ref.imag.astype(np.float32), rtol=1e-3, atol=1e-3
+    )
+
+
+@pytest.mark.skipif(
+    not hls.is_available("vitis_hls")
+    or "XDEVICE" not in os.environ
+    or not os.environ.get("SPMW_RUN_HW"),
+    reason="on-board hw run: needs Vitis + XDEVICE + SPMW_RUN_HW=1 (the bitstream build takes hours)",
+)
+def test_fft_hw_on_board_matches_numpy():
+    """L4 (strict, plan.md §6.8): build the FFT bitstream (``mode="hw"``) and run it ON-BOARD, match numpy.
+
+    §6.8 singles out the FFT for on-board execution. Calling the built module runs
+    ``make run TARGET=hw`` (Vivado place&route bitstream + XRT host on the U280). Guarded additionally on
+    ``SPMW_RUN_HW`` because the bitstream build takes hours; set ``SPMW_RUN_HW=1`` on a host with the
+    board (``brg-zhang-xcel``) to run it. The archived report records a completed on-board run.
+    """
+    N = 8
+    inp_real, inp_imag, out_real, out_imag, ref = _fft_hw_io(N)
+    with tempfile.TemporaryDirectory() as tmp:
+        module = spmw.build(_fft_region(N), target="vitis_hls", mode="hw", project=tmp)
+        module(inp_real, inp_imag, out_real, out_imag)
+    np.testing.assert_allclose(
+        out_real, ref.real.astype(np.float32), rtol=1e-3, atol=1e-3
+    )
+    np.testing.assert_allclose(
+        out_imag, ref.imag.astype(np.float32), rtol=1e-3, atol=1e-3
+    )

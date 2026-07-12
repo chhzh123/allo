@@ -32,9 +32,44 @@ Generated from `spmw.build(_fft_region(N, fold=...), target="rolled")` → `csyn
   is O(#roles) at synthesis. The FFT butterfly differs only because of its per-`(s,b)` twiddle
   constant, which is why folding (runtime twiddle table) is what recovers O(#roles) for the FFT.
 
+## L4 — hardware execution (strict, plan.md §6.8)
+§6.8 singles out the FFT for **on-board** `mode="hw"` execution (systolic + Mini-TPU are `hw_emu`). The
+L4 run uses the **`fft_spatial` desugar path** (`target="vitis_hls"` → `allo.dataflow` → Vitis Makefile
+flow), the same path the systolic twin / Mini-TPU use — distinct from the *rolled* O(#roles) synthesis
+evidence above (this is the numerical-correctness-on-silicon rung, not a body-count claim). The four
+FFT operands (`Xr/Xi/Yr/Yi`) are complete-partitioned so HLS dataflow sees a single reader/writer per
+bank (`build_dataflow` HLS operand-partition spec). N=8, inputs `np.random.seed(42)` (imag=0), compared
+to `np.fft.fft` at `rtol=atol=1e-3`. Run on `brg-zhang-xcel` (`XDEVICE =
+xilinx_u280_gen3x16_xdma_1_202211_1`, board Device-Ready), Vitis 2023.2.
+
+- **L4-emulation checkpoint (`mode="hw_emu"`, RTL co-sim):** emulation exited cleanly ("All the
+  simulator processes exited successfully / Finished execution!"); `Yr/Yi` matched `np.fft.fft`
+  (**max abs error 2.98e-07**), wall-clock 751.4 s. In-tree: `test_fft_hw_emu_runs_and_matches_numpy`
+  (guarded on `hls.is_available` + `XDEVICE`).
+- **L4 on-board (`mode="hw"`, bitstream + XRT on the U280):** `make run TARGET=hw PLATFORM=$XDEVICE`
+  (Vivado place&route bitstream + XRT host on the board).
+
+```
+XDEVICE=... SPMW_RUN_HW=1 python3 -c "build _fft_region(8) mode=hw; module(inp_re, inp_im, out_re, out_im)"
+...
+INFO: [v++ 60-586] Created ./build_dir.hw.../fft_df.link.xclbin        # bitstream built
+Loading: './build_dir.hw.xilinx_u280_gen3x16_xdma_1_202211_1/fft_df.xclbin'   # programmed onto the U280
+FFT_HW match=True maxerr=2.98023e-07 elapsed_s=7255.2
+```
+
+- **Result:** the FFT bitstream built, was loaded onto the physical U280 via XRT, ran, and `Yr/Yi`
+  matched numpy `np.fft.fft` (**max abs error 2.98e-07**) — the strict §6.8 on-board L4.
+- **Wall-clock:** 7255.2 s (~2 h) end-to-end (`mode="hw"` Vivado place&route bitstream build + XRT
+  on-board execution) on `brg-zhang-xcel` (Alveo U280, Vitis 2023.2).
+
+In-tree: `test_fft_hw_on_board_matches_numpy` (guarded on `hls.is_available` + `XDEVICE` **and**
+`SPMW_RUN_HW=1`, because the bitstream build takes hours).
+
 ## Scope / caveats
 - Small-N proof case (N=8, 16). The folded lane buffers are `(S+1)·N` fully-partitioned registers per
   lane family; a resource-optimal conflict-free bank scheme (the `feature/allo-fft` stage-dependent
   XOR swizzle) would reduce the register footprint at larger N — tracked as a queued refinement.
 - Latency/II above is the butterfly-loop initiation interval from the per-loop pipeline reports;
   BRAM/URAM are 0 because the lane state is register-partitioned at this scale.
+- The L4 hardware run exercises the `fft_spatial` desugar realization; the rolled O(#roles) evidence
+  (the table above) is a separate csynth artifact and is not re-run at L4.
