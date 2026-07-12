@@ -88,6 +88,7 @@ def _run_scheduler(coros, fifos, max_steps):
             raise SPMWDeadlockError(
                 f"rolled simulator exceeded its step budget ({max_steps}); likely a livelock/deadlock"
             )
+    return steps
 
 
 # ----------------------------------------------------------------------------------------------------
@@ -192,9 +193,8 @@ def _make_coro(unit_fn, ports, extra_globals):
     namespace.update(closure.globals)
     namespace.update(extra_globals)
     module = ast.Module(body=[func], type_ignores=[])
-    exec(
-        compile(module, filename="<spmw_rollsim>", mode="exec"), namespace
-    )  # pylint: disable=exec-used
+    code = compile(module, filename="<spmw_rollsim>", mode="exec")
+    exec(code, namespace)  # pylint: disable=exec-used
     return namespace["gen"]
 
 
@@ -248,13 +248,17 @@ def _build_mesh(collection, operands, order):
     ports = set(decl.topology.port_names())
     gen_fn = _make_coro(decl.unit.interior, ports, {})
 
+    # A flows west->east on fifo_A, B flows north->south on fifo_B: size each family's FIFOs from the
+    # map's resolved per-port depths (the entry port of each flow), not a hard-coded constant.
+    depth_a = decl.port_depths.get("west", decl.port_depths.get("east", 2))
+    depth_b = decl.port_depths.get("north", decl.port_depths.get("south", 2))
     fifos = {}
     for i in range(1, rows_m + 1):
         for j in range(1, cols_n + 2):
-            fifos[("A", i, j)] = _Fifo(4)
+            fifos[("A", i, j)] = _Fifo(depth_a)
     for i in range(1, rows_m + 2):
         for j in range(1, cols_n + 1):
-            fifos[("B", i, j)] = _Fifo(4)
+            fifos[("B", i, j)] = _Fifo(depth_b)
 
     coros = {}
     for i in range(1, rows_m + 1):
@@ -308,6 +312,8 @@ class _RolledSimModule:
         self.region = region
 
     def __call__(self, *args):
+        """Run the region on the coroutine scheduler (outputs written in place); returns the number of
+        scheduling cycles it took (a cycle-count reference for the analytic model)."""
         # pylint: disable=import-outside-toplevel
         from .spmw import _collect, _validate_collection
         from .spmw_datapath import _recognize, _region_tensors
@@ -325,7 +331,7 @@ class _RolledSimModule:
         else:
             _recognize(collection)  # fail closed unless it is the 2-D systolic mesh
             coros, fifos = _build_mesh(collection, operands, order)
-        _run_scheduler(coros, fifos, self._MAX_STEPS)
+        return _run_scheduler(coros, fifos, self._MAX_STEPS)
 
 
 def build_rolled_simulator(region):
