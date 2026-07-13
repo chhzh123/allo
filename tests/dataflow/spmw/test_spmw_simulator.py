@@ -124,6 +124,42 @@ def test_systolic_runs_for_int32():
     np.testing.assert_array_equal(C, A @ B)
 
 
+def test_systolic_non_canonical_operand_order():
+    """A region declaring its tensors out of canonical order -- `(B, A, C)` with `stream_in(A, "W->E")`
+    and `stream_in(B, "N->S")` -- desugars from the stream declarations, so shapes/data are not swapped
+    (previously it took the first two annotations as A/B and produced wrong results or a grid mismatch).
+    """
+    M, N, K = 3, 4, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(
+        B: float32[K, N], A: float32[M, K], C: float32[M, N]
+    ):  # non-canonical order
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    module = spmw.build(gemm, target="simulator")
+    A_arr = np.random.rand(M, K).astype(np.float32)
+    B_arr = np.random.rand(K, N).astype(np.float32)
+    C_arr = np.zeros((M, N), dtype=np.float32)
+    module(B_arr, A_arr, C_arr)  # called in the region's (B, A, C) declaration order
+    np.testing.assert_allclose(C_arr, A_arr @ B_arr, atol=1e-4)
+
+
 def test_grid_tensor_mismatch_rejected():
     # a declared mesh that disagrees with the operand-derived M x N grid must not silently compile
     M, N, K = 3, 3, 3

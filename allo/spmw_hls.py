@@ -1287,7 +1287,17 @@ def emit_rolled_project(
 # datapath (allo ops) to HLS C++ -- so the emission genuinely consumes spmw.map, not the frontend.
 
 # The systolic interior op set the datapath translator handles, mapped to their C++ operators.
-_MLIR_ARITH = {"mulf": "*", "addf": "+", "subf": "-", "divf": "/"}
+# Both the floating-point (`*f`) and integer (`*i`) arith mnemonics map to the same C operators, so an
+# integer SPMW PE (whose MLIR lowerer emits arith.muli/addi/subi) translates as readily as a float one.
+_MLIR_ARITH = {
+    "mulf": "*",
+    "addf": "+",
+    "subf": "-",
+    "divf": "/",
+    "muli": "*",
+    "addi": "+",
+    "subi": "-",
+}
 
 
 def _interior_body_from_ir(func_text, ports, elem):
@@ -1348,7 +1358,9 @@ def _interior_body_from_ir(func_text, ports, elem):
             emit(f"{elem} {v} = {port_of[m.group(2)]}.read();")
             val[m.group(1)] = v
             continue
-        m = re.match(r"(%\w+) = arith\.(mulf|addf|subf|divf) (%\w+), (%\w+)", ln)
+        m = re.match(
+            r"(%\w+) = arith\.(mulf|addf|subf|divf|muli|addi|subi) (%\w+), (%\w+)", ln
+        )
         if m:
             v = f"v{m.group(1)[1:]}"
             emit(

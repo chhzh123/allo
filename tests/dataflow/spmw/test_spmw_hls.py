@@ -66,3 +66,38 @@ def test_emit_hls_rejects_non_mesh():
 
     with pytest.raises(spmw.SPMWError, match="mesh"):
         spmw.emit_hls(r)
+
+
+def test_rolled_hls_translates_integer_datapath():
+    """The IR-based rolled-HLS emitter translates an integer systolic MAC PE: `spmw_mlir` emits
+    arith.muli/addi for an int datapath, and the IR->C++ translator now recognizes the integer
+    mnemonics (previously only float ones, so integer regions raised NotImplementedError despite
+    int32/int64 being in the dtype table)."""
+    from allo.ir.types import int32
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    grid = spmw.mesh((3, 3))
+
+    @spmw.unit
+    def pe(ctx):
+        c: int32 = 0
+        for k in range(2):
+            a: int32 = ctx.west.get()
+            b: int32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: int32[3, 2], B: int32[2, 3], C: int32[3, 3]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    cpp = emit_rolled_hls_ir(gemm)  # no NotImplementedError on the integer arith
+    assert "int c_local[1]" in cpp  # emitted as an int (not float) datapath
+    assert (
+        "c_local[0] =" in cpp
+    )  # the integer MAC accumulation reaches the output store
