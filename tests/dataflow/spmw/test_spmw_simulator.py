@@ -31,6 +31,45 @@ def _systolic_twin(M, N, K):
     return gemm
 
 
+def test_declared_fifo_depth_reaches_dataflow_source():
+    """A `depths=` on the systolic map is threaded into the generated dataflow FIFO arrays (previously
+    hard-coded to 4), so the simulator/HLS dataflow backend buffers exactly what the SPMW program
+    declared -- matching the rolled paths and the strict depth-consistency checker."""
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw import _collect, _validate_collection
+    from allo.spmw_datapath import generate_source
+
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(2):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[2, 2], B: float32[2, 2], C: float32[2, 2]):
+        spmw.map(pe, grid=grid, depths={"east": 8, "west": 8, "north": 6, "south": 6})
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    src = generate_source(
+        gemm, _validate_collection(_collect(gemm), strict_topology=True)
+    )
+    assert (
+        "fifo_A: Stream[float32, 8]" in src
+    )  # A family (west/east) honors the declared depth 8
+    assert (
+        "fifo_B: Stream[float32, 6]" in src
+    )  # B family (north/south) honors the declared depth 6
+
+
 def test_systolic_twin_runs_on_simulator():
     M, N, K = 2, 2, 2
     module = spmw.build(_systolic_twin(M, N, K), target="simulator")

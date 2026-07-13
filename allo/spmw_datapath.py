@@ -137,10 +137,16 @@ def _transcribe_interior(unit, locals_, gets=None, puts=None):
 def generate_source(region, collection):
     """The equivalent allo.dataflow source for a recognized systolic-mesh region."""
     # pylint: disable=import-outside-toplevel
-    from .spmw import SPMWError
+    from .spmw import DEFAULT_DEPTH, SPMWError
 
     decl = _recognize(collection)
     rows, cols, depth, dtype = _resolve_dims(region)
+    # Honor the declared per-family FIFO depths (a `depths={...}` on the map, defaulting to
+    # DEFAULT_DEPTH) so the dataflow backend buffers exactly what the SPMW program requested, matching
+    # the rolled paths and the strict depth-consistency checker. fifo_A carries the A family (west/east),
+    # fifo_B the B family (north/south).
+    depth_a = decl.port_depths.get("east", DEFAULT_DEPTH)
+    depth_b = decl.port_depths.get("south", DEFAULT_DEPTH)
     # The declared mesh must match the operand-derived PE grid, or a stale spmw.mesh((...)) would
     # silently compile a different topology than the one the tensors imply.
     if tuple(decl.topology.grid) != (rows, cols):
@@ -162,8 +168,8 @@ P0, P1 = M + 2, N + 2
 
 @df.region()
 def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
-    fifo_A: Stream[{dtype}, 4][P0, P1]
-    fifo_B: Stream[{dtype}, 4][P0, P1]
+    fifo_A: Stream[{dtype}, {depth_a}][P0, P1]
+    fifo_B: Stream[{dtype}, {depth_b}][P0, P1]
 
     @df.kernel(mapping=[P0, P1], args=[A, B, C])
     def gemm(local_A: {dtype}[M, K], local_B: {dtype}[K, N], local_C: {dtype}[M, N]):
@@ -222,7 +228,7 @@ def generate_sparse_packed_source(region, collection):
     path, not as a numpy shortcut -- so the simulator result is bit-identical to the `df` original.
     """
     # pylint: disable=import-outside-toplevel
-    from .spmw import SPMWError
+    from .spmw import DEFAULT_DEPTH, SPMWError
 
     decl = _recognize_sparse_packed(collection)
     tensors = [
@@ -243,6 +249,10 @@ def generate_sparse_packed_source(region, collection):
             f"declared mesh grid {tuple(decl.topology.grid)} does not match the operand-derived "
             f"PE grid {(rows, cols)}: A_nz is [M, NZ] and B is [K, N], so the mesh must be M x N"
         )
+    # Honor the declared per-family FIFO depths: fifo_A + the parallel fifo_idx carry the A family
+    # (west/east), fifo_B the packed B family (north/south).
+    depth_a = decl.port_depths.get("east", DEFAULT_DEPTH)
+    depth_b = decl.port_depths.get("south", DEFAULT_DEPTH)
     out = [s for s in collection.streams if s.direction == "out"][0]
     locals_ = {out.extra.get("as_", "c_local"): ("local_C", "i - 1", "j - 1")}
     interior = _transcribe_interior(decl.unit, locals_, _GETS_PACKED, _PUTS_PACKED)
@@ -258,9 +268,9 @@ NZ = {nz}
 
 @df.region()
 def {region.name}_df(A_nz: int32[M, NZ], A_in: int32[M, NZ], B: int32[K, N], C: int32[M, N]):
-    fifo_A: Stream[int32, 4][P0, P1]
-    fifo_idx: Stream[int32, 4][P0, P1]
-    fifo_B: Stream[int128, 4][P0, P1]
+    fifo_A: Stream[int32, {depth_a}][P0, P1]
+    fifo_idx: Stream[int32, {depth_a}][P0, P1]
+    fifo_B: Stream[int128, {depth_b}][P0, P1]
 
     @df.kernel(mapping=[P0, P1], args=[A_nz, A_in, B, C])
     def semm(

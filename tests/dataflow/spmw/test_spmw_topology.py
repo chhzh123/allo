@@ -110,6 +110,33 @@ def test_gather_topology_classifies_as_gather():
     assert topo.validate().key_channel_roles() == {"gather": "gather"}
 
 
+def test_scatter_gather_lower_emits_both_key_link_endpoints():
+    """A scatter's source port lives at one grid point and its sink ports at the others (a gather is the
+    mirror), so serializing links from a single representative coordinate would drop half the key-link
+    family and leave the channel dangling. `spmw.lower` must emit BOTH `end = "src"` and `end = "sink"`
+    for the family."""
+
+    @spmw.unit
+    def node(ctx):
+        pass
+
+    @spmw.region()
+    def scatter_region(A: float32[4]):
+        spmw.map(node, grid=(4,), topo=spmw.scatter(4))
+
+    @spmw.region()
+    def gather_region(A: float32[4]):
+        spmw.map(node, grid=(4,), topo=spmw.gather(4))
+
+    scatter_ir = str(spmw.lower(scatter_region))
+    assert 'key = "scatter"' in scatter_ir
+    assert 'end = "src"' in scatter_ir and 'end = "sink"' in scatter_ir
+
+    gather_ir = str(spmw.lower(gather_region))
+    assert 'key = "gather"' in gather_ir
+    assert 'end = "src"' in gather_ir and 'end = "sink"' in gather_ir
+
+
 def test_peer_key_channel_still_one_to_one():
     def link(i):
         return {"out": (("c",), "src")} if i == 0 else {"in": (("c",), "sink")}

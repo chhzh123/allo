@@ -2001,27 +2001,39 @@ def _topology_text(decl):
         links.extend(
             _edge_link_text(topology, port, decl.port_depths.get(port, DEFAULT_DEPTH))
         )
-    for port, target in sorted(topology.links_at(rep).items()):
-        if port in explicit:
-            continue  # emitted above as explicit per-coordinate edge_links
-        depth = decl.port_depths.get(port, DEFAULT_DEPTH)
-        if _is_key_form(target):
-            # A key-form link rendezvous by key: the rolled IR names the channel-group *family*
-            # (`key[0]` of a `(family, stage, slot)` key, or the bare string key itself) -- the
-            # O(#roles) interconnect identity, exactly as a peer link names "east/west" rather than
-            # every concrete FIFO. The per-instance stage/slot permutation is a datapath/layout
-            # detail carried separately (and checked), not a rolled representative-point link.
+    # Key-form links can vary by coordinate: a scatter's single source port lives at one grid point
+    # and its sink ports at the others (a gather is the mirror), so a representative point would emit
+    # only half the key-link family and leave the channel dangling. Collect the DISTINCT
+    # (port, family, endpoint) key links across ALL coordinates. A key-form link rendezvous by key: the
+    # rolled IR names the channel-group *family* (`key[0]` of a `(family, stage, slot)` key, or the bare
+    # string key itself) -- the O(#roles) interconnect identity, exactly as a peer link names
+    # "east/west" rather than every concrete FIFO. The per-instance stage/slot permutation is a
+    # datapath/layout detail carried separately (and checked), not a rolled representative-point link.
+    key_links = {}
+    for coord in topology.coords():
+        for port, target in topology.links_at(coord).items():
+            if port in explicit or not _is_key_form(target):
+                continue
             key, endpoint = target
             family = key[0] if isinstance(key, tuple) and key else key
             if not isinstance(family, str):
                 raise SPMWError(
                     f"port {port!r}: key-form channel family must be a string; got {family!r}"
                 )
-            links.append(
-                f'#spmw.key_link<port = "{port}", key = "{family}", '
-                f'end = "{endpoint}", depth = {depth}>'
+            key_links.setdefault(
+                (port, family, endpoint), decl.port_depths.get(port, DEFAULT_DEPTH)
             )
-            continue
+    for (port, family, endpoint), depth in sorted(key_links.items()):
+        links.append(
+            f'#spmw.key_link<port = "{port}", key = "{family}", '
+            f'end = "{endpoint}", depth = {depth}>'
+        )
+    # Peer (affine translation) links are uniform across coordinates -- every grid point has the same
+    # port -> peer offset -- so the representative point captures them.
+    for port, target in sorted(topology.links_at(rep).items()):
+        if port in explicit or _is_key_form(target):
+            continue  # explicit -> edge_links above; key-form -> the union pass above
+        depth = decl.port_depths.get(port, DEFAULT_DEPTH)
         offset = _translation_offset(topology, port)
         if offset is None:
             raise SPMWError(
