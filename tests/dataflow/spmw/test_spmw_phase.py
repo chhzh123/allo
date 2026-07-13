@@ -148,3 +148,60 @@ def test_phase_outside_region_rejected():
     with pytest.raises(spmw.SPMWError, match="inside an @spmw.region"):
         with spmw.phase("orphan"):
             pass
+
+
+# ---- nested region composition: phases must propagate into inlined child maps ----------------------
+def _nested_writer_region(*, same_phase):
+    """A parent region that inlines two child writer regions (distinct units) writing the same shared
+    ``C``, either in one parent phase (concurrent) or two (separated)."""
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def wa(ctx):
+        pass
+
+    @spmw.unit
+    def wb(ctx):
+        pass
+
+    @spmw.region()
+    def child_a(C: float32[2, 2]):
+        spmw.map(wa, grid=grid)
+        spmw.stream_out(C, from_=wa, where="local", as_="cbuf")
+
+    @spmw.region()
+    def child_b(C: float32[2, 2]):
+        spmw.map(wb, grid=grid)
+        spmw.stream_out(C, from_=wb, where="local", as_="cbuf")
+
+    @spmw.region()
+    def top(C: float32[2, 2]):
+        if same_phase:
+            with spmw.phase("compute"):
+                child_a(C)
+                child_b(C)
+        else:
+            with spmw.phase("first"):
+                child_a(C)
+            with spmw.phase("second"):
+                child_b(C)
+        spmw.place("C", spmw.shared(float32[2, 2], space="L2"))
+
+    return top
+
+
+def test_nested_phase_propagates_and_separates_writers():
+    """A parent `spmw.phase()` stamps the inlined child map: two child writer regions invoked in two
+    parent phases are temporally separated (accepted), and both epoch tokens survive into the IR.
+    """
+    spmw.check_topology(_nested_writer_region(same_phase=False))
+    ir = str(spmw.lower(_nested_writer_region(same_phase=False)))
+    assert "spmw.phase = 1 : i64" in ir
+    assert "spmw.phase = 2 : i64" in ir
+
+
+def test_nested_writers_in_one_parent_phase_rejected():
+    """Two child writer regions inlined inside ONE parent phase are concurrent -> rejected: the parent
+    phase propagates to both child maps, so they share an epoch."""
+    with pytest.raises(spmw.SPMWError, match="concurrent writers"):
+        spmw.check_topology(_nested_writer_region(same_phase=True))

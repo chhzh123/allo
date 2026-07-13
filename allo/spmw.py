@@ -661,6 +661,22 @@ class Region:
                 raise SPMWError(
                     f"nested region {self.name!r} redeclares channel {channel_decl.name!r}"
                 )
+        # Remap the child maps' phase tokens into the PARENT's epoch space before merging (child tokens
+        # are local to the child collection and restart from 1 per invocation). A child map that is
+        # unphased inherits the parent's active phase at the invocation site (so two `with spmw.phase():
+        # child(C)` calls land in distinct parent epochs, while both invoked in one parent phase collide);
+        # a child map carrying its OWN phase token gets a fresh parent token per distinct child token,
+        # preserving order and keeping separate child invocations distinct.
+        parent_phase = parent.current_phase
+        child_token_map = {}
+        for decl in sub.maps:
+            if decl.phase is None:
+                decl.phase = parent_phase
+            else:
+                if decl.phase not in child_token_map:
+                    parent.phase_counter += 1
+                    child_token_map[decl.phase] = parent.phase_counter
+                decl.phase = child_token_map[decl.phase]
         parent.maps.extend(sub.maps)
         parent.streams.extend(sub.streams)
         parent.channels.extend(sub.channels)
