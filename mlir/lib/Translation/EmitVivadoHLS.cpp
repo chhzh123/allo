@@ -1480,6 +1480,9 @@ void allo::hls::VhlsModuleEmitter::emitAlloc(OpType op) {
         case 7:
           storageType = "rom_2p";
           break;
+        case 8:
+          storageType = "rom_np";
+          break;
         }
         if (implCode > 0) {
           indent();

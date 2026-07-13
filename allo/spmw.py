@@ -1557,14 +1557,18 @@ def _check_unhandled_boundaries(decl, streams):
             handled_reads.add(entry)
             handled_writes.add(exit_edge)
     for stream in streams:
-        # Only a flow stream targeting THIS map's unit handles this map's boundaries (a stream feeding a
-        # different map in the same region must not mask an unhandled boundary here).
-        if stream.unit is not decl.unit or stream.flow not in _FLOW_PORTS:
+        # Only a `stream_in` flow targeting THIS map's unit handles its boundaries (a stream feeding a
+        # different map in the same region must not mask an unhandled boundary here). A `stream_in`
+        # auto-halo loads the entry read AND drains the exit write. `stream_out` flows have no lowering
+        # collector and are rejected in `_validate_collection`, so they credit nothing.
+        if (
+            stream.unit is not decl.unit
+            or stream.direction != "in"
+            or stream.flow not in _FLOW_PORTS
+        ):
             continue
         entry, exit_edge = _FLOW_PORTS[stream.flow]
-        # `stream_in` loads the entry read and drains the exit write; `stream_out` only drains the exit.
-        if stream.direction == "in":
-            handled_reads.add(entry)
+        handled_reads.add(entry)
         handled_writes.add(exit_edge)
     for edges, _ in decl.unit.roles:
         handled_reads.update(edges)
@@ -1695,6 +1699,16 @@ def _validate_collection(collection, *, strict_topology=False):
             raise SPMWError(
                 f"unknown stream flow {stream.flow!r}; supported flows: "
                 f"{sorted(_FLOW_PORTS)}"
+            )
+        # A flow-directed output collector (`stream_out(..., flow=...)`) has no lowering datapath -- the
+        # systolic desugar/rolled emitter only materialize a `where="local"` output, and no exit-edge
+        # collector task exists -- so reject it at build rather than emit a boundary FIFO with no
+        # consumer. A systolic output uses `stream_out(C, from_=pe, where="local", as_=...)`.
+        if stream.direction == "out" and stream.flow is not None:
+            raise SPMWError(
+                f"stream_out with flow={stream.flow!r} is not supported for lowering; a systolic "
+                f"output is collected with where='local' (e.g. stream_out(C, from_=unit, "
+                f"where='local', as_='c_local'))"
             )
         target = stream.unit
         if target is None:
@@ -2070,7 +2084,7 @@ def _interior_ports():
     return sorted(_READ_PORTS)
 
 
-def _interior_role_func(program, decl, sym, body=None):
+def _interior_role_func(program, decl, sym, body=None, streams=None):
     """The compute role ``func.func`` with the real transcribed datapath, or ``None``.
 
     ``body`` is the work-unit body to transcribe (the interior body by default, or a
@@ -2085,13 +2099,37 @@ def _interior_role_func(program, decl, sym, body=None):
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return None
-    shapes = (tensors[0].shape, tensors[1].shape, tensors[2].shape)
+    # Resolve the A(W->E) / B(N->S) / C(out) operands from the STREAM declarations, not annotation
+    # order, so a non-canonical region (e.g. `def gemm(B, A, C)`) uses the right K trip count and
+    # memref ABI -- matching the halo loaders, which already resolve by `stream.tensor.name`. Fall
+    # back to annotation order when the streams do not name all three (e.g. minimal dialect regions).
+    shaped = {
+        name: typ for name, typ in annotations.items() if getattr(typ, "shape", None)
+    }
+    flow_name = {
+        stream.flow: getattr(stream.tensor, "name", None)
+        for stream in streams or []
+        if stream.direction == "in" and stream.flow in {"W->E", "N->S"}
+    }
+    out_streams = [s for s in (streams or []) if s.direction == "out"]
+    a_typ = shaped.get(flow_name.get("W->E"))
+    b_typ = shaped.get(flow_name.get("N->S"))
+    c_typ = (
+        shaped.get(getattr(out_streams[0].tensor, "name", None))
+        if out_streams
+        else None
+    )
+    if a_typ is not None and b_typ is not None and c_typ is not None:
+        a_shaped, b_shaped, c_shaped = a_typ, b_typ, c_typ
+    else:
+        a_shaped, b_shaped, c_shaped = tensors[0], tensors[1], tensors[2]
+    shapes = (a_shaped.shape, b_shaped.shape, c_shaped.shape)
     # The datapath transcriber handles only the 2-D systolic A/B/C operand shape. A region whose
-    # first three operands are not all 2-D (e.g. the 1-D FFT lane vectors, or a key-form topology)
-    # falls back to the signature-only stub role func rather than crashing on `shapes[0][1]`.
+    # operands are not all 2-D (e.g. the 1-D FFT lane vectors, or a key-form topology) falls back to
+    # the signature-only stub role func rather than crashing on `shapes[0][1]`.
     if any(len(shape) != 2 for shape in shapes):
         return None
-    elem = repr(tensors[0].dtype)
+    elem = repr(a_shaped.dtype)
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
     # A systolic region fails closed: an untranscribable interior body raises rather than silently
     # becoming an empty stub. (Genuinely topology-only regions already returned None above.)
@@ -2458,7 +2496,7 @@ def _module_text(program, collection):
             func = None
             ports_text = ""
             if not missing:
-                func = _interior_role_func(program, decl, sym, body)
+                func = _interior_role_func(program, decl, sym, body, collection.streams)
                 if func is not None:
                     # the transcribed compute func streams over every port, in the sorted
                     # port-name order it lists them -- declare that as the role's stream ABI

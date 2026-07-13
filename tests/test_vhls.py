@@ -444,6 +444,27 @@ def test_memory_bram_2p_hls():
     assert "type=ram_2p" in mod.hls_code
 
 
+def test_bind_storage_rom_np_hls():
+    """`s.bind_storage(..., storage_type="rom_np")` (storage code 8) emits a valid `type=rom_np`
+    pragma. The Vivado emitter switch previously had no case for code 8, so it printed an empty
+    `type=` -- an invalid pragma -- for this accepted option."""
+
+    def knp(inp: int32[16]) -> int32[16]:
+        buf: int32[16]
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(knp)
+    s.bind_storage("knp:buf", impl="bram", storage_type="rom_np")
+    mod = s.build(target="vhls")
+    assert "type=rom_np" in mod.hls_code
+    assert "type= impl" not in mod.hls_code  # not the broken empty-type pragma
+
+
 def test_multiple_memory_hls():
     """Test kernel with multiple Memory annotations generates multiple pragmas."""
     s = allo.customize(_kernel_multi_mem)
