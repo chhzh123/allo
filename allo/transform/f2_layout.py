@@ -479,6 +479,32 @@ def apply_f2_layout(
         old_result = old_alloc.result
         elem_type = MemRefType(old_result.type).element_type
 
+        # 1b. Pre-scan uses BEFORE mutating any IR. This transform only remaps load/store/partition
+        # accesses onto the 2-D banked buffer; any OTHER use (an init fill, a copy, a stream put/get,
+        # ...) means banking would be silently wrong. Checking first -- rather than after rewriting the
+        # supported accesses -- guarantees a failure never leaves a half-rewritten schedule for the
+        # caller to build on (`wrapped_apply` does not roll the Schedule back on a caught error).
+        supported_ops = {
+            "memref.load",
+            "memref.store",
+            "affine.load",
+            "affine.store",
+            "allo.partition",
+        }
+        unsupported = sorted(
+            {
+                use.owner.name
+                for use in old_result.uses
+                if hasattr(use.owner, "name") and use.owner.name not in supported_ops
+            }
+        )
+        if unsupported:
+            raise ValueError(
+                f"apply_f2_layout: buffer {func_name}:{buf_name} has accesses this transform "
+                f"cannot rewrite ({unsupported}); refusing to bank it. Only load/store/partition "
+                f"accesses of the buffer are supported."
+            )
+
         # 2. Create new 2D memref type: memref<num_banks x depth x elem_type>
         new_memref_type = MemRefType.get([num_banks, depth], elem_type)
 
@@ -597,15 +623,12 @@ def apply_f2_layout(
             elif op_name == "allo.partition":
                 op.erase()
 
-        # 5. Remove old alloc. Every load/store/partition was rewritten onto the 2D buffer above;
-        # if the old buffer still has uses, the design accesses it in a way this transform does not
-        # handle (an init fill, a copy, a stream put/get, ...). Erasing an op whose result is still
-        # live aborts MLIR, so fail closed with a clear error (and roll back the 2D alloc) instead of
-        # crashing -- banking a buffer whose accesses we cannot fully remap would be silently wrong.
+        # 5. Remove old alloc. Every load/store/partition was rewritten onto the 2D buffer above, and
+        # the pre-scan (step 1b) already rejected any unsupported use before we mutated anything, so
+        # the old buffer has no remaining uses here. This is a defensive backstop: if some use somehow
+        # survives, raise rather than abort MLIR on erasing a live result.
         remaining = sorted({use.owner.name for use in old_result.uses})
         if remaining:
-            # Leave the IR as-is and raise: erasing either alloc now (both have live results) would
-            # abort MLIR. The schedule is aborted by this error, so the partial module is discarded.
             raise ValueError(
                 f"apply_f2_layout: buffer {func_name}:{buf_name} has accesses this transform "
                 f"cannot rewrite ({remaining}); refusing to bank it. Only load/store/partition "

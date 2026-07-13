@@ -915,13 +915,20 @@ class Schedule:  # pylint: disable=too-many-public-methods
             banking=banking,
         )
 
-        # Apply partition, bind_storage, and dependence on the new 2D buffer
+        # Apply partition, bind_storage, and dependence on the new 2D buffer. These are themselves
+        # @wrapped_apply primitives, so each records itself in `primitive_sequences`. Left recorded,
+        # a composed replay would apply them (in sequence order) BEFORE this f2_layout re-banks the
+        # buffer -- partitioning the still-1D buffer, then again inside f2_layout -- which fails or
+        # emits duplicate pragmas. Drop those inner recordings so replay applies them exactly once,
+        # through this f2_layout's body, after the banked 2D buffer exists.
         target_buf = MockBuffer(func_name, buf_name)
+        recorded_before = len(self.primitive_sequences)
         self.partition(target_buf, partition_type=Partition.Complete, dim=1)
         self.bind_storage(
             f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p"
         )
         self.dependence(f"{func_name}:{buf_name}")
+        del self.primitive_sequences[recorded_before:]
 
     @wrapped_apply
     def auto_f2(self, kernel_names=None):

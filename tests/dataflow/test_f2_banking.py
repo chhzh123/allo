@@ -130,6 +130,10 @@ def test_f2_layout_rewrites_1d_buffer_to_real_2d_banked_storage():
 
     s = allo.customize(bank16)
     s.f2_layout("bank16:buf", n_bits=4, bank_bits=1, banking="block")
+    # f2_layout applies partition/bind_storage/dependence internally, but records ONLY itself in the
+    # primitive sequence -- so a composed replay re-runs the whole banking through f2_layout's body
+    # (after the buffer is banked), not the inner primitives separately before it.
+    assert [name for name, *_ in s.primitive_sequences] == ["f2_layout"]
     with tempfile.TemporaryDirectory() as tmpdir:
         mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
     code = mod.hls_code
@@ -153,8 +157,13 @@ def test_f2_layout_fails_closed_on_unremappable_access():
         return out
 
     s = allo.customize(bad)
+    module_before = str(s.module)
     with pytest.raises(ValueError, match="cannot rewrite"):
         s.f2_layout("bad:buf", n_bits=4, bank_bits=1, banking="block")
+    # The pre-scan rejects the unsupported use BEFORE mutating any IR, so the schedule is not left
+    # half-rewritten (no banked alloc, no partially remapped loads/stores) for a later build to trip on.
+    assert str(s.module) == module_before  # module is untouched by the failed f2_layout
+    assert len(s.primitive_sequences) == 0  # and no primitive was recorded
 
 
 def test_single_swizzle_cannot_separate_two_high_conflict_directions():
