@@ -22,6 +22,19 @@ import textwrap
 _GETS = {"west": "fifo_A[i, j]", "north": "fifo_B[i, j]"}
 _PUTS = {"east": "fifo_A[i, j + 1]", "south": "fifo_B[i + 1, j]"}
 
+# The sparse data-packing mesh adds a third horizontal lane `idx` (the compressed-A column indices,
+# forwarded W->E alongside the A values on fifo_A) and carries B packed into an int128 on fifo_B.
+_GETS_PACKED = {
+    "west": "fifo_A[i, j]",
+    "idx": "fifo_idx[i, j]",
+    "north": "fifo_B[i, j]",
+}
+_PUTS_PACKED = {
+    "east": "fifo_A[i, j + 1]",
+    "idx": "fifo_idx[i, j + 1]",
+    "south": "fifo_B[i + 1, j]",
+}
+
 _DTYPE_NAMES = {
     "f32": "float32",
     "f64": "float64",
@@ -36,9 +49,13 @@ _DTYPE_NAMES = {
 class _SystolicRewriter(ast.NodeTransformer):
     """Rewrite ``ctx.<port>.get/put`` and ``ctx.<local>[...]`` into df fifo / local-tensor form."""
 
-    def __init__(self, ctx_name, locals_):
+    def __init__(self, ctx_name, locals_, gets=None, puts=None):
         self.ctx = ctx_name
         self.locals_ = locals_  # attr -> ("local_C", "i - 1", "j - 1")
+        # Port -> fifo-index rewrite maps (default: the 2-operand systolic mesh); the sparse-packed
+        # desugar passes its 3-lane maps instead.
+        self.gets = _GETS if gets is None else gets
+        self.puts = _PUTS if puts is None else puts
 
     @staticmethod
     def _expr(text):
@@ -59,10 +76,10 @@ class _SystolicRewriter(ast.NodeTransformer):
         if isinstance(func, ast.Attribute) and func.attr in {"get", "put", "get_or"}:
             port = self._ctx_port(func.value)
             if port is not None:
-                if func.attr in {"get", "get_or"} and port in _GETS:
-                    func.value = self._expr(_GETS[port])
-                elif func.attr == "put" and port in _PUTS:
-                    func.value = self._expr(_PUTS[port])
+                if func.attr in {"get", "get_or"} and port in self.gets:
+                    func.value = self._expr(self.gets[port])
+                elif func.attr == "put" and port in self.puts:
+                    func.value = self._expr(self.puts[port])
         return node
 
     def visit_Subscript(self, node):
@@ -108,11 +125,11 @@ def _recognize(collection):
     return decl
 
 
-def _transcribe_interior(unit, locals_):
+def _transcribe_interior(unit, locals_, gets=None, puts=None):
     tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
     func = tree.body[0]
     ctx_name = func.args.args[0].arg
-    _SystolicRewriter(ctx_name, locals_).visit(func)
+    _SystolicRewriter(ctx_name, locals_, gets, puts).visit(func)
     ast.fix_missing_locations(func)
     return [ast.unparse(stmt) for stmt in func.body]
 
@@ -165,6 +182,114 @@ def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
         with allo.meta_elif(j == N + 1 and i > 0):
             for k in range(K):
                 _a: {dtype} = fifo_A[i, j].get()
+        with allo.meta_else():
+{body}
+"""
+
+
+def _recognize_sparse_packed(collection):
+    """Detect the sparse data-packing systolic mesh (twin of `test_sparse_systolic_data_packing.py`):
+    a 2-D mesh whose A operand arrives compressed as (values, column-indices) streamed W->E and whose
+    B columns arrive packed into an ``int128`` streamed N->S. It is distinguished from the plain
+    systolic mesh by an ``as_="idx"`` index stream feeding the mapped unit. Returns the map decl or
+    raises ``NotImplementedError`` so the dispatcher tries the next family."""
+    if len(collection.maps) != 1:
+        raise NotImplementedError(
+            "sparse-packed datapath expects exactly one mapped unit"
+        )
+    decl = collection.maps[0]
+    if decl.topology.dims != 2:
+        raise NotImplementedError("sparse-packed datapath expects a 2-D mesh")
+    has_idx = any(
+        s.direction == "in" and s.unit is decl.unit and s.extra.get("as_") == "idx"
+        for s in collection.streams
+    )
+    if not has_idx:
+        raise NotImplementedError(
+            "sparse-packed datapath expects an as_='idx' compressed-index stream"
+        )
+    return decl
+
+
+def generate_sparse_packed_source(region, collection):
+    """The equivalent allo.dataflow source for a recognized sparse data-packing mesh.
+
+    The compute body (`meta_else`) is transcribed **verbatim** from the SPMW unit -- one packed-B read,
+    repeated A-value / A-index reads, `b_packed[lsb:msb]` bit-slice extraction, the MAC, horizontal
+    forwarding of both value and index, and vertical forwarding of the packed column. The boundary
+    kernels (the compressed-A loader, the real ``int128`` B-column packer, and the drains) are emitted
+    to match the original dataflow top exactly -- the pack runs in the generated dataflow boundary
+    path, not as a numpy shortcut -- so the simulator result is bit-identical to the `df` original.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
+    decl = _recognize_sparse_packed(collection)
+    tensors = [
+        v
+        for v in getattr(region.fn, "__annotations__", {}).values()
+        if getattr(v, "shape", None)
+    ]
+    if len(tensors) < 4:
+        raise NotImplementedError(
+            "sparse-packed datapath needs A_nz, A_in, B, C tensor arguments on the region"
+        )
+    (rows, nz), (kdim, cols) = (
+        tensors[0].shape,
+        tensors[2].shape,
+    )  # A_nz [M, NZ], B [K, N]
+    if tuple(decl.topology.grid) != (rows, cols):
+        raise SPMWError(
+            f"declared mesh grid {tuple(decl.topology.grid)} does not match the operand-derived "
+            f"PE grid {(rows, cols)}: A_nz is [M, NZ] and B is [K, N], so the mesh must be M x N"
+        )
+    out = [s for s in collection.streams if s.direction == "out"][0]
+    locals_ = {out.extra.get("as_", "c_local"): ("local_C", "i - 1", "j - 1")}
+    interior = _transcribe_interior(decl.unit, locals_, _GETS_PACKED, _PUTS_PACKED)
+    body = "\n".join(" " * 12 + line for text in interior for line in text.splitlines())
+    return f"""import allo
+from allo.ir.types import int32, int128, index, Stream
+import allo.dataflow as df
+
+M, N, K = {rows}, {cols}, {kdim}
+P0, P1 = M + 2, N + 2
+NZ = {nz}
+
+
+@df.region()
+def {region.name}_df(A_nz: int32[M, NZ], A_in: int32[M, NZ], B: int32[K, N], C: int32[M, N]):
+    fifo_A: Stream[int32, 4][P0, P1]
+    fifo_idx: Stream[int32, 4][P0, P1]
+    fifo_B: Stream[int128, 4][P0, P1]
+
+    @df.kernel(mapping=[P0, P1], args=[A_nz, A_in, B, C])
+    def semm(
+        local_A_nz: int32[M, NZ],
+        local_A_in: int32[M, NZ],
+        local_B: int32[K, N],
+        local_C: int32[M, N],
+    ):
+        i, j = df.get_pid()
+        with allo.meta_if(i in {{0, M + 1}} and j in {{0, N + 1}}):
+            pass
+        with allo.meta_elif(j == 0):
+            for knz in range(NZ):
+                fifo_A[i, j + 1].put(local_A_nz[i - 1, knz])
+                fifo_idx[i, j + 1].put(local_A_in[i - 1, knz])
+        with allo.meta_elif(i == 0):
+            pack: int128 = 0
+            for k in range(K):
+                msb: index = (k + 1) * 32 - 1
+                lsb: index = k * 32
+                b: int32 = local_B[k, j - 1]
+                pack[lsb:msb] = b
+            fifo_B[i + 1, j].put(pack)
+        with allo.meta_elif(i == M + 1 and j > 0):
+            b: int128 = fifo_B[i, j].get()
+        with allo.meta_elif(j == N + 1 and i > 0):
+            for k in range(NZ):
+                a: int32 = fifo_A[i, j].get()
+                idx: int32 = fifo_idx[i, j].get()
         with allo.meta_else():
 {body}
 """
@@ -1278,32 +1403,35 @@ def build_dataflow(region, target="simulator", **kwargs):
     from .spmw import _collect, _validate_collection
 
     collection = _validate_collection(_collect(region), strict_topology=True)
-    # Desugar families, tried in order: the 1-D systolic stripe (a strict 1-row mesh), the 2-D
-    # systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
-    # joined by spmw.channel).
-    # Each desugar family also declares which region operands to complete-partition for HLS dataflow
-    # (single reader/writer per bank), or ``None`` when the family does not drive the csyn/hw_emu path.
-    try:
-        source = generate_mini_tpu_source(region, collection)
-        hls_operands = ("ACT", "WGT", "bias", "OUT")
-    except NotImplementedError:
+    # Desugar families, tried in order until one recognizes the region: the Mini-TPU, the 1-D systolic
+    # stripe, the sparse data-packing mesh (more specific than the plain 2-D mesh, so tried first), the
+    # 2-D systolic mesh, the key-form `lane` butterfly FFT, and a producer/consumer pipeline (units
+    # joined by spmw.channel). Each entry names the operands to complete-partition for the HLS dataflow
+    # csyn/hw_emu path (single reader/writer per bank), or ``None`` when the family does not drive it.
+    # The FFT input_loader/output_store kernels read/write each region operand per lane, so its operand
+    # list is derived lazily (only when the FFT family matches).
+    families = [
+        (generate_mini_tpu_source, ("ACT", "WGT", "bias", "OUT")),
+        (generate_1d_systolic_source, ("A", "B", "C")),
+        (generate_sparse_packed_source, ("A_nz", "A_in", "B", "C")),
+        (generate_source, ("A", "B", "C")),
+        (generate_fft_source, lambda: tuple(n for n, _, _ in _region_tensors(region))),
+        (generate_pipeline_source, None),
+    ]
+    source = None
+    hls_operands = None
+    for idx, (generator, operands) in enumerate(families):
         try:
-            source = generate_1d_systolic_source(region, collection)
-            hls_operands = ("A", "B", "C")
+            source = generator(region, collection)
         except NotImplementedError:
-            try:
-                source = generate_source(region, collection)
-                hls_operands = ("A", "B", "C")
-            except NotImplementedError:
-                try:
-                    source = generate_fft_source(region, collection)
-                    # The FFT input_loader/output_store kernels read/write each region operand per
-                    # lane (mapping=[N]); complete-partition them so the HLS Makefile (hw_emu/hw) flow
-                    # sees a single reader/writer per bank (else HLS 200-779, as the Mini-TPU hit).
-                    hls_operands = tuple(name for name, _, _ in _region_tensors(region))
-                except NotImplementedError:
-                    source = generate_pipeline_source(region, collection)
-                    hls_operands = None
+            # The pipeline family is the terminal fallback: once it owns the region (e.g. a
+            # spmw.channel is present) its diagnostics -- like "1-D replication only" for a multi-D
+            # grid -- are the final verdict and must surface, not be swallowed as "try next family".
+            if idx == len(families) - 1:
+                raise
+            continue
+        hls_operands = operands() if callable(operands) else operands
+        break
     module_name = f"{region.name}_spmw_df"
     tmp_dir = tempfile.mkdtemp(prefix="spmw_df_")
     path = os.path.join(tmp_dir, module_name + ".py")
