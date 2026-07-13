@@ -960,7 +960,11 @@ class Schedule:  # pylint: disable=too-many-public-methods
             kernel_names=kernel_names,
         )
 
-        # Apply partition, bind_storage, and dependence on each transformed buffer
+        # Apply partition, bind_storage, and dependence on each transformed buffer. As in `f2_layout`,
+        # these inner @wrapped_apply calls record themselves in `primitive_sequences`; left recorded, a
+        # composed replay would run them on the original 1-D buffers before `auto_f2` re-banks them.
+        # Drop the inner recordings so replay applies the banking once, through this `auto_f2` body.
+        recorded_before = len(self.primitive_sequences)
         for func_name, buf_name, _banking, _bank_bits, _stride in applied:
             target_buf = MockBuffer(func_name, buf_name)
             self.partition(target_buf, partition_type=Partition.Complete, dim=1)
@@ -968,6 +972,7 @@ class Schedule:  # pylint: disable=too-many-public-methods
                 f"{func_name}:{buf_name}", impl="lutram", storage_type="ram_2p"
             )
             self.dependence(f"{func_name}:{buf_name}")
+        del self.primitive_sequences[recorded_before:]
 
     @wrapped_apply
     def partition_global(self, name_prefix):

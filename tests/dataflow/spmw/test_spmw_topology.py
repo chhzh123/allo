@@ -137,6 +137,20 @@ def test_scatter_gather_lower_emits_both_key_link_endpoints():
     assert 'end = "src"' in gather_ir and 'end = "sink"' in gather_ir
 
 
+def test_resolve_channels_keeps_all_scatter_gather_endpoints():
+    """`resolve_channels` must enumerate EVERY (source, sink) pair of a key channel: a scatter's one
+    source fans out to each sink, a gather's one sink is fed from each source. Collapsing the endpoints
+    per direction to the last one would drop all but one fan-out/fan-in lane."""
+    scatter = spmw.resolve_channels(spmw.scatter(4))
+    assert (
+        sum(len(ch) for ch in scatter.values()) == 3
+    )  # 1 source -> 3 sinks = 3 fan-out channels
+    gather = spmw.resolve_channels(spmw.gather(4))
+    assert (
+        sum(len(ch) for ch in gather.values()) == 3
+    )  # 3 sources -> 1 sink = 3 fan-in channels
+
+
 def test_peer_key_channel_still_one_to_one():
     def link(i):
         return {"out": (("c",), "src")} if i == 0 else {"in": (("c",), "sink")}

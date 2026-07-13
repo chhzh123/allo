@@ -1778,7 +1778,11 @@ def resolve_channels(topology):
         for port, target in topology.links_at(coord).items():
             if _is_key_form(target):
                 key, direction = target
-                key_endpoints.setdefault(key, {})[direction] = (tuple(coord), port)
+                # A key can have MANY endpoints per direction (a scatter is one source fanning out to
+                # several sinks; a gather is the mirror), so collect every endpoint, not just the last.
+                key_endpoints.setdefault(key, {}).setdefault(direction, []).append(
+                    (tuple(coord), port)
+                )
                 continue
             peer_coord, peer_port = topology._parse_peer(port, target)
             if not topology.in_bounds(peer_coord):
@@ -1793,11 +1797,13 @@ def resolve_channels(topology):
             family = "/".join(sorted((port, peer_port)))
             families.setdefault(family, []).append((src[0], src[1], sink[0], sink[1]))
     for key, endpoints in key_endpoints.items():
-        if _SRC in endpoints and _SINK in endpoints:
-            src, sink = endpoints[_SRC], endpoints[_SINK]
-            families.setdefault(f"key:{key!r}", []).append(
-                (src[0], src[1], sink[0], sink[1])
-            )
+        # Every (source, sink) pair of the key is one channel: a scatter's single source fans out to
+        # each sink, a gather's sinks are fed from each source. Emit them all, not one arbitrary pair.
+        for src in endpoints.get(_SRC, []):
+            for sink in endpoints.get(_SINK, []):
+                families.setdefault(f"key:{key!r}", []).append(
+                    (src[0], src[1], sink[0], sink[1])
+                )
     return families
 
 

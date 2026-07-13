@@ -219,6 +219,10 @@ def test_auto_f2_runs_end_to_end_on_a_kernel():
 
     s = allo.customize(ak)
     s.auto_f2()  # no bank conflicts here -> a no-op, but must run without error
+    # auto_f2 records ONLY itself, never its inner partition/bind_storage/dependence helpers (like
+    # f2_layout) -- so a composed replay applies any banking through auto_f2's body, after the buffers
+    # are banked, rather than the inner primitives separately on the still-1-D buffers.
+    assert [name for name, *_ in s.primitive_sequences] == ["auto_f2"]
     with tempfile.TemporaryDirectory() as tmpdir:
         mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
     assert len(mod.hls_code) > 0 and "ak" in mod.hls_code
