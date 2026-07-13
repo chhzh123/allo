@@ -55,6 +55,7 @@ __all__ = [
     "banked",
     "view",
     "place",
+    "phase",
     "LogicalBuffer",
     "PortContext",
     "PortHandle",
@@ -702,6 +703,10 @@ class _MapDecl:
         # reconstructs the logical grid; consumed by the folding/banking machinery.
         self.fold = tuple(fold) if fold is not None else None
         self.unroll = tuple(unroll) if unroll is not None else None
+        # The ``spmw.phase()`` epoch token active when this map was declared (``None`` if unphased).
+        # Two maps writing the same shared/banked buffer are concurrent (a race) unless their phases
+        # differ; ``spmw.map`` fills this in from the active collector.
+        self.phase = None
 
 
 class _StreamDecl:
@@ -744,6 +749,13 @@ class _RegionCollection:
         # instantiate another region (``mxu(ub, wbuf, psum)``), which merges the sub-region's spatial
         # content here. Recorded so codegen/tests can see the hierarchy the flat collection came from.
         self.nested = []
+        # ``spmw.phase()`` epoch tracking: ``phase_counter`` hands out a monotonically increasing token
+        # each time a phase is entered; ``current_phase`` is the innermost active token (or ``None``
+        # outside any phase). A ``spmw.map`` records the token active when it is declared, so the
+        # single-writer check can tell temporally-separated writers (different phases) from concurrent
+        # ones (same phase / both unphased).
+        self.phase_counter = 0
+        self.current_phase = None
 
 
 # The collector active while a region body is being traced (None outside a trace).
@@ -877,8 +889,51 @@ def map(
                 )
     decl = _MapDecl(work_unit, topology, depths, shard, fold, unroll)
     if _active_collector is not None:
+        decl.phase = _active_collector.current_phase
         _active_collector.maps.append(decl)
     return decl
+
+
+class _Phase:
+    """The context manager returned by :func:`phase`: marks an ordered writer epoch.
+
+    Entering assigns a fresh monotonically-increasing token from the active collector and makes it
+    the current phase; leaving restores the previously-active phase (so phases can nest). Maps
+    declared inside the ``with`` block record this token, which the single-writer check uses to treat
+    writers in different phases as temporally separated rather than concurrent.
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self.token = None
+        self._prev = None
+
+    def __enter__(self):
+        if _active_collector is None:
+            raise SPMWError("spmw.phase() must be used inside an @spmw.region body")
+        self._prev = _active_collector.current_phase
+        _active_collector.phase_counter += 1
+        self.token = _active_collector.phase_counter
+        _active_collector.current_phase = self.token
+        return self
+
+    def __exit__(self, *exc):
+        if _active_collector is not None:
+            _active_collector.current_phase = self._prev
+        return False
+
+
+def phase(name=None):
+    """Open a writer epoch: ``with spmw.phase("compute"): ...``.
+
+    Maps declared in the block run in one ordered phase; maps in different phases are temporally
+    separated, so writers to the same ``spmw.shared``/``spmw.banked`` buffer in different phases do
+    not race. Concurrent writers to a shared buffer in the *same* phase (or both unphased) are
+    rejected at build by the single-writer check -- separate them with distinct phases (or disjoint
+    banks). ``name`` is an optional label for readability; the ordering token is assigned
+    automatically.
+    """
+    return _Phase(name)
 
 
 def stream_in(tensor, into=None, flow=None, **kwargs):
@@ -1516,6 +1571,72 @@ def _check_unhandled_boundaries(decl, streams):
         )
 
 
+def _writer_maps_of(operand_name, collection):
+    """The mapped units that WRITE region operand ``operand_name`` -- i.e. the maps that produce it.
+
+    In SPMW an operand is written by a ``stream_out`` from a mapped unit (either a flow drain or a
+    ``where="local"``/``as_`` local buffer bound to that operand), so a map is a writer of the operand
+    exactly when some ``stream_out`` names that operand ``from_`` its unit. Returns the writer
+    ``_MapDecl``s in declaration order, de-duplicated (a unit written by more than one stream_out of
+    the same operand still counts once)."""
+    unit_to_map = {id(decl.unit): decl for decl in collection.maps}
+    writers, seen = [], set()
+    for stream in collection.streams:
+        if stream.direction != "out":
+            continue
+        tensor_name = getattr(stream.tensor, "name", stream.tensor)
+        if tensor_name != operand_name:
+            continue
+        decl = unit_to_map.get(id(stream.unit))
+        if decl is not None and id(decl) not in seen:
+            seen.add(id(decl))
+            writers.append(decl)
+    return writers
+
+
+def _check_single_writer(collection):
+    """Reject concurrent writers to a shared/banked buffer (task6.2, AC-7).
+
+    A ``spmw.place`` pins an operand to a ``spmw.shared``/``spmw.banked`` buffer. Two different maps
+    that both write that buffer race unless they are temporally separated -- so if two or more writer
+    maps share the same ``spmw.phase()`` epoch (or are both unphased, ``phase is None``), the build is
+    rejected. Views alias their source and are not independent write targets, so they are skipped.
+
+    Banking (F2 partition functions) proves a *single* map's accesses are conflict-free within its own
+    banks; it does not compare two maps, so the existing injectivity machinery cannot prove two
+    distinct maps write disjoint banks. Concurrent inter-map writers are therefore rejected for banked
+    buffers too -- the user separates them with ``spmw.phase()`` (or writes one map). This is the
+    "determinism by default, unsynchronized sharing is opt-in and flagged" stance from the plan.
+    """
+    for placement in collection.placements:
+        buffer = placement.buffer
+        if not isinstance(buffer, LogicalBuffer) or buffer.kind not in (
+            "shared",
+            "banked",
+        ):
+            continue
+        writers = _writer_maps_of(placement.tensor, collection)
+        if len(writers) < 2:
+            continue
+        by_phase = {}
+        for decl in writers:
+            by_phase.setdefault(decl.phase, []).append(decl)
+        for phase_token, decls in by_phase.items():
+            if len(decls) < 2:
+                continue
+            names = sorted(decl.unit.name for decl in decls)
+            where = (
+                f"phase {phase_token}"
+                if phase_token is not None
+                else "no phase (both unphased)"
+            )
+            raise SPMWError(
+                f"operand {placement.tensor!r} ({buffer.kind} buffer) has concurrent writers "
+                f"{names} in {where}: writers to a shared/banked buffer must be single-writer per "
+                f"epoch. Separate them with spmw.phase() (or reduce to one writer)."
+            )
+
+
 def _validate_collection(collection, *, strict_topology=False):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
@@ -1590,6 +1711,10 @@ def _validate_collection(collection, *, strict_topology=False):
                         f"stream flow {stream.flow!r} needs port {port!r}, which is not "
                         f"declared in the topology; declared ports: {sorted(ports)}"
                     )
+    # Single-writer verification (task6.2) is a backend-facing correctness gate, like the topology
+    # hardening above: the permissive default validate stays quiet for skeletal frontend tests.
+    if strict_topology:
+        _check_single_writer(collection)
     return collection
 
 
@@ -2336,6 +2461,10 @@ def _module_text(program, collection):
         if ext_sink_fams:
             joined = ", ".join(f'"{f}"' for f in ext_sink_fams)
             map_attrs.append(f"spmw.external_sinks = [{joined}]")
+        if decl.phase is not None:
+            # The writer-epoch token this map was declared in, so the single-writer contract is
+            # visible in the lowered IR (concurrent shared/banked writers must occupy distinct phases).
+            map_attrs.append(f"spmw.phase = {decl.phase} : i64")
         if decl.shard:
             shard_dims = ", ".join(str(s) for s in decl.shard)
             map_attrs.append(f"spmw.shard = array<i64: {shard_dims}>")
