@@ -1753,7 +1753,11 @@ def _validate_collection(collection, *, strict_topology=False):
         # degrade it to a blocking `get()`, so an empty FIFO would block/deadlock or consume a later
         # token instead of yielding the default. Reject it uniformly here -- on every target, not just
         # the one being built -- rather than silently mis-lower it; a PE reads a stream with `.get()`.
-        get_or_bodies = [decl.unit.interior] + [body for _, body in decl.unit.roles]
+        get_or_bodies = (
+            [decl.unit.interior]
+            + [body for _, body in decl.unit.roles]
+            + [body for _, body in decl.unit.variants]
+        )
         if any(
             "get_or" in kinds
             for body in get_or_bodies

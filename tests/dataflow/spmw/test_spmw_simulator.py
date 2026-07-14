@@ -340,3 +340,43 @@ def test_systolic_get_or_in_pe_body_rejected():
         spmw.build(gemm, target="simulator")
     with pytest.raises(spmw.SPMWError, match="get_or"):
         spmw.lower(gemm)  # the rolled path rejects it too (uniform validation)
+
+
+def test_variant_body_get_or_rejected():
+    """The uniform `get_or` rejection must scan `@pe.variant` bodies too, not only the interior and the
+    boundary roles -- a predicated compute-role variant that reads with `ctx.<port>.get_or(...)` is an
+    unlowerable construct that would otherwise slip through validation and fail later.
+    """
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @pe.variant("(d0 + d1) mod 2")
+    def pe_odd(ctx):
+        a: float32 = ctx.west.get_or(
+            0
+        )  # unsupported: no default-valued read in any backend
+        b: float32 = ctx.north.get()
+        ctx.east.put(a)
+        ctx.south.put(b)
+        ctx.c_local[0] = a * b
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="get_or"):
+        spmw.build(gemm, target="simulator")
