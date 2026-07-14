@@ -130,6 +130,31 @@ def test_single_writer_accepted():
     spmw.check_topology(_single_writer_region())
 
 
+def test_direct_store_concurrent_writers_rejected():
+    """A unit can write an operand IN PLACE (`ctx.C[...] = ...`) with no stream_out -- the pipeline write
+    form that `generate_pipeline_source` lowers to a kernel store. The single-writer check must count
+    those direct stores too, or two unphased maps writing a placed shared buffer would race undetected.
+    """
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def w1(ctx):
+        ctx.C[0, 0] = 1.0
+
+    @spmw.unit
+    def w2(ctx):
+        ctx.C[1, 1] = 2.0
+
+    @spmw.region()
+    def r(C: float32[2, 2]):
+        spmw.map(w1, grid=grid)
+        spmw.map(w2, grid=grid)
+        spmw.place("C", spmw.shared(float32[2, 2], space="L2"))
+
+    with pytest.raises(spmw.SPMWError, match="concurrent writers"):
+        spmw.check_topology(r)
+
+
 def test_default_validate_is_permissive():
     """The permissive default `spmw.validate` does not run the single-writer gate (skeletal frontend
     regions stay usable); only the strict backend path enforces it."""

@@ -1595,16 +1595,48 @@ def _check_unhandled_boundaries(decl, streams):
         )
 
 
+def _unit_stores_operand(fn, operand_name):
+    """Whether a unit body writes region operand ``operand_name`` IN PLACE via ``ctx.<operand>[...] =
+    ...`` (a pipeline-style direct store that ``generate_pipeline_source`` lowers to a kernel write but
+    that declares no ``stream_out``). Conservative: unreadable source or a missing ``ctx`` param -> False
+    (the stream_out path still covers the systolic writers)."""
+    try:
+        tree_ast = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+    except (OSError, TypeError, SyntaxError):
+        return False
+    ctx_name = _ctx_param_name(fn)
+    if ctx_name is None:
+        return False
+    for node in ast.walk(tree_ast):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AugAssign):
+            targets = [node.target]
+        else:
+            continue
+        for target in targets:
+            # ctx.<operand_name>[...] = ... (or +=): a direct in-place store to the operand.
+            if (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Attribute)
+                and isinstance(target.value.value, ast.Name)
+                and target.value.value.id == ctx_name
+                and target.value.attr == operand_name
+            ):
+                return True
+    return False
+
+
 def _writer_maps_of(operand_name, collection):
     """The mapped units that WRITE region operand ``operand_name`` -- i.e. the maps that produce it.
 
-    In SPMW an operand is written by a ``stream_out`` from a mapped unit (either a flow drain or a
-    ``where="local"``/``as_`` local buffer bound to that operand), so a map is a writer of the operand
-    exactly when some ``stream_out`` names that operand ``from_`` its unit. Returns the writer
-    ``_MapDecl``s in declaration order, de-duplicated (a unit written by more than one stream_out of
-    the same operand still counts once)."""
+    A map writes the operand either (a) via a ``stream_out`` naming it ``from_`` the unit (a flow drain
+    or a ``where="local"``/``as_`` local buffer bound to it -- the systolic form), or (b) via a direct
+    in-place store ``ctx.<operand>[...] = ...`` in the unit body (the pipeline form, which declares no
+    stream_out). Both are real writers for the single-writer race check. Returns the writer ``_MapDecl``s
+    in declaration order, de-duplicated."""
     unit_to_map = {id(decl.unit): decl for decl in collection.maps}
-    writers, seen = [], set()
+    writer_ids = set()
     for stream in collection.streams:
         if stream.direction != "out":
             continue
@@ -1612,10 +1644,12 @@ def _writer_maps_of(operand_name, collection):
         if tensor_name != operand_name:
             continue
         decl = unit_to_map.get(id(stream.unit))
-        if decl is not None and id(decl) not in seen:
-            seen.add(id(decl))
-            writers.append(decl)
-    return writers
+        if decl is not None:
+            writer_ids.add(id(decl))
+    for decl in collection.maps:
+        if _unit_stores_operand(decl.unit.interior, operand_name):
+            writer_ids.add(id(decl))
+    return [decl for decl in collection.maps if id(decl) in writer_ids]
 
 
 def _check_single_writer(collection):
