@@ -206,9 +206,19 @@ class _Datapath:
             self._emit(f"      {alloc} = memref.alloc() : memref<{self.elem}>")
         for node in pre:
             self.stmt(node)
-        bound = loop.iter.args[0]
-        # ``for k in range(K)``: K is a closure symbol, so use the caller-supplied trip count; a
-        # literal bound is used directly.
+        # ``for k in range(K)`` (1-arg) or the equivalent ``range(0, K)`` (2-arg, start 0). This
+        # datapath emits ``affine.for %k = 0 to <stop>``, so a non-zero start or a step cannot be
+        # represented here -- reject those rather than silently changing the trip count (taking
+        # ``args[0]`` as the bound would turn ``range(0, K)`` into an empty ``0 to 0`` loop).
+        args = loop.iter.args
+        if len(args) == 2:
+            start = args[0]
+            if not (isinstance(start, ast.Constant) and start.value == 0):
+                raise self._unsupported(loop.iter)
+        elif len(args) != 1:
+            raise self._unsupported(loop.iter)
+        bound = args[-1]  # the stop expression
+        # K is a closure symbol, so use the caller-supplied trip count; a literal bound is used directly.
         count = trip if isinstance(bound, ast.Name) else int(bound.value)
         self._emit(f"    affine.for %k = 0 to {count} {{")
         for node in loop.body:

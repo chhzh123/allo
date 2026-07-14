@@ -52,6 +52,37 @@ def test_interior_role_func_carries_real_datapath():
     assert text.count("func.func @gemm_pe_interior(") == 1
 
 
+def test_range_start_stop_mac_loop_preserved_in_rolled_ir():
+    """A PE MAC loop written as the equivalent `for k in range(0, K)` (2-arg range, start 0) must
+    transcribe to a K-iteration affine loop in the rolled interior role func -- NOT an empty `0 to 0`
+    loop that silently drops the whole MAC (the bug: taking range's first arg as the upper bound)."""
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(0, K):  # 2-arg range, equivalent to range(K)
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    text = str(spmw.lower(gemm))
+    # (the parser renames the induction var, so match the bound, not `%k`)
+    assert f"= 0 to {K} {{" in text  # a K-iteration loop is emitted (the MAC runs K times)
+    assert "= 0 to 0 {" not in text  # NOT the dropped/empty loop the args[0] bug produced
+
+
 def test_halo_loader_drain_datapaths_are_separate_boundary_funcs():
     # the boundary datapaths implied by the stream flows are synthesized as real funcs:
     # a loader reads its operand row/col and streams it in, a drain consumes at the exit edge

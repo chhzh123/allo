@@ -381,17 +381,23 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
                << "' has an unsupported parameter type";
       }
     }
-    // Emit the halo loader/drain tasks for this point's missing (off-grid)
-    // ports FIRST -- wired to the boundary channels created above during
-    // operand resolution -- and emit the compute call only AFTER them (below).
-    // Emitting the producer loaders before the compute call keeps the unrolled
-    // call order safe even under a sequential lowering: a west/north edge PE
-    // never stream_get's a boundary FIFO before its loader has run.
-    if (ArrayAttr haloTasks = map.getHaloAttr()) {
-      int64_t self = linearIndex(coord, grid);
+    // Order the halo tasks around the compute call so the unrolled call
+    // sequence is safe even under a sequential lowering: a LOADER produces into
+    // a boundary FIFO the edge PE READS, so it must run BEFORE the compute
+    // call; a DRAIN consumes from a boundary FIFO the PE WRITES, so it must run
+    // AFTER it (a drain's stream_get before the PE's stream_put would
+    // block/underflow). This lambda emits the missing-port halo tasks of one
+    // kind, wired to the boundary channels created above during operand
+    // resolution.
+    int64_t self = linearIndex(coord, grid);
+    auto emitHaloTasks = [&](StringRef wantKind) -> LogicalResult {
+      ArrayAttr haloTasks = map.getHaloAttr();
+      if (!haloTasks)
+        return success();
       for (Attribute haloAttr : haloTasks) {
         auto task = llvm::dyn_cast<spmw::HaloAttr>(haloAttr);
-        if (!task || !llvm::is_contained(missing, task.getPort()))
+        if (!task || task.getKind() != wantKind ||
+            !llvm::is_contained(missing, task.getPort()))
           continue;
         auto haloFn =
             symbolTable.lookup<func::FuncOp>(task.getUnit().getValue());
@@ -423,11 +429,15 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
         haloOperands.push_back(channel);
         builder.create<func::CallOp>(loc, haloFn, haloOperands);
       }
-    }
-    // The compute call, emitted AFTER this point's halo loaders/drains (see the
-    // comment above the halo loop): its boundary FIFOs already have their
-    // producers/consumers issued before it.
+      return success();
+    };
+    // Loaders (producers) before the compute call; the compute call; then
+    // drains (consumers) after it.
+    if (failed(emitHaloTasks("load")))
+      return failure();
     builder.create<func::CallOp>(loc, callee, operands);
+    if (failed(emitHaloTasks("drain")))
+      return failure();
   }
 
   map.erase();

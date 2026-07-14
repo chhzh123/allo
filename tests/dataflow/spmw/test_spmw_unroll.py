@@ -70,20 +70,23 @@ def test_role_func_count_is_constant_across_grid_sizes():
     assert large.count("call @gemm_pe_") == 36
 
 
-def test_unroll_emits_halo_loaders_before_compute_call():
-    """For each grid point, `spmw.unroll` emits the halo loader/drain calls BEFORE the compute-role
-    call, so the unrolled call order is safe even under a sequential lowering: a west/north edge PE never
-    `stream_get`s a boundary FIFO before its producer loader has run. The call sequence opens with a
-    loader and ends on a compute call (not a trailing halo), confirming halos precede compute per point.
-    """
+def test_unroll_orders_loaders_before_and_drains_after_compute():
+    """Per grid point, `spmw.unroll` emits LOADER halos (producers) BEFORE the compute-role call and
+    DRAIN halos (consumers) AFTER it, so the unrolled call order is safe even under a sequential
+    lowering: a west/north edge PE never `stream_get`s a boundary FIFO before its loader has run, and a
+    drain never `stream_get`s a FIFO before the PE's `stream_put`. The sequence opens with a loader
+    (producer first) and ends on a drain (consumer last)."""
     calls = re.findall(
         r"call @(\w+)", str(spmw.build(_systolic_twin(2, 2, 2), target="unroll"))
     )
     assert calls, "no calls in the unrolled IR"
-    assert "load" in calls[0]  # opens with a halo loader, not a compute call
-    assert (
-        "interior" in calls[-1]
-    )  # ends on a compute call -> halos precede compute per point
+    assert "load" in calls[0]  # opens with a loader (producer before compute)
+    assert "drain" in calls[-1]  # ends on a drain (consumer after compute)
+    # no drain precedes the FIRST compute call, and no loader follows the LAST compute call
+    first_compute = next(i for i, c in enumerate(calls) if "interior" in c)
+    last_compute = max(i for i, c in enumerate(calls) if "interior" in c)
+    assert not any("drain" in c for c in calls[:first_compute])
+    assert not any("load" in c for c in calls[last_compute + 1 :])
 
 
 def test_role_assignment_by_missing_links():
