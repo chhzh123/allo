@@ -229,6 +229,36 @@ def test_f2_layout_rejects_invalid_bank_bits():
         )  # bank_bits 5 > n_bits 4
 
 
+def test_realized_bank_matrix_single_bank_no_swizzle():
+    """bank_bits == 0 is a single-bank layout: there is no bank row to toggle (S has 0 rows, so
+    `S[bank_bits - 1]` would index row -1), so the verifier never swizzles even with a stride --
+    matching the emitter's `bank_bits > 0` guard (which avoids a shift by `bank_bits - 1 == -1`)."""
+    from allo.transform.auto_f2 import _realized_bank_matrix
+
+    S = _realized_bank_matrix("cyclic", 2, 0, 4)  # bank_bits=0 + a stride -> no crash, no swizzle
+    assert S.shape == (0, 4)
+
+
+def test_f2_layout_single_bank_cyclic_no_negative_shift():
+    # bank_bits == 0 (a single-bank cyclic layout the validator allows) with a stride_bit must NOT emit
+    # an XOR swizzle shifting by bank_bits - 1 == -1 (invalid IR); it is a plain single-bank mapping.
+    def bank16(inp: int32[16]) -> int32[16]:
+        buf: int32[16]
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(bank16)
+    s.f2_layout("bank16:buf", n_bits=4, bank_bits=0, banking="cyclic", stride_bit=2)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
+    # single bank -> [1][16] storage; the bank index is a plain mask (no shift by -1)
+    assert "[1][16]" in mod.hls_code
+
+
 def test_single_swizzle_cannot_separate_two_high_conflict_directions():
     # The auto_f2 fail-closed guard: a single XOR-swizzle banking separates only one high-stride
     # conflict direction, so a conflict subspace with two (e2, e3) is detected as not-conflict-free

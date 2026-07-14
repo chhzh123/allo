@@ -654,8 +654,10 @@ def _realized_bank_matrix(banking_mode, stride_bit, bank_bits, n_addr_bits):
         # stride_bit < bank_bits -- including the 0 no-swizzle sentinel the caller passes for a plain
         # cyclic layout -- is plain low-bit cyclic with no XOR. Toggling the top row for such a stride
         # would model a matrix the emitter never realizes (and for bank_bits == 1 zero the only bank
-        # row), wrongly rejecting a valid plain-cyclic banking.
-        if stride_bit is not None and bank_bits <= stride_bit < n_addr_bits:
+        # row), wrongly rejecting a valid plain-cyclic banking. bank_bits == 0 is a single-bank layout
+        # with no bank row to toggle (and `S[bank_bits - 1]` would index row -1 of a 0-row S), so it
+        # never swizzles -- matching the emitter's `bank_bits > 0` guard.
+        if stride_bit is not None and 0 < bank_bits <= stride_bit < n_addr_bits:
             S[bank_bits - 1, stride_bit] ^= 1
     return S
 

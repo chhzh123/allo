@@ -45,6 +45,34 @@ def test_channel_port_passes_body_validation():
     assert {c.name for c in coll.channels} == {"pipe"}
 
 
+def test_channel_alias_rejected_with_clear_error():
+    """A channel used through a local alias (`h = ctx.pipe; h.put(x)`) is accepted by the alias-aware
+    body-port check but not by the rolled channel endpoint discovery (which resolves endpoints by the
+    DIRECT ctx.<channel> receiver only). It is rejected with a CLEAR alias error rather than a confusing
+    '0 producer(s)' from the under-counting scan -- consistent with the pipeline datapath's fail-closed.
+    """
+
+    @spmw.unit
+    def producer(ctx):
+        h = ctx.pipe  # a channel alias the endpoint discovery does not resolve
+        for i in range(4):
+            h.put(i)
+
+    @spmw.unit
+    def consumer(ctx):
+        for i in range(4):
+            x = ctx.pipe.get()
+
+    @spmw.region()
+    def top(A, B):
+        spmw.map(producer, grid=(1,))
+        spmw.map(consumer, grid=(1,))
+        spmw.channel("pipe", float32, depth=4)
+
+    with pytest.raises(spmw.SPMWError, match="alias"):
+        spmw.lower(top)
+
+
 def test_undeclared_channel_port_rejected():
     @spmw.unit
     def producer(ctx):

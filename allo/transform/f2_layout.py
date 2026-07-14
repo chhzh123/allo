@@ -730,7 +730,10 @@ def _compute_bank_indices(
         mask_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, num_banks - 1), ip=ip)
         bank_low = arith_d.AndIOp(idx_i32_val, mask_val.result, ip=ip)
 
-        if stride_bit is not None and stride_bit >= bank_bits:
+        # bank_bits == 0 is a single-bank (no-swizzle) layout: the XOR would shift by bank_bits - 1 ==
+        # -1 (invalid), and there is no top bank row to toggle anyway, so never swizzle without bank
+        # bits. (A stride_bit >= bank_bits is the real high-stride case that needs the swizzle.)
+        if stride_bit is not None and 0 < bank_bits <= stride_bit:
             # XOR swizzle: xor_bit = (offset >> (stride_bit - bank_bits)) & 1
             rel_shift = stride_bit - bank_bits
             one_val = arith_d.ConstantOp(i32, IntegerAttr.get(i32, 1), ip=ip)

@@ -2386,12 +2386,36 @@ def _channel_endpoints(program, collection):
         except (OSError, TypeError, SyntaxError):
             continue
         ctx_name = _ctx_param_name(decl.unit.interior)
+        if ctx_name is None:
+            continue
+        aliases = _collect_port_aliases(tree_ast, ctx_name)
         for node in ast.walk(tree_ast):
             if not (
                 isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
             ):
                 continue
-            name = _receiver_port(node.func.value, ctx_name)
+            receiver = node.func.value
+            name = _receiver_port(receiver, ctx_name)
+            # A channel used through a local alias (`h = ctx.pipe; h.put(x)`) is accepted by the
+            # alias-aware `_check_body_ports`, but the rolled channel lowering resolves endpoints by the
+            # DIRECT `ctx.<channel>` receiver only. Reject this form with a clear error rather than
+            # under-count it to a bogus "0 producer(s)/consumer(s)" -- consistent with the pipeline
+            # datapath, which also fails closed on a ctx alias.
+            if (
+                name is None
+                and node.func.attr in {"put", "get", "get_or"}
+                and isinstance(receiver, ast.Name)
+                and receiver.id in aliases
+            ):
+                aliased = [p for p in aliases[receiver.id] if p in channel_names]
+                if aliased:
+                    raise SPMWError(
+                        f"channel {aliased[0]!r} is used through a local alias "
+                        f"(e.g. `h = ctx.{aliased[0]}; h.{node.func.attr}(...)`); the rolled channel "
+                        f"lowering resolves endpoints by direct ctx.<channel> access only -- write "
+                        f"ctx.{aliased[0]}.{node.func.attr}(...) directly"
+                    )
+                continue
             if name not in channel_names:
                 continue
             if node.func.attr == "put":
