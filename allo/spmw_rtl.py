@@ -83,6 +83,14 @@ def emit_structural_verilog(region, mode="blackbox"):
     ]
     grid = re.search(r"grid = \[(\d+), (\d+)\]", ir)
     rows, cols = int(grid.group(1)), int(grid.group(2))
+    # The declared mesh grid must match the operand-derived (M, N), or the RTL top would emit a PE
+    # count / ABI for a different grid than the region's tensor shapes. Reject a stale spmw.mesh((...))
+    # here, exactly as the dataflow, rolled HLS, and rolled-simulator paths do.
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _check_mesh_grid, _resolve_dims
+
+    op_rows, op_cols, _op_depth, _op_dtype = _resolve_dims(region)
+    _check_mesh_grid((rows, cols), op_rows, op_cols)
     if len(partition) != 1 or partition[0] != rows * cols:
         raise NotImplementedError(
             f"structural RTL emitter handles a single-compute-role systolic map; "

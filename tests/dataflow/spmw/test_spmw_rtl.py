@@ -98,6 +98,36 @@ def test_structural_verilog_consumes_spmw_map():
     assert ".south_din(fb_din[i + 1][j])" in sv
 
 
+def test_rtl_rejects_grid_operand_mismatch():
+    """The structural RTL emitter sizes the top / PE count by the declared mesh grid, so a stale
+    `spmw.mesh((...))` disagreeing with the A[M,K]/B[K,N] operands would emit RTL for a different grid
+    than the region's tensor shapes. It is rejected before emission, like the dataflow / rolled HLS /
+    rolled-simulator paths."""
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M + 1, N))  # disagrees with the operand-derived M x N
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="grid"):
+        emit_structural_verilog(gemm)
+
+
 def test_structural_module_types_constant_across_grid_sizes():
     # the same module TYPES at 4x4 and 8x8 -- O(#roles), constant as the grid scales; only the M/N
     # parameters differ, exactly the synthesis-time-win regularity the HLS body count shows

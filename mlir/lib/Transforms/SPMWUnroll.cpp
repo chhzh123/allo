@@ -381,11 +381,12 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
                << "' has an unsupported parameter type";
       }
     }
-    builder.create<func::CallOp>(loc, callee, operands);
-
-    // Wire the halo loader/drain tasks for this point's missing (off-grid)
-    // ports to the same boundary channels the compute call just created, so no
-    // off-grid channel is left dangling.
+    // Emit the halo loader/drain tasks for this point's missing (off-grid)
+    // ports FIRST -- wired to the boundary channels created above during
+    // operand resolution -- and emit the compute call only AFTER them (below).
+    // Emitting the producer loaders before the compute call keeps the unrolled
+    // call order safe even under a sequential lowering: a west/north edge PE
+    // never stream_get's a boundary FIFO before its loader has run.
     if (ArrayAttr haloTasks = map.getHaloAttr()) {
       int64_t self = linearIndex(coord, grid);
       for (Attribute haloAttr : haloTasks) {
@@ -423,6 +424,10 @@ LogicalResult SPMWUnrollPass::expand(spmw::MapOp map,
         builder.create<func::CallOp>(loc, haloFn, haloOperands);
       }
     }
+    // The compute call, emitted AFTER this point's halo loaders/drains (see the
+    // comment above the halo loop): its boundary FIFOs already have their
+    // producers/consumers issued before it.
+    builder.create<func::CallOp>(loc, callee, operands);
   }
 
   map.erase();
