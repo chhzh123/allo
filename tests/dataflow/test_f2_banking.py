@@ -14,7 +14,7 @@ the (bank, offset) map is a lossless bijection over the whole address space.
 import tempfile
 
 import allo
-from allo.ir.types import int32
+from allo.ir.types import int32, uint32
 import pytest
 
 from allo.transform.f2_layout import F2LayoutSolver, SwizzleHelper, fft_swizzle
@@ -142,6 +142,29 @@ def test_f2_layout_rewrites_1d_buffer_to_real_2d_banked_storage():
     assert "#pragma HLS array_partition" in code and "complete dim=1" in code
     assert "#pragma HLS bind_storage" in code and "impl=lutram" in code.lower()
     assert "#pragma HLS dependence" in code and "inter false" in code
+
+
+def test_f2_layout_preserves_unsigned_on_banked_buffer():
+    """Banking a `UInt` buffer must carry its `unsigned` marker onto the new 2-D alloc and the rewritten
+    loads, so the emitted HLS storage/loads stay unsigned rather than silently becoming signed.
+    """
+
+    def ubank(inp: uint32[16]) -> uint32[16]:
+        buf: uint32[16]  # unsigned local buffer
+        for i in range(16):
+            buf[i] = inp[i]
+        out: uint32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(ubank)
+    s.f2_layout("ubank:buf", n_bits=4, bank_bits=1, banking="block")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
+    code = mod.hls_code
+    # the banked 2-D buffer stays unsigned (uint32_t), not signed (int32_t)
+    assert "uint32_t buf[2][8]" in code, code
 
 
 def test_f2_layout_fails_closed_on_unremappable_access():

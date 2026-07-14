@@ -512,6 +512,10 @@ def apply_f2_layout(
         ip = InsertionPoint.after(old_alloc.operation)
         new_alloc = memref_d.AllocOp(new_memref_type, [], [], ip=ip)
         new_alloc.attributes["name"] = StringAttr.get(buf_name)
+        # Carry the `unsigned` marker (if any) onto the banked buffer, so an F2-banked `UInt` buffer
+        # still prints as an unsigned/ap_uint storage in HLS rather than silently becoming signed.
+        if "unsigned" in old_alloc.attributes:
+            new_alloc.attributes["unsigned"] = old_alloc.attributes["unsigned"]
 
         # 4. Collect all uses of old alloc result before modifying
         uses = list(old_result.uses)
@@ -544,6 +548,10 @@ def apply_f2_layout(
                 new_load = memref_d.LoadOp(
                     new_alloc.result, [bank_idx, offset_idx], ip=ip
                 )
+                if "unsigned" in op.attributes:
+                    new_load.operation.attributes["unsigned"] = op.attributes[
+                        "unsigned"
+                    ]
                 load_op.result.replace_all_uses_with(new_load.result)
                 op.erase()
 
@@ -592,6 +600,10 @@ def apply_f2_layout(
                 new_load = memref_d.LoadOp(
                     new_alloc.result, [bank_idx, offset_idx], ip=ip
                 )
+                if "unsigned" in op.attributes:
+                    new_load.operation.attributes["unsigned"] = op.attributes[
+                        "unsigned"
+                    ]
                 load_op.result.replace_all_uses_with(new_load.result)
                 op.erase()
 

@@ -2127,17 +2127,28 @@ def _interior_ports():
     return sorted(_READ_PORTS)
 
 
-def _interior_role_func(program, decl, sym, body=None):
+def _interior_role_func(program, decl, sym, body=None, streams=None):
     """The compute role ``func.func`` with the real transcribed datapath, or ``None``.
 
     ``body`` is the work-unit body to transcribe (the interior body by default, or a
-    predicate-selected variant body). ``None`` is returned when the region is not the systolic
-    A/B/C operand shape the datapath transcriber handles (e.g. the minimal regions used by the
-    dialect tests), so the caller falls back to the signature-only stub.
+    predicate-selected variant body). ``None`` is returned when the map is not the two-operand systolic
+    W->E/N->S A/B/C pattern (e.g. a topology-only / ``pass`` unit, a different 2-D topology, or the
+    minimal dialect-test regions), so the caller falls back to the signature-only stub.
     """
     # pylint: disable=import-outside-toplevel
     from .spmw_mlir import interior_role_func
 
+    # Only the systolic pattern -- this unit fed by a W->E and an N->S stream_in flow -- has a
+    # transcribable A/B/C datapath. Any other map (no flows, one flow, a `pass` unit over a 2-D
+    # topology) falls back to the stub rather than invoking the systolic AST transcriber, which would
+    # raise on a non-systolic body even when the operands happen to be 2-D.
+    unit_flows = {
+        stream.flow
+        for stream in (streams or [])
+        if stream.direction == "in" and stream.unit is decl.unit
+    }
+    if not {"W->E", "N->S"} <= unit_flows:
+        return None
     annotations = getattr(program.fn, "__annotations__", {})
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
@@ -2530,7 +2541,7 @@ def _module_text(program, collection):
             func = None
             ports_text = ""
             if not missing:
-                func = _interior_role_func(program, decl, sym, body)
+                func = _interior_role_func(program, decl, sym, body, collection.streams)
                 if func is not None:
                     # the transcribed compute func streams over every port, in the sorted
                     # port-name order it lists them -- declare that as the role's stream ABI

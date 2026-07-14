@@ -158,6 +158,24 @@ def test_repeated_unit_mapping_rejected():
         spmw.check_topology(top)
 
 
+def test_non_systolic_2d_region_lowers_to_stub():
+    """A non-systolic 2-D region with three tensors (a `pass` unit, no W->E/N->S flows) lowers to a
+    signature-only stub role rather than invoking the systolic AST transcriber, which would raise on a
+    non-systolic body even though the operands happen to be 2-D."""
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def top(A: float32[2, 2], B: float32[2, 2], C: float32[2, 2]):
+        spmw.map(pe, grid=grid)
+
+    ir = str(spmw.lower(top))  # no crash -> falls back to the stub role
+    assert "spmw.map" in ir
+
+
 def test_resolve_channels_keeps_all_scatter_gather_endpoints():
     """`resolve_channels` must enumerate EVERY (source, sink) pair of a key channel: a scatter's one
     source fans out to each sink, a gather's one sink is fed from each source. Collapsing the endpoints
