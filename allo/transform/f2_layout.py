@@ -477,7 +477,24 @@ def apply_f2_layout(
         if isinstance(old_alloc, MockArg):
             return
         old_result = old_alloc.result
-        elem_type = MemRefType(old_result.type).element_type
+        old_type = MemRefType(old_result.type)
+        elem_type = old_type.element_type
+
+        # F2 banking maps a 1-D buffer of EXACTLY 2^n_bits elements to a [num_banks][depth] layout. If
+        # the declared n_bits/bank_bits do not match the buffer, the banked storage is a different
+        # physical size than the accesses expect -- e.g. n_bits=3 on a 16-element buffer gives 8 slots,
+        # so indices 8..15 alias or go out of bounds. Reject rather than silently rewrite to the wrong
+        # size (checked before any IR mutation, so a bad call never leaves a half-rewritten schedule).
+        if not 0 <= bank_bits <= n_bits:
+            raise ValueError(
+                f"apply_f2_layout: bank_bits ({bank_bits}) must be in [0, n_bits] ({n_bits})"
+            )
+        if list(old_type.shape) != [1 << n_bits]:
+            raise ValueError(
+                f"apply_f2_layout: buffer {func_name}:{buf_name} has shape {list(old_type.shape)}, "
+                f"but n_bits={n_bits} expects a 1-D buffer of {1 << n_bits} elements; the banked "
+                f"storage would be a different physical size than the accesses expect"
+            )
 
         # 1b. Pre-scan uses BEFORE mutating any IR. This transform only remaps load/store/partition
         # accesses onto the 2-D banked buffer; any OTHER use (an init fill, a copy, a stream put/get,

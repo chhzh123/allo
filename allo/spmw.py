@@ -1735,12 +1735,17 @@ def _validate_collection(collection, *, strict_topology=False):
         # placement.
         seen = {}
         for decl in collection.maps:
-            if id(decl.unit) in seen:
+            # Key by unit NAME, not object identity: the role func symbols are `@{region}_{unit}_{role}`
+            # (name-based), so two DISTINCT @spmw.unit objects that share a Python __name__ (e.g. two
+            # units both named `pe` from a factory or nested scope) would still emit duplicate symbols
+            # the module cannot verify -- reject that too, not only the same-object case.
+            if decl.unit.name in seen:
                 raise SPMWError(
-                    f"unit {decl.unit.name!r} is mapped more than once; the rolled IR names role "
-                    f"funcs by unit, so each placement needs a distinct @spmw.unit"
+                    f"unit named {decl.unit.name!r} is mapped more than once; the rolled IR names role "
+                    f"funcs by unit NAME, so each placement needs a distinctly-named @spmw.unit "
+                    f"(two units sharing a Python __name__ collide)"
                 )
-            seen[id(decl.unit)] = decl
+            seen[decl.unit.name] = decl
     # A region-level channel is a valid port name in any unit body (a unit puts to / gets from it).
     channel_ports = {ch.name for ch in collection.channels}
     for decl in collection.maps:

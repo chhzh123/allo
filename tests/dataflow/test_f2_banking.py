@@ -189,6 +189,27 @@ def test_f2_layout_fails_closed_on_unremappable_access():
     assert len(s.primitive_sequences) == 0  # and no primitive was recorded
 
 
+def test_f2_layout_rejects_size_mismatch():
+    # F2 banking maps a 1-D buffer of EXACTLY 2^n_bits elements. An n_bits that disagrees with the
+    # buffer extent (n_bits=3 on a 16-element buffer -> only 8 slots) would make accesses to indices
+    # 8..15 alias or go out of bounds, so it is rejected before any rewrite -- not silently mis-sized.
+    def bank16(inp: int32[16]) -> int32[16]:
+        buf: int32[16]  # 16 elements -> needs n_bits=4, not 3
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(bank16)
+    module_before = str(s.module)
+    with pytest.raises(ValueError, match="physical size|expects a 1-D buffer"):
+        s.f2_layout("bank16:buf", n_bits=3, bank_bits=1, banking="block")  # 16 != 2^3
+    assert str(s.module) == module_before  # untouched by the rejected f2_layout
+    assert len(s.primitive_sequences) == 0
+
+
 def test_single_swizzle_cannot_separate_two_high_conflict_directions():
     # The auto_f2 fail-closed guard: a single XOR-swizzle banking separates only one high-stride
     # conflict direction, so a conflict subspace with two (e2, e3) is detected as not-conflict-free

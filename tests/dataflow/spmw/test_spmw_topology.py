@@ -158,6 +158,34 @@ def test_repeated_unit_mapping_rejected():
         spmw.check_topology(top)
 
 
+def test_same_named_distinct_units_rejected():
+    """The role func symbols are `@{region}_{unit}_{role}` (name-based), so two DISTINCT `@spmw.unit`
+    objects that share a Python `__name__` (e.g. units from a factory or nested scopes, both named `pe`)
+    would emit colliding symbols. The strict check keys by unit NAME, so it rejects same-name units, not
+    only the same object -- otherwise `spmw.lower()` would produce invalid/mis-resolved IR.
+    """
+
+    def make_pe():
+        @spmw.unit
+        def pe(ctx):
+            a: float32 = ctx.west.get()
+            ctx.east.put(a)
+
+        return pe
+
+    grid = spmw.mesh((2, 2))
+
+    @spmw.region()
+    def top(A: float32[2, 2]):
+        spmw.map(make_pe(), grid=grid)  # two DISTINCT unit objects, both named "pe"
+        spmw.map(make_pe(), grid=grid)
+
+    with pytest.raises(spmw.SPMWError, match="mapped more than once"):
+        spmw.check_topology(top)
+    with pytest.raises(spmw.SPMWError, match="mapped more than once"):
+        spmw.lower(top)
+
+
 def test_non_systolic_2d_region_lowers_to_stub():
     """A non-systolic 2-D region with three tensors (a `pass` unit, no W->E/N->S flows) lowers to a
     signature-only stub role rather than invoking the systolic AST transcriber, which would raise on a
@@ -664,7 +692,8 @@ def test_edge_link_verifier_rejects_reciprocal_depth_mismatch():
 def _edge_map_module_with_stream_role(stream_depth):
     """Like `_edge_map_module` but the role func takes a `!allo.stream` parameter for edge port `a`, so
     the op verifier's role-signature ABI check (`verifySymbolUses`) compares that stream's depth against
-    the edge_link `a` declared depth (2). Uses the complete/consistent [a,b] x [0,1] edge table."""
+    the edge_link `a` declared depth (2). Uses the complete/consistent [a,b] x [0,1] edge table.
+    """
     links = [_A0, _B0, _A1, _B1]
     return (
         "module {\n"
@@ -681,7 +710,8 @@ def _edge_map_module_with_stream_role(stream_depth):
 
 def test_edge_link_role_stream_depth_matches_ok():
     """A role func whose edge-port stream depth matches the edge_link ABI (depth 2) verifies -- the
-    edge-port ABI is now recorded for the role-signature check, and a correct role passes it."""
+    edge-port ABI is now recorded for the role-signature check, and a correct role passes it.
+    """
     _parse_spmw(_edge_map_module_with_stream_role(2))  # verifies without error
 
 
@@ -697,7 +727,8 @@ def test_edge_link_verifier_checks_role_stream_depth():
 def _key_map_module(*, role_port, stream_depth):
     """A minimal `spmw.map` over a 1-D grid whose only links are a key-form `lane` family (one src, one
     sink), with a role func declaring one key-link stream port -- for exercising the op verifier's
-    role-port validation and role-stream ABI check on KEY-link ports via `Module.parse`."""
+    role-port validation and role-stream ABI check on KEY-link ports via `Module.parse`.
+    """
     return (
         "module {\n"
         "  func.func @u(%arg0: memref<1xf32>, %arg1: index, "
@@ -715,8 +746,11 @@ def _key_map_module(*, role_port, stream_depth):
 def test_key_link_role_port_is_accepted():
     """A role func may declare a KEY-link port (a key-form lane family port, like a butterfly's `a`), not
     only peer/edge ports; the op verifier accepts it and ABI-checks its stream. Previously the role-port
-    check rejected any non-peer/edge port, blocking key-form maps with real stream role signatures."""
-    _parse_spmw(_key_map_module(role_port="a", stream_depth=2))  # verifies without error
+    check rejected any non-peer/edge port, blocking key-form maps with real stream role signatures.
+    """
+    _parse_spmw(
+        _key_map_module(role_port="a", stream_depth=2)
+    )  # verifies without error
 
 
 def test_key_link_role_stream_depth_checked():
