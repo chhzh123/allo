@@ -108,47 +108,6 @@ def _resolve_dims(region):
     return a_shape[0], b_shape[1], a_shape[1], _DTYPE_NAMES[dtype]
 
 
-def _resolve_operands(region, collection):
-    """``(M, N, K, dtype_name, a_name, b_name, c_name)`` resolved from the STREAM declarations, not
-    annotation order. The W->E ``stream_in`` names the A operand ([M, K]), the N->S one names B
-    ([K, N]), and the ``stream_out`` names C ([M, N]) -- so the dataflow desugar handles a region whose
-    tensors are declared in any order (e.g. ``def gemm(B, A, C)``) without swapping shapes/data.
-    """
-    annotations = getattr(region.fn, "__annotations__", {})
-    shaped = {
-        name: v
-        for name, v in annotations.items()
-        if name != "return" and getattr(v, "shape", None)
-    }
-    flow_name = {
-        s.flow: getattr(s.tensor, "name", s.tensor)
-        for s in collection.streams
-        if s.direction == "in" and s.flow in {"W->E", "N->S"}
-    }
-    out_streams = [s for s in collection.streams if s.direction == "out"]
-    a_name, b_name = flow_name.get("W->E"), flow_name.get("N->S")
-    c_name = getattr(out_streams[0].tensor, "name", None) if out_streams else None
-    if a_name not in shaped or b_name not in shaped or c_name not in shaped:
-        raise NotImplementedError(
-            "systolic datapath needs W->E and N->S stream_in operands and a stream_out operand"
-        )
-    a_shape, b_shape = shaped[a_name].shape, shaped[b_name].shape  # (M, K), (K, N)
-    dtype = repr(shaped[a_name].dtype)
-    if dtype not in _DTYPE_NAMES:
-        raise NotImplementedError(
-            f"systolic datapath supports {sorted(_DTYPE_NAMES)} elements, not {dtype!r}"
-        )
-    return (
-        a_shape[0],
-        b_shape[1],
-        a_shape[1],
-        _DTYPE_NAMES[dtype],
-        a_name,
-        b_name,
-        c_name,
-    )
-
-
 def _recognize(collection):
     """Check the region is the two-operand systolic mesh pattern; return its map decl."""
     if len(collection.maps) != 1:
@@ -178,12 +137,11 @@ def _transcribe_interior(unit, locals_, gets=None, puts=None):
 def generate_source(region, collection):
     """The equivalent allo.dataflow source for a recognized systolic-mesh region."""
     # pylint: disable=import-outside-toplevel
-    from .spmw import DEFAULT_DEPTH, SPMWError
+    from .spmw import DEFAULT_DEPTH, SPMWError, _require_canonical_systolic_order
 
     decl = _recognize(collection)
-    rows, cols, depth, dtype, a_name, b_name, c_name = _resolve_operands(
-        region, collection
-    )
+    _require_canonical_systolic_order(region, collection)
+    rows, cols, depth, dtype = _resolve_dims(region)
     # Honor the declared per-family FIFO depths (a `depths={...}` on the map, defaulting to
     # DEFAULT_DEPTH) so the dataflow backend buffers exactly what the SPMW program requested, matching
     # the rolled paths and the strict depth-consistency checker. fifo_A carries the A family (west/east),
@@ -198,26 +156,9 @@ def generate_source(region, collection):
             f"PE grid {(rows, cols)}: A is [M, K] and B is [K, N], so the mesh must be M x N"
         )
     out = [s for s in collection.streams if s.direction == "out"][0]
-    locals_ = {out.extra.get("as_", "c_local"): (f"local_{c_name}", "i - 1", "j - 1")}
+    locals_ = {out.extra.get("as_", "c_local"): ("local_C", "i - 1", "j - 1")}
     interior = _transcribe_interior(decl.unit, locals_)
     body = "\n".join(" " * 12 + line for text in interior for line in text.splitlines())
-    # Emit the df region operands (and the kernel's local_<operand>) in the SPMW region's DECLARATION
-    # order -- so a positional call to the built module lines up and `args=` needs no reordering -- while
-    # the boundary loaders reference the operand by role NAME (local_<A>=W->E, local_<B>=N->S,
-    # local_<C>=out), so shapes/data are never swapped for a non-canonical order like `def gemm(B, A, C)`.
-    role_type = {
-        a_name: f"{dtype}[M, K]",
-        b_name: f"{dtype}[K, N]",
-        c_name: f"{dtype}[M, N]",
-    }
-    ordered = [
-        name
-        for name, v in getattr(region.fn, "__annotations__", {}).items()
-        if name != "return" and getattr(v, "shape", None)
-    ]
-    params = ", ".join(f"{name}: {role_type[name]}" for name in ordered)
-    kernel_params = ", ".join(f"local_{name}: {role_type[name]}" for name in ordered)
-    kernel_args = ", ".join(ordered)
     return f"""import allo
 from allo.ir.types import {dtype}, Stream
 import allo.dataflow as df
@@ -227,21 +168,21 @@ P0, P1 = M + 2, N + 2
 
 
 @df.region()
-def {region.name}_df({params}):
+def {region.name}_df(A: {dtype}[M, K], B: {dtype}[K, N], C: {dtype}[M, N]):
     fifo_A: Stream[{dtype}, {depth_a}][P0, P1]
     fifo_B: Stream[{dtype}, {depth_b}][P0, P1]
 
-    @df.kernel(mapping=[P0, P1], args=[{kernel_args}])
-    def gemm({kernel_params}):
+    @df.kernel(mapping=[P0, P1], args=[A, B, C])
+    def gemm(local_A: {dtype}[M, K], local_B: {dtype}[K, N], local_C: {dtype}[M, N]):
         i, j = df.get_pid()
         with allo.meta_if(i in {{0, M + 1}} and j in {{0, N + 1}}):
             pass
         with allo.meta_elif(j == 0):
             for k in range(K):
-                fifo_A[i, j + 1].put(local_{a_name}[i - 1, k])
+                fifo_A[i, j + 1].put(local_A[i - 1, k])
         with allo.meta_elif(i == 0):
             for k in range(K):
-                fifo_B[i + 1, j].put(local_{b_name}[k, j - 1])
+                fifo_B[i + 1, j].put(local_B[k, j - 1])
         with allo.meta_elif(i == M + 1 and j > 0):
             for k in range(K):
                 _b: {dtype} = fifo_B[i, j].get()
@@ -577,9 +518,13 @@ def generate_mini_tpu_source(region, collection):
     run concurrently, connected only by the stream -- exactly the memory/stream composition §3.4 shows.
     """
     # pylint: disable=import-outside-toplevel
-    from .spmw import SPMWError
+    from .spmw import SPMWError, _require_canonical_systolic_order
 
     mesh_decl, act_decl, mesh_out, act_in, act_out = _recognize_mini_tpu(collection)
+    # The generated wrapper's ABI is the canonical (ACT, WGT, bias, OUT) order; enforce that the MXU's
+    # W->E (ACT) / N->S (WGT) inputs are the first two region operands so the positional call is not
+    # silently swapped (a bias/OUT mis-order instead fails loudly on the shape mismatch).
+    _require_canonical_systolic_order(region, collection)
     tensors = _region_tensors(region)
     shape_of = {name: shape for name, shape, _ in tensors}
     dtype = tensors[0][2]

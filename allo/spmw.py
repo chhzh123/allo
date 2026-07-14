@@ -1657,6 +1657,36 @@ def _check_single_writer(collection):
             )
 
 
+def _require_canonical_systolic_order(program, collection):
+    """The systolic desugar and the rolled lowering both map the ``W->E`` operand to the FIRST shaped
+    region operand (A) and ``N->S`` to the SECOND (B) -- the halo loaders resolve by tensor name while
+    the role ABI and the ``spmw.map`` operands are positional, so all three only agree when the region
+    declares its operands in that canonical order. A region using both flows must therefore declare the
+    ``W->E`` operand first and the ``N->S`` operand second; a non-canonical order (e.g.
+    ``def gemm(B, A, C)``) is rejected at build rather than mis-lowered (only the dataflow simulator's
+    stream-resolved loaders would otherwise track it, and the rolled/HLS path would swap the ABI).
+    """
+    flow_name = {
+        stream.flow: getattr(stream.tensor, "name", None)
+        for stream in collection.streams
+        if stream.direction == "in" and stream.flow in {"W->E", "N->S"}
+    }
+    if "W->E" not in flow_name or "N->S" not in flow_name:
+        return  # not a two-flow systolic region -- nothing to constrain
+    ordered = [
+        name
+        for name, typ in getattr(program.fn, "__annotations__", {}).items()
+        if name != "return" and getattr(typ, "shape", None)
+    ]
+    for position, flow in ((0, "W->E"), (1, "N->S")):
+        if position >= len(ordered) or ordered[position] != flow_name[flow]:
+            raise SPMWError(
+                f"systolic operands must be declared in canonical order: the {flow} stream operand "
+                f"{flow_name[flow]!r} must be region operand #{position} (A=W->E first, B=N->S "
+                f"second, C=out third); got operand order {ordered}"
+            )
+
+
 def _validate_collection(collection, *, strict_topology=False):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
@@ -2084,7 +2114,7 @@ def _interior_ports():
     return sorted(_READ_PORTS)
 
 
-def _interior_role_func(program, decl, sym, body=None, streams=None):
+def _interior_role_func(program, decl, sym, body=None):
     """The compute role ``func.func`` with the real transcribed datapath, or ``None``.
 
     ``body`` is the work-unit body to transcribe (the interior body by default, or a
@@ -2099,37 +2129,16 @@ def _interior_role_func(program, decl, sym, body=None, streams=None):
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return None
-    # Resolve the A(W->E) / B(N->S) / C(out) operands from the STREAM declarations, not annotation
-    # order, so a non-canonical region (e.g. `def gemm(B, A, C)`) uses the right K trip count and
-    # memref ABI -- matching the halo loaders, which already resolve by `stream.tensor.name`. Fall
-    # back to annotation order when the streams do not name all three (e.g. minimal dialect regions).
-    shaped = {
-        name: typ for name, typ in annotations.items() if getattr(typ, "shape", None)
-    }
-    flow_name = {
-        stream.flow: getattr(stream.tensor, "name", None)
-        for stream in streams or []
-        if stream.direction == "in" and stream.flow in {"W->E", "N->S"}
-    }
-    out_streams = [s for s in (streams or []) if s.direction == "out"]
-    a_typ = shaped.get(flow_name.get("W->E"))
-    b_typ = shaped.get(flow_name.get("N->S"))
-    c_typ = (
-        shaped.get(getattr(out_streams[0].tensor, "name", None))
-        if out_streams
-        else None
-    )
-    if a_typ is not None and b_typ is not None and c_typ is not None:
-        a_shaped, b_shaped, c_shaped = a_typ, b_typ, c_typ
-    else:
-        a_shaped, b_shaped, c_shaped = tensors[0], tensors[1], tensors[2]
-    shapes = (a_shaped.shape, b_shaped.shape, c_shaped.shape)
+    # A(W->E)=operand 0, B(N->S)=operand 1, C(out)=operand 2. Canonical operand order is enforced at
+    # lowering (`_require_canonical_systolic_order`), so this positional read is always correct and the
+    # role ABI aligns with the `spmw.map` operands (which are also in declaration order).
+    shapes = (tensors[0].shape, tensors[1].shape, tensors[2].shape)
     # The datapath transcriber handles only the 2-D systolic A/B/C operand shape. A region whose
-    # operands are not all 2-D (e.g. the 1-D FFT lane vectors, or a key-form topology) falls back to
-    # the signature-only stub role func rather than crashing on `shapes[0][1]`.
+    # first three operands are not all 2-D (e.g. the 1-D FFT lane vectors, or a key-form topology)
+    # falls back to the signature-only stub role func rather than crashing on `shapes[0][1]`.
     if any(len(shape) != 2 for shape in shapes):
         return None
-    elem = repr(a_shaped.dtype)
+    elem = repr(tensors[0].dtype)
     trip = shapes[0][1]  # A is [M, K]; the unit's k-loop runs K times
     # A systolic region fails closed: an untranscribable interior body raises rather than silently
     # becoming an empty stub. (Genuinely topology-only regions already returned None above.)
@@ -2478,6 +2487,7 @@ def _check_role_bodies_transcribable(decl):
 
 def _module_text(program, collection):
     """Assemble the rolled IR: one role func per predicate tag and one spmw.map per mapped unit."""
+    _require_canonical_systolic_order(program, collection)
     role_funcs = []
     map_ops = []
     operands = _tensor_operands(program)
@@ -2496,7 +2506,7 @@ def _module_text(program, collection):
             func = None
             ports_text = ""
             if not missing:
-                func = _interior_role_func(program, decl, sym, body, collection.streams)
+                func = _interior_role_func(program, decl, sym, body)
                 if func is not None:
                     # the transcribed compute func streams over every port, in the sorted
                     # port-name order it lists them -- declare that as the role's stream ABI

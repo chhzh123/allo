@@ -124,10 +124,11 @@ def test_systolic_runs_for_int32():
     np.testing.assert_array_equal(C, A @ B)
 
 
-def test_systolic_non_canonical_operand_order():
-    """A region declaring its tensors out of canonical order -- `(B, A, C)` with `stream_in(A, "W->E")`
-    and `stream_in(B, "N->S")` -- desugars from the stream declarations, so shapes/data are not swapped
-    (previously it took the first two annotations as A/B and produced wrong results or a grid mismatch).
+def test_systolic_non_canonical_operand_order_rejected():
+    """The systolic desugar + rolled lowering require the W->E operand to be region operand #0 and the
+    N->S operand #1 (the halo loaders resolve by tensor name while the role ABI and spmw.map operands
+    are positional; they only agree in canonical order). A non-canonical `(B, A, C)` declaration -- A is
+    the W->E operand but is declared second -- is rejected at build rather than mis-lowered.
     """
     M, N, K = 3, 4, 2
     grid = spmw.mesh((M, N))
@@ -146,18 +147,16 @@ def test_systolic_non_canonical_operand_order():
     @spmw.region()
     def gemm(
         B: float32[K, N], A: float32[M, K], C: float32[M, N]
-    ):  # non-canonical order
+    ):  # non-canonical: A (W->E) is declared second
         spmw.map(pe, grid=grid)
         spmw.stream_in(A, into=pe, flow="W->E")
         spmw.stream_in(B, into=pe, flow="N->S")
         spmw.stream_out(C, from_=pe, where="local", as_="c_local")
 
-    module = spmw.build(gemm, target="simulator")
-    A_arr = np.random.rand(M, K).astype(np.float32)
-    B_arr = np.random.rand(K, N).astype(np.float32)
-    C_arr = np.zeros((M, N), dtype=np.float32)
-    module(B_arr, A_arr, C_arr)  # called in the region's (B, A, C) declaration order
-    np.testing.assert_allclose(C_arr, A_arr @ B_arr, atol=1e-4)
+    with pytest.raises(spmw.SPMWError, match="canonical order"):
+        spmw.build(gemm, target="simulator")
+    with pytest.raises(spmw.SPMWError, match="canonical order"):
+        spmw.lower(gemm)  # the rolled path rejects it too
 
 
 def test_grid_tensor_mismatch_rejected():
