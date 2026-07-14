@@ -661,6 +661,39 @@ def test_edge_link_verifier_rejects_reciprocal_depth_mismatch():
         _parse_spmw(_edge_map_module([a0, _B0, _A1, b1]))
 
 
+def _edge_map_module_with_stream_role(stream_depth):
+    """Like `_edge_map_module` but the role func takes a `!allo.stream` parameter for edge port `a`, so
+    the op verifier's role-signature ABI check (`verifySymbolUses`) compares that stream's depth against
+    the edge_link `a` declared depth (2). Uses the complete/consistent [a,b] x [0,1] edge table."""
+    links = [_A0, _B0, _A1, _B1]
+    return (
+        "module {\n"
+        "  func.func @u(%arg0: memref<1xf32>, %arg1: index, "
+        f"%arg2: !allo.stream<f32, {stream_depth}>) {{ return }}\n"
+        "  func.func @top(%arg0: memref<1xf32>) {\n"
+        "    spmw.map(%arg0) topology = <grid = [2], dims = 1, links = [\n"
+        + ",\n".join("      " + link for link in links)
+        + '\n    ]> roles = [#spmw.role<unit = @u, missing = [], ports = ["a"]>] '
+        ": memref<1xf32>\n"
+        "    return\n  }\n}\n"
+    )
+
+
+def test_edge_link_role_stream_depth_matches_ok():
+    """A role func whose edge-port stream depth matches the edge_link ABI (depth 2) verifies -- the
+    edge-port ABI is now recorded for the role-signature check, and a correct role passes it."""
+    _parse_spmw(_edge_map_module_with_stream_role(2))  # verifies without error
+
+
+def test_edge_link_verifier_checks_role_stream_depth():
+    """`verifySymbolUses` records edge_link ports (not only peer_link) in its port-ABI table, so a role
+    func that declares an edge-port `!allo.stream` with the WRONG depth (4 vs the edge_link `a` depth 2)
+    is now rejected. Previously the edge port was absent from the ABI table, so the mismatch slipped
+    through and downstream passes/codegen saw an inconsistent FIFO type."""
+    with pytest.raises(Exception, match="depth"):
+        _parse_spmw(_edge_map_module_with_stream_role(4))
+
+
 def test_tree_resolve_channels_uses_per_edge_peer_port():
     """`spmw-resolve-channels` groups the tree's edges into channel families by their **true per-edge**
     peer port: a right-child `up` (peer `right`) joins the parent's `right` (`right/up`), a left-child

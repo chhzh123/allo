@@ -350,11 +350,21 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   TopologyAttr topology = getTopology();
   int64_t dims = topology.getDims();
   llvm::StringMap<std::pair<int64_t, Type>> portAbi;
-  for (Attribute linkAttr : topology.getLinks())
+  for (Attribute linkAttr : topology.getLinks()) {
     if (auto peer = llvm::dyn_cast<PeerLinkAttr>(linkAttr))
       portAbi[peer.getPort()] = {
           peer.getDepth(),
           peer.getElementType() ? peer.getElementType().getValue() : Type()};
+    else if (auto edge = llvm::dyn_cast<EdgeLinkAttr>(linkAttr))
+      // An explicit per-coordinate edge_link port (e.g. a tree's up/left/right)
+      // carries the same (depth, element type) FIFO ABI as a peer_link; record
+      // it so a role stream declared for an edge port is ABI-checked too, not
+      // silently accepted with a mismatched depth/type. All edges for one port
+      // share the family ABI, so any representative is correct.
+      portAbi[edge.getPort()] = {
+          edge.getDepth(),
+          edge.getElementType() ? edge.getElementType().getValue() : Type()};
+  }
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);
     if (!role)
