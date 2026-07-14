@@ -249,3 +249,25 @@ def test_auto_f2_runs_end_to_end_on_a_kernel():
     with tempfile.TemporaryDirectory() as tmpdir:
         mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
     assert len(mod.hls_code) > 0 and "ak" in mod.hls_code
+
+
+def test_realized_bank_matrix_mirrors_emitter_for_no_swizzle_sentinel():
+    """auto_f2's banking VERIFIER (`_realized_bank_matrix`) must model EXACTLY what the emitter
+    (`_compute_bank_indices`) realizes, which emits the top-bank-row XOR swizzle only when
+    `stride_bit >= bank_bits`. A stride_bit below bank_bits -- including the 0 no-swizzle sentinel the
+    caller passes for a plain-cyclic layout -- is plain low-bit cyclic with NO XOR. Previously the
+    verifier XOR'd for any non-None stride, so at bank_bits == 1 it zeroed the only bank row and the
+    conflict-separation check then rejected a perfectly valid plain-cyclic banking.
+    """
+    from allo.transform.auto_f2 import _realized_bank_matrix
+
+    # no-swizzle sentinel (stride_bit=0 < bank_bits=1): plain cyclic identity, NOT a zeroed row
+    assert _realized_bank_matrix("cyclic", 0, 1, 4).tolist() == [[1, 0, 0, 0]]
+    # a low stride the low bank bits already separate (stride_bit=1 < bank_bits=2): still no XOR
+    assert _realized_bank_matrix("cyclic", 1, 2, 4).tolist() == [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+    ]
+    # a genuine high stride (stride_bit=3 >= bank_bits=2) DOES get the top-row XOR swizzle
+    high = _realized_bank_matrix("cyclic", 3, 2, 4)
+    assert high[1, 3] == 1 and high[0, 0] == 1 and high[1, 1] == 1

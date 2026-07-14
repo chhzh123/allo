@@ -649,7 +649,13 @@ def _realized_bank_matrix(banking_mode, stride_bit, bank_bits, n_addr_bits):
     else:  # cyclic
         for i in range(bank_bits):
             S[i, i] = 1
-        if stride_bit is not None and 0 <= stride_bit < n_addr_bits:
+        # Mirror `_compute_bank_indices` EXACTLY: it emits the top-bank-row XOR swizzle only when
+        # `stride_bit >= bank_bits` (a high stride the low bank bits do not already separate). A
+        # stride_bit < bank_bits -- including the 0 no-swizzle sentinel the caller passes for a plain
+        # cyclic layout -- is plain low-bit cyclic with no XOR. Toggling the top row for such a stride
+        # would model a matrix the emitter never realizes (and for bank_bits == 1 zero the only bank
+        # row), wrongly rejecting a valid plain-cyclic banking.
+        if stride_bit is not None and bank_bits <= stride_bit < n_addr_bits:
             S[bank_bits - 1, stride_bit] ^= 1
     return S
 

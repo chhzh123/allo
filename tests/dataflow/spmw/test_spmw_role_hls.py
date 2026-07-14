@@ -47,6 +47,38 @@ def test_emit_role_hls_transcribes_the_datapath():
     assert cpp.count("void pe_interior(") == 1
 
 
+def test_unit_docstring_is_skipped_in_role_hls():
+    """A `@spmw.unit` body may open with a docstring; the C++ transcriber must skip it rather than emit
+    it as an invalid C++ statement (a bare string is a no-op). The real datapath is still transcribed.
+    """
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        "MAC and forward -- this docstring must not become a C++ statement"
+        c: float32 = 0
+        for k in range(4):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[4, 4], B: float32[4, 4], C: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    cpp = emit_role_hls(gemm)
+    assert (
+        "must not become a C++ statement" not in cpp
+    )  # docstring filtered, not emitted
+    assert "c += (a * b)" in cpp  # the real datapath is still transcribed
+
+
 def _role_bodies(cpp):
     """The set of function names defined in an emitted HLS file."""
     return set(re.findall(r"\bvoid\s+(\w+)\s*\(", cpp))

@@ -80,16 +80,30 @@ def _cpp_stmt(node):
         var = node.target.id
         bound = _cpp(node.iter.args[0])
         inner = "\n".join(
-            "  " + line for stmt in node.body for line in _cpp_stmt(stmt).splitlines()
+            "  " + line
+            for stmt in node.body
+            if not _is_docstring(stmt)
+            for line in _cpp_stmt(stmt).splitlines()
         )
         return f"for (int {var} = 0; {var} < {bound}; {var}++) {{\n{inner}\n}}"
     raise NotImplementedError(f"cannot transcribe statement to C++: {ast.dump(node)}")
 
 
+def _is_docstring(node):
+    """Whether ``node`` is a bare string-constant statement (a docstring). In a PE body a bare string
+    is a no-op, but the ``ast.Expr`` transcription would emit it as an invalid C++ statement, so it is
+    filtered out before transcription."""
+    return (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    )
+
+
 def transcribe_pe_cpp(unit):
     """The C++ statements for a work-unit's interior body."""
     tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
-    return [_cpp_stmt(stmt) for stmt in tree.body[0].body]
+    return [_cpp_stmt(stmt) for stmt in tree.body[0].body if not _is_docstring(stmt)]
 
 
 # The rolled top wires each PE port to a per-key FIFO array element: A streams west->east
