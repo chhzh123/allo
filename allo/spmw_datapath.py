@@ -1548,6 +1548,23 @@ def build_dataflow(region, target="simulator", **kwargs):
         # so complete-partition the operands into per-lane banks before synthesis.
         from allo.customize import Partition
 
+        # KNOWN LIMITATION (documented, not a silent drop): the streaming dataflow HLS path cannot pin a
+        # top-level operand's storage resource. A `spmw.place(...)` resolves to a bind_storage on the
+        # operand array, but here operands are streamed function arguments (BlockArguments) -- which,
+        # unlike a local alloc, cannot carry a bind_storage attribute -- and the emitter renames/splits
+        # them into opaque per-instance arrays, so there is no stable handle to pin. The rolled HLS path
+        # (target="rolled") honors placements; on this dataflow path they are advisory. Warn rather than
+        # drop silently so the caller knows the requested memory hierarchy is not applied here.
+        if collection.placements:
+            # pylint: disable=import-outside-toplevel
+            import warnings
+
+            placed = sorted({p.tensor for p in collection.placements})
+            warnings.warn(
+                f"spmw.place placements {placed} are not honored by the streaming dataflow HLS path "
+                f"(target={target!r}); a top-level operand's storage resource cannot be pinned here. "
+                f"Use target='rolled' for placement-aware HLS."
+            )
         schedule = df.customize(df_region)
         top = f"{region.name}_df"
         for tensor in hls_operands:
