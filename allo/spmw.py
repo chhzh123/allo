@@ -1551,7 +1551,11 @@ def _check_unhandled_boundaries(decl, streams):
         return
     handled_reads, handled_writes = set(), set()
     # Relay completion: the interior reads `entry` AND writes `exit` of a real axis flow -> entry is a
-    # well-defined top-level input, exit a well-defined top-level output.
+    # well-defined top-level input, exit a well-defined top-level output. This is a first-class rolled
+    # pattern: a through-flow systolic mesh with no explicit stream_in exposes its edge FIFOs as the
+    # emitted module's own I/O (the rolled HLS emitter lowers exactly this -- see the emit_hls mesh
+    # tests). The datapath/simulator family instead requires a stream_in and rejects a bare relay via
+    # its recognizer, so this credit never lets an unlowerable design through silently.
     for entry, exit_edge in _FLOW_PORTS.values():
         if entry in reads and exit_edge in writes:
             handled_reads.add(entry)
@@ -1710,6 +1714,22 @@ def _validate_collection(collection, *, strict_topology=False):
         # key-channel check (else a stage-0 sink-only / stage-S source-only lane reads as dangling).
         ext_src, ext_sink = _boundary_keys(decl.topology, collection.streams)
         decl.topology.validate(ext_src, ext_sink)
+        # `get_or` (a default-valued, non-blocking stream read) has no lowering in ANY SPMW backend:
+        # the datapath/pipeline desugars and both rolled paths (simulator + HLS) drop the default and
+        # degrade it to a blocking `get()`, so an empty FIFO would block/deadlock or consume a later
+        # token instead of yielding the default. Reject it uniformly here -- on every target, not just
+        # the one being built -- rather than silently mis-lower it; a PE reads a stream with `.get()`.
+        get_or_bodies = [decl.unit.interior] + [body for _, body in decl.unit.roles]
+        if any(
+            "get_or" in kinds
+            for body in get_or_bodies
+            for kinds in _port_ops_by(body).values()
+        ):
+            raise SPMWError(
+                f"unit {decl.unit.name!r} uses ctx.<port>.get_or(...), which no SPMW backend "
+                f"lowers (the default-valued read is dropped, degrading to a blocking get()); "
+                f"use .get()"
+            )
         # Strict topology hardening (task6.1) runs only on the backend-facing path (lower/HLS/RTL/
         # datapath/rollsim); the default frontend validate stays permissive for skeleton test regions.
         if strict_topology:

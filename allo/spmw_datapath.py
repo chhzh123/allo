@@ -81,7 +81,8 @@ class _SystolicRewriter(ast.NodeTransformer):
             # generated `gemm` reads its coordinate from `df.get_pid()` and no `ctx` object survives,
             # so a leftover `ctx.rank()` would be an undefined name. Reject at desugar time (the
             # coordinate-aware Mini-TPU/FFT/pipeline families lower rank() themselves) rather than
-            # leak an uncompilable call into the generated source.
+            # leak an uncompilable call into the generated source. (get_or is rejected uniformly
+            # upstream in spmw._validate_collection, for every target, so it never reaches here.)
             if (
                 func.attr == "rank"
                 and isinstance(func.value, ast.Name)
@@ -91,17 +92,9 @@ class _SystolicRewriter(ast.NodeTransformer):
                     "systolic datapath does not support ctx.rank() in the PE body; the generated "
                     "allo.dataflow kernel derives its coordinate from df.get_pid(), not ctx"
                 )
-            if func.attr in {"get", "put", "get_or"}:
+            if func.attr in {"get", "put"}:
                 port = self._ctx_port(func.value)
                 if port is not None:
-                    # allo.dataflow.Stream has no default-valued read, so `get_or` cannot be lowered
-                    # into the generated source; reject it rather than emit an uncompilable
-                    # `.get_or(...)` call that only fails later during dataflow build.
-                    if func.attr == "get_or":
-                        raise SPMWError(
-                            "systolic datapath does not support ctx.<port>.get_or(...); the "
-                            "generated allo.dataflow Stream has no default-valued read -- use .get()"
-                        )
                     if func.attr == "get" and port in self.gets:
                         func.value = self._expr(self.gets[port])
                     elif func.attr == "put" and port in self.puts:

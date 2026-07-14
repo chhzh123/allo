@@ -237,10 +237,11 @@ def test_systolic_rank_in_pe_body_rejected():
 
 
 def test_systolic_get_or_in_pe_body_rejected():
-    """`get_or` (a default-valued stream read) is accepted by the topology/boundary checker but has no
-    equivalent on `allo.dataflow.Stream`, which only exposes `.get()`. A systolic PE that reads with
-    `ctx.west.get_or(...)` is rejected at build rather than emitting an uncompilable `.get_or(...)` call
-    that would only fail later during dataflow lowering.
+    """`get_or` (a default-valued, non-blocking stream read) is accepted by the topology/boundary checker
+    but has no lowering in ANY SPMW backend -- the datapath/pipeline desugars and both rolled paths drop
+    the default and degrade it to a blocking `.get()`. So it is rejected once during validation (on every
+    target, not just the one being built) rather than silently mis-lowered. Confirm both the datapath
+    build and the rolled `lower()` path reject it.
     """
     M, N, K = 3, 3, 2
     grid = spmw.mesh((M, N))
@@ -251,7 +252,7 @@ def test_systolic_get_or_in_pe_body_rejected():
         for k in range(K):
             a: float32 = ctx.west.get_or(
                 0
-            )  # unsupported: no default-valued read after lowering
+            )  # unsupported: no default-valued read in any backend
             b: float32 = ctx.north.get()
             c += a * b
             ctx.east.put(a)
@@ -267,3 +268,5 @@ def test_systolic_get_or_in_pe_body_rejected():
 
     with pytest.raises(spmw.SPMWError, match="get_or"):
         spmw.build(gemm, target="simulator")
+    with pytest.raises(spmw.SPMWError, match="get_or"):
+        spmw.lower(gemm)  # the rolled path rejects it too (uniform validation)
