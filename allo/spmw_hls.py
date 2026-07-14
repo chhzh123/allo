@@ -1434,15 +1434,27 @@ def _memory_placements_from_ir(ir, ordered_operands):
     return placements
 
 
-def _bank_functions_from_ir(ir):
-    """Parse the top func's ``spmw.bank_functions`` -> ``{tensor: {banks, stride, mode, axis}}``."""
+def _bank_functions_from_ir(ir, ordered_operands):
+    """Parse the top func's ``spmw.bank_functions`` -> ``{cpp_var: {banks, stride, mode, axis}}``.
+
+    The IR records the ORIGINAL region operand name, but the emitter names tensors positionally
+    (A/B/C). Map each banked operand to its generated C++ name so the output-banking check matches the
+    third operand regardless of its region name (e.g. an output named ``out``). A banked tensor that is
+    not a region operand keeps its raw name, so it still fails the ``== "C"`` output check downstream
+    rather than being silently accepted."""
     match = re.search(r"spmw\.bank_functions = \[([^\]]*)\]", ir, re.DOTALL)
     if not match:
         return {}
+    cpp_vars = ("A", "B", "C")
     functions = {}
     for entry in re.findall(r'"([^"]+)"', match.group(1)):
         tensor, banks, stride, mode, axis = entry.split(":")
-        functions[tensor] = {
+        key = tensor
+        if tensor in ordered_operands:
+            idx = ordered_operands.index(tensor)
+            if idx < len(cpp_vars):
+                key = cpp_vars[idx]
+        functions[key] = {
             "banks": int(banks),
             "stride": int(stride),
             "mode": mode,
@@ -1614,17 +1626,19 @@ def emit_rolled_hls_ir(region):
         )
     pe_defs = "\n".join(role["definition"] for role in roles)
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
+    # Region operands in declaration order -> the generated positional A/B/C names; shared by the
+    # banked-output mapping and the logical-memory-placement mapping below.
+    annotations = getattr(region.fn, "__annotations__", {})
+    ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
     # F2-banked output: the PE writes to a swizzled slot of a real 2D [banks][depth] C_bank, which
     # is written back to C at the end (host interface unchanged).
     c_ref, bank_decl, bank_writeback = _banked_c_storage(
-        _bank_functions_from_ir(ir), rows, elem
+        _bank_functions_from_ir(ir, ordered_operands), rows, elem
     )
     pe_dispatch = _pe_dispatch(roles, wired, c_ref)
     # Honor the logical-memory placements the region pinned on top-level operands (resolved
     # resource/bank axis -> bind_storage / partition pragmas); BOTH the spatial and folded tops
     # thread these, so a folded map does not silently drop a placed operand's resource pragmas.
-    annotations = getattr(region.fn, "__annotations__", {})
-    ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
     memory_placements = _memory_placements_from_ir(ir, ordered_operands)
     # A `double=True` placement requests real ping-pong double buffering: emit a two-epoch K-tiled
     # GEMM with two alternating on-chip copies of the operand's tile (preload-next while consuming

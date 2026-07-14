@@ -106,6 +106,43 @@ def test_emitter_realizes_real_2d_banked_storage_for_C():
     assert re.search(r"C\[i\]\[j\] = C_bank\[", cpp)  # writeback to the host interface
 
 
+def test_banked_output_with_non_c_operand_name_is_realized():
+    """The rolled HLS emitter names tensors positionally (A/B/C), but `spmw.bank_functions` records the
+    ORIGINAL region operand name. A systolic region whose output operand is named `out` (not `C`) and
+    banked with `spmw.banked(...)` must still realize real banked storage: the banked-output check maps
+    the operand name to its generated position (third operand -> C) before enforcing that the banked
+    tensor is the output, rather than rejecting a valid region because of its operand name.
+    """
+    M, N, K = 4, 4, 4
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], out: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(out, from_=pe, where="local", as_="c_local")
+        spmw.place(out, spmw.banked(float32[M, N], on="row", banks=2))
+
+    cpp = emit_rolled_hls_ir(gemm)
+    # the banked output is realized as real 2D storage despite the `out` operand name (mapped to C)
+    assert "C_bank[2][2][N]" in cpp
+    assert re.search(
+        r"C\[i\]\[j\] = C_bank\[", cpp
+    )  # writeback to the positional C interface
+
+
 def test_xor_banking_emits_swizzled_index():
     twin = _twin(
         4,

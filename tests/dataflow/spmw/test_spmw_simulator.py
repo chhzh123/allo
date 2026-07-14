@@ -197,6 +197,38 @@ def test_incompatible_gemm_shapes_rejected():
         spmw.build(gemm, target="simulator")
 
 
+def test_systolic_port_alias_in_pe_body_rejected():
+    """The systolic datapath rewriter lowers only direct `ctx.<port>.get/put(...)` and `ctx.<local>[...]`
+    forms. A port alias (`w = ctx.west; a = w.get()`) is accepted by the alias-aware frontend validation
+    but leaves a `ctx` reference the generated dataflow kernel cannot resolve (no ctx object exists
+    there), so it is rejected at build rather than emitting uncompilable source.
+    """
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        w = ctx.west  # a port alias the rewriter does not lower
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = w.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="ctx"):
+        spmw.build(gemm, target="simulator")
+
+
 def test_grid_tensor_mismatch_rejected():
     # a declared mesh that disagrees with the operand-derived M x N grid must not silently compile
     M, N, K = 3, 3, 3

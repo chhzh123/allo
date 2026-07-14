@@ -177,11 +177,25 @@ def _recognize(collection):
 
 
 def _transcribe_interior(unit, locals_, gets=None, puts=None):
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
     tree = ast.parse(textwrap.dedent(inspect.getsource(unit.interior)))
     func = tree.body[0]
     ctx_name = func.args.args[0].arg
     _SystolicRewriter(ctx_name, locals_, gets, puts).visit(func)
     ast.fix_missing_locations(func)
+    # The rewriter lowers only DIRECT `ctx.<port>.get/put(...)` and `ctx.<local>[...]` forms. A port
+    # alias (`w = ctx.west; a = w.get()`) or a dynamic `ctx.port(expr)` -- both accepted by the
+    # alias-aware frontend validation -- leaves a `ctx` reference the generated dataflow kernel cannot
+    # resolve (no ctx object exists there). Fail closed rather than emit uncompilable source.
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == ctx_name:
+            raise SPMWError(
+                "systolic datapath PE body uses a ctx form the rewriter cannot lower (a port alias "
+                "like `w = ctx.west; w.get()`, or a `ctx.port(expr)` call); use direct "
+                "ctx.<port>.get()/put() calls"
+            )
     return [ast.unparse(stmt) for stmt in func.body]
 
 
