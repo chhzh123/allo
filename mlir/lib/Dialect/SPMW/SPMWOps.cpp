@@ -127,6 +127,13 @@ LogicalResult MapOp::verify() {
         if (seen.second && abi.second && seen.second != abi.second)
           return emitOpError("key '")
                  << key.getKey() << "' endpoints have mismatched element type";
+        // Infer the family element type from the FIRST typed endpoint (the
+        // initial endpoint may be untyped, leaving seen.second null). Recording
+        // it means a later endpoint with a DIFFERENT type is still caught,
+        // matching the peer/edge ABI rule -- otherwise a family with a leading
+        // untyped endpoint could accept mismatched typed endpoints.
+        if (!seen.second && abi.second)
+          seen.second = abi.second;
       }
     } else if (auto edge = llvm::dyn_cast<EdgeLinkAttr>(linkAttr)) {
       if (static_cast<int64_t>(edge.getAt().size()) != dims ||

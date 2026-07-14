@@ -798,6 +798,26 @@ def test_key_link_role_stream_depth_checked():
         _parse_spmw(_key_map_module(role_port="a", stream_depth=4))
 
 
+def test_key_link_family_rejects_mismatched_types_after_untyped_endpoint():
+    """A key_link family's element-type ABI must be consistent even when the FIRST endpoint is untyped:
+    the verifier infers the family type from the first typed endpoint and records it, so a later endpoint
+    with a DIFFERENT type is rejected (matching the peer/edge ABI rule). Here `lane` has an untyped src,
+    an f32 sink, then an i32 sink -- the i32 mismatch against the inferred f32 is rejected."""
+    ir = (
+        "module {\n"
+        "  func.func @u() { return }\n"
+        "  func.func @top(%arg0: memref<1xf32>) {\n"
+        "    spmw.map(%arg0) topology = <grid = [3], dims = 1, links = [\n"
+        '      #spmw.key_link<port = "s", key = "lane", end = "src", depth = 2>,\n'
+        '      #spmw.key_link<port = "a", key = "lane", end = "sink", depth = 2, type = f32>,\n'
+        '      #spmw.key_link<port = "b", key = "lane", end = "sink", depth = 2, type = i32>\n'
+        '    ]> roles = [#spmw.role<unit = @u, missing = []>] : memref<1xf32>\n'
+        "    return\n  }\n}\n"
+    )
+    with pytest.raises(Exception, match="element type"):
+        _parse_spmw(ir)
+
+
 def test_tree_resolve_channels_uses_per_edge_peer_port():
     """`spmw-resolve-channels` groups the tree's edges into channel families by their **true per-edge**
     peer port: a right-child `up` (peer `right`) joins the parent's `right` (`right/up`), a left-child
