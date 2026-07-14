@@ -1690,6 +1690,19 @@ def _require_canonical_systolic_order(program, collection):
 def _validate_collection(collection, *, strict_topology=False):
     if not collection.maps:
         raise SPMWError("region declares no spmw.map")
+    if strict_topology:
+        # The rolled IR names role funcs (and channel endpoints) by the mapped unit's name, so mapping
+        # the same @spmw.unit more than once (including invoking the same sub-region twice) would emit
+        # duplicate func symbols the module cannot verify. Reject it -- define a distinct @spmw.unit per
+        # placement.
+        seen = {}
+        for decl in collection.maps:
+            if id(decl.unit) in seen:
+                raise SPMWError(
+                    f"unit {decl.unit.name!r} is mapped more than once; the rolled IR names role "
+                    f"funcs by unit, so each placement needs a distinct @spmw.unit"
+                )
+            seen[id(decl.unit)] = decl
     # A region-level channel is a valid port name in any unit body (a unit puts to / gets from it).
     channel_ports = {ch.name for ch in collection.channels}
     for decl in collection.maps:
@@ -2188,7 +2201,13 @@ def _halo_role_funcs(program, decl, collection):
     prefix = f"{program.name}_{decl.unit.name}"
     out = []
     for stream in collection.streams:
-        if stream.direction != "in" or stream.flow is None:
+        # Only THIS map's own stream_in flows make its halo loaders/drains; a stream feeding a
+        # different mapped unit in the same region must not attach its operand/ports here.
+        if (
+            stream.direction != "in"
+            or stream.flow is None
+            or stream.unit is not decl.unit
+        ):
             continue
         entry, exit_edge = _FLOW_PORTS[stream.flow]
         horizontal = stream.flow in {"W->E", "E->W"}
@@ -2233,7 +2252,12 @@ def _halo_tasks(program, decl, collection):
     prefix = f"{program.name}_{decl.unit.name}"
     tasks = []
     for stream in collection.streams:
-        if stream.direction != "in" or stream.flow is None:
+        # Only THIS map's own stream_in flows make its halo tasks (see `_halo_role_funcs`).
+        if (
+            stream.direction != "in"
+            or stream.flow is None
+            or stream.unit is not decl.unit
+        ):
             continue
         entry, exit_edge = _FLOW_PORTS[stream.flow]
         horizontal = stream.flow in {"W->E", "E->W"}

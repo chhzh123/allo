@@ -137,6 +137,27 @@ def test_scatter_gather_lower_emits_both_key_link_endpoints():
     assert 'end = "src"' in gather_ir and 'end = "sink"' in gather_ir
 
 
+def test_repeated_unit_mapping_rejected():
+    """The rolled IR names role funcs (and channel endpoints) by the mapped unit's name, so mapping the
+    same `@spmw.unit` twice would emit duplicate func symbols. It is rejected with a clear message --
+    each placement needs a distinct unit."""
+    grid = spmw.mesh((2, 2))
+
+    @spmw.unit
+    def pe(ctx):
+        pass
+
+    @spmw.region()
+    def top(A: float32[2, 2]):
+        spmw.map(pe, grid=grid)
+        spmw.map(pe, grid=grid)  # the same unit object mapped twice
+
+    with pytest.raises(spmw.SPMWError, match="mapped more than once"):
+        spmw.lower(top)
+    with pytest.raises(spmw.SPMWError, match="mapped more than once"):
+        spmw.check_topology(top)
+
+
 def test_resolve_channels_keeps_all_scatter_gather_endpoints():
     """`resolve_channels` must enumerate EVERY (source, sink) pair of a key channel: a scatter's one
     source fans out to each sink, a gather's one sink is fed from each source. Collapsing the endpoints
