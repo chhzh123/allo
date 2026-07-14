@@ -201,3 +201,69 @@ def test_non_systolic_region_rejected():
     # giving the precise root cause (the unhandled `west`) rather than a generic non-systolic error.
     with pytest.raises(spmw.SPMWError, match="unhandled"):
         spmw.build(r, target="simulator")
+
+
+def test_systolic_rank_in_pe_body_rejected():
+    """The 2-D systolic datapath lowers each PE to a flat `allo.dataflow` kernel whose coordinate comes
+    from `df.get_pid()` -- there is no `ctx` object at kernel runtime. A PE that calls the `ctx.rank()`
+    API cannot be lowered by this family (the Mini-TPU/FFT/pipeline families that *do* support rank()
+    have different flow signatures), so it is rejected at build rather than leaking a dangling
+    `ctx.rank()` into the generated source where it would be an undefined name.
+    """
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        s, t = ctx.rank()  # unsupported in the plain systolic datapath
+        ctx.c_local[0] = c + (s - s) + (t - t)
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="rank"):
+        spmw.build(gemm, target="simulator")
+
+
+def test_systolic_get_or_in_pe_body_rejected():
+    """`get_or` (a default-valued stream read) is accepted by the topology/boundary checker but has no
+    equivalent on `allo.dataflow.Stream`, which only exposes `.get()`. A systolic PE that reads with
+    `ctx.west.get_or(...)` is rejected at build rather than emitting an uncompilable `.get_or(...)` call
+    that would only fail later during dataflow lowering.
+    """
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get_or(
+                0
+            )  # unsupported: no default-valued read after lowering
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="get_or"):
+        spmw.build(gemm, target="simulator")

@@ -71,15 +71,41 @@ class _SystolicRewriter(ast.NodeTransformer):
         return None
 
     def visit_Call(self, node):
+        # pylint: disable=import-outside-toplevel
+        from .spmw import SPMWError
+
         self.generic_visit(node)
         func = node.func
-        if isinstance(func, ast.Attribute) and func.attr in {"get", "put", "get_or"}:
-            port = self._ctx_port(func.value)
-            if port is not None:
-                if func.attr in {"get", "get_or"} and port in self.gets:
-                    func.value = self._expr(self.gets[port])
-                elif func.attr == "put" and port in self.puts:
-                    func.value = self._expr(self.puts[port])
+        if isinstance(func, ast.Attribute):
+            # ctx.rank() has no equivalent in the flat dataflow kernel this desugar emits: the
+            # generated `gemm` reads its coordinate from `df.get_pid()` and no `ctx` object survives,
+            # so a leftover `ctx.rank()` would be an undefined name. Reject at desugar time (the
+            # coordinate-aware Mini-TPU/FFT/pipeline families lower rank() themselves) rather than
+            # leak an uncompilable call into the generated source.
+            if (
+                func.attr == "rank"
+                and isinstance(func.value, ast.Name)
+                and func.value.id == self.ctx
+            ):
+                raise SPMWError(
+                    "systolic datapath does not support ctx.rank() in the PE body; the generated "
+                    "allo.dataflow kernel derives its coordinate from df.get_pid(), not ctx"
+                )
+            if func.attr in {"get", "put", "get_or"}:
+                port = self._ctx_port(func.value)
+                if port is not None:
+                    # allo.dataflow.Stream has no default-valued read, so `get_or` cannot be lowered
+                    # into the generated source; reject it rather than emit an uncompilable
+                    # `.get_or(...)` call that only fails later during dataflow build.
+                    if func.attr == "get_or":
+                        raise SPMWError(
+                            "systolic datapath does not support ctx.<port>.get_or(...); the "
+                            "generated allo.dataflow Stream has no default-valued read -- use .get()"
+                        )
+                    if func.attr == "get" and port in self.gets:
+                        func.value = self._expr(self.gets[port])
+                    elif func.attr == "put" and port in self.puts:
+                        func.value = self._expr(self.puts[port])
         return node
 
     def visit_Subscript(self, node):
