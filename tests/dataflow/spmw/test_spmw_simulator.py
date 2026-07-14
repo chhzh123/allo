@@ -159,6 +159,44 @@ def test_systolic_non_canonical_operand_order_rejected():
         spmw.lower(gemm)  # the rolled path rejects it too
 
 
+def test_incompatible_gemm_shapes_rejected():
+    """The systolic datapath derives K from A[M,K] and N from B[K,N] (in `_resolve_dims`). An
+    inconsistent annotation -- A's inner dim != B's outer dim -- would emit a B-loader that indexes B
+    out of bounds (and a C ABI that no longer matches the operand), so the datapath rejects it at build
+    rather than synthesizing mismatched dimensions. `_resolve_dims` is shared by the dataflow, rolled
+    HLS, and RTL emitters, so all of them reject an incompatible region; the simulator path is checked
+    here (no toolchain needed).
+    """
+    M, K1, K2, N = (
+        3,
+        4,
+        5,
+        3,
+    )  # A[3,4] has K=4 but B[5,3] has K=5: incompatible contraction dim
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K1):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K1], B: float32[K2, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="incompatible"):
+        spmw.build(gemm, target="simulator")
+
+
 def test_grid_tensor_mismatch_rejected():
     # a declared mesh that disagrees with the operand-derived M x N grid must not silently compile
     M, N, K = 3, 3, 3

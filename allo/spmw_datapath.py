@@ -112,13 +112,45 @@ class _SystolicRewriter(ast.NodeTransformer):
 
 
 def _resolve_dims(region):
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
     annotations = getattr(region.fn, "__annotations__", {})
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 2:
         raise NotImplementedError(
             "systolic datapath needs A, B, C tensor arguments on the region"
         )
-    a_shape, b_shape = tensors[0].shape, tensors[1].shape  # (M, K), (K, N)
+    a_shape, b_shape = tuple(tensors[0].shape), tuple(
+        tensors[1].shape
+    )  # (M, K), (K, N)
+    if len(a_shape) != 2 or len(b_shape) != 2:
+        raise NotImplementedError(
+            "systolic datapath expects 2-D A[M,K] and B[K,N] operands"
+        )
+    # C[M,N] = A[M,K] @ B[K,N]: A's inner dim must equal B's outer dim, C must be [M,N], and all
+    # operands must share one dtype. Reject an incompatible annotation here -- otherwise K is taken
+    # from A and N from B and the emitted loaders index B/C out of bounds (or the module ABI silently
+    # stops matching the user's shapes) instead of the region being rejected. These are genuine
+    # invalid-input errors (not "try the next family"), so raise SPMWError, matching the recognized
+    # systolic region's other terminal checks.
+    if b_shape[0] != a_shape[1]:
+        raise SPMWError(
+            f"incompatible systolic GEMM shapes: A is {a_shape} (inner dim K={a_shape[1]}) but B is "
+            f"{b_shape} (outer dim K={b_shape[0]}); A's inner dim must equal B's outer dim"
+        )
+    mn = (a_shape[0], b_shape[1])
+    if len(tensors) >= 3:
+        c_shape = tuple(tensors[2].shape)
+        if c_shape != mn:
+            raise SPMWError(
+                f"incompatible systolic GEMM shapes: C is {c_shape} but A[M,K] @ B[K,N] is [M,N]={list(mn)}"
+            )
+    dtypes = {repr(t.dtype) for t in tensors[:3]}
+    if len(dtypes) != 1:
+        raise SPMWError(
+            f"systolic GEMM operands must share one dtype; got {sorted(dtypes)}"
+        )
     dtype = repr(tensors[0].dtype)
     if dtype not in _DTYPE_NAMES:
         raise NotImplementedError(
