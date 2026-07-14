@@ -94,6 +94,38 @@ def test_rollsim_systolic_matches_numpy_and_desugar():
     np.testing.assert_allclose(roll, desugar, atol=1e-5)
 
 
+def test_rolled_simulator_rejects_grid_operand_mismatch():
+    """A stale `spmw.mesh((...))` that disagrees with the A[M,K]/B[K,N] operands must be rejected rather
+    than silently simulated as a different (operand-shaped) mesh: the rolled simulator now checks the
+    declared grid against the operand-derived M x N, like the dataflow lowering."""
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M + 1, N))  # disagrees with the operand-derived M x N
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    A = np.zeros((M, K), dtype=np.float32)
+    B = np.zeros((K, N), dtype=np.float32)
+    C = np.zeros((M, N), dtype=np.float32)
+    with pytest.raises(spmw.SPMWError, match="grid"):
+        spmw.build(gemm, target="rolled_simulator")(A, B, C)
+
+
 def test_rollsim_producer_consumer_matches():
     """The coroutine simulator matches ``A + 1`` and the desugar simulator on a 1-D channel pipeline."""
     M, N = 4, 4

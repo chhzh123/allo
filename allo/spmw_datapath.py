@@ -159,6 +159,23 @@ def _resolve_dims(region):
     return a_shape[0], b_shape[1], a_shape[1], _DTYPE_NAMES[dtype]
 
 
+def _check_mesh_grid(grid, rows, cols):
+    """Reject a systolic-mesh region whose declared grid disagrees with the operand-derived (M, N).
+
+    A[M,K] @ B[K,N] implies an M x N PE grid; a stale ``spmw.mesh((...))`` would otherwise silently
+    emit / simulate a different topology than the tensors imply. Shared by the dataflow datapath, the
+    rolled HLS emitter, and the rolled simulator so all three reject the mismatch identically.
+    """
+    # pylint: disable=import-outside-toplevel
+    from .spmw import SPMWError
+
+    if tuple(grid) != (rows, cols):
+        raise SPMWError(
+            f"declared mesh grid {tuple(grid)} does not match the operand-derived PE grid "
+            f"{(rows, cols)}: A is [M, K] and B is [K, N], so the mesh must be M x N"
+        )
+
+
 def _recognize(collection):
     """Check the region is the two-operand systolic mesh pattern; return its map decl."""
     if len(collection.maps) != 1:
@@ -202,7 +219,7 @@ def _transcribe_interior(unit, locals_, gets=None, puts=None):
 def generate_source(region, collection):
     """The equivalent allo.dataflow source for a recognized systolic-mesh region."""
     # pylint: disable=import-outside-toplevel
-    from .spmw import DEFAULT_DEPTH, SPMWError, _require_canonical_systolic_order
+    from .spmw import DEFAULT_DEPTH, _require_canonical_systolic_order
 
     decl = _recognize(collection)
     _require_canonical_systolic_order(region, collection)
@@ -215,11 +232,7 @@ def generate_source(region, collection):
     depth_b = decl.port_depths.get("south", DEFAULT_DEPTH)
     # The declared mesh must match the operand-derived PE grid, or a stale spmw.mesh((...)) would
     # silently compile a different topology than the one the tensors imply.
-    if tuple(decl.topology.grid) != (rows, cols):
-        raise SPMWError(
-            f"declared mesh grid {tuple(decl.topology.grid)} does not match the operand-derived "
-            f"PE grid {(rows, cols)}: A is [M, K] and B is [K, N], so the mesh must be M x N"
-        )
+    _check_mesh_grid(decl.topology.grid, rows, cols)
     out = [s for s in collection.streams if s.direction == "out"][0]
     locals_ = {out.extra.get("as_", "c_local"): ("local_C", "i - 1", "j - 1")}
     interior = _transcribe_interior(decl.unit, locals_)

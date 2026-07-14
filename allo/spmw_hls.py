@@ -1597,6 +1597,14 @@ def emit_rolled_hls_ir(region):
     ]
     grid = re.search(r"grid = \[(\d+), (\d+)\]", ir)
     rows, cols = int(grid.group(1)), int(grid.group(2))
+    # The declared mesh grid must match the operand-derived (M, N), or the rolled top would emit an ABI
+    # (A[mesh_M][K] / C[mesh_M][mesh_N]) for a different grid than the region's tensor shapes -- reject
+    # a stale spmw.mesh((...)) here just as the dataflow datapath does.
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _check_mesh_grid, _resolve_dims
+
+    op_rows, op_cols, _op_depth, _op_dtype = _resolve_dims(region)
+    _check_mesh_grid((rows, cols), op_rows, op_cols)
     if sum(partition) != rows * cols:
         raise NotImplementedError(
             f"IR-driven rolled emitter handles a systolic map whose compute roles tile the grid; "

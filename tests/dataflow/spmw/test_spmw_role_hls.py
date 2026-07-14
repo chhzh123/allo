@@ -5,6 +5,8 @@ import os
 import re
 import tempfile
 
+import pytest
+
 import allo.spmw as spmw
 from allo.spmw_hls import emit_role_hls, emit_rolled_hls
 from allo.ir.types import float32
@@ -77,6 +79,38 @@ def test_unit_docstring_is_skipped_in_role_hls():
         "must not become a C++ statement" not in cpp
     )  # docstring filtered, not emitted
     assert "c += (a * b)" in cpp  # the real datapath is still transcribed
+
+
+def test_rolled_hls_rejects_grid_operand_mismatch():
+    """The rolled HLS emitter names the top ABI (A[M][K], C[M][N]) by the declared mesh grid, so a stale
+    `spmw.mesh((...))` disagreeing with the A[M,K]/B[K,N] operands would emit code for a different grid
+    than the region's shapes. It is rejected before emission, like the dataflow datapath.
+    """
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M + 1, N))  # disagrees with the operand-derived M x N
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    with pytest.raises(spmw.SPMWError, match="grid"):
+        emit_rolled_hls_ir(gemm)
 
 
 def _role_bodies(cpp):

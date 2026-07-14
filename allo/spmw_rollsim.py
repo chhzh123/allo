@@ -243,6 +243,12 @@ def _build_mesh(collection, operands, order):
     a_arr, b_arr, c_arr = operands[a_name], operands[b_name], operands[c_name]
     rows_m, depth_k = a_arr.shape
     cols_n = b_arr.shape[1]
+    # The declared mesh must match the operand-derived M x N PE grid, or a stale spmw.mesh((...)) would
+    # simulate a different topology than the tensors imply (the dataflow lowering rejects this too).
+    # pylint: disable=import-outside-toplevel
+    from .spmw_datapath import _check_mesh_grid
+
+    _check_mesh_grid(decl.topology.grid, rows_m, cols_n)
     out = [s for s in collection.streams if s.direction == "out"][0]
     out_attr = out.extra.get("as_", "c_local")
     ports = set(decl.topology.port_names())
