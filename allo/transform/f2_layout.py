@@ -465,6 +465,12 @@ def apply_f2_layout(
     from ..ir.utils import MockBuffer, MockArg
     from ..ir.transform import find_buffer
 
+    # Validate bank_bits BEFORE the shifts below: `1 << (n_bits - bank_bits)` on a bank_bits > n_bits
+    # would raise a low-level negative-shift error instead of this documented diagnostic.
+    if not 0 <= bank_bits <= n_bits:
+        raise ValueError(
+            f"apply_f2_layout: bank_bits ({bank_bits}) must be in [0, n_bits] ({n_bits})"
+        )
     num_banks = 1 << bank_bits
     depth = 1 << (n_bits - bank_bits)
 
@@ -481,14 +487,11 @@ def apply_f2_layout(
         elem_type = old_type.element_type
 
         # F2 banking maps a 1-D buffer of EXACTLY 2^n_bits elements to a [num_banks][depth] layout. If
-        # the declared n_bits/bank_bits do not match the buffer, the banked storage is a different
-        # physical size than the accesses expect -- e.g. n_bits=3 on a 16-element buffer gives 8 slots,
-        # so indices 8..15 alias or go out of bounds. Reject rather than silently rewrite to the wrong
-        # size (checked before any IR mutation, so a bad call never leaves a half-rewritten schedule).
-        if not 0 <= bank_bits <= n_bits:
-            raise ValueError(
-                f"apply_f2_layout: bank_bits ({bank_bits}) must be in [0, n_bits] ({n_bits})"
-            )
+        # n_bits does not match the buffer, the banked storage is a different physical size than the
+        # accesses expect -- e.g. n_bits=3 on a 16-element buffer gives 8 slots, so indices 8..15 alias
+        # or go out of bounds. Reject rather than silently rewrite to the wrong size (checked before any
+        # IR mutation, so a bad call never leaves a half-rewritten schedule). (bank_bits is validated
+        # above, before the num_banks/depth shifts.)
         if list(old_type.shape) != [1 << n_bits]:
             raise ValueError(
                 f"apply_f2_layout: buffer {func_name}:{buf_name} has shape {list(old_type.shape)}, "

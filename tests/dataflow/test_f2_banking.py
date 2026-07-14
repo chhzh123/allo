@@ -210,6 +210,25 @@ def test_f2_layout_rejects_size_mismatch():
     assert len(s.primitive_sequences) == 0
 
 
+def test_f2_layout_rejects_invalid_bank_bits():
+    # bank_bits must be validated BEFORE the `1 << (n_bits - bank_bits)` shift; a bank_bits > n_bits
+    # would otherwise raise a low-level negative-shift error instead of the documented diagnostic.
+    def bank16(inp: int32[16]) -> int32[16]:
+        buf: int32[16]
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    s = allo.customize(bank16)
+    with pytest.raises(ValueError, match=r"bank_bits.*must be in"):
+        s.f2_layout(
+            "bank16:buf", n_bits=4, bank_bits=5, banking="block"
+        )  # bank_bits 5 > n_bits 4
+
+
 def test_single_swizzle_cannot_separate_two_high_conflict_directions():
     # The auto_f2 fail-closed guard: a single XOR-swizzle banking separates only one high-stride
     # conflict direction, so a conflict subspace with two (e2, e3) is detected as not-conflict-free
