@@ -1605,6 +1605,15 @@ def emit_rolled_hls_ir(region):
 
     op_rows, op_cols, _op_depth, _op_dtype = _resolve_dims(region)
     _check_mesh_grid((rows, cols), op_rows, op_cols)
+    # This emitter dispatches only the COMPUTE roles (empty `missing` set) over the whole grid. A map
+    # with an explicit BOUNDARY role (non-empty `missing`) has edge points that role-partition assigns
+    # to it, which would then be stamped as the interior compute role. Reject it rather than
+    # mis-dispatch. (The systolic auto-halo uses halo TASKS, not boundary roles, so the twin is fine.)
+    if re.search(r'#spmw\.role<unit = @\w+, missing = \[\s*"', ir):
+        raise NotImplementedError(
+            "the IR-driven rolled HLS emitter handles compute roles that tile the grid; a map with an "
+            "explicit boundary role (non-empty missing set) is not supported by this emitter"
+        )
     if sum(partition) != rows * cols:
         raise NotImplementedError(
             f"IR-driven rolled emitter handles a systolic map whose compute roles tile the grid; "

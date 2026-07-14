@@ -336,6 +336,16 @@ class _RolledSimModule:
             coros, fifos = _build_pipeline(collection, operands)
         else:
             _recognize(collection)  # fail closed unless it is the 2-D systolic mesh
+            # The rolled simulator resolves A/B/C positionally (order[0..2]), so it needs the SAME
+            # canonical operand order and GEMM shape/dtype consistency the datapath and rolled HLS
+            # enforce -- otherwise swapped operands are simulated instead of rejected, and a mismatched
+            # K would index B with A's inner dimension.
+            # pylint: disable=import-outside-toplevel
+            from .spmw import _require_canonical_systolic_order
+            from .spmw_datapath import _resolve_dims
+
+            _require_canonical_systolic_order(self.region, collection)
+            _resolve_dims(self.region)
             coros, fifos = _build_mesh(collection, operands, order)
         return _run_scheduler(coros, fifos, self._MAX_STEPS)
 

@@ -126,6 +126,40 @@ def test_rolled_simulator_rejects_grid_operand_mismatch():
         spmw.build(gemm, target="rolled_simulator")(A, B, C)
 
 
+def test_rolled_simulator_rejects_non_canonical_operand_order():
+    """The rolled simulator resolves A/B/C positionally, so it needs the canonical operand order (the
+    W->E operand declared #0, the N->S operand #1) like the datapath and rolled HLS. A non-canonical
+    `(B, A, C)` declaration is rejected rather than simulated with swapped operands."""
+    M, N, K = 3, 3, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(
+        B: float32[K, N], A: float32[M, K], C: float32[M, N]
+    ):  # non-canonical: A (W->E) declared second
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    Barr = np.zeros((K, N), dtype=np.float32)
+    Aarr = np.zeros((M, K), dtype=np.float32)
+    Carr = np.zeros((M, N), dtype=np.float32)
+    with pytest.raises(spmw.SPMWError, match="canonical order"):
+        spmw.build(gemm, target="rolled_simulator")(Barr, Aarr, Carr)
+
+
 def test_rollsim_producer_consumer_matches():
     """The coroutine simulator matches ``A + 1`` and the desugar simulator on a 1-D channel pipeline."""
     M, N = 4, 4

@@ -113,6 +113,35 @@ def test_rolled_hls_rejects_grid_operand_mismatch():
         emit_rolled_hls_ir(gemm)
 
 
+def test_rolled_hls_rejects_explicit_boundary_role():
+    """`emit_rolled_hls_ir` dispatches only the COMPUTE roles (empty missing set) over the whole grid.
+    A map with an explicit boundary role (`@pe.role(...)`, non-empty missing) has edge points that
+    role-partition assigns to it (the partition still sums to the grid, so the tile check passes), which
+    would then be stamped as the interior compute role. It is rejected rather than mis-dispatched.
+    """
+    from allo.spmw_hls import emit_rolled_hls_ir
+
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        a: float32 = ctx.west.get()
+        b: float32 = ctx.north.get()
+        ctx.east.put(a)
+        ctx.south.put(b)
+
+    @pe.role("west")
+    def pe_load(ctx):
+        pass
+
+    @spmw.region()
+    def gemm(A: float32[4, 4], B: float32[4, 4], C: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+
+    with pytest.raises(Exception, match="boundary role"):
+        emit_rolled_hls_ir(gemm)
+
+
 def _role_bodies(cpp):
     """The set of function names defined in an emitted HLS file."""
     return set(re.findall(r"\bvoid\s+(\w+)\s*\(", cpp))
