@@ -81,6 +81,10 @@ LogicalResult MapOp::verify() {
   // The src and sink sharing a key must agree on depth and element type.
   llvm::DenseMap<Attribute, std::pair<int64_t, Type>> keyAbi;
   llvm::StringMap<PeerLinkAttr> peerByPort;
+  // The local port names declared by key_link endpoints (a key-form lane family
+  // port, e.g. a butterfly's "a"/"y"): valid role ports/missing entries just
+  // like peer and edge ports.
+  llvm::StringSet<> keyPorts;
   SmallVector<EdgeRec> edgeList;
   llvm::DenseMap<std::pair<int64_t, StringRef>, unsigned> edgeIndex;
   for (Attribute linkAttr : topology.getLinks()) {
@@ -105,6 +109,7 @@ LogicalResult MapOp::verify() {
       if (key.getDepth() <= 0)
         return emitOpError("key link '")
                << key.getPort() << "' has non-positive depth";
+      keyPorts.insert(key.getPort());
       std::pair<int, int> &count = keyCounts[key.getKey()];
       if (endpoint == "src")
         ++count.first;
@@ -274,10 +279,11 @@ LogicalResult MapOp::verify() {
       if (!port)
         return emitOpError("role missing entry must be a string");
       if (!peerByPort.contains(port.getValue()) &&
-          !edgePorts.contains(port.getValue()))
+          !edgePorts.contains(port.getValue()) &&
+          !keyPorts.contains(port.getValue()))
         return emitOpError("role missing port '")
                << port.getValue()
-               << "' is not a declared peer-link or edge-link port";
+               << "' is not a declared peer-link, edge-link, or key-link port";
       if (!seenMissing.insert(port.getValue()).second)
         return emitOpError("role missing port '")
                << port.getValue() << "' is repeated";
@@ -289,10 +295,11 @@ LogicalResult MapOp::verify() {
         if (!port)
           return emitOpError("role port entry must be a string");
         if (!peerByPort.contains(port.getValue()) &&
-            !edgePorts.contains(port.getValue()))
-          return emitOpError("role port '")
-                 << port.getValue()
-                 << "' is not a declared peer-link or edge-link port";
+            !edgePorts.contains(port.getValue()) &&
+            !keyPorts.contains(port.getValue()))
+          return emitOpError("role port '") << port.getValue()
+                                            << "' is not a declared peer-link, "
+                                               "edge-link, or key-link port";
         if (!seenPorts.insert(port.getValue()).second)
           return emitOpError("role port '")
                  << port.getValue() << "' is repeated";
@@ -364,6 +371,14 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
       portAbi[edge.getPort()] = {
           edge.getDepth(),
           edge.getElementType() ? edge.getElementType().getValue() : Type()};
+    else if (auto key = llvm::dyn_cast<KeyLinkAttr>(linkAttr))
+      // A key_link endpoint port (a key-form lane family port, e.g. a
+      // butterfly's "a"/"y") carries a (depth, element type) FIFO ABI too;
+      // record it so a key-form role's stream parameters are ABI-checked like
+      // peer/edge role streams.
+      portAbi[key.getPort()] = {
+          key.getDepth(),
+          key.getElementType() ? key.getElementType().getValue() : Type()};
   }
   for (Attribute roleAttr : getRoles()) {
     auto role = llvm::dyn_cast<RoleAttr>(roleAttr);

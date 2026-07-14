@@ -694,6 +694,38 @@ def test_edge_link_verifier_checks_role_stream_depth():
         _parse_spmw(_edge_map_module_with_stream_role(4))
 
 
+def _key_map_module(*, role_port, stream_depth):
+    """A minimal `spmw.map` over a 1-D grid whose only links are a key-form `lane` family (one src, one
+    sink), with a role func declaring one key-link stream port -- for exercising the op verifier's
+    role-port validation and role-stream ABI check on KEY-link ports via `Module.parse`."""
+    return (
+        "module {\n"
+        "  func.func @u(%arg0: memref<1xf32>, %arg1: index, "
+        f"%arg2: !allo.stream<f32, {stream_depth}>) {{ return }}\n"
+        "  func.func @top(%arg0: memref<1xf32>) {\n"
+        "    spmw.map(%arg0) topology = <grid = [2], dims = 1, links = [\n"
+        '      #spmw.key_link<port = "a", key = "lane", end = "sink", depth = 2>,\n'
+        '      #spmw.key_link<port = "y", key = "lane", end = "src", depth = 2>\n'
+        f'    ]> roles = [#spmw.role<unit = @u, missing = [], ports = ["{role_port}"]>] '
+        ": memref<1xf32>\n"
+        "    return\n  }\n}\n"
+    )
+
+
+def test_key_link_role_port_is_accepted():
+    """A role func may declare a KEY-link port (a key-form lane family port, like a butterfly's `a`), not
+    only peer/edge ports; the op verifier accepts it and ABI-checks its stream. Previously the role-port
+    check rejected any non-peer/edge port, blocking key-form maps with real stream role signatures."""
+    _parse_spmw(_key_map_module(role_port="a", stream_depth=2))  # verifies without error
+
+
+def test_key_link_role_stream_depth_checked():
+    """The key-link port ABI is recorded for the role-stream check too: a role stream whose depth (4)
+    disagrees with the key_link `a` depth (2) is rejected."""
+    with pytest.raises(Exception, match="depth"):
+        _parse_spmw(_key_map_module(role_port="a", stream_depth=4))
+
+
 def test_tree_resolve_channels_uses_per_edge_peer_port():
     """`spmw-resolve-channels` groups the tree's edges into channel families by their **true per-edge**
     peer port: a right-child `up` (peer `right`) joins the parent's `right` (`right/up`), a left-child
