@@ -113,9 +113,9 @@ class _SystolicRewriter(ast.NodeTransformer):
 
 def _resolve_dims(region):
     # pylint: disable=import-outside-toplevel
-    from .spmw import SPMWError
+    from .spmw import SPMWError, _operand_annotations
 
-    annotations = getattr(region.fn, "__annotations__", {})
+    annotations = _operand_annotations(region.fn)
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 2:
         raise NotImplementedError(
@@ -307,13 +307,11 @@ def generate_sparse_packed_source(region, collection):
     path, not as a numpy shortcut -- so the simulator result is bit-identical to the `df` original.
     """
     # pylint: disable=import-outside-toplevel
-    from .spmw import DEFAULT_DEPTH, SPMWError
+    from .spmw import DEFAULT_DEPTH, SPMWError, _operand_annotations
 
     decl = _recognize_sparse_packed(collection)
     tensors = [
-        v
-        for v in getattr(region.fn, "__annotations__", {}).values()
-        if getattr(v, "shape", None)
+        v for v in _operand_annotations(region.fn).values() if getattr(v, "shape", None)
     ]
     if len(tensors) < 4:
         raise NotImplementedError(
@@ -717,7 +715,10 @@ def {region.name}_df(ACT: {dtype}[M, K], WGT: {dtype}[K, N], bias: {dtype}[N], O
 
 def _region_tensors(region):
     """Ordered ``[(name, shape_tuple, dtype_name)]`` for the region's shaped operands."""
-    annotations = getattr(region.fn, "__annotations__", {})
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _operand_annotations
+
+    annotations = _operand_annotations(region.fn)
     out = []
     for name, typ in annotations.items():
         shape = getattr(typ, "shape", None)

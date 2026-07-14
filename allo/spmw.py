@@ -1378,6 +1378,21 @@ _READ_OPS = {"get", "get_or"}
 _WRITE_OPS = {"put"}
 
 
+def _operand_annotations(fn):
+    """A region function's OPERAND type annotations, in declaration order.
+
+    Python's ``__annotations__`` also holds a ``'return'`` entry when the function has a return type
+    annotation (e.g. ``def gemm(A, B, C) -> float32[M, N]``), which is NOT a callable parameter. SPMW
+    regions write their outputs in place via ``stream_out``, so a shaped return annotation must never be
+    mistaken for a tensor operand (it would emit a fake ``%return`` memref argument in the lowered IR).
+    Drop it here so every annotation-based operand collector agrees."""
+    return {
+        name: typ
+        for name, typ in getattr(fn, "__annotations__", {}).items()
+        if name != "return"
+    }
+
+
 def _key_form_keys(topology):
     """The set of rendezvous keys the topology's key-form links use."""
     keys = set()
@@ -1713,7 +1728,7 @@ def _require_canonical_systolic_order(program, collection):
         return  # not a two-flow systolic region -- nothing to constrain
     ordered = [
         name
-        for name, typ in getattr(program.fn, "__annotations__", {}).items()
+        for name, typ in _operand_annotations(program.fn).items()
         if name != "return" and getattr(typ, "shape", None)
     ]
     for position, flow in ((0, "W->E"), (1, "N->S")):
@@ -2212,7 +2227,7 @@ def _interior_role_func(program, decl, sym, body=None, streams=None):
     }
     if not {"W->E", "N->S"} <= unit_flows:
         return None
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return None
@@ -2242,7 +2257,7 @@ def _stream_operand_info(program, stream):
     declaration rather than an A/B position convention.
     """
     name = getattr(stream.tensor, "name", None)
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     index = 0
     for pname, typ in annotations.items():
         if not getattr(typ, "shape", None):
@@ -2268,7 +2283,7 @@ def _halo_role_funcs(program, decl, collection):
     # pylint: disable=import-outside-toplevel
     from .spmw_mlir import drain_role_func, loader_role_func
 
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return []
@@ -2319,7 +2334,7 @@ def _halo_tasks(program, decl, collection):
     exit port of every point missing it. ``spmw-unroll`` reads these and wires each task to the same
     boundary channel the edge point's compute role uses.
     """
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     tensors = [v for v in annotations.values() if getattr(v, "shape", None)]
     if len(tensors) < 3:
         return []
@@ -2407,7 +2422,7 @@ def _memory_attrs(program, collection):
     resource (and banking axis, ``-1`` when unbanked) rides on the rolled IR. A placement on an
     operand the region does not declare is rejected.
     """
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     tensor_names = {
         name for name, typ in annotations.items() if getattr(typ, "shape", None)
     }
@@ -2434,7 +2449,7 @@ def _double_buffer_attrs(program, collection):
     the ``spmw`` dialect. The rolled emitter consumes it to emit a two-copy ping-pong GEMM top
     (:func:`allo.spmw_hls._pingpong_top_cpp`).
     """
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     tensor_names = {
         name for name, typ in annotations.items() if getattr(typ, "shape", None)
     }
@@ -2457,7 +2472,7 @@ def _bank_function_attrs(program, collection):
     # pylint: disable=import-outside-toplevel
     from .transform.f2_layout import F2LayoutSolver
 
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     shapes = {
         name: typ.shape
         for name, typ in annotations.items()
@@ -2542,7 +2557,7 @@ def _channel_attrs(program, collection):
 
 def _tensor_operands(program):
     """The region's shaped memref args as ``(ssa, memref type)`` pairs -- the map's ``$tensors``."""
-    annotations = getattr(program.fn, "__annotations__", {})
+    annotations = _operand_annotations(program.fn)
     operands = []
     for name, typ in annotations.items():
         if getattr(typ, "shape", None):

@@ -1645,7 +1645,10 @@ def emit_rolled_hls_ir(region):
     wired = ", ".join(_ROLLED_WIRING[port] for port in ports)
     # Region operands in declaration order -> the generated positional A/B/C names; shared by the
     # banked-output mapping and the logical-memory-placement mapping below.
-    annotations = getattr(region.fn, "__annotations__", {})
+    # pylint: disable=import-outside-toplevel
+    from .spmw import _operand_annotations
+
+    annotations = _operand_annotations(region.fn)
     ordered_operands = [n for n, t in annotations.items() if getattr(t, "shape", None)]
     # F2-banked output: the PE writes to a swizzled slot of a real 2D [banks][depth] C_bank, which
     # is written back to C at the end (host interface unchanged).

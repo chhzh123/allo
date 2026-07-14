@@ -186,6 +186,44 @@ def test_same_named_distinct_units_rejected():
         spmw.lower(top)
 
 
+def test_shaped_return_annotation_is_not_an_operand():
+    """Python's `__annotations__` includes a `'return'` entry for a shaped return annotation
+    (`-> float32[M, N]`), which is NOT a callable operand. SPMW regions write outputs in place via
+    stream_out, so the operand collectors must skip it -- otherwise a fake `%return` memref argument
+    would shift/invalidate the lowered `spmw.map` IR."""
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw_datapath import _region_tensors
+
+    M, N, K = 2, 2, 2
+    grid = spmw.mesh((M, N))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(K):
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(
+        A: float32[M, K], B: float32[K, N], C: float32[M, N]
+    ) -> float32[M, N]:  # a shaped return annotation
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    # the 'return' annotation is NOT collected as a tensor operand
+    assert [name for name, _, _ in _region_tensors(gemm)] == ["A", "B", "C"]
+    # and lowering succeeds without a fake return operand
+    ir = str(spmw.lower(gemm))
+    assert ir.count("spmw.map") == 1
+
+
 def test_non_systolic_2d_region_lowers_to_stub():
     """A non-systolic 2-D region with three tensors (a `pass` unit, no W->E/N->S flows) lowers to a
     signature-only stub role rather than invoking the systolic AST transcriber, which would raise on a
