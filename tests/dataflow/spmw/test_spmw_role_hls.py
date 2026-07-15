@@ -49,6 +49,36 @@ def test_emit_role_hls_transcribes_the_datapath():
     assert cpp.count("void pe_interior(") == 1
 
 
+def test_range_start_stop_mac_loop_preserved_in_role_hls():
+    """A PE MAC loop written as the equivalent `for k in range(0, K)` (2-arg range, start 0) must
+    transcribe to a K-iteration C++ loop in the rolled HLS -- NOT `for (k = 0; k < 0; k++)` (which the
+    args[0] bug produced, silently skipping the whole MAC/forwarding body)."""
+    K = 4
+    grid = spmw.mesh((4, 4))
+
+    @spmw.unit
+    def pe(ctx):
+        c: float32 = 0
+        for k in range(0, K):  # 2-arg range, start 0 -> equivalent to range(K)
+            a: float32 = ctx.west.get()
+            b: float32 = ctx.north.get()
+            c += a * b
+            ctx.east.put(a)
+            ctx.south.put(b)
+        ctx.c_local[0] = c
+
+    @spmw.region()
+    def gemm(A: float32[4, K], B: float32[K, 4], C: float32[4, 4]):
+        spmw.map(pe, grid=grid)
+        spmw.stream_in(A, into=pe, flow="W->E")
+        spmw.stream_in(B, into=pe, flow="N->S")
+        spmw.stream_out(C, from_=pe, where="local", as_="c_local")
+
+    cpp = emit_role_hls(gemm)
+    assert "k < K" in cpp  # the MAC loop runs K times (K is a #define)
+    assert "k < 0" not in cpp  # NOT the dropped/empty loop
+
+
 def test_unit_docstring_is_skipped_in_role_hls():
     """A `@spmw.unit` body may open with a docstring; the C++ transcriber must skip it rather than emit
     it as an invalid C++ statement (a bare string is a no-op). The real datapath is still transcribed.

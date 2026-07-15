@@ -1447,6 +1447,12 @@ class Schedule:  # pylint: disable=too-many-public-methods
                     "buffer_at",
                     "reuse_at",
                     "reshape",
+                    # HLS annotation primitives that take a "func:buf" target -- without remapping
+                    # here, replaying a composed/inlined callee schedule would look up the buffer under
+                    # the pre-compose function name (e.g. `foo:buf` instead of `foo_0:buf`) and fail.
+                    "bind_storage",
+                    "dependence",
+                    "f2_layout",
                 }:
                     if "target" in kwargs:
                         kwargs["target"] = get_name(kwargs["target"])

@@ -78,7 +78,22 @@ def _cpp_stmt(node):
         return f"{_cpp(node.value)};"
     if isinstance(node, ast.For):
         var = node.target.id
-        bound = _cpp(node.iter.args[0])
+        # `for k in range(K)` (1-arg) or the equivalent `range(0, K)` (2-arg, start 0). This emits
+        # `for (var = 0; var < <stop>; var++)`, so a non-zero start or a step is not representable --
+        # reject those rather than silently changing the trip count (taking args[0] as the bound would
+        # make `range(0, K)` loop `k < 0`, skipping the whole body).
+        range_args = node.iter.args
+        if len(range_args) == 2:
+            start = range_args[0]
+            if not (isinstance(start, ast.Constant) and start.value == 0):
+                raise NotImplementedError(
+                    f"cannot transcribe a range with a non-zero start: {ast.dump(node.iter)}"
+                )
+        elif len(range_args) != 1:
+            raise NotImplementedError(
+                f"cannot transcribe a range with {len(range_args)} args: {ast.dump(node.iter)}"
+            )
+        bound = _cpp(range_args[-1])  # the stop expression
         inner = "\n".join(
             "  " + line
             for stmt in node.body

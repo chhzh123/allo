@@ -144,6 +144,35 @@ def test_f2_layout_rewrites_1d_buffer_to_real_2d_banked_storage():
     assert "#pragma HLS dependence" in code and "inter false" in code
 
 
+def test_f2_layout_replays_onto_composed_callee():
+    # Regression: when a callee schedule that applied `f2_layout` is composed into a parent, the
+    # recorded f2_layout primitive is replayed against the INLINED copy (renamed `bank16_0`). compose
+    # must remap the `bank16:buf` target to the composed function name -- otherwise find_buffer looks
+    # the buffer up under the pre-compose name, the replay fails, and the parent loses its banking.
+    def bank16(inp: int32[16]) -> int32[16]:
+        buf: int32[16]  # no init: only uses are the loads/stores f2_layout remaps
+        for i in range(16):
+            buf[i] = inp[i]
+        out: int32[16]
+        for i in range(16):
+            out[i] = buf[i]
+        return out
+
+    def Top(inp: int32[16]) -> int32[16]:
+        return bank16(inp)
+
+    s_bank = allo.customize(bank16)
+    s_bank.f2_layout("bank16:buf", n_bits=4, bank_bits=1, banking="block")
+    s = allo.customize(Top)
+    s.compose(s_bank)  # replays f2_layout onto the inlined callee under its composed name
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mod = s.build(target="vitis_hls", mode="sw_emu", project=tmpdir)
+    code = mod.hls_code
+    # the banked 2D storage survived the compose replay -> f2_layout found the remapped buffer
+    assert "[2][8]" in code, code
+    assert "#pragma HLS array_partition" in code and "complete dim=1" in code
+
+
 def test_f2_layout_preserves_unsigned_on_banked_buffer():
     """Banking a `UInt` buffer must carry its `unsigned` marker onto the new 2-D alloc and the rewritten
     loads, so the emitted HLS storage/loads stay unsigned rather than silently becoming signed.
