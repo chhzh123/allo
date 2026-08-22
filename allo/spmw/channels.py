@@ -52,10 +52,20 @@ class Resolution:
         self.placement = placement
         self.prefix = prefix
         self.families = {}
-        self.port_family = {}
+        # Which family serves a port is a per-*site* question: one port can take
+        # part in more than one port pair, or in both a coordinate pair and a
+        # keyed family, and each site takes whichever one its link gave it.
+        self.site_family = {}
 
-    def family_of(self, port):
-        return self.families.get(self.port_family.get(port))
+    def family_at(self, site, port):
+        return self.families.get(self.site_family.get((site, port)))
+
+    def routing(self, site, ports):
+        """This site's family for each of the given ports, as a hashable key."""
+        return tuple(
+            (port, self.site_family.get((site, port)))
+            for port in sorted(ports, key=lambda p: p.name)
+        )
 
     def __repr__(self):
         return f"<resolution {self.prefix}: {list(self.families)}>"
@@ -86,7 +96,7 @@ def _resolve_coordinate(res, channels, prefix):
         groups.setdefault((wport, rport), []).append(chan)
 
     for (wport, rport), members in groups.items():
-        name = f"{prefix}_{wport.name}_{rport.name}"
+        name = _unique(res, f"{prefix}_{wport.name}_{rport.name}")
         offsets = set()
         for chan in members:
             wsite, _ = chan.writer
@@ -116,8 +126,11 @@ def _resolve_coordinate(res, channels, prefix):
                     fam.slots[(rsite, rport)] = cid
             fam.count = len(members)
         res.families[name] = fam
-        res.port_family[wport] = name
-        res.port_family[rport] = name
+        for chan in members:
+            wsite, _ = chan.writer
+            res.site_family[(wsite, wport)] = name
+            for rsite, _rp in chan.readers:
+                res.site_family[(rsite, rport)] = name
 
 
 def _resolve_keyed(res, channels, prefix, placement):
@@ -137,7 +150,7 @@ def _resolve_keyed(res, channels, prefix, placement):
                 f"`{placement.name}`'s keyed channels mix element types: "
                 f"{port.type_str()} vs {sample.type_str()}."
             )
-    name = f"{prefix}_key"
+    name = _unique(res, f"{prefix}_key")
     fam = Family(
         name,
         sample.dtype,
@@ -153,8 +166,26 @@ def _resolve_keyed(res, channels, prefix, placement):
             fam.slots[(rsite, rport)] = cid
     fam.count = len(live)
     res.families[name] = fam
-    for port in ports:
-        res.port_family[port] = name
+    for chan in live:
+        wsite, wport = chan.writer
+        res.site_family[(wsite, wport)] = name
+        for rsite, rport in chan.readers:
+            res.site_family[(rsite, rport)] = name
+
+
+def _unique(res, name):
+    """Family names key an array, so two families must never share one.
+
+    Port names are joined by underscores, and ``a``/``b_c`` spells the same thing
+    as ``a_b``/``c`` -- rare, but it would merge two arrays into whichever was
+    built last, applying one's element type, depth and offset to the other.
+    """
+    if name not in res.families:
+        return name
+    n = 2
+    while f"{name}_{n}" in res.families:
+        n += 1
+    return f"{name}_{n}"
 
 
 def _depth(res, wport, rport):

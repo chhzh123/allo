@@ -22,7 +22,20 @@ from .index import SliceMap
 from .placement import Bundle, MemGrid
 from .ports import IN, OUT, STREAM
 
+# Keyed on how a type prints. Allo's own types render as `f32`, `i8`, `ui8`;
+# the numpy spellings are here too so a stand-in type works as well.
 _NUMPY_OF = {
+    "f16": "float16",
+    "f32": "float32",
+    "f64": "float64",
+    "i8": "int8",
+    "i16": "int16",
+    "i32": "int32",
+    "i64": "int64",
+    "ui8": "uint8",
+    "ui16": "uint16",
+    "ui32": "uint32",
+    "ui64": "uint64",
     "float32": "float32",
     "float64": "float64",
     "float16": "float16",
@@ -82,9 +95,14 @@ class _StreamOut:
 
     def put(self, value):
         # Writing to nowhere is a no-op; one writer with many readers is a
-        # broadcast, so every reader gets its own copy.
+        # broadcast, so every reader gets its own copy. The copy is what makes a
+        # token a value: a body that refills one block buffer per iteration would
+        # otherwise have every reader see whatever it last wrote.
+        import numpy as np  # pylint: disable=import-outside-toplevel
+
         for chan in self.chans:
-            self.sim.send(chan, value, self.who)
+            token = np.copy(value) if isinstance(value, np.ndarray) else value
+            self.sim.send(chan, token, self.who)
 
     def get(self):
         raise SPMWError(f"{self.who}: get on an Out port")
@@ -214,9 +232,21 @@ def _zeros(annotation):
 
 
 def _numpy_dtype(dtype):
+    """The numpy type a declared type stands for.
+
+    Guessing here would let the reference compute at wider precision than the
+    hardware, so an unrecognised type is named rather than widened -- an integer
+    accumulator that never wraps hides exactly the bug this exists to find.
+    """
     import numpy as np  # pylint: disable=import-outside-toplevel
 
-    return np.dtype(_NUMPY_OF.get(str(dtype), "float64"))
+    name = _NUMPY_OF.get(str(dtype))
+    if name is None:
+        raise SPMWError(
+            f"the reference simulator does not know how to represent `{dtype}`. "
+            f"Add it to the type table, or use a target that lowers through Allo."
+        )
+    return np.dtype(name)
 
 
 def _copy_tree(tree):
@@ -490,7 +520,12 @@ class RefSim:
             else binding.target
         )
         if isinstance(source, Brick):
-            return source.init
+            # Resident at every site means a copy per site: sharing one array
+            # would let a write through one site's port reach every other, and
+            # reach the caller's init= besides.
+            import numpy as np  # pylint: disable=import-outside-toplevel
+
+            return np.copy(source.init)
         array = _array_of(source, data) if isinstance(source, Tensor) else source
         view = _view(array, binding.imap, placement, site, sym)
         if sym.shape == ():

@@ -393,10 +393,10 @@ class Lowering:
 
         body = [self._pid_assign(pids)]
         body.extend(self.stationary_locals(placement))
-        classes = _signature_classes(placement)
+        classes = _wiring_classes(placement, self.resolutions[placement])
         arms = []
-        for order, (sig, sites) in enumerate(classes):
-            arm_body = self._transcribe(placement, sig, sites[0], pids)
+        for order, (sig, routing, sites) in enumerate(classes):
+            arm_body = self._transcribe(placement, sig, routing, sites, pids)
             arms.append((sig, sites, arm_body or [ast.Pass()], order))
 
         if len(arms) == 1:
@@ -407,14 +407,19 @@ class Lowering:
                 if order == len(arms) - 1:
                     body.append(_with(_call("allo.meta_else", []), arm_body))
                     continue
-                cond = self._class_condition(
-                    placement, sites, pids, name, order, classes
-                )
+                cond = self._class_condition(placement, pids, name, order, arms)
                 verb = "meta_if" if order == 0 else "meta_elif"
                 body.append(_with(_call(f"allo.{verb}", [cond]), arm_body))
 
         args = [
-            ast.arg(arg=f"local_{t.name}", annotation=self.type_ann(t.dtype, t.shape))
+            ast.arg(
+                arg=f"local_{t.base.name}",
+                # The argument passed is the base tensor and the subscripts are
+                # shifted into it, so the annotation must be the base's shape --
+                # a view's shape here would type the parameter smaller than the
+                # indices reach.
+                annotation=self.type_ann(t.dtype, t.base.shape),
+            )
             for t in used
         ]
         return ast.FunctionDef(
@@ -447,13 +452,13 @@ class Lowering:
             )
         return _call("df.kernel", [], keywords=keywords)
 
-    def _class_condition(self, placement, sites, pids, name, order, classes):
+    def _class_condition(self, placement, pids, name, order, arms):
         """A compile-time predicate selecting one signature class.
 
         A table indexed by the pids is exact for any topology; the pids are
         constants when ``meta_if`` evaluates, so the lookup folds away.
         """
-        table = _nested_table(placement.grid, sites, order, classes)
+        table = _nested_table(placement.grid, arms)
         tname = self._inject(f"ROLE_{name}_", table)
         expr = ast.Name(id=tname, ctx=ast.Load())
         for pid in pids:
@@ -491,14 +496,14 @@ class Lowering:
 
     # -- body transcription ------------------------------------------------
 
-    def _transcribe(self, placement, signature, sample_site, pids):
+    def _transcribe(self, placement, signature, routing, sites, pids):
         """Rewrite one unit body for one signature class.
 
         Everything that is not a port touch is carried through verbatim, which
         is what keeps the arithmetic -- and so the numerics -- identical to the
         program the user wrote.
         """
-        body = placement.roles.get(sample_site)
+        body = placement.roles.get(sites[0])
         if body is None:
             raise SPMWBindingError(
                 f"`{placement.name}` is a fabric placed on a topology. Hierarchical "
@@ -508,17 +513,22 @@ class Lowering:
         tree = body.tree
         io_name = _io_param_name(tree)
         site_name = _site_param_name(tree)
-        rewriter = _BodyRewriter(self, placement, signature, pids, io_name, site_name)
+        rewriter = _BodyRewriter(
+            self, placement, signature, routing, sites, pids, io_name, site_name
+        )
         stmts = [
             rewriter.visit(ast.fix_missing_locations(_copy(s)))
             for s in tree.body
             if not _is_docstring(s)
         ]
-        return [s for s in stmts if s is not None]
+        kept = [s for s in stmts if s is not None]
+        for stmt in kept:
+            _fill_empty_suites(stmt)
+        return kept
 
     # -- addressing --------------------------------------------------------
 
-    def port_subscript(self, placement, port, pids, bound=True):
+    def port_subscript(self, placement, port, pids, bound=True, family=None, sites=()):
         """The stream-array subscript naming this site's end of ``port``.
 
         Which family serves a port is a per-site question: where the link rule
@@ -526,7 +536,7 @@ class Lowering:
         binding's loaders and drains write to.
         """
         res = self.resolutions[placement]
-        fam = res.family_of(port) if bound else None
+        fam = res.families.get(family) if (bound and family) else None
         if fam is None:
             fam = self.bind_families.get((placement, port))
             if fam is None:
@@ -549,7 +559,7 @@ class Lowering:
             geom = fam.geometry.get(port)
             idx = geom.member_from_pids(pids) if geom is not None else None
             if idx is None:
-                table = _slot_table(placement.grid, fam, port)
+                table = _slot_table(placement.grid, fam, port, sites)
                 tname = self._inject(f"CH_{fam.name}_{port.name}_", table)
                 idx = ast.Name(id=tname, ctx=ast.Load())
                 for pid in pids:
@@ -807,15 +817,20 @@ class Lowering:
 class _BodyRewriter(ast.NodeTransformer):
     """Rewrites port touches into channel and tensor accesses."""
 
-    def __init__(self, lowering, placement, signature, pids, io_name, site_name):
+    def __init__(
+        self, lowering, placement, signature, routing, sites, pids, io_name, site_name
+    ):
         super().__init__()
         self.low = lowering
         self.placement = placement
         self.signature = signature
+        self.routing = routing
+        self.sites = sites
         self.pids = pids
         self.io = io_name
         self.site = site_name
         self.iface = placement.iface
+        self.drops = 0
 
     # -- helpers
 
@@ -834,7 +849,12 @@ class _BodyRewriter(ast.NodeTransformer):
     def _subscript(self, port):
         """This site's channel for ``port``, or None when it has none at all."""
         return self.low.port_subscript(
-            self.placement, port, self.pids, bound=self._bound(port)
+            self.placement,
+            port,
+            self.pids,
+            bound=self._bound(port),
+            family=self.routing.get(port),
+            sites=self.sites,
         )
 
     # -- visits
@@ -861,13 +881,23 @@ class _BodyRewriter(ast.NodeTransformer):
                     f"`{self.placement.name}.{port.name}` is read but nothing "
                     f"feeds it at this site."
                 )
-            return node
+            raise SPMWBindingError(
+                f"`{self.placement.name}.{port.name}` is unbound here, so the put "
+                f"is a discard -- but it is used as a value, and a discard has "
+                f"none. Write it as its own statement."
+            )
         return _call_node(
             ast.Attribute(value=sub, attr=verb, ctx=ast.Load()), node.args
         )
 
     def visit_Expr(self, node):
-        # A put on an unbound Out is a discard, so the statement disappears.
+        """A put on an unbound Out is a discard -- of the put, not the statement.
+
+        The value being put may itself read a channel, and those reads consume
+        tokens whether or not anyone wants the result. Dropping the whole
+        statement would take them with it and quietly change what the program
+        computes.
+        """
         value = node.value
         if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
             if value.func.attr == "put":
@@ -877,9 +907,29 @@ class _BodyRewriter(ast.NodeTransformer):
                     and port.protocol == STREAM
                     and self._subscript(port) is None
                 ):
-                    return None
+                    return self._discard(value)
         self.generic_visit(node)
         return node
+
+    def _discard(self, call):
+        """Keep whatever the discarded put was going to send, if it had effects."""
+        if not call.args:
+            return None
+        block_port = self._block_get(_FakeAssign(call.args[0]))
+        arg = self.visit(call.args[0])
+        if not _reads_a_channel(arg):
+            return None  # nothing observable to keep
+        name = f"_drop{self.drops}"
+        self.drops += 1
+        target = ast.Name(id=name, ctx=ast.Store())
+        if block_port is not None:
+            return ast.AnnAssign(
+                target=target,
+                annotation=self.low.type_ann(block_port.dtype, block_port.shape),
+                value=arg,
+                simple=1,
+            )
+        return ast.Assign(targets=[target], value=arg)
 
     def visit_Assign(self, node):
         # `s, b = site.rank` restates the pids the kernel already has.
@@ -921,7 +971,7 @@ class _BodyRewriter(ast.NodeTransformer):
         if isinstance(target, ast.Subscript):
             port = self._port_of(target.value)
             if port is not None and port.protocol != STREAM:
-                extra = _index_elts(target.slice)
+                extra = [self.visit(e) for e in _index_elts(target.slice)]
                 sub = self.low.mem_subscript(self.placement, port, self.pids, extra)
                 return _store(sub)
         return self.visit(target)
@@ -1092,25 +1142,41 @@ def _progression(values):
 # ---------------------------------------------------------------------------
 
 
-def _signature_classes(placement):
-    """Signature classes in a deterministic order, biggest first.
+def _wiring_classes(placement, resolution):
+    """Sites grouped by what an arm has to say about them, biggest group first.
 
-    Ordering by size puts the interior arm first, which is what a reader of the
-    emitted program expects to see.
+    A site's *signature* decides which body runs, but two sites with the same
+    signature can still be wired to different channel families -- a port can take
+    part in more than one port pair, or reach its neighbour by a coordinate link
+    at one site and by a key at another. One subscript cannot serve both, so the
+    routing is part of the class as well.
+
+    In the ordinary case every site with a signature shares its routing, so this
+    is the signature partition and the arm count is unchanged.
     """
-    classes = placement.topology.signatures()
+    groups = {}
+    for (
+        site,
+        signature,
+    ) in placement.topology._bound.items():  # pylint: disable=protected-access
+        key = (signature, resolution.routing(site, signature))
+        groups.setdefault(key, (signature, {}, []))[2].append(site)
     ordered = sorted(
-        classes.items(), key=lambda kv: (-len(kv[1]), sorted(p.name for p in kv[0]))
+        groups.items(),
+        key=lambda kv: (-len(kv[1][2]), sorted(p.name for p in kv[0][0])),
     )
-    return ordered
+    return [
+        (signature, dict(routing), sites)
+        for (signature, routing), (signature_, _, sites) in ordered
+    ]
 
 
-def _nested_table(grid, sites, order, classes):
+def _nested_table(grid, arms):
     """A grid-shaped table naming each site's class index."""
     index = {}
-    for k, (_sig, members) in enumerate(classes):
+    for _sig, members, _body, order in arms:
         for site in members:
-            index[site] = k
+            index[site] = order
 
     def build(prefix):
         depth = len(prefix)
@@ -1121,13 +1187,29 @@ def _nested_table(grid, sites, order, classes):
     return build([])
 
 
-def _slot_table(grid, fam, port):
-    """A grid-shaped table naming the channel each site's port attaches to."""
+def _slot_table(grid, fam, port, sites):
+    """A grid-shaped table naming the channel each site's port attaches to.
+
+    Sites outside this arm never read their entry, so they get -1 rather than a
+    plausible zero: a site routed to the wrong family would otherwise address
+    channel 0 and corrupt it instead of failing.
+    """
+    live = set(sites)
 
     def build(prefix):
         depth = len(prefix)
         if depth == len(grid):
-            return fam.slots.get((tuple(prefix), port), 0)
+            site = tuple(prefix)
+            if site not in live:
+                return -1
+            slot = fam.slots.get((site, port))
+            if slot is None:
+                raise SPMWBindingError(
+                    f"`{port}` at site {site} has no channel in family "
+                    f"`{fam.name}`. This is a lowering bug: the site was routed "
+                    f"to a family it does not belong to."
+                )
+            return slot
         return tuple(build(prefix + [v]) for v in range(grid[depth]))
 
     return build([])
@@ -1275,6 +1357,42 @@ def _index_elts(slice_node):
     if isinstance(slice_node, ast.Tuple):
         return list(slice_node.elts)
     return [slice_node]
+
+
+class _FakeAssign:
+    """Just enough of an Assign for the block-get test to read."""
+
+    __slots__ = ("targets", "value")
+
+    def __init__(self, value):
+        self.targets = [ast.Name(id="_", ctx=ast.Store())]
+        self.value = value
+
+
+def _reads_a_channel(node):
+    """Whether an expression consumes a token, and so must survive a discard."""
+    for child in ast.walk(node):
+        if (
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr == "get"
+        ):
+            return True
+    return False
+
+
+def _fill_empty_suites(node):
+    """Give any suite an elision emptied a `pass`.
+
+    A loop whose only statement was a discarded put still has to be a loop; an
+    empty body would unparse to source that cannot be compiled at all.
+    """
+    # Only `body`: an empty `orelse` means there is no else clause, which is
+    # exactly what an elided else should become.
+    for child in ast.walk(node):
+        if isinstance(child, (ast.For, ast.While, ast.If, ast.With, ast.Try)):
+            if not child.body:
+                child.body = [ast.Pass()]
 
 
 def _is_docstring(node):
