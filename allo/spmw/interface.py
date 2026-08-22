@@ -66,10 +66,10 @@ class InterfaceMeta(type):
         return out
 
     def streams(cls, direction=None):
-        return cls.ports(protocol=STREAM, direction=direction)
+        return InterfaceMeta.ports(cls, protocol=STREAM, direction=direction)
 
     def memories(cls):
-        return cls.ports(protocol=MEMORY)
+        return InterfaceMeta.ports(cls, protocol=MEMORY)
 
 
 def _check_fresh_declarations(name, namespace):

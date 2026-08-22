@@ -146,7 +146,7 @@ def mem(
         init=init,
         name=name,
     )
-    from .graph import current_fabric  # pylint: disable=import-outside-toplevel
+    from .context import current_fabric  # pylint: disable=import-outside-toplevel
 
     fab = current_fabric(required=False)
     if fab is not None:

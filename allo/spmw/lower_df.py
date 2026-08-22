@@ -60,7 +60,14 @@ class Mover:
 
 
 class Lowering:
-    """Turns one elaborated fabric into an importable dataflow program."""
+    """Turns one elaborated fabric into an importable dataflow program.
+
+    The state is a set of small side tables keyed by placement, port or binding;
+    splitting them into helper objects would add indirection without hiding
+    anything, so the count stands.
+    """
+
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, graph):
         self.graph = graph
@@ -128,7 +135,7 @@ class Lowering:
             if isinstance(side, (Bundle, MemGrid)) and side.placement.expanded:
                 return  # consumed by the expansion
         kind = binding.kind
-        if kind in ("stream_in", "scatter"):
+        if kind in {"stream_in", "scatter"}:
             self._plan_mover(binding, binding.target, binding.source, "load")
         elif kind == "gather" and isinstance(binding.source, Bundle):
             self._plan_mover(binding, binding.source, binding.target, "drain")
@@ -138,7 +145,7 @@ class Lowering:
             self.mem_writes[(binding.source.placement, binding.source.port)] = binding
         elif kind == "seed":
             self.seeds[(binding.target.placement, binding.target.port)] = binding.source
-        elif kind in ("shard", "stationary"):
+        elif kind in {"shard", "stationary"}:
             side = binding.target
             self.mem_reads[(side.placement, side.port)] = binding
         elif kind == "link":
@@ -651,7 +658,7 @@ class Lowering:
             )
         source = self.resolve_storage(
             binding.source
-            if binding.kind in ("shard", "stationary")
+            if binding.kind in {"shard", "stationary"}
             else binding.target
         )
         if isinstance(source, Brick):
@@ -948,7 +955,7 @@ class _BodyRewriter(ast.NodeTransformer):
     def visit_Call(self, node):
         self.generic_visit(node)
         fn = node.func
-        if isinstance(fn, ast.Attribute) and fn.attr in ("get", "put"):
+        if isinstance(fn, ast.Attribute) and fn.attr in {"get", "put"}:
             port = self._port_of(fn.value)
             if port is not None and port.protocol == STREAM:
                 return self._stream_access(node, port, fn.attr)
@@ -1301,7 +1308,7 @@ def _wiring_classes(placement, resolution):
     for (
         site,
         signature,
-    ) in placement.topology._bound.items():  # pylint: disable=protected-access
+    ) in placement.topology._bound.items():
         key = (signature, resolution.routing(site, signature))
         groups.setdefault(key, (signature, {}, []))[2].append(site)
     ordered = sorted(
@@ -1521,14 +1528,12 @@ class _FakeAssign:
 
 def _reads_a_channel(node):
     """Whether an expression consumes a token, and so must survive a discard."""
-    for child in ast.walk(node):
-        if (
-            isinstance(child, ast.Call)
-            and isinstance(child.func, ast.Attribute)
-            and child.func.attr == "get"
-        ):
-            return True
-    return False
+    return any(
+        isinstance(child, ast.Call)
+        and isinstance(child.func, ast.Attribute)
+        and child.func.attr == "get"
+        for child in ast.walk(node)
+    )
 
 
 def _fill_empty_suites(node):

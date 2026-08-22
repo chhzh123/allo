@@ -12,6 +12,7 @@ import inspect
 
 from .bricks import Brick, Tensor, TensorView
 from .component import Fabric
+from .context import current_fabric, pop, push
 from .errors import (
     SPMWBindingError,
     SPMWMemoryError,
@@ -20,20 +21,6 @@ from .errors import (
 from .index import Expr, IndexMap, check_bounds
 from .placement import Bundle, MemGrid
 from .ports import STREAM, IN, READ
-
-_STACK = []
-
-
-def current_fabric(required=True):
-    """The fabric currently elaborating, if any."""
-    if _STACK:
-        return _STACK[-1]
-    if required:
-        raise SPMWBindingError(
-            "this verb is only meaningful inside an @spmw.fabric body, which is "
-            "where structure is declared."
-        )
-    return None
 
 
 class Binding:
@@ -125,12 +112,12 @@ def elaborate(fabric, tensor_specs=None):
         )
     tensors = _tensor_args(fabric, tensor_specs)
     graph = Elaborated(fabric, tensors)
-    _STACK.append(graph)
+    push(graph)
     try:
         fabric.fn(*tensors.values())
         expand(graph)
     finally:
-        _STACK.pop()
+        pop()
     check(graph)
     return graph
 
@@ -249,12 +236,6 @@ def _tensor_args(fabric, tensor_specs):
     return tensors
 
 
-def register_placement(placement):
-    fab = current_fabric(required=False)
-    if fab is not None and placement not in fab.placements:
-        fab.placements.append(placement)
-
-
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -289,7 +270,7 @@ def _check_unbound_ins(graph):
         for (
             port,
             bundle,
-        ) in placement._bundles.items():  # pylint: disable=protected-access
+        ) in placement._bundles.items():
             if port.direction != IN or port.protocol != STREAM:
                 continue
             if port in covered:
@@ -323,7 +304,7 @@ def _check_memories_bound(graph):
         for (
             port,
             _grid,
-        ) in placement._memgrids.items():  # pylint: disable=protected-access
+        ) in placement._memgrids.items():
             if port.access == READ and port not in covered:
                 raise SPMWMemoryError(
                     f"`{placement.name}.{port.name}` is {port.type_str()} but "
@@ -398,7 +379,6 @@ __all__ = [
     "current_fabric",
     "elaborate",
     "make_map",
-    "register_placement",
 ]
 
 

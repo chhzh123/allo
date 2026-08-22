@@ -68,7 +68,7 @@ def stream_in(source, into, index=None):
         )
     block = _block_of(bundle, tensor, where)
     imap = _check_arity(make_map(index, tensor.rank - len(block), where), bundle, where)
-    extent = _time_extent(imap, tensor, where, streamed=True)
+    extent = _time_extent(imap, tensor, streamed=True)
     bind_check(imap, bundle, tensor, where, extent=extent, write=False, block=block)
     return fab.record(
         Binding("stream_in", tensor, bundle, imap=imap, extent=extent, block=block)
@@ -308,7 +308,7 @@ def _expect_direction(side, direction, verb):
             )
 
 
-def _time_extent(imap, tensor, where, streamed):
+def _time_extent(imap, tensor, streamed):
     """The token count per port: the extent of the axis ``...`` marks."""
     if imap.is_lambda:
         return 1 if streamed else None
@@ -354,7 +354,7 @@ def _resolve_feed_map(index, bundle, tensor, where, block=()):
             f"subscripts."
         )
     imap = _check_arity(make_map(index, tensor.rank - len(block), where), bundle, where)
-    return imap, _time_extent(imap, tensor, where, streamed=True)
+    return imap, _time_extent(imap, tensor, streamed=True)
 
 
 def _resolve_drain_map(index, side, tensor, where, block=()):
@@ -364,7 +364,7 @@ def _resolve_drain_map(index, side, tensor, where, block=()):
             make_map(index, tensor.rank - len(block), where), side, where
         )
         streamed = side.port.protocol == STREAM
-        return imap, _time_extent(imap, tensor, where, streamed=streamed)
+        return imap, _time_extent(imap, tensor, streamed=streamed)
     identity = _positional_identity(side, tensor, where)
     return identity, None
 

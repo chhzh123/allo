@@ -376,7 +376,7 @@ def check_directions(tree, iface, where):
         if not isinstance(node, ast.Call):
             continue
         fn = node.func
-        if not (isinstance(fn, ast.Attribute) and fn.attr in ("get", "put")):
+        if not (isinstance(fn, ast.Attribute) and fn.attr in {"get", "put"}):
             continue
         target = fn.value
         if not (

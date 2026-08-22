@@ -295,11 +295,11 @@ class RefSim:
             ):
                 continue  # consumed by the expansion
             kind = binding.kind
-            if kind in ("stream_in", "scatter"):
+            if kind in {"stream_in", "scatter"}:
                 self.movers.append(("load", binding, binding.target, binding.source))
             elif kind == "gather" and isinstance(binding.source, Bundle):
                 self.movers.append(("drain", binding, binding.source, binding.target))
-            elif kind in ("gather", "gather_mem"):
+            elif kind in {"gather", "gather_mem"}:
                 self.mem_writes[(binding.source.placement, binding.source.port)] = (
                     binding
                 )
@@ -307,7 +307,7 @@ class RefSim:
                 self.seeds[(binding.target.placement, binding.target.port)] = (
                     binding.source
                 )
-            elif kind in ("shard", "stationary"):
+            elif kind in {"shard", "stationary"}:
                 self.mem_reads[(binding.target.placement, binding.target.port)] = (
                     binding
                 )
@@ -392,7 +392,7 @@ class RefSim:
                     )
                 )
         for role, binding, bundle, tensor in self.movers:
-            for pos, site in enumerate(bundle.sites):
+            for site in bundle.sites:
                 threads.append(
                     threading.Thread(
                         target=self._run_mover,
@@ -401,7 +401,6 @@ class RefSim:
                             binding,
                             bundle,
                             tensor,
-                            pos,
                             site,
                             chans,
                             data,
@@ -422,7 +421,6 @@ class RefSim:
                 f"{len(stuck)} of {len(threads)} tasks never finished; the fabric "
                 f"deadlocked."
             )
-        return None
 
     def _build_channels(self):
         chans = {"read": {}, "write": {}}
@@ -470,35 +468,39 @@ class RefSim:
         return chans
 
     def _run_site(self, placement, site, chans, data, errors):
+        """Run one site's body to completion, recording whatever it raises."""
         try:
-            fn, body = self._body_for(placement, site)
-            ports = {}
-            who = f"{placement.name}{site}"
-            for sym in placement.iface.ports():
-                if sym.protocol == STREAM:
-                    if sym.direction == IN:
-                        chan = chans["read"].get((placement, site, sym))
-                        seed = self.seeds.get((placement, sym))
-                        if seed is not None and sym.shape:
-                            seed = _block_seed(seed, sym)
-                        ports[sym.name] = _StreamIn(chan, who, seed, self)
-                    else:
-                        ports[sym.name] = _StreamOut(
-                            chans["write"].get((placement, site, sym), []), who, self
-                        )
-                else:
-                    ports[sym.name] = self._memory_port(placement, site, sym, data)
-            io = _IO(ports)
-            from .component import Site  # pylint: disable=import-outside-toplevel
-
-            args = [io]
-            if getattr(body, "wants_site", False):
-                args.append(Site(site, placement.grid))
-            fn(*args)
-        except BaseException as err:  # pylint: disable=broad-except
+            self._site_body(placement, site, chans, data)()
+        except BaseException as err:  # noqa: BLE001 - funnel it to the caller
             errors.append(err)
 
-    def _run_mover(self, role, binding, bundle, tensor, pos, site, chans, data, errors):
+    def _site_body(self, placement, site, chans, data):
+        """Bind one site's ports and return its body ready to call."""
+        from .component import Site  # pylint: disable=import-outside-toplevel
+
+        fn, body = self._body_for(placement, site)
+        who = f"{placement.name}{site}"
+        ports = {}
+        for sym in placement.iface.ports():
+            if sym.protocol != STREAM:
+                ports[sym.name] = self._memory_port(placement, site, sym, data)
+            elif sym.direction == IN:
+                seed = self.seeds.get((placement, sym))
+                if seed is not None and sym.shape:
+                    seed = _block_seed(seed, sym)
+                ports[sym.name] = _StreamIn(
+                    chans["read"].get((placement, site, sym)), who, seed, self
+                )
+            else:
+                ports[sym.name] = _StreamOut(
+                    chans["write"].get((placement, site, sym), []), who, self
+                )
+        args = [_IO(ports)]
+        if getattr(body, "wants_site", False):
+            args.append(Site(site, placement.grid))
+        return lambda: fn(*args)
+
+    def _run_mover(self, role, binding, bundle, tensor, site, chans, data, errors):
         """One loader or drain: the mover synthesised at an open port."""
         import numpy as np  # pylint: disable=import-outside-toplevel
 
@@ -523,7 +525,7 @@ class RefSim:
                         array[idx] = np.asarray(value).reshape(block)
                     else:
                         _store_into(array, idx, value)
-        except BaseException as err:  # pylint: disable=broad-except
+        except BaseException as err:  # noqa: BLE001 - funnel it to the caller
             errors.append(err)
 
     def _memory_port(self, placement, site, sym, data):
@@ -534,7 +536,7 @@ class RefSim:
             raise SPMWError(f"`{placement.name}.{sym.name}` has no memory binding")
         source = self.resolve_storage(
             binding.source
-            if binding.kind in ("shard", "stationary")
+            if binding.kind in {"shard", "stationary"}
             else binding.target
         )
         if isinstance(source, Brick):

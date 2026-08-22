@@ -123,8 +123,12 @@ class Placement:
     """A component placed on a topology.
 
     Exposes bundles for unbound stream ports, memory grids for exported
-    ``MemOut`` ports, and the grid's axis symbols.
+    ``MemOut`` ports, and the grid's axis symbols.  Most of the attributes are
+    the knobs ``place`` accepts, so the count tracks the surface rather than any
+    hidden complexity.
     """
+
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(
         self, component, topology, depths=None, fold=None, unroll=None, layout=None
@@ -171,7 +175,7 @@ class Placement:
 
     def env(self, site):
         """Bind this placement's axis symbols to one site's coordinates."""
-        return {axis: coord for axis, coord in zip(self.axes, site)}
+        return dict(zip(self.axes, site))
 
     # -- roles -------------------------------------------------------------
 
@@ -198,7 +202,7 @@ class Placement:
         classes = {}
         for site, body in self.roles.items():
             classes.setdefault(id(body), (body, []))[1].append(site)
-        return {body: sites for body, sites in classes.values()}
+        return dict(classes.values())
 
     # -- boundary ----------------------------------------------------------
 
@@ -282,9 +286,11 @@ def place(component, on, depths=None, fold=None, unroll=None, layout=None):
     placement = Placement(
         component, on, depths=depths, fold=fold, unroll=unroll, layout=layout
     )
-    from .graph import register_placement  # pylint: disable=import-outside-toplevel
+    from .context import current_fabric  # pylint: disable=import-outside-toplevel
 
-    register_placement(placement)
+    fab = current_fabric(required=False)
+    if fab is not None and placement not in fab.placements:
+        fab.placements.append(placement)
     return placement
 
 

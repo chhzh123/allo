@@ -84,7 +84,7 @@ def build(fabric_fn, target="simulator", **kwargs):
 
     Imported lazily so that ``import allo.spmw`` costs nothing but the frontend.
     """
-    from .driver import build as _build  # pylint: disable=import-outside-toplevel
+    from .driver import build as _build
 
     return _build(fabric_fn, target=target, **kwargs)
 
@@ -95,7 +95,7 @@ def source(fabric_fn, **kwargs):
     Useful for asserting structural properties of the emitted program -- that
     its body count tracks the role count rather than the grid, for instance.
     """
-    from .driver import source as _source  # pylint: disable=import-outside-toplevel
+    from .driver import source as _source
 
     return _source(fabric_fn, **kwargs)
 
@@ -104,7 +104,7 @@ def customize(fabric_fn, **kwargs):
     """Elaborate a fabric and return the schedule, before any backend runs."""
     from .driver import (
         customize as _customize,
-    )  # pylint: disable=import-outside-toplevel
+    )
 
     return _customize(fabric_fn, **kwargs)
 

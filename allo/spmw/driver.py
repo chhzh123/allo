@@ -24,13 +24,13 @@ def customize(fabric_fn, tensor_specs=None, keep=None, verbose=False):
     _check_realised(graph)
     top = build_dataflow(graph, keep=keep)
     if verbose:
-        print(top._spmw_source)  # pylint: disable=protected-access
+        print(top._spmw_source)
     schedule = df.customize(top)
     schedule.spmw_graph = graph
-    schedule.spmw_source = top._spmw_source  # pylint: disable=protected-access
+    schedule.spmw_source = top._spmw_source
     # The built module takes its arguments in this order, which is the union of
     # the kernels' arguments in first-seen order rather than the fabric's own.
-    schedule.spmw_arg_order = top._spmw_arg_order  # pylint: disable=protected-access
+    schedule.spmw_arg_order = top._spmw_arg_order
     return schedule
 
 
@@ -54,10 +54,10 @@ def build(
 
     top = build_dataflow(graph, keep=keep)
     if verbose:
-        print(top._spmw_source)  # pylint: disable=protected-access
+        print(top._spmw_source)
     module = df.build(top, target=target, **kwargs)
     module.spmw_graph = graph
-    module.spmw_source = top._spmw_source  # pylint: disable=protected-access
+    module.spmw_source = top._spmw_source
     return _Callable(module, graph, top)
 
 
@@ -74,9 +74,9 @@ class _Callable:
     def __init__(self, module, graph, top):
         self._module = module
         self.spmw_graph = graph
-        self.spmw_source = top._spmw_source  # pylint: disable=protected-access
+        self.spmw_source = top._spmw_source
         declared = [t.name for t in graph.tensors.values()]
-        backend = top._spmw_arg_order  # pylint: disable=protected-access
+        backend = top._spmw_arg_order
         missing = [name for name in declared if name not in backend]
         if missing:
             raise SPMWPlacementError(
