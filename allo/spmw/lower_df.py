@@ -259,7 +259,7 @@ class Lowering:
             args.append(
                 ast.arg(
                     arg=tensor.name,
-                    annotation=self._type_ann(tensor.dtype, tensor.shape),
+                    annotation=self.type_ann(tensor.dtype, tensor.shape),
                 )
             )
         body = self._stream_decls()
@@ -295,7 +295,7 @@ class Lowering:
         return decls
 
     def _stream_decl(self, fam):
-        elem = self._type_ann(fam.dtype, fam.block)
+        elem = self.type_ann(fam.dtype, fam.block)
         stream = ast.Subscript(
             value=ast.Name(id="Stream", ctx=ast.Load()),
             slice=ast.Tuple(elts=[elem, ast.Constant(value=fam.depth)], ctx=ast.Load()),
@@ -319,7 +319,7 @@ class Lowering:
             simple=1,
         )
 
-    def _type_ann(self, dtype, shape):
+    def type_ann(self, dtype, shape):
         name = self._inject_type(dtype)
         base = ast.Name(id=name, ctx=ast.Load())
         if not shape:
@@ -380,7 +380,7 @@ class Lowering:
                 body.append(_with(_call(f"allo.{verb}", [cond]), arm_body))
 
         args = [
-            ast.arg(arg=f"local_{t.name}", annotation=self._type_ann(t.dtype, t.shape))
+            ast.arg(arg=f"local_{t.name}", annotation=self.type_ann(t.dtype, t.shape))
             for t in used
         ]
         return ast.FunctionDef(
@@ -561,7 +561,7 @@ class Lowering:
             decls.append(
                 ast.AnnAssign(
                     target=ast.Name(id=self._station_name(port), ctx=ast.Store()),
-                    annotation=self._type_ann(brick.dtype, brick.shape),
+                    annotation=self.type_ann(brick.dtype, brick.shape),
                     value=ast.Name(id=rom, ctx=ast.Load()),
                     simple=1,
                 )
@@ -627,7 +627,7 @@ class Lowering:
         args = [
             ast.arg(
                 arg=f"local_{tensor.name}",
-                annotation=self._type_ann(tensor.dtype, tensor.shape),
+                annotation=self.type_ann(tensor.dtype, tensor.shape),
             )
         ]
         return ast.FunctionDef(
@@ -669,7 +669,7 @@ class Lowering:
             return [ast.Assign(targets=[_store(elem)], value=got)]
 
         tmp = "_blk"
-        ann = self._type_ann(mover.bundle.port.dtype, block)
+        ann = self.type_ann(mover.bundle.port.dtype, block)
         ref = ast.Name(id=tmp, ctx=ast.Load())
         idx = [ast.Name(id=f"_b{k}", ctx=ast.Load()) for k in range(len(block))]
         cell = ast.Subscript(
@@ -839,9 +839,33 @@ class _BodyRewriter(ast.NodeTransformer):
         # `s, b = site.rank` restates the pids the kernel already has.
         if self.site and _is_site_rank(node.value, self.site):
             return ast.Assign(targets=node.targets, value=_call("df.get_pid", []))
+        block_port = self._block_get(node)
         node.value = self.visit(node.value)
         node.targets = [self._store_target(t) for t in node.targets]
+        if block_port is not None:
+            # A block-valued read is declared, which is the shape the dataflow
+            # model expects for a stream of blocks.
+            return ast.AnnAssign(
+                target=node.targets[0],
+                annotation=self.low.type_ann(block_port.dtype, block_port.shape),
+                value=node.value,
+                simple=1,
+            )
         return node
+
+    def _block_get(self, node):
+        """The port of a ``x = io.p.get()`` whose token is a block, if any."""
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            return None
+        value = node.value
+        if not (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)):
+            return None
+        if value.func.attr != "get":
+            return None
+        port = self._port_of(value.func.value)
+        if port is None or port.protocol != STREAM or not port.shape:
+            return None
+        return port
 
     def _store_target(self, target):
         port = self._port_of(target)
