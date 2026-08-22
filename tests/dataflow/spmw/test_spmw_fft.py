@@ -130,6 +130,14 @@ def test_internal_wires():
     assert len(internal) == (S - 1) * FFT_N
 
 
+def test_reference_matches_numpy_fft():
+    x, X = _operands()
+    Y = np.zeros((FFT_N, 2), dtype=np.float32)
+    spmw.build(fft_spatial, target="ref")(X, Y)
+    got = Y[:, 0] + 1j * Y[:, 1]
+    np.testing.assert_allclose(got, np.fft.fft(x), atol=1e-4)
+
+
 def test_simulator_matches_numpy_fft():
     x, X = _operands()
     Y = np.zeros((FFT_N, 2), dtype=np.float32)

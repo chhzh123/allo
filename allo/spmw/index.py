@@ -193,13 +193,17 @@ class IndexMap:
     that are not affine in the axes.
     """
 
-    __slots__ = ("spec", "is_lambda", "time_pos", "rank")
+    __slots__ = ("spec", "is_lambda", "time_pos", "rank", "wants_step")
 
     def __init__(self, spec, rank):
         self.rank = rank
         self.is_lambda = callable(spec)
         self.spec = spec
         self.time_pos = None
+        # Set by the binding once the port side's rank is known: a lambda over
+        # `rank` arguments is indexed by site alone, one over `1 + rank` by
+        # (step, site).
+        self.wants_step = False
         if not self.is_lambda:
             if not isinstance(spec, tuple):
                 spec = (spec,)
@@ -226,7 +230,7 @@ class IndexMap:
         """Resolve to a concrete tensor subscript tuple."""
         if self.is_lambda:
             args = list(env["__coords__"])
-            if step is not None:
+            if self.wants_step:
                 args = [step] + args
             out = self.spec(*args)
             return out if isinstance(out, tuple) else (out,)

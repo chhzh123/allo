@@ -105,6 +105,14 @@ def test_signature_count_is_size_independent():
         assert len(topo.signatures()) == 9
 
 
+def test_reference_matches_numpy():
+    """The graph run directly -- one task per site, no compiler involved."""
+    A, B = _operands()
+    C = np.zeros((M, N), dtype=np.float32)
+    spmw.build(gemm, target="ref")(A, B, C)
+    np.testing.assert_allclose(C, A @ B, atol=1e-5)
+
+
 def test_simulator_matches_numpy():
     A, B = _operands()
     C = np.zeros((M, N), dtype=np.float32)

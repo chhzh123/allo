@@ -108,6 +108,13 @@ def test_seed_folds_into_the_body():
     assert "p = 0" in text
 
 
+def test_reference_matches():
+    A, W = _operands()
+    Y = np.zeros((MT, NT), dtype=np.int8)
+    spmw.build(tpu_matmul, target="ref")(A, W, Y)
+    np.testing.assert_array_equal(Y, _reference(A, W))
+
+
 def test_simulator_matches_reference():
     A, W = _operands()
     Y = np.zeros((MT, NT), dtype=np.int8)

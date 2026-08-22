@@ -67,7 +67,7 @@ def stream_in(source, into, index=None):
             f"extents happen to coincide, then silently transposes."
         )
     block = _block_of(bundle, tensor, where)
-    imap = make_map(index, tensor.rank - len(block), where)
+    imap = _check_arity(make_map(index, tensor.rank - len(block), where), bundle, where)
     extent = _time_extent(imap, tensor, where, streamed=True)
     bind_check(imap, bundle, tensor, where, extent=extent, write=False, block=block)
     return fab.record(
@@ -328,11 +328,40 @@ def _expect_direction(side, direction, verb):
 def _time_extent(imap, tensor, where, streamed):
     """The token count per port: the extent of the axis ``...`` marks."""
     if imap.is_lambda:
-        return None
+        return 1 if streamed else None
     if imap.time_pos is None:
         # No `...` fixes every axis: a single token per port.
         return 1 if streamed else None
     return tensor.shape[imap.time_pos]
+
+
+def _check_arity(imap, side, where):
+    """A lambda is indexed by site, or by (step, site) -- its arity says which."""
+    if not imap.is_lambda:
+        return imap
+    import inspect  # pylint: disable=import-outside-toplevel
+
+    rank = len(side.placement.grid)
+    try:
+        params = len(inspect.signature(imap.spec).parameters)
+    except (TypeError, ValueError):
+        return imap
+    if params == rank:
+        imap.wants_step = False
+    elif params == rank + 1:
+        raise SPMWBindingError(
+            f"{where}: the lambda takes {params} arguments, so it is indexed by "
+            f"(step, site) over a rank-{rank} grid. A stepping lambda is not "
+            f"lowered on this path -- spell the tuple form with `...` marking the "
+            f"streamed axis."
+        )
+    else:
+        raise SPMWBindingError(
+            f"{where}: the lambda takes {params} arguments, but the bundle's grid "
+            f"has rank {rank}. A site-indexed map takes {rank}; a (step, site) one "
+            f"takes {rank + 1}."
+        )
+    return imap
 
 
 def _resolve_feed_map(index, bundle, tensor, where, block=()):
@@ -341,14 +370,16 @@ def _resolve_feed_map(index, bundle, tensor, where, block=()):
             f"{where}: index= is required; the tuple spells the source tensor's "
             f"subscripts."
         )
-    imap = make_map(index, tensor.rank - len(block), where)
+    imap = _check_arity(make_map(index, tensor.rank - len(block), where), bundle, where)
     return imap, _time_extent(imap, tensor, where, streamed=True)
 
 
 def _resolve_drain_map(index, side, tensor, where, block=()):
     """A drain's map, or the full positional identity when it is omitted."""
     if index is not None:
-        imap = make_map(index, tensor.rank - len(block), where)
+        imap = _check_arity(
+            make_map(index, tensor.rank - len(block), where), side, where
+        )
         streamed = side.port.protocol == STREAM
         return imap, _time_extent(imap, tensor, where, streamed=streamed)
     identity = _positional_identity(side, tensor, where)
