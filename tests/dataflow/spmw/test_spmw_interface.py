@@ -1,0 +1,150 @@
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Interfaces, ports and components -- the contract layer.
+
+These exercise the frontend only; nothing here builds IR.
+"""
+
+import pytest
+
+import allo.spmw as spmw
+from allo.spmw.component import check_directions
+from allo.ir.types import float32, int8
+
+K = 4
+
+
+class NSEW(spmw.Interface):
+    west = spmw.In(float32)
+    north = spmw.In(float32)
+    east = spmw.Out(float32)
+    south = spmw.Out(float32)
+
+
+class MacIO(NSEW):
+    c = spmw.MemOut(float32)
+
+
+def test_inheritance_shares_symbols():
+    """A subclass inherits the same symbol objects, so identity holds."""
+    assert MacIO.west is NSEW.west
+    assert MacIO.owns(NSEW.west)
+    assert not NSEW.owns(MacIO.c)
+
+
+def test_port_set_is_closed_and_ordered():
+    assert [p.name for p in MacIO] == ["west", "north", "east", "south", "c"]
+    assert [p.name for p in MacIO.streams(direction="out")] == ["east", "south"]
+    assert [p.name for p in MacIO.memories()] == ["c"]
+    assert len(MacIO) == 5
+
+
+def test_type_is_printed_the_way_it_was_declared():
+    assert MacIO.west.type_str() == "In(float32)"
+    assert MacIO.c.type_str() == "MemOut(float32)"
+
+
+def test_element_generic_contract():
+    """Interface-valued functions, for contracts parameterised by element type."""
+
+    def nsew(dtype):
+        return spmw.interface("NSEW", west=spmw.In(dtype), east=spmw.Out(dtype))
+
+    narrow = nsew(int8)
+    assert [p.name for p in narrow] == ["west", "east"]
+    assert narrow.west is not NSEW.west  # distinct contracts, distinct symbols
+
+
+def test_misspelled_port_is_caught_at_declaration():
+    with pytest.raises(AttributeError, match="wets"):
+
+        @spmw.unit
+        def bad(io: MacIO):
+            a = io.wets.get()
+
+
+def test_direction_errors():
+    @spmw.unit
+    def puts_on_an_in(io: MacIO):
+        io.west.put(1.0)
+
+    with pytest.raises(spmw.SPMWError, match="west"):
+        check_directions(puts_on_an_in.tree, puts_on_an_in.iface, "puts_on_an_in")
+
+    @spmw.unit
+    def gets_a_memory(io: MacIO):
+        x = io.c.get()
+
+    with pytest.raises(spmw.SPMWError, match="memory port"):
+        check_directions(gets_a_memory.tree, gets_a_memory.iface, "gets_a_memory")
+
+
+def test_site_parameter_is_optional_and_detected():
+    @spmw.unit
+    def rankless(io: MacIO):
+        io.east.put(io.west.get())
+
+    @spmw.unit
+    def ranked(io: MacIO, site: spmw.Site):
+        i, j = site.rank
+        io.east.put(io.west.get())
+
+    assert not rankless.wants_site
+    assert ranked.wants_site
+
+
+def test_role_may_not_touch_its_declared_unbound_ports():
+    @spmw.unit
+    def cell(io: MacIO):
+        io.east.put(io.west.get())
+
+    @cell.role(unbound=(MacIO.west,))
+    def cell_west(io: MacIO, site: spmw.Site):
+        io.east.put(0.0)
+
+    assert len(cell.roles) == 1
+    assert cell.roles[0].unbound == frozenset({MacIO.west})
+
+    with pytest.raises(spmw.SPMWPlacementError, match="north"):
+
+        @cell.role(unbound=(MacIO.north,))
+        def bad(io: MacIO):
+            x = io.north.get()
+
+
+def test_role_selection_by_signature():
+    @spmw.unit
+    def cell(io: MacIO):
+        io.east.put(io.west.get())
+
+    @cell.role(unbound=(MacIO.west,))
+    def cell_west(io: MacIO, site: spmw.Site):
+        io.east.put(0.0)
+
+    interior = frozenset(MacIO)
+    assert cell.body_for(interior) is cell
+
+    without_west = frozenset(p for p in MacIO if p is not MacIO.west)
+    assert cell.body_for(without_west).name == "cell_west"
+
+    # An unbound Out never forces a role: its puts are simply elided.
+    without_east = frozenset(p for p in MacIO if p is not MacIO.east)
+    assert cell.body_for(without_east) is cell
+
+
+def test_nominal_matching_by_default():
+    class Twin(spmw.Interface):
+        west = spmw.In(float32)
+        north = spmw.In(float32)
+        east = spmw.Out(float32)
+        south = spmw.Out(float32)
+
+    from allo.spmw.interface import matches
+
+    assert matches(NSEW, NSEW)
+    assert not matches(Twin, NSEW)
+    assert matches(spmw.structural(Twin), NSEW)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
