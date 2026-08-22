@@ -49,9 +49,10 @@ branches. Anything the elaborator can represent, the lowering can emit.
 
 ### Constraints discovered
 
-- **`brg-zhang-xcel` is unreachable right now** (`ssh` and `ping` both time out). Per
-  `CLAUDE.md` and prior project convention, *every* test — including the simulator ones — runs
-  there.
+- **`brg-zhang-xcel` was unreachable throughout** (`ssh` and `ping` both timed out; most likely
+  the VPN was not up). Per `CLAUDE.md` and prior project convention, *every* test — including
+  the simulator ones — runs there. `scripts/spmw_remote_check.sh` runs the suite in one command
+  once it is reachable.
 - **Nothing can run Allo locally**: no conda, system `python3` has no numpy, and `allo.ir.types`
   imports the compiled `allo._mlir` extension.
 - Mitigation, and a good design property regardless: **`allo/spmw/`'s elaboration core must not
@@ -150,7 +151,53 @@ today, so it does **not** deliver the design doc's §5 synthesis-time win. That 
 
 ---
 
-## Milestones
+## Status
+
+Everything below is implemented and committed on this branch. What is **not** yet
+confirmed is the one thing that needs `brg-zhang-xcel`: whether Allo's own tracer
+accepts the generated program (`target="simulator"` and `vitis_hls`). The host was
+unreachable for the whole session it was written in.
+
+| Piece | State |
+|---|---|
+| Contracts (`ports`, `interface`, `component`) | done |
+| Topologies and placement (`topology`, `placement`, `index`) | done |
+| Fabric elaboration and the check table (`bricks`, `bindings`, `graph`) | done |
+| Lowering to `allo.dataflow` (`channels`, `lower_df`) | done, **unverified against Allo** |
+| Reference simulator (`refsim`, `target="ref"`) | done |
+| Hierarchical placement (a fabric placed on a topology) | done, expanded per site |
+| Docs (`docs/source/dive/spmw.rst`) | done |
+| Rolled MLIR path (the §5 synthesis-time win) | **not started** — see Follow-on |
+
+### The worked examples
+
+All five of the design doc's examples run and match numpy, verified two
+independent ways (see Verification):
+
+| Example | Exercises |
+|---|---|
+| §3.1 systolic GEMM | mesh, computed boundaries, `stream_in`/`gather` |
+| §3.2 tiled GEMM | a placed fabric, `shard(dim=)`, per-site tensor views |
+| §3.4 FFT | key-form links, block streams, a resident twiddle ROM, lambda maps |
+| §3.5 mini-TPU | two placements, `link`, stationary weights, a seeded chain; also the staged form with `copy` under `phase` and `double=True` |
+| §3.6 attention P·V | interior boundaries, `split` axes, reduction as wiring, G ∈ {1,2,4} |
+
+### Follow-on: the rolled MLIR path
+
+The lowering emits a dataflow region, so Vitis HLS still schedules once per
+instance. Making the design's §5 claim real means keeping the rolled form to
+codegen: a `spmw.place` op (model it on `allo.grid_map` for the region and grid,
+and on `allo.get_stream_global` for the `AffineMapAttr` links), then port
+`feat/spmw`'s `SPMWRolePartition.cpp` and `SPMWResolveChannels.cpp` — both
+already compute what this frontend now declares — plus the five-edit emitter hook
+for the instantiation loop. That branch's passes were validated to hardware, so
+this is a port, not a rewrite. It needs a C++ rebuild on the remote.
+
+Also open: `fold`/`unroll` are carried on `place` but not realised, and a placed
+fabric expands per site rather than instantiating one engine.
+
+## Milestones (as planned)
+
 
 Each is gated by a test that must pass on `brg-zhang-xcel`, and each is committed separately once
 green (per established project convention).
