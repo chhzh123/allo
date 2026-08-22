@@ -182,6 +182,27 @@ def test_a_declaration_belongs_to_one_interface():
             a = b = spmw.In(float32)
 
 
+def test_rebinding_io_is_refused():
+    """The io name is the contract for the whole body."""
+    with pytest.raises(spmw.SPMWPlacementError, match="rebinds"):
+
+        @spmw.unit
+        def confused(io: MacIO):
+            v = io.west.get()
+            io = 3
+            io.east.put(v)
+
+
+def test_writing_through_io_is_not_rebinding():
+    """`io.c = x` writes a port; only binding the name itself is a rebind."""
+
+    @spmw.unit
+    def writes(io: MacIO):
+        io.c = io.west.get()
+
+    assert writes.name == "writes"
+
+
 def test_a_role_on_a_memory_port_is_refused():
     """A memory port is bound by a binding, so it never enters a signature."""
 

@@ -62,6 +62,7 @@ class Unit:
         self.tree = _parse_body(fn)
         self.wants_site = _wants_site(fn)
         self.roles = []
+        _check_io_not_rebound(self.tree, self.name)
         _check_port_names(self.tree, self.iface, self.name)
         check_directions(self.tree, self.iface, self.name)
 
@@ -88,6 +89,7 @@ class Unit:
 
         def decorate(fn):
             role = Role(fn, unbound)
+            _check_io_not_rebound(role.tree, role.name)
             _check_port_names(role.tree, self.iface, role.name)
             check_directions(role.tree, self.iface, role.name)
             _check_untouched(role.tree, unbound, role.name)
@@ -233,6 +235,45 @@ def _is_site_annotation(ann):
 
 def _io_param_name(tree):
     return tree.args.args[0].arg if tree.args.args else "io"
+
+
+def _bound_names(target):
+    """The names an assignment target binds, ignoring what it writes through."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        names = []
+        for elt in target.elts:
+            names.extend(_bound_names(elt))
+        return names
+    if isinstance(target, ast.Starred):
+        return _bound_names(target.value)
+    return []
+
+
+def _check_io_not_rebound(tree, where):
+    """The io parameter names the contract for the whole body.
+
+    Rebinding it would leave every later `io.x` reading as a port when it is not,
+    so say so rather than silently rewriting the wrong thing.
+    """
+    io_name = _io_param_name(tree)
+    for node in ast.walk(tree):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.For)):
+            targets = [node.target]
+        for target in targets:
+            # Only a binding of the name itself counts: `io.c = x` and
+            # `io.a[i] = x` write *through* it and are ordinary port writes.
+            for bound in _bound_names(target):
+                if bound == io_name:
+                    raise SPMWPlacementError(
+                        f"`{where}` rebinds `{io_name}` on line {node.lineno}. "
+                        f"That name is the contract for the whole body, so every "
+                        f"later `{io_name}.x` would read as a port it no longer is."
+                    )
 
 
 def _check_port_names(tree, iface, where):

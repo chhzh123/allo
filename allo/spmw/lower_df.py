@@ -977,6 +977,16 @@ class _BodyRewriter(ast.NodeTransformer):
         return self.visit(target)
 
     def visit_Subscript(self, node):
+        if (
+            self.site
+            and _is_site_rank(node.value, self.site)
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, int)
+        ):
+            # `site.rank[k]` is this site's k-th coordinate, which the kernel
+            # already has a name for; a tuple subscript would leave the tracer
+            # to fold it.
+            return ast.Name(id=self.pids[node.slice.value], ctx=ast.Load())
         port = self._port_of(node.value)
         if port is not None and port.protocol != STREAM:
             extra = [self.visit(e) for e in _index_elts(node.slice)]
