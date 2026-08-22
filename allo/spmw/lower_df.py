@@ -226,6 +226,35 @@ class Lowering:
 
     # -- rendering ---------------------------------------------------------
 
+    def written_tensors(self):
+        """Tensors some binding writes -- the outputs, in declared order."""
+        written = set()
+        for binding in self.graph.bindings:
+            target = binding.target
+            if isinstance(target, Tensor):
+                written.add(target.base.name)
+            if binding.kind in {"gather", "gather_mem"} and isinstance(
+                binding.target, Tensor
+            ):
+                written.add(binding.target.base.name)
+        return written
+
+    def _check_outputs_last(self):
+        """The backend takes its outputs at the end of the top signature."""
+        order = self.arg_order()
+        written = self.written_tensors()
+        seen_output = None
+        for name in order:
+            if name in written:
+                seen_output = name
+            elif seen_output is not None:
+                raise SPMWBindingError(
+                    f"the lowered program would take `{name}` after the output "
+                    f"`{seen_output}`, and the backend requires output arguments "
+                    f"at the end. This is a lowering bug: the kernels are emitted "
+                    f"in an order that puts a read after a write."
+                )
+
     def arg_order(self):
         """Region tensors in the order the dataflow backend will expect them.
 
@@ -235,15 +264,21 @@ class Lowering:
         order here lets the caller keep the fabric's own signature.
         """
         seen = []
-        for placement in self.placements:
-            for tensor in self._tensors_used(placement):
-                name = tensor.base.name
-                if name not in seen:
-                    seen.append(name)
-        for mover in self.movers:
-            name = mover.tensor.base.name
+
+        def note(name):
             if name not in seen:
                 seen.append(name)
+
+        # Must mirror the emission order in `_region`.
+        for mover in self.movers:
+            if mover.role == "load":
+                note(mover.tensor.base.name)
+        for placement in self.placements:
+            for tensor in self._tensors_used(placement):
+                note(tensor.base.name)
+        for mover in self.movers:
+            if mover.role != "load":
+                note(mover.tensor.base.name)
         return seen
 
     def render(self):
@@ -348,10 +383,19 @@ class Lowering:
                 )
             )
         body = self._stream_decls()
+        # Loaders, then the arrays, then drains. The backend builds the top
+        # signature from the union of the kernels' arguments in first-seen order
+        # and requires the outputs to come last, so the emission order is what
+        # decides whether the program is acceptable at all.
+        for mover in self.movers:
+            if mover.role == "load":
+                body.append(self._mover_kernel(mover))
         for placement in self.placements:
             body.append(self._placement_kernel(placement))
         for mover in self.movers:
-            body.append(self._mover_kernel(mover))
+            if mover.role != "load":
+                body.append(self._mover_kernel(mover))
+        self._check_outputs_last()
         fn = ast.FunctionDef(
             name="top",
             args=ast.arguments(

@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Systolic GEMM written in SPMW, checked against numpy and a dataflow oracle."""
 
+import tempfile
+
 import numpy as np
 import pytest
 
 import allo
+import allo.backend.hls as hls
 import allo.dataflow as df
 import allo.spmw as spmw
 from allo.ir.types import Stream, float32
@@ -141,18 +144,20 @@ def test_lowered_program_is_rolled():
     assert arms <= 9, f"expected at most one arm per signature class, got {arms}"
 
 
-def test_arguments_keep_the_fabric_s_order():
-    """The backend orders its top arguments by first-seen kernel, not by the
-    fabric's signature; the built module must still take the fabric's order."""
+def test_arguments_are_ordered_for_the_backend():
+    """Inputs first, outputs last, in the fabric's own order.
+
+    The backend builds its top signature from the union of the kernels'
+    arguments in first-seen order *and* requires the outputs at the end, so the
+    order the kernels are emitted in is what decides whether the program is
+    acceptable at all.
+    """
     from allo.spmw.lower_df import Lowering
 
     low = Lowering(spmw.elaborate(gemm))
-    declared = ["A", "B", "C"]
-    assert low.arg_order() != declared, (
-        "this fabric is meant to exercise the permutation; if the orders now "
-        "agree the test no longer proves anything"
-    )
-    # The public call takes A, B, C -- and gets the right answer.
+    assert low.arg_order() == ["A", "B", "C"]
+    assert low.written_tensors() == {"C"}
+
     A, B = _operands(seed=5)
     C = np.zeros((M, N), dtype=np.float32)
     spmw.build(gemm, target="simulator")(A, B, C)
@@ -163,6 +168,21 @@ def test_wrong_arity_is_reported():
     A, B = _operands()
     with pytest.raises(spmw.SPMWPlacementError, match="expected 3 arrays"):
         spmw.build(gemm, target="ref")(A, B)
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+def test_hls_csim_matches_numpy():
+    """The emitted HLS C++ compiles and computes the right thing.
+
+    This is the first level that exercises the HLS path at all, and it is what
+    the argument ordering has to satisfy: the backend takes its outputs at the
+    end of the top signature.
+    """
+    A, B = _operands()
+    C = np.zeros((M, N), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spmw.build(gemm, target="vitis_hls", mode="csim", project=tmpdir)(A, B, C)
+    np.testing.assert_allclose(C, A @ B, atol=1e-5)
 
 
 def _gemm_of(size):
