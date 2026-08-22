@@ -123,6 +123,30 @@ def test_a_destination_bound_whole_must_be_covered_whole():
         spmw.elaborate(bad)
 
 
+def test_unimplemented_knobs_are_refused_rather_than_ignored():
+    """A knob this path does not honour must not be quietly dropped."""
+
+    @spmw.fabric
+    def folded(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        P = spmw.place(pe, on=spmw.mesh(MacIO, (M, N)), fold={1: 2})
+        spmw.stream_in(A, into=P.west, index=(P.rows, ...))
+        spmw.stream_in(B, into=P.north, index=(..., P.cols))
+        spmw.gather(C, from_=P.c)
+
+    with pytest.raises(spmw.SPMWPlacementError, match="does not realise"):
+        spmw.build(folded, target="ref")
+
+    @spmw.fabric
+    def packed(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        P = spmw.place(pe, on=spmw.mesh(MacIO, (M, N)))
+        spmw.stream_in(A, into=P.west, index=(P.rows, ...))
+        spmw.stream_in(B, into=P.north, index=(..., P.cols))
+        spmw.gather(C, from_=P.c, pack=lambda x: x)
+
+    with pytest.raises(spmw.SPMWBindingError, match="pack= is not implemented"):
+        spmw.elaborate(packed)
+
+
 # --------------------------------------------------------------------------
 # Phases
 # --------------------------------------------------------------------------

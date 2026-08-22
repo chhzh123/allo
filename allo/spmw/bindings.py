@@ -90,6 +90,12 @@ def gather(dest, from_, index=None, pack=None):
     where = f"gather from `{side.placement.name}.{side.port.name}` into `{tensor.name}`"
 
     block = _block_of(side, tensor, where)
+    if pack is not None:
+        raise SPMWBindingError(
+            f"{where}: pack= is not implemented. It decides how per-site values "
+            f"are packed into a word, so accepting it and ignoring it would give "
+            f"you a differently-shaped result than you asked for."
+        )
     imap, extent = _resolve_drain_map(index, side, tensor, where, block)
     seen = bind_check(imap, side, tensor, where, extent=extent, write=True, block=block)
     if isinstance(imap, SliceMap):
@@ -116,6 +122,12 @@ def scatter(source, into, index=None, unpack=None):
     tensor = _as_source(source, "scatter")
     where = f"scatter `{tensor.name}` into `{bundle.placement.name}.{bundle.port.name}`"
     block = _block_of(bundle, tensor, where)
+    if unpack is not None:
+        raise SPMWBindingError(
+            f"{where}: unpack= is not implemented. It decides how a packed word "
+            f"is split across sites, so accepting it and ignoring it would feed "
+            f"the array something other than what you asked for."
+        )
     imap, extent = _resolve_feed_map(index, bundle, tensor, where, block)
     bind_check(imap, bundle, tensor, where, extent=extent, write=False, block=block)
     return fab.record(

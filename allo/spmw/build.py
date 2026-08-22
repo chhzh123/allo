@@ -7,6 +7,7 @@ existing backends.  The targets are the dataflow ones, unchanged:
 ``simulator`` for functional checks, ``vitis_hls`` and friends for hardware.
 """
 
+from .errors import SPMWPlacementError
 from .graph import elaborate
 from .lower_df import build_dataflow, render_source
 
@@ -43,6 +44,25 @@ def build(
     module.spmw_graph = graph
     module.spmw_source = top._spmw_source  # pylint: disable=protected-access
     return module
+
+
+def _check_realised(graph):
+    """Refuse to build a placement whose knobs this path does not honour.
+
+    ``fold`` and ``unroll`` decide how much of the grid is space and how much is
+    time, so a build that quietly ignored them would hand back a different design
+    from the one asked for.
+    """
+    for placement in graph.placements:
+        for name in ("fold", "unroll", "layout"):
+            value = getattr(placement, name, None)
+            if value:
+                raise SPMWPlacementError(
+                    f"`{placement.name}` was placed with {name}={value!r}, which "
+                    f"this path does not realise yet. It elaborates and checks, "
+                    f"but the build would silently ignore the knob -- drop it to "
+                    f"build the fully spatial design."
+                )
 
 
 def source(fabric_fn, tensor_specs=None):
