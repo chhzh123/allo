@@ -303,6 +303,64 @@ def test_a_stationary_map_is_bounds_checked():
         spmw.elaborate(bad)
 
 
+def test_a_discarded_put_keeps_the_reads_inside_it():
+    """`put` on an unbound Out is the discard, not the statement around it."""
+
+    class Fwd(spmw.Interface):
+        inp = spmw.In(float32)
+        out = spmw.Out(float32)
+        c = spmw.MemOut(float32)
+
+    @spmw.unit
+    def relay(io: Fwd):
+        acc: float32 = 0
+        for k in range(4):
+            io.out.put(io.inp.get())  # `out` is unbound at the tail site
+            acc += io.inp.get()
+        io.c = acc
+
+    @spmw.fabric
+    def chain(X: float32[8], C: float32[1]):
+        P = spmw.place(
+            relay, on=spmw.Topology(Fwd, (1,), link=lambda i: {}, name="single")
+        )
+        spmw.stream_in(X, into=P.inp, index=(...,))
+        spmw.gather(C, from_=P.c)
+
+    X = np.arange(8, dtype=np.float32)
+    got = np.zeros(1, dtype=np.float32)
+    spmw.build(chain, target="ref")(X, got)
+    # Every other token is consumed by the discarded put, so the sum is of the
+    # odd-indexed ones; dropping the statement would sum the first four instead.
+    assert got[0] == X[1] + X[3] + X[5] + X[7]
+
+    text = spmw.source(chain)
+    assert "_drop0" in text, "the read inside the discarded put must survive"
+
+
+def test_a_bare_gather_from_a_stream_bundle():
+    """Site axes leading, extents slot-for-slot -- the positional identity."""
+
+    class SIO(spmw.Interface):
+        inp = spmw.In(float32)
+        out = spmw.Out(float32)
+
+    @spmw.unit
+    def double(io: SIO):
+        io.out.put(io.inp.get() * 2.0)
+
+    @spmw.fabric
+    def drain(X: float32[3], Y: float32[3]):
+        P = spmw.place(double, on=spmw.Grid((3,), SIO))
+        spmw.stream_in(X, into=P.inp, index=(P.rows,))
+        spmw.gather(Y, from_=P.out)
+
+    X = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    Y = np.zeros(3, dtype=np.float32)
+    spmw.build(drain, target="ref")(X, Y)
+    np.testing.assert_allclose(Y, X * 2.0)
+
+
 # --------------------------------------------------------------------------
 # Reconfiguration is an argument, not a rewrite
 # --------------------------------------------------------------------------

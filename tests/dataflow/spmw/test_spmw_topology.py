@@ -317,6 +317,62 @@ def test_a_missing_component_port_is_named():
         spmw.place(tiny, on=spmw.Topology(Big, (2,), link=None))
 
 
+def test_one_port_may_take_part_in_two_families():
+    """A port wired by different links at different sites must still address the
+    right array at each of them."""
+    from allo.spmw import channels as ch
+
+    class AltIO(spmw.Interface):
+        inp = spmw.In(float32)
+        a_out = spmw.Out(float32)
+        b_out = spmw.Out(float32)
+
+    @spmw.unit
+    def alt(io: AltIO):
+        v = io.inp.get()
+        io.a_out.put(v)
+        io.b_out.put(v)
+
+    def links(i):
+        return {
+            (AltIO.a_out if i % 2 == 0 else AltIO.b_out): spmw.to((i + 1,), AltIO.inp)
+        }
+
+    P = spmw.place(alt, on=spmw.Topology(AltIO, (4,), link=links))
+    res = ch.resolve(P, "p")
+    # `inp` is fed by a different family at even and odd sites.
+    assert res.site_family[((1,), AltIO.inp)] != res.site_family[((2,), AltIO.inp)]
+
+
+def test_family_names_are_injective():
+    """`a`/`b_c` and `a_b`/`c` spell the same name; they must not merge."""
+    from allo.spmw import channels as ch
+
+    class CollideIO(spmw.Interface):
+        a = spmw.Out(float32)
+        b_c = spmw.In(float32)
+        a_b = spmw.Out(float32)
+        c = spmw.In(float32)
+
+    @spmw.unit
+    def cell(io: CollideIO):
+        io.a.put(io.b_c.get())
+        io.a_b.put(io.c.get())
+
+    P = spmw.place(
+        cell,
+        on=spmw.Topology(
+            CollideIO,
+            (6,),
+            link=lambda i: {
+                CollideIO.a: spmw.to((i + 1,), CollideIO.b_c),
+                CollideIO.a_b: spmw.to((i + 2,), CollideIO.c),
+            },
+        ),
+    )
+    assert len(ch.resolve(P, "p").families) == 2
+
+
 def test_grid_accepts_a_bare_extent():
     class Small(spmw.Interface):
         a = spmw.In(float32)

@@ -18,7 +18,7 @@ import numbers
 from .bricks import Brick, Tensor
 from .errors import SPMWBindingError, SPMWMemoryError
 from .graph import Binding, Phase, bind_check, current_fabric, make_map
-from .index import SliceMap
+from .index import IndexMap, SliceMap
 from .placement import Bundle, MemGrid
 from .ports import IN, OUT, READ, STREAM, WRITE
 
@@ -407,6 +407,19 @@ def _positional_identity(side, tensor, where):
     grid = tuple(side.placement.grid)
     block = tuple(side.port.shape)
     shape = tuple(tensor.shape)
+
+    if side.port.protocol == STREAM:
+        # A stream drain moves one token per site, so the identity is an element
+        # map over the site axes rather than a slice: `...` never appears, and
+        # the block covers the trailing axes as everywhere else.
+        if shape != grid + block:
+            raise SPMWBindingError(
+                f"{where}: index= was omitted, which means the full positional "
+                f"identity -- site axes leading {list(grid)}, block axes trailing "
+                f"{list(block)}, so {list(grid + block)}. `{tensor.name}` is "
+                f"{list(shape)}. Spell the tuple, or match the shapes."
+            )
+        return IndexMap(tuple(side.placement.axes), len(grid))
 
     if not block and shape == grid:
         axis_of = tuple(range(len(grid)))

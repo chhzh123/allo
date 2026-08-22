@@ -652,7 +652,7 @@ class Lowering:
         pids = [f"_q{i}" for i in range(len(geom.dense))]
         body = [self._pid_assign(pids)]
 
-        site_exprs = geom.site_exprs(pids)
+        site_exprs = geom.site_exprs(pids, inject=self._inject)
         member = geom.member_expr(pids)
         chan = ast.Subscript(
             value=ast.Name(id=mover.family.name, ctx=ast.Load()),
@@ -1013,7 +1013,13 @@ class _BodyRewriter(ast.NodeTransformer):
 
 
 class _Geometry:
-    """How a bundle's members are addressed by a mover kernel's pids."""
+    """How a bundle's members are addressed by a mover kernel's pids.
+
+    When the bundle's sites are a product of arithmetic progressions, a member
+    is addressed by its coordinates. Otherwise it is walked flatly, one pid over
+    the member list, with the site read from a table -- which is the escape
+    hatch the design reserves for an unbound set that has no dense shape.
+    """
 
     def __init__(self, bundle):
         self.bundle = bundle
@@ -1023,11 +1029,35 @@ class _Geometry:
             values = sorted({s[a] for s in bundle.sites})
             step = _progression(values)
             self.axes.append((values, step))
-        self.varying = [a for a in range(self.rank) if len(self.axes[a][0]) > 1]
-        self.dense = [len(self.axes[a][0]) for a in self.varying] or [1]
+        self.flat = not bundle.is_dense or any(
+            self.axes[a][1] is None
+            for a in range(self.rank)
+            if len(self.axes[a][0]) > 1
+        )
+        if self.flat:
+            self.varying = []
+            self.dense = [max(1, len(bundle.sites))]
+        else:
+            self.varying = [a for a in range(self.rank) if len(self.axes[a][0]) > 1]
+            self.dense = [len(self.axes[a][0]) for a in self.varying] or [1]
 
-    def site_exprs(self, pids):
+    def site_exprs(self, pids, inject=None):
         """Per grid axis, the source expression giving this member's coordinate."""
+        if self.flat:
+            table = tuple(tuple(int(c) for c in site) for site in self.bundle.sites)
+            name = inject("SITE_", table)
+            return [
+                ast.Subscript(
+                    value=ast.Subscript(
+                        value=ast.Name(id=name, ctx=ast.Load()),
+                        slice=ast.Name(id=pids[0], ctx=ast.Load()),
+                        ctx=ast.Load(),
+                    ),
+                    slice=ast.Constant(value=a),
+                    ctx=ast.Load(),
+                )
+                for a in range(self.rank)
+            ]
         out = []
         for a in range(self.rank):
             values, step = self.axes[a]
@@ -1049,6 +1079,8 @@ class _Geometry:
 
     def member_expr(self, pids):
         """The flat position of this member, row-major over the dense shape."""
+        if self.flat:
+            return ast.Name(id=pids[0], ctx=ast.Load())
         node = None
         for k, extent in enumerate(self.dense):
             term = (
@@ -1106,6 +1138,8 @@ class _Geometry:
 
     def site_of(self, position):
         """The site a flat member position names."""
+        if self.flat:
+            return self.bundle.sites[position]
         coords = []
         rem = position
         strides = []
@@ -1227,7 +1261,7 @@ def _lambda_table(mover, geom):
             idx = mover.imap.eval(env, step=t if mover.imap.has_time else None)
             steps.append(tuple(int(v) for v in idx))
         rows.append(tuple(steps))
-    return _reshape(tuple(rows), geom.dense)
+    return tuple(rows) if geom.flat else _reshape(tuple(rows), geom.dense)
 
 
 def _reshape(flat, dense):

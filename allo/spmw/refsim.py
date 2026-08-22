@@ -78,7 +78,8 @@ class _StreamIn:
     def get(self):
         if self.chan is None:
             # A rank-0 source is the constant sequence: it folds into the site.
-            return self.seed
+            # On a port carrying a block, the constant fills one.
+            return self.seed() if callable(self.seed) else self.seed
         return _scalar(self.sim.recv(self.chan, self.who))
 
     def put(self, value):
@@ -143,6 +144,15 @@ def _scalar(value):
     if isinstance(value, np.integer):
         return int(value)
     return value
+
+
+def _block_seed(value, sym):
+    """A constant on a block-carrying port fills a fresh block each time."""
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    dtype = _numpy_dtype(sym.dtype)
+    shape = tuple(sym.shape)
+    return lambda: np.full(shape, value, dtype=dtype)
 
 
 def _store_into(array, index, value):
@@ -463,6 +473,8 @@ class RefSim:
                     if sym.direction == IN:
                         chan = chans["read"].get((placement, site, sym))
                         seed = self.seeds.get((placement, sym))
+                        if seed is not None and sym.shape:
+                            seed = _block_seed(seed, sym)
                         ports[sym.name] = _StreamIn(chan, who, seed, self)
                     else:
                         ports[sym.name] = _StreamOut(
