@@ -141,6 +141,30 @@ def test_lowered_program_is_rolled():
     assert arms <= 9, f"expected at most one arm per signature class, got {arms}"
 
 
+def test_arguments_keep_the_fabric_s_order():
+    """The backend orders its top arguments by first-seen kernel, not by the
+    fabric's signature; the built module must still take the fabric's order."""
+    from allo.spmw.lower_df import Lowering
+
+    low = Lowering(spmw.elaborate(gemm))
+    declared = ["A", "B", "C"]
+    assert low.arg_order() != declared, (
+        "this fabric is meant to exercise the permutation; if the orders now "
+        "agree the test no longer proves anything"
+    )
+    # The public call takes A, B, C -- and gets the right answer.
+    A, B = _operands(seed=5)
+    C = np.zeros((M, N), dtype=np.float32)
+    spmw.build(gemm, target="simulator")(A, B, C)
+    np.testing.assert_allclose(C, A @ B, atol=1e-5)
+
+
+def test_wrong_arity_is_reported():
+    A, B = _operands()
+    with pytest.raises(spmw.SPMWPlacementError, match="expected 3 arrays"):
+        spmw.build(gemm, target="ref")(A, B)
+
+
 def _gemm_of(size):
     """A GEMM fabric at a chosen size -- the grid is a parameter, not structure."""
 

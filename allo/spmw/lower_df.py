@@ -219,6 +219,26 @@ class Lowering:
 
     # -- rendering ---------------------------------------------------------
 
+    def arg_order(self):
+        """Region tensors in the order the dataflow backend will expect them.
+
+        ``_build_top`` builds the top function's signature from the union of the
+        kernels' arguments in *first-seen* order, which is the order the kernels
+        are emitted in -- not the order the fabric declares. Computing the same
+        order here lets the caller keep the fabric's own signature.
+        """
+        seen = []
+        for placement in self.placements:
+            for tensor in self._tensors_used(placement):
+                name = tensor.base.name
+                if name not in seen:
+                    seen.append(name)
+        for mover in self.movers:
+            name = mover.tensor.base.name
+            if name not in seen:
+                seen.append(name)
+        return seen
+
     def render(self):
         """The generated module's source."""
         body = []
@@ -1321,6 +1341,8 @@ def build_dataflow(graph, keep=None):
     top = module.top
     top._spmw_source = src
     top._spmw_path = path
+    top._spmw_arg_order = low.arg_order()
+    top._spmw_declared = [t.name for t in graph.tensors.values()]
     return top
 
 
