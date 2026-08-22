@@ -169,5 +169,44 @@ class Tensor:
     def rank(self):
         return len(self.shape)
 
+    @property
+    def base(self):
+        return self
+
+    @property
+    def offsets(self):
+        return (0,) * len(self.shape)
+
     def __repr__(self):
         return f"<tensor {self.name} {self.dtype}{list(self.shape)}>"
+
+
+class TensorView(Tensor):
+    """One site's slice of a parent tensor -- a view, not a copy.
+
+    A fabric placed on a topology receives, at each site, the piece of the
+    parent's tensor that the parent's ``shard`` assigns it.  The piece is
+    addressed in its own coordinates, so the sub-fabric is written as though it
+    owned a whole tensor; the offset is added when the access is emitted.
+    """
+
+    __slots__ = ("_base", "_offsets", "site")
+
+    def __init__(self, base, offsets, shape, site=None):
+        super().__init__(base.name, base.dtype, shape, base.index)
+        self._base = base.base
+        parent = base.offsets
+        self._offsets = tuple(p + o for p, o in zip(parent, offsets))
+        self.site = site
+
+    @property
+    def base(self):
+        return self._base
+
+    @property
+    def offsets(self):
+        return self._offsets
+
+    def __repr__(self):
+        span = ", ".join(f"{o}:{o + n}" for o, n in zip(self._offsets, self.shape))
+        return f"<view {self.name}[{span}]>"

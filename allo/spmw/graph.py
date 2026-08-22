@@ -10,7 +10,7 @@ result against the rules the design states.
 
 import inspect
 
-from .bricks import Brick, Tensor
+from .bricks import Brick, Tensor, TensorView
 from .component import Fabric
 from .errors import (
     SPMWBindingError,
@@ -128,10 +128,104 @@ def elaborate(fabric, tensor_specs=None):
     _STACK.append(graph)
     try:
         fabric.fn(*tensors.values())
+        expand(graph)
     finally:
         _STACK.pop()
     check(graph)
     return graph
+
+
+def expand(graph):
+    """Replace each placed fabric by running its body once per site.
+
+    A fabric placed on a topology is a composite component: what it exposes is
+    the same kind of thing a unit declares, so expanding it is just running its
+    declarative body with ``io`` bound to the slice this site owns. The
+    placements and bindings it makes land in this same graph, which is what makes
+    hierarchy need no new mechanism.
+    """
+    pending = [
+        p
+        for p in graph.placements
+        if isinstance(p.component, Fabric) and not p.expanded
+    ]
+    for placement in pending:
+        placement.expanded = True
+        for site in placement.sites():
+            io = _SubIO(_site_views(graph, placement, site))
+            placement.component.fn(io)
+    if pending:
+        # A sub-fabric may itself place one, so keep going until none are left.
+        expand(graph)
+
+
+def _site_views(graph, placement, site):
+    """The slice of each parent tensor that one site of a placed fabric owns."""
+    views = {}
+    for port in placement.iface.ports():
+        binding = _binding_for(graph, placement, port)
+        if binding is None:
+            raise SPMWBindingError(
+                f"`{placement.name}.{port.name}` is a port of a placed fabric but "
+                f"nothing binds it, so the site has no data to work on."
+            )
+        source = (
+            binding.source
+            if isinstance(binding.target, (Bundle, MemGrid))
+            else binding.target
+        )
+        views[port.name] = _slice_of(source, binding.imap, site, port)
+    return views
+
+
+def _binding_for(graph, placement, port):
+    for binding in graph.bindings:
+        for side in (binding.source, binding.target):
+            if (
+                isinstance(side, (Bundle, MemGrid))
+                and side.placement is placement
+                and side.port is port
+            ):
+                return binding
+    return None
+
+
+def _slice_of(source, imap, site, port):
+    if not isinstance(source, (Tensor, TensorView)):
+        raise SPMWBindingError(
+            f"`{port.name}` of a placed fabric is bound to {source!r}, which is "
+            f"not a tensor; a sub-fabric receives a slice of one."
+        )
+    if imap is None or not hasattr(imap, "slice_for"):
+        raise SPMWBindingError(
+            f"`{port.name}` of a placed fabric needs a slice binding -- spmw.shard "
+            f"with dim= or the positional identity -- not an element-wise map."
+        )
+    spans = imap.slice_for(site)
+    return TensorView(
+        source,
+        tuple(start for start, _ in spans),
+        tuple(size for _, size in spans),
+        site=site,
+    )
+
+
+class _SubIO:
+    """The ``io`` a placed fabric's body receives: one slice per declared port."""
+
+    __slots__ = ("_views",)
+
+    def __init__(self, views):
+        object.__setattr__(self, "_views", views)
+
+    def __getattr__(self, name):
+        views = object.__getattribute__(self, "_views")
+        if name in views:
+            return views[name]
+        raise AttributeError(
+            f"a placed fabric's io has no port `{name}`; it declares "
+            f"{', '.join(views) or '(none)'}."
+        )
 
 
 def _tensor_args(fabric, tensor_specs):

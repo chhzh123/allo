@@ -321,9 +321,10 @@ What is checked
 Current limits
 ==============
 
-* Hierarchical placement -- a ``fabric`` with ``io=`` placed on a topology --
-  elaborates and is checked, but is not lowered yet.
 * ``fold``/``unroll`` at ``place`` are carried but not yet realised.
+* A placed fabric is expanded per site, so a tiled design emits one kernel per
+  tile rather than instantiating one engine. That is correct but not yet the
+  hierarchical IP reuse the model is built for.
 * The lowered program is a dataflow region, so HLS still schedules per instance.
   Keeping the rolled form all the way to codegen is the next step, and is what
   turns the constant signature count into a constant synthesis time.

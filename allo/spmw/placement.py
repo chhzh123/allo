@@ -141,6 +141,7 @@ class Placement:
             for i, extent in enumerate(self.grid)
         )
         self.roles = {}
+        self.expanded = False
         self._bundles = {}
         self._memgrids = {}
         self._bind_roles()

@@ -79,9 +79,18 @@ class Lowering:
 
     # -- planning ----------------------------------------------------------
 
+    @property
+    def placements(self):
+        """The placements that still instantiate something.
+
+        A placed fabric was replaced by running its body per site, so it emits
+        nothing itself.
+        """
+        return [p for p in self.graph.placements if not p.expanded]
+
     def _plan(self):
         self._capture_bodies()
-        for n, placement in enumerate(self.graph.placements):
+        for n, placement in enumerate(self.placements):
             prefix = _ident(placement.name)
             if prefix in self.kernel_names.values():
                 prefix = f"{prefix}_{n}"
@@ -102,7 +111,7 @@ class Lowering:
         in; re-emitting it elsewhere has to bring those along, or the tracer
         resolves them against the wrong scope.
         """
-        for placement in self.graph.placements:
+        for placement in self.placements:
             component = placement.component
             bodies = [component] + list(getattr(component, "roles", []))
             for body in bodies:
@@ -115,6 +124,9 @@ class Lowering:
         self.reserved = set(self.injected)
 
     def _plan_binding(self, binding):
+        for side in (binding.source, binding.target):
+            if isinstance(side, (Bundle, MemGrid)) and side.placement.expanded:
+                return  # consumed by the expansion
         kind = binding.kind
         if kind in ("stream_in", "scatter"):
             self._plan_mover(binding, binding.target, binding.source, "load")
@@ -265,7 +277,7 @@ class Lowering:
                 )
             )
         body = self._stream_decls()
-        for placement in self.graph.placements:
+        for placement in self.placements:
             body.append(self._placement_kernel(placement))
         for mover in self.movers:
             body.append(self._mover_kernel(mover))
@@ -410,7 +422,7 @@ class Lowering:
         }
         if tensors:
             keywords["args"] = ast.List(
-                elts=[ast.Name(id=t.name, ctx=ast.Load()) for t in tensors],
+                elts=[ast.Name(id=t.base.name, ctx=ast.Load()) for t in tensors],
                 ctx=ast.Load(),
             )
         return _call("df.kernel", [], keywords=keywords)
@@ -451,7 +463,9 @@ class Lowering:
                 continue
             for side in (binding.source, binding.target):
                 side = self.resolve_storage(side)
-                if isinstance(side, Tensor) and side not in used:
+                if isinstance(side, Tensor) and not any(
+                    u.base is side.base for u in used
+                ):
                     used.append(side)
         return used
 
@@ -544,8 +558,8 @@ class Lowering:
             axis: ast.Name(id=pid, ctx=ast.Load())
             for axis, pid in zip(placement.axes, pids)
         }
-        subs = _map_subscripts(binding.imap, names, placement, extra)
-        target = ast.Name(id=f"local_{source.name}", ctx=ast.Load())
+        subs = _offset(_map_subscripts(binding.imap, names, placement, extra), source)
+        target = ast.Name(id=f"local_{source.base.name}", ctx=ast.Load())
         idx = ast.Tuple(elts=subs, ctx=ast.Load()) if len(subs) > 1 else subs[0]
         return ast.Subscript(value=target, slice=idx, ctx=ast.Load())
 
@@ -617,8 +631,9 @@ class Lowering:
         loop_var = "_t"
         extent = mover.extent if mover.extent is not None else 1
         subs = self._mover_subscripts(mover, names, loop_var, geom, pids)
+        subs = _offset(subs, tensor)
         elem = ast.Subscript(
-            value=ast.Name(id=f"local_{tensor.name}", ctx=ast.Load()),
+            value=ast.Name(id=f"local_{tensor.base.name}", ctx=ast.Load()),
             slice=ast.Tuple(elts=subs, ctx=ast.Load()) if len(subs) > 1 else subs[0],
             ctx=ast.Load(),
         )
@@ -634,7 +649,7 @@ class Lowering:
         args = [
             ast.arg(
                 arg=f"local_{tensor.name}",
-                annotation=self.type_ann(tensor.dtype, tensor.shape),
+                annotation=self.type_ann(tensor.dtype, tensor.base.shape),
             )
         ]
         return ast.FunctionDef(
@@ -1165,6 +1180,20 @@ def _map_subscripts(imap, names, placement, extra):
     if extra:
         subs.extend(extra)
     return subs
+
+
+def _offset(subs, tensor):
+    """Shift a view's own subscripts into the parent array they alias."""
+    offsets = getattr(tensor, "offsets", None)
+    if not offsets or not any(offsets):
+        return subs
+    out = []
+    for k, sub in enumerate(subs):
+        off = offsets[k] if k < len(offsets) else 0
+        if off:
+            sub = ast.BinOp(left=sub, op=ast.Add(), right=ast.Constant(value=int(off)))
+        out.append(sub)
+    return out
 
 
 def _src_names(names):

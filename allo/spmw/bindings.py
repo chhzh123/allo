@@ -460,7 +460,14 @@ def _dim_map(dim, side, tensor, where):
     axis_of, sizes = [], []
     for t, bound in enumerate(shape):
         if t in dims:
-            g = dims.index(t)
+            # dim= names tensor axes, each distributed along the grid axis of the
+            # same index; a permuted mapping is index='s job, not this one's.
+            g = t
+            if g >= len(grid):
+                raise SPMWBindingError(
+                    f"{where}: dim={dim} names tensor axis {t}, but the placement "
+                    f"grid has rank {len(grid)}. Use index= for a permuted mapping."
+                )
             size = block[t] if t < len(block) else 1
             if grid[g] * size != bound:
                 raise SPMWBindingError(

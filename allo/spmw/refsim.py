@@ -19,7 +19,7 @@ import threading
 from .bricks import Brick, Tensor
 from .errors import SPMWError
 from .index import SliceMap
-from .placement import Bundle
+from .placement import Bundle, MemGrid
 from .ports import IN, OUT, STREAM
 
 _NUMPY_OF = {
@@ -243,6 +243,11 @@ class RefSim:
         self.links = []
         self.fills = {}
         for binding in self.graph.bindings:
+            if any(
+                isinstance(side, (Bundle, MemGrid)) and side.placement.expanded
+                for side in (binding.source, binding.target)
+            ):
+                continue  # consumed by the expansion
             kind = binding.kind
             if kind in ("stream_in", "scatter"):
                 self.movers.append(("load", binding, binding.target, binding.source))
@@ -330,6 +335,8 @@ class RefSim:
         threads = []
 
         for placement in self.graph.placements:
+            if placement.expanded:
+                continue  # replaced by running its body per site
             for site in placement.sites():
                 threads.append(
                     threading.Thread(
@@ -449,7 +456,7 @@ class RefSim:
 
         try:
             who = f"{bundle.placement.name}.{bundle.port.name}-{role}@{site}"
-            array = data[tensor.name]
+            array = _array_of(tensor, data)
             block = binding.extras.get("block", ())
             extent = binding.extras.get("extent") or 1
             env = dict(bundle.placement.env(site), __coords__=site)
@@ -484,7 +491,7 @@ class RefSim:
         )
         if isinstance(source, Brick):
             return source.init
-        array = data[source.name] if isinstance(source, Tensor) else source
+        array = _array_of(source, data) if isinstance(source, Tensor) else source
         view = _view(array, binding.imap, placement, site, sym)
         if sym.shape == ():
             holder, index = view
@@ -492,6 +499,15 @@ class RefSim:
                 return _Cell(holder, index)
             return _scalar(holder[index])
         return view
+
+
+def _array_of(tensor, data):
+    """The numpy array a tensor names -- for a view, a real slice of its parent."""
+    array = data[tensor.base.name]
+    offsets = tensor.offsets
+    if not any(offsets):
+        return array
+    return array[tuple(slice(o, o + n) for o, n in zip(offsets, tensor.shape))]
 
 
 def _view(array, imap, placement, site, sym):
