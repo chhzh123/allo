@@ -35,6 +35,10 @@ class Family:
         self.shape = tuple(shape)
         self.offset = None  # AFFINE: destination displacement from the writer
         self.slots = {}  # TABLE: (site, port) -> channel id
+        # Per port, the bundle whose members this family indexes. When that
+        # bundle's sites form a product of arithmetic progressions, a site can
+        # compute its own member position instead of looking it up.
+        self.geometry = {}
         self.count = 0
 
     def __repr__(self):

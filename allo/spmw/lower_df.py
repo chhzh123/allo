@@ -176,10 +176,12 @@ class Lowering:
         )
         for pos, site in enumerate(bundle.sites):
             fam.slots[(site, port)] = pos
+        fam.geometry[port] = _geometry(bundle)
         fam.count = len(bundle)
         if writer is not None:
             for pos, site in enumerate(writer.sites):
                 fam.slots[(site, writer.port)] = pos
+            fam.geometry[writer.port] = _geometry(writer)
         self.bind_families[key] = fam
         return fam
 
@@ -506,13 +508,18 @@ class Lowering:
                 )
             idx = ast.Tuple(elts=elts, ctx=ast.Load()) if len(elts) > 1 else elts[0]
         else:
-            table = _slot_table(placement.grid, fam, port)
-            tname = self._inject(f"CH_{fam.name}_{port.name}_", table)
-            idx = ast.Name(id=tname, ctx=ast.Load())
-            for pid in pids:
-                idx = ast.Subscript(
-                    value=idx, slice=ast.Name(id=pid, ctx=ast.Load()), ctx=ast.Load()
-                )
+            geom = fam.geometry.get(port)
+            idx = geom.member_from_pids(pids) if geom is not None else None
+            if idx is None:
+                table = _slot_table(placement.grid, fam, port)
+                tname = self._inject(f"CH_{fam.name}_{port.name}_", table)
+                idx = ast.Name(id=tname, ctx=ast.Load())
+                for pid in pids:
+                    idx = ast.Subscript(
+                        value=idx,
+                        slice=ast.Name(id=pid, ctx=ast.Load()),
+                        ctx=ast.Load(),
+                    )
         return ast.Subscript(
             value=ast.Name(id=fam.name, ctx=ast.Load()), slice=idx, ctx=ast.Load()
         )
@@ -970,6 +977,41 @@ class _Geometry:
                     op=ast.Add(),
                     right=term,
                 )
+            )
+        return node if node is not None else ast.Constant(value=0)
+
+    def member_from_pids(self, pids):
+        """This site's member position, as an expression over the kernel's pids.
+
+        Returns None when the bundle is not a product of arithmetic progressions,
+        in which case a lookup is the honest spelling.
+        """
+        if not self.bundle.is_dense:
+            return None
+        strides, acc = [], 1
+        for extent in reversed(self.dense):
+            strides.insert(0, acc)
+            acc *= extent
+        node = None
+        for k, axis in enumerate(self.varying):
+            values, step = self.axes[axis]
+            if step is None:
+                return None
+            term = ast.Name(id=pids[axis], ctx=ast.Load())
+            if values[0]:
+                term = ast.BinOp(
+                    left=term, op=ast.Sub(), right=ast.Constant(value=int(values[0]))
+                )
+            if step != 1:
+                term = ast.BinOp(
+                    left=term, op=ast.FloorDiv(), right=ast.Constant(value=int(step))
+                )
+            if strides[k] != 1:
+                term = ast.BinOp(
+                    left=term, op=ast.Mult(), right=ast.Constant(value=int(strides[k]))
+                )
+            node = (
+                term if node is None else ast.BinOp(left=node, op=ast.Add(), right=term)
             )
         return node if node is not None else ast.Constant(value=0)
 
