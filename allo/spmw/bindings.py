@@ -250,43 +250,6 @@ def copy(src, into, how=None):
 # ---------------------------------------------------------------------------
 
 
-def _check_tiles(seen, tensor, where, block=()):
-    """Every output element must have exactly one writer.
-
-    ``check_bounds`` already rejected two writers landing on one element; what
-    remains is exhaustiveness, so a destination bound whole but covered only in
-    part is named here rather than silently half-written.
-    """
-    if not seen:
-        # A SliceMap validated itself arithmetically.
-        return
-    total = 1
-    for bound in tensor.shape:
-        total *= bound
-    per_site = 1
-    for bound in block:
-        per_site *= bound
-    written = len(seen) * per_site
-    if written != total:
-        missing = _first_gap(seen, tensor.shape)
-        raise SPMWBindingError(
-            f"{where}: {written} of {total} elements of `{tensor.name}` have a "
-            f"writer. {missing} Every output element must have exactly one "
-            f"writer -- supply the rest from another phase, a wider "
-            f"instantiation, or a second placement owning the other slice."
-        )
-
-
-def _first_gap(seen, shape):
-    """Name the uncovered range on the first axis that has one."""
-    for axis, bound in enumerate(shape):
-        hit = {idx[axis] for idx in seen}
-        gap = [v for v in range(bound) if v not in hit]
-        if gap:
-            return f"Axis {axis} is uncovered at [{gap[0]}, {gap[-1] + 1})."
-    return ""
-
-
 def _is_scalar(value):
     return isinstance(value, numbers.Number)
 

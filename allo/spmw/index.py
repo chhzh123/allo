@@ -470,12 +470,3 @@ def to_source(expr, names, time=None):
         rhs = to_source(expr.rhs, names, time)
         return f"({lhs} {expr.op} {rhs})"
     raise SPMWBindingError(f"cannot render {expr!r} as source")
-
-
-def renderable(expr, names):
-    """Whether ``expr`` can be rendered with the axis spellings in ``names``."""
-    try:
-        to_source(expr, names, time="__t")
-        return True
-    except SPMWBindingError:
-        return False

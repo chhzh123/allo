@@ -21,6 +21,7 @@ def customize(fabric_fn, tensor_specs=None, keep=None, verbose=False):
     import allo.dataflow as df  # pylint: disable=import-outside-toplevel
 
     graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
+    _check_realised(graph)
     top = build_dataflow(graph, keep=keep)
     if verbose:
         print(top._spmw_source)  # pylint: disable=protected-access
@@ -33,10 +34,21 @@ def customize(fabric_fn, tensor_specs=None, keep=None, verbose=False):
 def build(
     fabric_fn, target="simulator", tensor_specs=None, keep=None, verbose=False, **kwargs
 ):
-    """Elaborate, lower, and compile a fabric for ``target``."""
+    """Elaborate, lower, and compile a fabric for ``target``.
+
+    ``target="ref"`` runs the graph directly -- one task per site over bounded
+    channels -- and never touches the compiler, which is the fastest way to ask
+    whether a fabric computes the right thing and whether it deadlocks.
+    """
+    graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
+    _check_realised(graph)
+    if target == "ref":
+        from .refsim import build_ref  # pylint: disable=import-outside-toplevel
+
+        return build_ref(graph, **kwargs)
+
     import allo.dataflow as df  # pylint: disable=import-outside-toplevel
 
-    graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
     top = build_dataflow(graph, keep=keep)
     if verbose:
         print(top._spmw_source)  # pylint: disable=protected-access

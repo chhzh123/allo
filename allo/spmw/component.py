@@ -63,6 +63,7 @@ class Unit:
         self.wants_site = _wants_site(fn)
         self.roles = []
         _check_port_names(self.tree, self.iface, self.name)
+        check_directions(self.tree, self.iface, self.name)
 
     def role(self, unbound=()):
         """Register a variant body for sites whose listed ports are unbound.
@@ -81,6 +82,7 @@ class Unit:
         def decorate(fn):
             role = Role(fn, unbound)
             _check_port_names(role.tree, self.iface, role.name)
+            check_directions(role.tree, self.iface, role.name)
             _check_untouched(role.tree, unbound, role.name)
             self.roles.append(role)
             return role

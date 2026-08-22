@@ -8,7 +8,6 @@ These exercise the frontend only; nothing here builds IR.
 import pytest
 
 import allo.spmw as spmw
-from allo.spmw.component import check_directions
 from allo.ir.types import float32, int8
 
 K = 4
@@ -63,20 +62,19 @@ def test_misspelled_port_is_caught_at_declaration():
             a = io.wets.get()
 
 
-def test_direction_errors():
-    @spmw.unit
-    def puts_on_an_in(io: MacIO):
-        io.west.put(1.0)
-
+def test_direction_errors_fire_at_declaration():
+    """A wrong-direction touch is rejected where it is written, not at run time."""
     with pytest.raises(spmw.SPMWError, match="west"):
-        check_directions(puts_on_an_in.tree, puts_on_an_in.iface, "puts_on_an_in")
 
-    @spmw.unit
-    def gets_a_memory(io: MacIO):
-        x = io.c.get()
+        @spmw.unit
+        def puts_on_an_in(io: MacIO):
+            io.west.put(1.0)
 
     with pytest.raises(spmw.SPMWError, match="memory port"):
-        check_directions(gets_a_memory.tree, gets_a_memory.iface, "gets_a_memory")
+
+        @spmw.unit
+        def gets_a_memory(io: MacIO):
+            x = io.c.get()
 
 
 def test_site_parameter_is_optional_and_detected():
