@@ -46,6 +46,7 @@ Allo is an Accelerator Design Language (ADL) and compiler that facilitates the c
 
    dive/frontend_syntax.rst
    dive/dataflow.rst
+   dive/spmw.rst
    gallery/dive_01_data_types.rst
    gallery/dive_02_template.rst
    gallery/dive_03_composition.rst
