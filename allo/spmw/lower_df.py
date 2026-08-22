@@ -489,7 +489,11 @@ class Lowering:
         io_name = _io_param_name(tree)
         site_name = _site_param_name(tree)
         rewriter = _BodyRewriter(self, placement, signature, pids, io_name, site_name)
-        stmts = [rewriter.visit(ast.fix_missing_locations(_copy(s))) for s in tree.body]
+        stmts = [
+            rewriter.visit(ast.fix_missing_locations(_copy(s)))
+            for s in tree.body
+            if not _is_docstring(s)
+        ]
         return [s for s in stmts if s is not None]
 
     # -- addressing --------------------------------------------------------
@@ -1251,6 +1255,15 @@ def _index_elts(slice_node):
     if isinstance(slice_node, ast.Tuple):
         return list(slice_node.elts)
     return [slice_node]
+
+
+def _is_docstring(node):
+    """A bare string statement documents the source, not the emitted program."""
+    return (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    )
 
 
 def _is_site_rank(node, site_name):
