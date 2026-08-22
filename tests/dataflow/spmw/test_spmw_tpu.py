@@ -131,6 +131,48 @@ def test_weights_are_stationary():
     assert WsIO.w.shape == ()
 
 
+@spmw.fabric
+def tpu_staged(A: int8[MT, KT], W: int8[KT, NT], Y: int8[MT, NT]):
+    """The same engine with the weight tile staged, phased and double-buffered.
+
+    Load and compute pipeline across successive weight tiles, which is the TPU's
+    weight FIFO expressed as one ``double=True``.
+    """
+    P = spmw.place(mac, on=mxu)
+    Pact = spmw.place(act, on=spmw.Grid((NT,)))
+    w_tile = spmw.mem(int8[KT, NT], layout=spmw.banked(on="col"), double=True)
+    spmw.shard(w_tile, into=P.w)
+    with spmw.phase("load"):
+        spmw.copy(W, into=w_tile, how="dma")  # sole writer of w_tile in this phase
+    with spmw.phase("compute"):  # only readers of w_tile live here
+        spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
+        spmw.stream_in(0, into=P.p_in)
+        spmw.link(P.p_out, to=Pact.z_in)
+        (lane,) = Pact.axes
+        spmw.gather(Y, from_=Pact.y_out, index=(..., lane))
+
+
+def test_staged_form_elaborates():
+    graph = spmw.elaborate(tpu_staged)
+    assert graph.phases == ["load", "compute"]
+    assert [b.kind for b in graph.bindings] == [
+        "shard",
+        "copy",
+        "stream_in",
+        "seed",
+        "link",
+        "gather",
+    ]
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_staged_form_matches(target):
+    A, W = _operands(4)
+    Y = np.zeros((MT, NT), dtype=np.int8)
+    spmw.build(tpu_staged, target=target)(A, W, Y)
+    np.testing.assert_array_equal(Y, _reference(A, W))
+
+
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_repeated_operands(seed):
     A, W = _operands(seed)

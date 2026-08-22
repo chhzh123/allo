@@ -25,7 +25,7 @@ import types
 
 from . import channels as ch
 from .bricks import Brick, Tensor
-from .component import Role, Unit, _io_param_name, captured_env
+from .component import _io_param_name, captured_env
 from .errors import SPMWBindingError
 from .index import IndexMap, SliceMap, TIME, to_source
 from .placement import Bundle, MemGrid
@@ -74,6 +74,7 @@ class Lowering:
         self.bind_families = {}
         self.kernel_names = {}
         self.tensor_users = {}
+        self.fills = {}
         self._plan()
 
     # -- planning ----------------------------------------------------------
@@ -86,8 +87,13 @@ class Lowering:
                 prefix = f"{prefix}_{n}"
             self.kernel_names[placement] = prefix
             self.resolutions[placement] = ch.resolve(placement, prefix)
+        # Copies first: a shard may name a brick that a later copy fills.
         for binding in self.graph.bindings:
-            self._plan_binding(binding)
+            if binding.kind == "copy":
+                self._plan_binding(binding)
+        for binding in self.graph.bindings:
+            if binding.kind != "copy":
+                self._plan_binding(binding)
 
     def _capture_bodies(self):
         """Carry every body's free names into the generated module.
@@ -126,9 +132,10 @@ class Lowering:
         elif kind == "link":
             self._plan_link(binding)
         elif kind == "copy":
-            # A copy between bricks is staging; on this path the consumer reads
-            # the source directly, so nothing is emitted for it.
-            pass
+            # Staging: record what fills the brick so a client reading it can be
+            # traced back to the tensor, which is this path's desugaring of the
+            # copy.
+            self.fills[id(binding.target)] = binding.source
 
     def _plan_mover(self, binding, bundle, tensor, role):
         family = self._binding_family(bundle)
@@ -176,6 +183,22 @@ class Lowering:
         self.bind_families[key] = fam
         return fam
 
+    def resolve_storage(self, source):
+        """Follow a staged brick back to the tensor a copy fills it from.
+
+        A brick with contents of its own -- an init= ROM -- is already storage;
+        one that a copy fills is a staging step, and on a functional path the
+        client reads the copy's source directly.
+        """
+        seen = set()
+        while isinstance(source, Brick) and source.init is None:
+            filler = self.fills.get(id(source))
+            if filler is None or id(filler) in seen:
+                break
+            seen.add(id(source))
+            source = filler
+        return source
+
     def _note_user(self, tensor, kernel):
         if isinstance(tensor, Tensor):
             self.tensor_users.setdefault(tensor.name, []).append(kernel)
@@ -194,7 +217,41 @@ class Lowering:
         body.append(self._region())
         module = ast.Module(body=body, type_ignores=[])
         ast.fix_missing_locations(module)
+        self._check_names(module)
         return ast.unparse(module)
+
+    def _check_names(self, module):
+        """Every name the emitted program reads must be one it can resolve.
+
+        A lowering bug usually shows up as a name nobody defines, and that is far
+        cheaper to diagnose here than as a tracer failure three passes later.
+        """
+        import builtins  # pylint: disable=import-outside-toplevel
+
+        known = set(self.injected) | set(dir(builtins))
+        known |= {"allo", "df", "Stream"}
+        for node in ast.walk(module):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                known.add(node.name)
+                known.update(a.arg for a in node.args.args)
+            elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                known.add(node.id)
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                known.add(node.target.id)
+        missing = sorted(
+            {
+                node.id
+                for node in ast.walk(module)
+                if isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id not in known
+            }
+        )
+        if missing:
+            raise SPMWBindingError(
+                f"the lowered program reads {', '.join(missing)}, which nothing "
+                f"defines. This is a lowering bug, not a program error."
+            )
 
     def _region(self):
         args = []
@@ -391,6 +448,7 @@ class Lowering:
             if pl is not placement:
                 continue
             for side in (binding.source, binding.target):
+                side = self.resolve_storage(side)
                 if isinstance(side, Tensor) and side not in used:
                     used.append(side)
         return used
@@ -404,8 +462,14 @@ class Lowering:
         is what keeps the arithmetic -- and so the numerics -- identical to the
         program the user wrote.
         """
-        body = placement.roles.get(sample_site, placement.component)
-        tree = body.tree if isinstance(body, (Role, Unit)) else placement.component.tree
+        body = placement.roles.get(sample_site)
+        if body is None:
+            raise SPMWBindingError(
+                f"`{placement.name}` is a fabric placed on a topology. Hierarchical "
+                f"placement elaborates, but it is not lowered on the dataflow path "
+                f"yet -- inline the sub-fabric, or place its unit directly."
+            )
+        tree = body.tree
         io_name = _io_param_name(tree)
         site_name = _site_param_name(tree)
         rewriter = _BodyRewriter(self, placement, signature, pids, io_name, site_name)
@@ -462,7 +526,7 @@ class Lowering:
             raise SPMWBindingError(
                 f"`{placement.name}.{port.name}` has no memory binding to lower."
             )
-        source = (
+        source = self.resolve_storage(
             binding.source
             if binding.kind in ("shard", "stationary")
             else binding.target
@@ -509,6 +573,12 @@ class Lowering:
         return f"_st_{port.name}"
 
     def _brick_subscript(self, brick, extra, port=None):
+        if brick.init is None:
+            raise SPMWBindingError(
+                f"`{brick.name}` is read by `{port.name if port else '?'}` but has "
+                f"neither init= contents nor a copy filling it, so there is nothing "
+                f"to read."
+            )
         node = ast.Name(id=self._station_name(port), ctx=ast.Load())
         if extra:
             idx = (

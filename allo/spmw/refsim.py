@@ -241,6 +241,7 @@ class RefSim:
         self.mem_writes = {}
         self.movers = []
         self.links = []
+        self.fills = {}
         for binding in self.graph.bindings:
             kind = binding.kind
             if kind in ("stream_in", "scatter"):
@@ -261,9 +262,28 @@ class RefSim:
                 )
             elif kind == "link":
                 self.links.append(binding)
+            elif kind == "copy":
+                self.fills[id(binding.target)] = binding.source
+
+    def resolve_storage(self, source):
+        """Follow a staged brick back to the tensor a copy fills it from."""
+        seen = set()
+        while isinstance(source, Brick) and source.init is None:
+            filler = self.fills.get(id(source))
+            if filler is None or id(filler) in seen:
+                break
+            seen.add(id(source))
+            source = filler
+        return source
 
     def _body_for(self, placement, site):
-        body = placement.roles.get(site, placement.component)
+        body = placement.roles.get(site)
+        if body is None:
+            raise SPMWError(
+                f"`{placement.name}` is a fabric placed on a topology. Hierarchical "
+                f"placement elaborates, but the reference simulator runs unit "
+                f"bodies -- inline the sub-fabric, or place its unit directly."
+            )
         key = id(body)
         if key not in self._bodies:
             self._bodies[key] = _prepare(body)
@@ -457,7 +477,7 @@ class RefSim:
         )
         if binding is None:
             raise SPMWError(f"`{placement.name}.{sym.name}` has no memory binding")
-        source = (
+        source = self.resolve_storage(
             binding.source
             if binding.kind in ("shard", "stationary")
             else binding.target
