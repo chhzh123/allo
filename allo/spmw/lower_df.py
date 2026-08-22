@@ -252,7 +252,51 @@ class Lowering:
         module = ast.Module(body=body, type_ignores=[])
         ast.fix_missing_locations(module)
         self._check_names(module)
+        self._check_kernel_args(module)
         return ast.unparse(module)
+
+    def _check_kernel_args(self, module):
+        """A kernel's parameter must be typed exactly like the region argument.
+
+        The dataflow tracer asserts this, and the failure it produces there names
+        neither the kernel nor which of dtype and shape disagreed. Mirroring the
+        assertion here is what turns "df.kernel argument local_C do not match C"
+        into something that points at the emission that caused it.
+        """
+        region = None
+        for node in module.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "top":
+                region = node
+                break
+        if region is None:
+            return
+        declared = {arg.arg: _annotation_of(arg.annotation) for arg in region.args.args}
+        for node in region.body:
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            names = _kernel_arg_names(node)
+            if names is None:
+                continue
+            if len(names) != len(node.args.args):
+                raise SPMWBindingError(
+                    f"kernel `{node.name}` lists {len(names)} args= but takes "
+                    f"{len(node.args.args)} parameters. This is a lowering bug."
+                )
+            for name, param in zip(names, node.args.args):
+                want = declared.get(name)
+                got = _annotation_of(param.annotation)
+                if want is None:
+                    raise SPMWBindingError(
+                        f"kernel `{node.name}` names `{name}` in args=, which the "
+                        f"region does not take. This is a lowering bug."
+                    )
+                if want != got:
+                    raise SPMWBindingError(
+                        f"kernel `{node.name}`'s parameter `{param.arg}` is typed "
+                        f"{got} but the region argument `{name}` it stands for is "
+                        f"{want}. This is a lowering bug: the tracer types the "
+                        f"parameter from its annotation, so the two must agree."
+                    )
 
     def _check_names(self, module):
         """Every name the emitted program reads must be one it can resolve.
@@ -1437,6 +1481,33 @@ def _fill_empty_suites(node):
         if isinstance(child, (ast.For, ast.While, ast.If, ast.With, ast.Try)):
             if not child.body:
                 child.body = [ast.Pass()]
+
+
+def _annotation_of(node):
+    """A parameter annotation as a comparable (name, shape) pair."""
+    if isinstance(node, ast.Subscript):
+        base = node.value.id if isinstance(node.value, ast.Name) else "?"
+        idx = node.slice
+        elts = idx.elts if isinstance(idx, ast.Tuple) else [idx]
+        shape = tuple(e.value for e in elts if isinstance(e, ast.Constant))
+        return (base, shape)
+    if isinstance(node, ast.Name):
+        return (node.id, ())
+    return ("?", ())
+
+
+def _kernel_arg_names(node):
+    """The `args=[...]` names on a df.kernel decorator, or None if it has none."""
+    for dec in node.decorator_list:
+        if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)):
+            continue
+        if dec.func.attr != "kernel":
+            continue
+        for kw in dec.keywords:
+            if kw.arg == "args" and isinstance(kw.value, ast.List):
+                return [e.id for e in kw.value.elts if isinstance(e, ast.Name)]
+        return []
+    return None
 
 
 def _is_docstring(node):
