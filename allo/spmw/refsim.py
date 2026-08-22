@@ -17,7 +17,7 @@ import queue
 import threading
 
 from .bricks import Brick, Tensor
-from .errors import SPMWError
+from .errors import SPMWError, SPMWPlacementError
 from .index import SliceMap
 from .placement import Bundle, MemGrid
 from .ports import IN, OUT, STREAM
@@ -195,6 +195,12 @@ def _prepare(body):
     tree.body = [_Materialise().visit(s) for s in tree.body]
     tree.decorator_list = []
     tree.name = "_body"
+    # The parameter annotations name the Interface and the Site, which are not
+    # necessarily in scope here -- an interface declared inside a function is
+    # neither a global of the body nor a free variable of it, because an
+    # annotation is evaluated at definition rather than inside the body.
+    for arg in tree.args.args:
+        arg.annotation = None
     module = ast.Module(body=[tree], type_ignores=[])
     ast.fix_missing_locations(module)
     env = dict(getattr(body.fn, "__globals__", {}))
@@ -365,8 +371,8 @@ class RefSim:
     def __call__(self, *arrays):
         tensors = list(self.graph.tensors.values())
         if len(arrays) != len(tensors):
-            raise SPMWError(
-                f"`{self.graph.fabric.name}` takes {len(tensors)} arrays "
+            raise SPMWPlacementError(
+                f"expected {len(tensors)} arrays "
                 f"({', '.join(t.name for t in tensors)}), got {len(arrays)}."
             )
         data = {t.name: a for t, a in zip(tensors, arrays)}

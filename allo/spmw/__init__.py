@@ -75,12 +75,16 @@ from .ports import In, Mem, MemIn, MemOut, Out
 from .topology import Grid, Topology, key, mesh, ring, to
 
 
+# The implementation lives in `driver`, not `build`: a submodule named `build`
+# would be bound as an attribute of this package on first import and shadow the
+# function below, so the first call would work and every one after it would find
+# the module instead.
 def build(fabric_fn, target="simulator", **kwargs):
     """Elaborate a fabric and compile it for ``target``.
 
     Imported lazily so that ``import allo.spmw`` costs nothing but the frontend.
     """
-    from .build import build as _build  # pylint: disable=import-outside-toplevel
+    from .driver import build as _build  # pylint: disable=import-outside-toplevel
 
     return _build(fabric_fn, target=target, **kwargs)
 
@@ -91,14 +95,14 @@ def source(fabric_fn, **kwargs):
     Useful for asserting structural properties of the emitted program -- that
     its body count tracks the role count rather than the grid, for instance.
     """
-    from .build import source as _source  # pylint: disable=import-outside-toplevel
+    from .driver import source as _source  # pylint: disable=import-outside-toplevel
 
     return _source(fabric_fn, **kwargs)
 
 
 def customize(fabric_fn, **kwargs):
     """Elaborate a fabric and return the schedule, before any backend runs."""
-    from .build import (
+    from .driver import (
         customize as _customize,
     )  # pylint: disable=import-outside-toplevel
 

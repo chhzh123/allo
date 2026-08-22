@@ -397,6 +397,30 @@ class Lowering:
             simple=1,
         )
 
+    def canonical_annotation(self, node):
+        """Rewrite a declaration's type into the subscript spelling.
+
+        A shaped type bound to a name -- `csample = float32[2]`, then
+        `u: csample` -- reads as a scalar to the tracer, which resolves a bare
+        Name annotation without unwrapping it. Spelling the shape explicitly is
+        what makes `u[0]` an element rather than a bit-slice.
+        """
+        try:
+            value = eval(  # pylint: disable=eval-used
+                compile(
+                    ast.Expression(ast.fix_missing_locations(_copy_expr(node))),
+                    "<annotation>",
+                    "eval",
+                ),
+                dict(self.injected),
+            )
+        except Exception:  # pylint: disable=broad-except
+            return node
+        shape = tuple(getattr(value, "shape", ()) or ())
+        if not shape:
+            return node
+        return self.type_ann(getattr(value, "dtype", value), shape)
+
     def type_ann(self, dtype, shape):
         name = self._inject_type(dtype)
         base = ast.Name(id=name, ctx=ast.Load())
@@ -708,7 +732,8 @@ class Lowering:
 
         loop_var = "_t"
         extent = mover.extent if mover.extent is not None else 1
-        subs = self._mover_subscripts(mover, names, loop_var, geom, pids)
+        prologue = []
+        subs = self._mover_subscripts(mover, names, loop_var, geom, pids, prologue)
         subs = _offset(subs, tensor)
         elem = ast.Subscript(
             value=ast.Name(id=f"local_{tensor.base.name}", ctx=ast.Load()),
@@ -717,6 +742,7 @@ class Lowering:
         )
         block = mover.binding.extras.get("block", ())
         inner = self._transfer(mover, chan, elem, block)
+        body.extend(prologue)
         loop = ast.For(
             target=ast.Name(id=loop_var, ctx=ast.Store()),
             iter=_call("range", [ast.Constant(value=int(extent))]),
@@ -815,7 +841,7 @@ class Lowering:
             ]
         return [decl] + loops + tail
 
-    def _mover_subscripts(self, mover, names, loop_var, geom, pids):
+    def _mover_subscripts(self, mover, names, loop_var, geom, pids, prologue):
         imap = mover.imap
         block = mover.binding.extras.get("block", ())
         if isinstance(imap, IndexMap) and not imap.is_lambda:
@@ -831,21 +857,37 @@ class Lowering:
                     )
         else:
             # A lambda is the escape hatch; evaluate it over the whole domain and
-            # emit the result as a table, which is exact and stays small because
-            # lambdas are reserved for maps affine arithmetic cannot state.
+            # emit the result as a constant this member slices at compile time.
+            # A bare tuple global is not something the tracer can read, but a
+            # pid-sliced numpy constant is.
             table = _lambda_table(mover, geom)
             tname = self._inject(f"IX_{mover.name}_", table)
-            node = ast.Name(id=tname, ctx=ast.Load())
-            for pid in pids:
-                node = ast.Subscript(
-                    value=node, slice=ast.Name(id=pid, ctx=ast.Load()), ctx=ast.Load()
+            local = f"_ix{len(prologue)}"
+            prologue.append(
+                ast.AnnAssign(
+                    target=ast.Name(id=local, ctx=ast.Store()),
+                    annotation=self.type_ann(_index_type(), table.shape[1:]),
+                    value=ast.Subscript(
+                        value=ast.Name(id=tname, ctx=ast.Load()),
+                        slice=geom.member_expr(pids),
+                        ctx=ast.Load(),
+                    ),
+                    simple=1,
                 )
-            node = ast.Subscript(
-                value=node, slice=ast.Name(id=loop_var, ctx=ast.Load()), ctx=ast.Load()
             )
             rank = mover.tensor.rank - len(block)
             subs = [
-                ast.Subscript(value=node, slice=ast.Constant(value=k), ctx=ast.Load())
+                ast.Subscript(
+                    value=ast.Name(id=local, ctx=ast.Load()),
+                    slice=ast.Tuple(
+                        elts=[
+                            ast.Name(id=loop_var, ctx=ast.Load()),
+                            ast.Constant(value=k),
+                        ],
+                        ctx=ast.Load(),
+                    ),
+                    ctx=ast.Load(),
+                )
                 for k in range(rank)
             ]
         for k in range(len(block)):
@@ -1019,6 +1061,19 @@ class _BodyRewriter(ast.NodeTransformer):
                 sub = self.low.mem_subscript(self.placement, port, self.pids, extra)
                 return _store(sub)
         return self.visit(target)
+
+    def visit_AnnAssign(self, node):
+        """A bare declaration allocates.
+
+        `u: csample` reserves a buffer in the source language, but with no value
+        the tracer takes `u` for a scalar and reads `u[0]` as a bit-slice. Zeroing
+        it is also what the reference simulator does, so the two agree.
+        """
+        self.generic_visit(node)
+        if node.value is None:
+            node.value = ast.Constant(value=0)
+        node.annotation = self.low.canonical_annotation(node.annotation)
+        return node
 
     def visit_Subscript(self, node):
         if (
@@ -1304,7 +1359,14 @@ def _slot_table(grid, fam, port, sites):
 
 
 def _lambda_table(mover, geom):
-    """Evaluate a lambda index map over the whole (member, step) domain."""
+    """Evaluate a lambda index map over the whole (member, step) domain.
+
+    Emitted as a numpy constant indexed by member, because a site slices it at
+    compile time and the tracer accepts that where it rejects a bare tuple
+    global.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
     extent = mover.extent if mover.extent is not None else 1
     rows = []
     for pos in range(len(mover.bundle.sites)):
@@ -1313,9 +1375,9 @@ def _lambda_table(mover, geom):
         steps = []
         for t in range(extent):
             idx = mover.imap.eval(env, step=t if mover.imap.has_time else None)
-            steps.append(tuple(int(v) for v in idx))
-        rows.append(tuple(steps))
-    return tuple(rows) if geom.flat else _reshape(tuple(rows), geom.dense)
+            steps.append([int(v) for v in idx])
+        rows.append(steps)
+    return np.array(rows, dtype=np.int32)
 
 
 def _reshape(flat, dense):
@@ -1543,6 +1605,39 @@ def _same(a, b):
         return bool(a == b)
     except Exception:  # pylint: disable=broad-except
         return False
+
+
+class _IndexType:
+    """Stand-in for the integer type an index constant is declared with.
+
+    Only reached where Allo cannot be imported -- rendering a program for
+    inspection. A real build resolves the type from Allo itself. It mirrors an
+    Allo scalar type closely enough to be subscripted into an annotation.
+    """
+
+    __slots__ = ("shape",)
+
+    def __init__(self, shape=()):
+        self.shape = tuple(shape)
+
+    @property
+    def dtype(self):
+        return _IndexType()
+
+    def __getitem__(self, sizes):
+        return _IndexType(sizes if isinstance(sizes, tuple) else (sizes,))
+
+    def __str__(self):
+        return "i32"
+
+
+def _index_type():
+    try:
+        from allo.ir.types import int32  # pylint: disable=import-outside-toplevel
+
+        return int32
+    except Exception:  # pylint: disable=broad-except
+        return _IndexType()
 
 
 def _ident(name):

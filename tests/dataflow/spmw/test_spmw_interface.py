@@ -39,8 +39,10 @@ def test_port_set_is_closed_and_ordered():
 
 
 def test_type_is_printed_the_way_it_was_declared():
-    assert MacIO.west.type_str() == "In(float32)"
-    assert MacIO.c.type_str() == "MemOut(float32)"
+    """The kind, then the element type as Allo itself spells it."""
+    assert MacIO.west.type_str() == f"In({float32})"
+    assert MacIO.c.type_str() == f"MemOut({float32})"
+    assert MacIO.west.type_str().startswith("In(")
 
 
 def test_element_generic_contract():
