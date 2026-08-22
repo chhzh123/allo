@@ -117,11 +117,12 @@ class _PortDecl:
         self.symbol = None
 
     def __set_name__(self, owner, name):
-        # Fires once per declaration, at class-body execution.  A symbol
-        # inherited from a base class keeps its original identity, which is what
-        # makes ``MacIO.west is NSEW.west`` hold.
-        if self.symbol is None:
-            self.symbol = PortSymbol(self, name, owner)
+        # Fires once per class-body assignment, and never for an inherited name
+        # -- which is what makes ``MacIO.west is NSEW.west`` hold with no special
+        # handling here.  Reuse of one declaration is caught by the metaclass
+        # before this runs, so that the diagnostic is not buried in the
+        # RuntimeError Python wraps __set_name__ failures in.
+        self.symbol = PortSymbol(self, name, owner)
 
     def __get__(self, obj, objtype=None):
         if obj is None:

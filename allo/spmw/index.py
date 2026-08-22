@@ -325,28 +325,6 @@ class SliceMap:
                 sizes.append(1)
         return tuple(sizes)
 
-    def tiles_exactly(self, nsites):
-        """Whether the slices partition the tensor with no gap and no overlap."""
-        covered = 1
-        for t, bound in enumerate(self.shape):
-            g = self.axis_of[t]
-            if g is None:
-                covered *= bound
-                continue
-            size = self.block[t] if t < len(self.block) and self.block[t] else 1
-            if self.kind == "blocked":
-                if self.grid[g] * size != bound:
-                    return False
-                covered *= bound
-            else:
-                if self.grid[g] != bound:
-                    return False
-                covered *= bound
-        total = 1
-        for bound in self.shape:
-            total *= bound
-        return covered == total and nsites > 0
-
     def __repr__(self):
         return f"<slicemap {self.kind} grid={self.grid} block={self.block}>"
 
@@ -408,18 +386,32 @@ def _check_slices(imap, members, shape, where, write):
                     f"axis {axis}, which is outside the tensor's extent "
                     f"{shape[axis]}."
                 )
-    covered = {
-        tuple(start for start, _ in imap.slice_for(coords)): coords
-        for coords, _env in members
-    }
-    if write and not imap.tiles_exactly(len(members)):
-        uncovered = _uncovered_range(imap, shape)
-        raise SPMWBindingError(
-            f"{where}: the writers do not tile the destination. {uncovered} "
-            f"Every output element must have exactly one writer -- supply the "
-            f"missing extent from another phase, a wider instantiation, or a "
-            f"second placement owning the other slice."
-        )
+    covered = {}
+    for coords, _env in members:
+        key = tuple(start for start, _ in imap.slice_for(coords))
+        if write and key in covered:
+            raise SPMWBindingError(
+                f"{where}: sites {covered[key]} and {coords} both own the slice "
+                f"starting at {list(key)}. A grid axis the binding does not "
+                f"distribute over gives every site along it the same piece, "
+                f"which is a broadcast -- legal to read, never to write."
+            )
+        covered[key] = coords
+    if write:
+        per_site = 1
+        for size in imap.per_site_sizes():
+            per_site *= size
+        total = 1
+        for bound in shape:
+            total *= bound
+        if len(covered) * per_site != total:
+            raise SPMWBindingError(
+                f"{where}: {len(covered) * per_site} of {total} elements have a "
+                f"writer. {_uncovered_range(imap, shape)} Every output element "
+                f"must have exactly one writer -- supply the rest from another "
+                f"phase, a wider instantiation, or a second placement owning the "
+                f"other slice."
+            )
     return covered
 
 

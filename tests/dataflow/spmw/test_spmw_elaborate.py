@@ -227,6 +227,82 @@ def test_two_writers_in_one_phase_is_rejected():
         spmw.elaborate(tpu)
 
 
+def test_a_reader_and_a_writer_in_one_phase_is_rejected():
+    """A reader sharing a phase with the writer may see the brick half-filled."""
+
+    @spmw.fabric
+    def tpu(A: int8[MT, KT], W: int8[KT, NT], Y: int8[MT, NT]):
+        P = spmw.place(mac, on=spmw.Topology(WsIO, (KT, NT), link=mxu_links))
+        Pact = spmw.place(act, on=spmw.Grid((NT,)))
+        w_tile = spmw.mem(int8[KT, NT], layout=spmw.banked(on="col"))
+        with spmw.phase("both"):
+            spmw.shard(w_tile, into=P.w)
+            spmw.copy(W, into=w_tile, how="dma")
+            spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
+            spmw.stream_in(0, into=P.p_in)
+            spmw.link(P.p_out, to=Pact.z_in)
+            (lane,) = Pact.axes
+            spmw.gather(Y, from_=Pact.y_out, index=(..., lane))
+
+    with pytest.raises(spmw.SPMWMemoryError, match="half-filled"):
+        spmw.elaborate(tpu)
+
+
+def test_a_broadcast_may_be_read_but_never_written():
+    """A grid axis the binding does not distribute over gives every site the
+    same piece, which is legal to read and never to write."""
+
+    class OnlyOut(spmw.Interface):
+        acc = spmw.MemOut(float32)
+
+    @spmw.unit
+    def emit(io: OnlyOut):
+        io.acc = 1.0
+
+    @spmw.fabric
+    def bad(out: float32[2, 4]):
+        P = spmw.place(emit, on=spmw.Grid((2, 3), OnlyOut))
+        spmw.shard(out, from_=P.acc, dim=0)
+
+    with pytest.raises(spmw.SPMWBindingError, match="both own the slice"):
+        spmw.elaborate(bad)
+
+
+def test_an_axis_from_another_placement_is_refused():
+    """Axes resolve against their own site coordinates, so borrowing reads the
+    wrong grid."""
+
+    @spmw.fabric
+    def bad(A: float32[M, K], B: float32[K, N], C: float32[M, N]):
+        P1 = spmw.place(pe, on=spmw.mesh(MacIO, (M, N)))
+        P2 = spmw.place(pe, on=spmw.mesh(MacIO, (M, N)))
+        spmw.stream_in(A, into=P1.west, index=(P2.rows, ...))
+        spmw.stream_in(B, into=P1.north, index=(..., P1.cols))
+        spmw.gather(C, from_=P1.c)
+
+    with pytest.raises(spmw.SPMWBindingError, match="belongs to another placement"):
+        spmw.elaborate(bad)
+
+
+def test_a_stationary_map_is_bounds_checked():
+    class WIO(spmw.Interface):
+        w = spmw.MemIn(float32)
+        o = spmw.MemOut(float32)
+
+    @spmw.unit
+    def cell(io: WIO):
+        io.o = io.w
+
+    @spmw.fabric
+    def bad(W: float32[2], OUT: float32[4]):
+        P = spmw.place(cell, on=spmw.Grid((4,), WIO))
+        spmw.stationary(W, at=P.w, index=(P.rows,))
+        spmw.gather(OUT, from_=P.o)
+
+    with pytest.raises(spmw.SPMWBindingError, match="out of bounds"):
+        spmw.elaborate(bad)
+
+
 # --------------------------------------------------------------------------
 # Reconfiguration is an argument, not a rewrite
 # --------------------------------------------------------------------------

@@ -17,7 +17,7 @@ from .errors import (
     SPMWMemoryError,
     SPMWUnboundError,
 )
-from .index import IndexMap, check_bounds
+from .index import Expr, IndexMap, check_bounds
 from .placement import Bundle, MemGrid
 from .ports import STREAM, IN, READ
 
@@ -333,27 +333,43 @@ def _check_memories_bound(graph):
 
 
 def _check_phase_writers(graph):
-    """Within a phase, a shared brick's clients are all readers or one writer."""
-    per_phase = {}
-    for b in graph.bindings:
-        target = b.target
-        brick = target if isinstance(target, Brick) else None
-        if brick is None:
-            continue
-        per_phase.setdefault((b.phase, brick), []).append(b)
-    for (phase, brick), writers in per_phase.items():
+    """Within a phase, a brick's clients are all readers, or one writer alone.
+
+    A read puts the brick on the binding's source side and a write on its target
+    side, so both have to be gathered before the rule can be applied at all.
+    """
+    clients = {}
+    for binding in graph.bindings:
+        if isinstance(binding.target, Brick):
+            clients.setdefault((binding.phase, binding.target), []).append(
+                ("writer", binding)
+            )
+        if isinstance(binding.source, Brick):
+            clients.setdefault((binding.phase, binding.source), []).append(
+                ("reader", binding)
+            )
+    for (phase, brick), uses in clients.items():
+        writers = [b for kind, b in uses if kind == "writer"]
+        readers = [b for kind, b in uses if kind == "reader"]
+        where = f"phase {phase!r}" if phase else "the fabric"
         if len(writers) > 1:
-            where = f"phase {phase!r}" if phase else "the fabric"
             raise SPMWMemoryError(
                 f"`{brick.name}` has {len(writers)} writers in {where}. Within a "
-                f"phase a shared brick's clients must be all readers, or a single "
-                f"writer with no readers. Separate them with spmw.phase(), or bank "
-                f"the brick so each writer owns one."
+                f"phase a brick's clients must be all readers, or a single writer "
+                f"with none. Separate them with spmw.phase(), or bank the brick so "
+                f"each writer owns one."
+            )
+        if writers and readers:
+            raise SPMWMemoryError(
+                f"`{brick.name}` is written by {writers[0].kind} and read by "
+                f"{readers[0].kind} in {where}, so a reader may see it half-filled. "
+                f"Order them with spmw.phase(), which lowers to a barrier."
             )
 
 
 def bind_check(imap, bundle, tensor, where, extent=None, write=False, block=()):
     """Bounds-check a binding's index map over its whole domain."""
+    _check_axes_belong(imap, bundle, where)
     members = [
         (site, dict(bundle.placement.env(site), __coords__=site))
         for site in bundle.sites
@@ -443,3 +459,29 @@ def _first_gap(owner, shape):
         if gap:
             return f"Axis {axis} is uncovered at [{gap[0]}, {gap[-1] + 1})."
     return ""
+
+
+def _check_axes_belong(imap, bundle, where):
+    """Every axis in a binding must be one of its own placement's.
+
+    Axes resolve positionally against the site coordinates, so an axis borrowed
+    from another placement would silently read this one's coordinates instead of
+    the ones it names.
+    """
+    spec = getattr(imap, "spec", None)
+    if spec is None or getattr(imap, "is_lambda", False):
+        return
+    own = set(bundle.placement.axes)
+    for entry in spec:
+        if not isinstance(entry, Expr):
+            continue
+        for axis in entry.axes():
+            root = axis
+            while root.source is not None:
+                root = root.source
+            if root not in own:
+                raise SPMWBindingError(
+                    f"{where}: the map names axis `{axis.name}`, which belongs to "
+                    f"another placement. Axes resolve against this binding's own "
+                    f"site coordinates, so borrowing one reads the wrong grid."
+                )

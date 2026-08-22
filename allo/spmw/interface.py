@@ -8,6 +8,7 @@ interconnection.  Neither side can drift from the other because there is nothing
 to drift from -- they share one object.
 """
 
+from .errors import SPMWError
 from .ports import _PortDecl, PortAccessor, PortSymbol, STREAM, MEMORY, IN, OUT
 
 
@@ -20,15 +21,19 @@ class InterfaceMeta(type):
     """
 
     def __new__(mcs, name, bases, namespace, **kwargs):
+        _check_fresh_declarations(name, namespace)
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        # Collect from each class's OWN declarations, walking the MRO from the
+        # base end forward, so a redeclaration shadows the port it replaces.
+        # Merging a base's already-merged table instead would let a class that
+        # merely inherits a symbol overwrite a more derived redeclaration, and
+        # `__ports__` would then disagree with ordinary attribute lookup.
         ports = {}
-        # Inherited first, in MRO order, so a redeclaration shadows rather than
-        # duplicates.
-        for base in reversed(cls.__mro__[1:]):
-            ports.update(getattr(base, "__ports__", {}))
-        for key, value in namespace.items():
-            if isinstance(value, _PortDecl):
-                ports[key] = value.symbol
+        for klass in reversed(cls.__mro__):
+            own = vars(klass)
+            for key, value in own.items():
+                if isinstance(value, _PortDecl):
+                    ports[key] = value.symbol
         cls.__ports__ = ports
         return cls
 
@@ -65,6 +70,32 @@ class InterfaceMeta(type):
 
     def memories(cls):
         return cls.ports(protocol=MEMORY)
+
+
+def _check_fresh_declarations(name, namespace):
+    """Each declaration constructs one port and belongs to one interface.
+
+    Sharing a declaration -- across two bodies, or twice within one -- would give
+    a single symbol two names or two owners, which quietly defeats the ownership
+    check that makes a foreign port rejectable.
+    """
+    seen = {}
+    for key, value in namespace.items():
+        if not isinstance(value, _PortDecl):
+            continue
+        if value.symbol is not None:
+            raise SPMWError(
+                f"`{name}.{key}` reuses the declaration already bound to "
+                f"`{value.symbol}`. Write a fresh {type(value).__name__}(...) "
+                f"for each port."
+            )
+        if id(value) in seen:
+            raise SPMWError(
+                f"`{name}.{key}` and `{name}.{seen[id(value)]}` are the same "
+                f"declaration object, so they would share one port. Write a "
+                f"fresh {type(value).__name__}(...) for each."
+            )
+        seen[id(value)] = key
 
 
 class Interface(metaclass=InterfaceMeta):

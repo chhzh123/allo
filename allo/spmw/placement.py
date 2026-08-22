@@ -34,7 +34,12 @@ class Bundle:
 
     @property
     def shape(self):
-        """The bundle's dense shape, or None when it is not a product of axis subsets."""
+        """The axes the bundle's membership varies along, and their extents.
+
+        Consult :attr:`is_dense` for whether those extents describe the set
+        exactly; a set that is not a product of axis subsets has no dense shape,
+        and the lambda over raw sites is its escape hatch.
+        """
         return self._shape
 
     @property
@@ -73,8 +78,10 @@ def _dense_shape(sites, placement):
     dense = product == len(sites)
     shape, axes = [], []
     for a, proj in enumerate(projections):
-        if len(proj) == 1 and len(sites) > 1:
-            # A degenerate axis is not one the bundle varies along.
+        if len(proj) == 1:
+            # A degenerate axis is not one the bundle varies along, so a
+            # single-site bundle reports no axes rather than a row of ones --
+            # otherwise shapes would not be comparable across grid sizes.
             continue
         shape.append(len(proj))
         axes.append(placement.axes[a])
@@ -303,6 +310,13 @@ def _report_mismatch(component, comp_iface, topo_iface, topology):
                 f"`{component.name}` declares `{name}: {sym.type_str()}` but "
                 f"topology `{topology.name}`'s socket is {other.type_str()}."
             )
+    extra = [name for name in topo_ports if name not in comp_ports]
+    if extra:
+        raise SPMWPlacementError(
+            f"topology `{topology.name}` has socket(s) "
+            f"{', '.join(f'`{n}`' for n in extra)} that `{component.name}` does "
+            f"not declare, so those would be left dangling."
+        )
     raise SPMWPlacementError(
         f"`{component.name}` is written against interface "
         f"`{comp_iface.__name__}` but topology `{topology.name}` is typed by "

@@ -78,6 +78,13 @@ class Unit:
                     f"`{self.name}.role` names `{sym}`, which is not a port of "
                     f"`{unwrap(self.iface).__name__}`."
                 )
+            if sym.protocol != STREAM:
+                raise SPMWError(
+                    f"`{self.name}.role` declares `{sym}` unbound, but it is "
+                    f"{sym.type_str()}. A site's signature is decided by its "
+                    f"links, and a memory port is bound by a fabric binding "
+                    f"instead -- such a role could never be selected."
+                )
 
         def decorate(fn):
             role = Role(fn, unbound)
@@ -100,12 +107,21 @@ class Unit:
         """
         iface = unwrap(self.iface)
         missing = frozenset(sym for sym in iface.ports() if sym not in signature)
-        best = None
-        for role in self.roles:
-            if role.unbound <= missing:
-                if best is None or len(role.unbound) > len(best.unbound):
-                    best = role
-        return best if best is not None else self
+        matching = [role for role in self.roles if role.unbound <= missing]
+        if not matching:
+            return self
+        widest = max(len(role.unbound) for role in matching)
+        best = [role for role in matching if len(role.unbound) == widest]
+        if len(best) > 1:
+            names = ", ".join(sorted(role.name for role in best))
+            absent = ", ".join(sorted(sym.name for sym in missing))
+            raise SPMWPlacementError(
+                f"sites missing {{{absent}}} match {len(best)} equally specific "
+                f"roles ({names}), so which one runs would come down to the order "
+                f"they were declared in. Give one of them the wider unbound set it "
+                f"actually serves."
+            )
+        return best[0]
 
     def reads(self, body=None):
         """The ``In`` and ``MemIn`` ports a body actually touches."""

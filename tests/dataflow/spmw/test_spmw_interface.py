@@ -144,5 +144,62 @@ def test_nominal_matching_by_default():
     assert matches(spmw.structural(Twin), NSEW)
 
 
+def test_a_diamond_agrees_with_attribute_lookup():
+    """`__ports__` and ordinary lookup must name the same symbol."""
+
+    class Base(spmw.Interface):
+        x = spmw.In(float32)
+
+    class Redeclared(Base):
+        x = spmw.In(float32)
+
+    class Extended(Base):
+        y = spmw.Out(float32)
+
+    class Both(Extended, Redeclared):
+        pass
+
+    assert Both.__ports__["x"] is Both.x
+    assert Both.owns(Both.x)
+    assert Both.x.owner is Redeclared  # the most derived declaration wins
+
+
+def test_a_declaration_belongs_to_one_interface():
+    """Sharing one declaration would give a single symbol two owners."""
+    shared = spmw.In(float32)
+
+    class First(spmw.Interface):
+        p = shared
+
+    with pytest.raises(spmw.SPMWError, match="reuses the declaration"):
+
+        class Second(spmw.Interface):
+            p = shared
+
+    with pytest.raises(spmw.SPMWError, match="same declaration object"):
+
+        class Twice(spmw.Interface):
+            a = b = spmw.In(float32)
+
+
+def test_a_role_on_a_memory_port_is_refused():
+    """A memory port is bound by a binding, so it never enters a signature."""
+
+    class WIO(spmw.Interface):
+        a_in = spmw.In(float32)
+        a_out = spmw.Out(float32)
+        w = spmw.MemIn(float32)
+
+    @spmw.unit
+    def cell(io: WIO):
+        io.a_out.put(io.a_in.get() * io.w)
+
+    with pytest.raises(spmw.SPMWError, match="could never be selected"):
+
+        @cell.role(unbound=(WIO.w,))
+        def dead(io: WIO, site: spmw.Site):
+            io.a_out.put(0.0)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

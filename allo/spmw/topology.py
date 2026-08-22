@@ -296,9 +296,10 @@ class Topology:
 
 def Grid(shape, iface=None):  # pylint: disable=invalid-name
     """The linkless topology: pure replication, every port a boundary."""
+    shape = tuple(shape) if isinstance(shape, (tuple, list)) else (shape,)
     if iface is None:
         return _PendingGrid(shape)
-    return Topology(iface, shape, link=None, name=f"Grid{tuple(shape)}")
+    return Topology(iface, shape, link=None, name=f"Grid{shape}")
 
 
 class _PendingGrid:

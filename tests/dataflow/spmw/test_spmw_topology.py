@@ -262,5 +262,67 @@ def test_linkless_grid():
     assert lane.extent == 8
 
 
+def test_equally_specific_roles_are_refused():
+    """Which of two equal matches runs must not come down to declaration order."""
+
+    @spmw.unit
+    def cell(io: MacIO):
+        acc: float32 = io.west.get() * io.north.get()
+        io.east.put(acc)
+        io.south.put(acc)
+        io.c = acc
+
+    @cell.role(unbound=(MacIO.west,))
+    def only_west(io: MacIO, site: spmw.Site):
+        acc: float32 = io.north.get()
+        io.east.put(acc)
+        io.south.put(acc)
+        io.c = acc
+
+    @cell.role(unbound=(MacIO.north,))
+    def only_north(io: MacIO, site: spmw.Site):
+        acc: float32 = io.west.get()
+        io.east.put(acc)
+        io.south.put(acc)
+        io.c = acc
+
+    # The corner is missing both, and neither role is more specific than the other.
+    with pytest.raises(spmw.SPMWPlacementError, match="equally specific"):
+        spmw.place(cell, on=spmw.mesh(MacIO, (2, 2)))
+
+
+def test_bundle_shape_is_comparable_across_sizes():
+    """A degenerate axis is not one the bundle varies along, at any size."""
+    one = spmw.place(pe, on=spmw.mesh(MacIO, (1, 1)))
+    many = spmw.place(pe, on=spmw.mesh(MacIO, (3, 1)))
+    assert one.west.shape == () and one.west.axes == ()
+    assert many.west.shape == (3,) and many.west.axes == (many.rows,)
+
+
+def test_a_missing_component_port_is_named():
+    """An extra socket on the topology is a dangling wire, and says so."""
+
+    class Small(spmw.Interface):
+        a = spmw.In(float32)
+
+    class Big(spmw.Interface):
+        a = spmw.In(float32)
+        b = spmw.Out(float32)
+
+    @spmw.unit
+    def tiny(io: Small):
+        x = io.a.get()
+
+    with pytest.raises(spmw.SPMWPlacementError, match="does not declare"):
+        spmw.place(tiny, on=spmw.Topology(Big, (2,), link=None))
+
+
+def test_grid_accepts_a_bare_extent():
+    class Small(spmw.Interface):
+        a = spmw.In(float32)
+
+    assert spmw.Grid(4, Small).grid == (4,)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

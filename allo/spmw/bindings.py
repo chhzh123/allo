@@ -227,8 +227,16 @@ def stationary(source, at, index=None):
             f"{where}: `{side.port}` is {side.port.type_str()}. Stationary data "
             f"lives on a memory port."
         )
-    imap = make_map(index, len(getattr(source, "shape", ())), where) if index else None
-    return fab.record(Binding("stationary", source, side, imap=imap))
+    block = tuple(side.port.shape)
+    imap = None
+    if index is not None:
+        shape = tuple(getattr(source, "shape", ()))
+        imap = _check_arity(
+            make_map(index, len(shape) - len(block), where), side, where
+        )
+        _reject_time(imap, where)
+        bind_check(imap, side, source, where, extent=None, write=False, block=block)
+    return fab.record(Binding("stationary", source, side, imap=imap, block=block))
 
 
 def copy(src, into, how=None):
@@ -361,6 +369,16 @@ def _resolve_drain_map(index, side, tensor, where, block=()):
     return identity, None
 
 
+def _reject_time(imap, where):
+    """`...` marks a token sequence, and a stationed view has none."""
+    if getattr(imap, "has_time", False):
+        raise SPMWBindingError(
+            f"{where}: index= names `...`, which marks the streamed axis. A memory "
+            f"port is indexed by its site alone -- stationed views are timeless -- "
+            f"so there is no sequence for `...` to stand for."
+        )
+
+
 def _block_of(side, tensor, where):
     """The port's own block, which covers the tensor's trailing axes.
 
@@ -415,7 +433,10 @@ def _positional_identity(side, tensor, where):
 
 def _resolve_shard_map(index, dim, side, tensor, where):
     if index is not None:
-        return make_map(index, tensor.rank, where)
+        block = tuple(side.port.shape)
+        imap = make_map(index, tensor.rank - len(block), where)
+        _reject_time(imap, where)
+        return imap
     if dim is not None:
         return _dim_map(dim, side, tensor, where)
     return _positional_identity(side, tensor, where)
