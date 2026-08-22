@@ -298,6 +298,8 @@ What is checked
      - Fires at
    * - Unknown port name (``io.wets``)
      - unit declaration
+   * - A port declaration reused across interfaces
+     - interface declaration
    * - ``get`` on an ``Out``, ``put`` on an ``In``, a memory port used as a stream
      - unit declaration
    * - Link keys and far-end targets owned by the topology's interface
@@ -310,11 +312,17 @@ What is checked
      - ``place``
    * - A role body touching a declared-unbound port
      - role declaration
+   * - A role naming a memory port, or two equally specific roles
+     - role declaration / ``place``
    * - Index maps in bounds over the whole domain; writes tile exactly
+     - bind time
+   * - An axis borrowed from another placement
+     - bind time
+   * - ``...`` in a memory binding, which has no token sequence
      - bind time
    * - Every unbound ``In`` covered; every ``MemIn`` bound
      - build
-   * - One writer per shared brick per phase
+   * - A brick read and written in one phase, or written twice
      - build
 
 

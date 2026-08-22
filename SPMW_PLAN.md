@@ -93,8 +93,9 @@ unit body calls. Subclasses inherit the *same* symbol objects, so `MacIO.west is
 
 **Site signatures drive roles.** After `place`, each site's signature is the set of *bound* ports,
 computed by evaluating the link rule at that site. Sites whose `link` dict withholds an edge get an
-**interior boundary** — this falls out for free and is what §3.6's slab seams need. Role coverage
-is checked exhaustively at `place`.
+**interior boundary** — this falls out for free and is what §3.6's slab seams need. Role selection
+happens at `place`; whether a binding actually feeds an unbound `In` the body reads is settled at
+build, where the set of bindings is known and the diagnostic can name the missing one.
 
 **Channel identity = destination.** A coordinate link `east@(i,j) → west@(i,j+1)` and its inverse
 name one channel, canonically identified by `(dst_site, dst_port)`. Grouping channels by unordered
