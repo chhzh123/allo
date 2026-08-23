@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "allo/Dialect/AlloDialect.h"
+#include "allo/Dialect/SPMW/SPMWDialect.h"
 #include "allo/Dialect/AlloOps.h"
 
 using namespace mlir;
@@ -548,6 +549,7 @@ void allo::registerEmitCatapultHLSTranslation() {
         // clang-format off
         registry.insert<
           mlir::allo::AlloDialect,
+          mlir::spmw::SPMWDialect,
           mlir::func::FuncDialect,
           mlir::arith::ArithDialect,
           mlir::tensor::TensorDialect,

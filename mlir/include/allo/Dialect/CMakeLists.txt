@@ -38,5 +38,7 @@ add_custom_target(MLIRAlloIncGen
         MLIRAlloEnumsIncGen
 )
 
+add_subdirectory(SPMW)
+
 add_mlir_doc(AlloDialect AlloDialect Allo/ -gen-dialect-doc)
 add_mlir_doc(AlloOps AlloOps Allo/ -gen-op-doc)

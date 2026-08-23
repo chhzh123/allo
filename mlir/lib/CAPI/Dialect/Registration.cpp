@@ -28,11 +28,13 @@
 #include "mlir/Transforms/Passes.h"
 
 #include "allo/Dialect/AlloDialect.h"
+#include "allo/Dialect/SPMW/SPMWDialect.h"
 #include "mlir/InitAllDialects.h"
 
 void alloMlirRegisterAllDialects(MlirContext context) {
   mlir::DialectRegistry registry;
-  registry.insert<mlir::allo::AlloDialect, mlir::func::FuncDialect,
+  registry.insert<mlir::allo::AlloDialect, mlir::spmw::SPMWDialect,
+                  mlir::func::FuncDialect,
                   mlir::arith::ArithDialect, mlir::tensor::TensorDialect,
                   mlir::affine::AffineDialect, mlir::math::MathDialect,
                   mlir::memref::MemRefDialect, mlir::pdl::PDLDialect,
