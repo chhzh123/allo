@@ -84,6 +84,32 @@ def test_a_boundary_family_leaves_the_top():
 
 
 @pytest.mark.parametrize("size", SIZES)
+def test_the_loaders_reach_the_array(size):
+    """A stream fed by a loader must actually connect to the edge sites.
+
+    A site signature holds only the ports linked to a *peer*, so `west` at
+    column 0 -- fed by `stream_in` -- is absent from it. Deriving the port list
+    from the signature declared the input streams and connected nothing to them:
+    legal Verilog, elaborates clean, and A and B never enter the array.
+    """
+    graph = spmw.elaborate(gemm_of(size))
+    emitter = rtl.StructuralEmitter(graph)
+    placement = emitter.placements()[0]
+    text = emitter.fabric()
+    for fam in emitter.boundary_families(placement):
+        if not fam.name.endswith("_bind"):
+            continue
+        hits = text.count(f"{fam.name}_dout[") + text.count(f"{fam.name}_din[")
+        assert hits >= size, f"{fam.name} reaches {hits} sites, expected {size}"
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_no_family_is_left_dangling(size):
+    """The check that would have caught the loaders, run on every design."""
+    assert rtl.check_no_dangling_family(spmw.elaborate(gemm_of(size))) > 0
+
+
+@pytest.mark.parametrize("size", SIZES)
 def test_the_result_leaves_the_array(size):
     """Every site's `c` must reach the top, or the fabric computes and discards.
 

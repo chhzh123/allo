@@ -226,3 +226,21 @@ def test_a_role_on_a_memory_port_is_refused():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_no_submodule_shadows_an_exported_name():
+    """A module named after an exported symbol replaces it on second import.
+
+    `allo/spmw/build.py` once did exactly this: `spmw.build(...)` worked the
+    first time and returned the *module* every time after, because importing the
+    submodule rebinds the attribute. It is invisible until it is a wrong answer,
+    so it is checked rather than remembered.
+    """
+    import pathlib
+
+    import allo.spmw as spmw
+
+    package = pathlib.Path(spmw.__file__).parent
+    modules = {p.stem for p in package.glob("*.py")} - {"__init__"}
+    clash = modules & set(spmw.__all__)
+    assert not clash, f"submodule(s) shadow exported names: {sorted(clash)}"

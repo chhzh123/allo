@@ -212,29 +212,73 @@ class StructuralEmitter:
 
     def memory_families(self, placement):
         """Every bound memory port at this placement, as an edge stream."""
-        seen, out = set(), []
-        for signature, _routing, _sites in self.classes(placement):
-            for port in signature:
-                if port.protocol == MEMORY and port.name not in seen:
-                    seen.add(port.name)
-                    out.append(self.memory_family(placement, port))
+        out = []
+        for port in placement.iface.ports():
+            if port.protocol == MEMORY:
+                out.append(self.memory_family(placement, port))
         return out
 
     def boundary_families(self, placement):
         """The loader/drain families at this placement, as top-level ports."""
         return [f for f in self.bind_families(placement) if not self.is_internal(f)]
 
-    def unit_ports(self, signature):
-        """Every port the role's IP carries, in a stable order.
+    def resolve(self, placement, site, port):
+        """This port's family at this site, or None if it connects to nothing.
 
-        Memory ports are included: a site's ``MemOut`` is where its result
-        leaves, and an IP that omitted it would compute and discard.  Only bound
-        ports reach a signature, so everything here is real.
+        Three things can serve a port and a site takes whichever it has: a peer
+        link to a neighbour, a *binding* -- a loader, drain or link -- or, for a
+        memory port, the edge stream its results leave on.
+
+        A site signature holds only ports linked to a *peer*, so a port fed by a
+        loader is absent from it. Deriving the port list from the signature
+        therefore dropped every loader: the fabric declared the input streams,
+        connected nothing to them, and elaborated cleanly with A and B never
+        entering the array.
         """
-        return sorted(
-            (p for p in signature if p.protocol in (STREAM, MEMORY)),
-            key=lambda p: (p.protocol, p.name),
-        )
+        if port.protocol == MEMORY:
+            return self.memory_family(placement, port)
+        if port.protocol != STREAM:
+            return None
+        res = self.rolled.low.resolutions[placement]
+        fam = res.families.get(res.site_family.get((site, port)))
+        if fam is not None:
+            return fam
+        fam = self.rolled.low.bind_families.get((placement, port))
+        # A binding covers a *bundle*, not the whole grid, so membership is the
+        # question -- an interior site has no loader even though the port does.
+        if fam is not None and (site, port) in fam.slots:
+            return fam
+        return None
+
+    def site_ports(self, placement, site):
+        """Every port connected at this site, with its family, in a stable order."""
+        found = []
+        for port in placement.iface.ports():
+            fam = self.resolve(placement, site, port)
+            if fam is not None:
+                found.append((port, fam))
+        return sorted(found, key=lambda pf: (pf[0].protocol, pf[0].name))
+
+    def unit_ports(self, placement, order):
+        """The ports a role's IP carries -- one interface for all its sites.
+
+        Every site in a wiring class must agree, or the class does not describe
+        one module. Classes are formed from peer routing alone, so agreement on
+        the *binding*-fed ports is a separate fact and is checked here rather
+        than assumed.
+        """
+        _signature, _routing, sites = self.classes(placement)[order]
+        first = self.site_ports(placement, sites[0])
+        names = [p.name for p, _f in first]
+        for site in sites[1:]:
+            other = [p.name for p, _f in self.site_ports(placement, site)]
+            if other != names:
+                raise SPMWBindingError(
+                    f"sites {sites[0]} and {site} share a wiring class but "
+                    f"connect different ports ({names} vs {other}), so one IP "
+                    f"cannot stand for both."
+                )
+        return first
 
     def stream_ports(self, signature):
         """Just the FIFO ports of a signature, in name order."""
@@ -331,10 +375,8 @@ class StructuralEmitter:
         The real module comes from ``export_design``; this declares the shape so
         the fabric elaborates before, or without, running HLS.
         """
-        signature, _routing, sites = self.classes(placement)[order]
         signals = []
-        for port in self.unit_ports(signature):
-            fam = self.family_at(placement, sites[0], port)
+        for port, fam in self.unit_ports(placement, order):
             signals += _port_signals(port.name, port.direction, _width(fam))
         head = [
             "  input  wire                ap_clk",
@@ -374,11 +416,10 @@ class StructuralEmitter:
             ]
         return lines
 
-    def _connections(self, placement, site, signature):
+    def _connections(self, placement, site):
         """This site's port connections, each resolved to one channel."""
         conns = [".ap_clk(ap_clk)", ".ap_rst_n(ap_rst_n)"]
-        for port in self.unit_ports(signature):
-            fam = self.family_at(placement, site, port)
+        for port, fam in self.site_ports(placement, site):
             idx = self.channel_index(placement, site, port, fam)
             if idx < 0:
                 raise SPMWBindingError(
@@ -395,13 +436,14 @@ class StructuralEmitter:
         """One instance per site, grouped by role."""
         lines = []
         names = self.role_names(placement)
-        for order, (signature, _routing, sites) in enumerate(self.classes(placement)):
+        for order, (_signature, _routing, sites) in enumerate(self.classes(placement)):
             lines.append(f"  // role {names[order]}: {len(sites)} instance(s)")
+            self.unit_ports(placement, order)  # every site must agree
             for site in sites:
                 tag = "_".join(str(c) for c in site)
                 lines.append(
                     f"  {names[order]} u_{names[order]}_{tag} (\n      "
-                    + ",\n      ".join(self._connections(placement, site, signature))
+                    + ",\n      ".join(self._connections(placement, site))
                     + ");"
                 )
         return lines
@@ -488,7 +530,38 @@ def check_netlist(graph):
                         f"the reader reaches {rfam.name}[{ridx}]."
                     )
             checked += 1
+    check_no_dangling_family(graph)
     return checked
+
+
+def check_no_dangling_family(graph):
+    """Every declared channel must be reached by some site.
+
+    A family the fabric declares but no instance connects to is legal Verilog --
+    an unused wire -- and elaborates without complaint. It is also a design that
+    silently does nothing: the loaders were declared this way and never reached
+    the array, so A and B never entered it.
+
+    Returns the number of channels that carry a connection.
+    """
+    emitter = StructuralEmitter(graph)
+    reached = set()
+    for placement in emitter.placements():
+        for site in placement.sites():
+            for port, fam in emitter.site_ports(placement, site):
+                idx = emitter.channel_index(placement, site, port, fam)
+                if idx >= 0:
+                    reached.add((fam.name, idx))
+    internal, boundary = emitter.families()
+    for fam in internal + boundary:
+        touched = sum(1 for name, _i in reached if name == fam.name)
+        if touched == 0:
+            raise SPMWBindingError(
+                f"family `{fam.name}` declares {_volume(fam.shape)} channel(s) "
+                f"that no site connects to, so nothing it carries reaches the "
+                f"array."
+            )
+    return len(reached)
 
 
 def cost(graph):
@@ -510,6 +583,7 @@ def cost(graph):
 __all__ = [
     "StructuralEmitter",
     "check_netlist",
+    "check_no_dangling_family",
     "cost",
     "emit_structural_verilog",
     "fifo_module",
