@@ -156,5 +156,35 @@ def test_the_rolled_body_count_does_not_grow():
     assert max(ROLLED_SIZES) ** 2 // roles[max(ROLLED_SIZES)] > 25
 
 
+def test_the_rolled_form_emits_flat_hls():
+    """The number that the whole exercise is about.
+
+    Same designs, same nine roles, and now the HLS function count does not grow
+    with the array: ten functions whether the mesh has nine sites or two hundred
+    and fifty-six. Compare `test_hls_body_count_is_the_gap`, which measures the
+    dataflow path emitting one body per site for exactly these fabrics.
+    """
+    import io
+
+    from allo._mlir.dialects import allo as allo_d
+    from allo._mlir.ir import Context, Module
+    from allo.spmw.lower_mlir import render_module
+
+    counts = {}
+    with Context() as ctx:
+        allo_d.register_dialect(ctx)
+        for size in ROLLED_SIZES:
+            module = Module.parse(render_module(spmw.elaborate(gemm_of(size))))
+            buf = io.StringIO()
+            allo_d.emit_vhls(module, buf)
+            code = buf.getvalue()
+            counts[size] = len(re.findall(r"^void\s+\w+\(", code, re.M))
+            # The channels and the instantiation the emitter is responsible for.
+            assert "#pragma HLS stream variable=" in code
+            assert "#pragma HLS unroll" in code
+
+    assert len(set(counts.values())) == 1, f"HLS bodies should be flat, got {counts}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

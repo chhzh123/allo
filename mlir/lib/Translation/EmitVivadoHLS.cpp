@@ -665,6 +665,7 @@ public:
     return emitter.emitStreamConstruct(op), true;
   }
   bool visitOp(allo::StreamGetOp op) { return emitter.emitStreamGet(op), true; }
+  bool visitOp(spmw::MapOp op) { return emitter.emitSPMWMap(op), true; }
   bool visitOp(allo::StreamPutOp op) { return emitter.emitStreamPut(op), true; }
 
 private:
@@ -1717,6 +1718,166 @@ void allo::hls::VhlsModuleEmitter::emitRank(memref::RankOp op) {
 }
 
 /// Special operation emitters.
+
+//===----------------------------------------------------------------------===//
+// SPMW rolled map
+//===----------------------------------------------------------------------===//
+
+/// Emit a rolled map as the array's channels plus one instantiation loop per
+/// role.
+///
+/// The point is that the tool sees a number of function *bodies* bounded by the
+/// role count -- nine for a mesh, at any size -- and schedules each once, rather
+/// than re-scheduling one body per grid point. Instances are still elaborated,
+/// but instancing a scheduled module is far cheaper than scheduling it again.
+///
+/// Sites are listed per role rather than guarded by a branch inside one loop:
+/// a role's site set is not rectangular in general (an interior boundary can
+/// open anywhere), and a constant site table keeps every subscript a compile
+/// time constant once the loop is unrolled.
+void allo::hls::VhlsModuleEmitter::emitSPMWMap(spmw::MapOp op) {
+  auto topo = op.getTopology();
+  llvm::ArrayRef<int64_t> grid = topo.getGrid().asArrayRef();
+  int64_t nSites = 1;
+  for (int64_t extent : grid)
+    nSites *= extent;
+
+  // -- the channels --------------------------------------------------------
+  llvm::StringMap<spmw::FamilyAttr> famByName;
+  for (Attribute a : topo.getFamilies()) {
+    auto fam = llvm::cast<spmw::FamilyAttr>(a);
+    famByName.insert({fam.getName(), fam});
+    indent();
+    os << "hls::stream< " << getTypeName(fam.getElementType().getValue())
+       << " > " << fam.getName();
+    for (int64_t extent : fam.getShape().asArrayRef())
+      os << "[" << extent << "]";
+    os << ";\n";
+    indent();
+    os << "#pragma HLS stream variable=" << fam.getName()
+       << " depth=" << fam.getDepth() << "\n";
+  }
+
+  // -- how each port indexes its family ------------------------------------
+  llvm::StringMap<spmw::PortMapAttr> portMap;
+  for (Attribute a : topo.getPortMaps()) {
+    auto pm = llvm::cast<spmw::PortMapAttr>(a);
+    // A port may address more than one family; the site's own routing decides
+    // which, and the frontend has already split those sites into separate roles.
+    portMap.insert({(pm.getPort() + "@" + pm.getFamily()).str(), pm});
+    if (pm.getKind() == "table") {
+      auto slots = llvm::cast<DenseIntElementsAttr>(pm.getSlots());
+      indent();
+      os << "static const int _spmw_slot_" << pm.getPort() << "_"
+         << pm.getFamily() << "[" << nSites << "] = {";
+      bool first = true;
+      for (const APInt &v : slots.getValues<APInt>()) {
+        os << (first ? "" : ", ") << v.getSExtValue();
+        first = false;
+      }
+      os << "};\n";
+    }
+  }
+
+  // -- which sites each role owns ------------------------------------------
+  auto classes = llvm::cast<DenseIntElementsAttr>(op.getClasses());
+  SmallVector<SmallVector<int64_t>> sitesOf(op.getRoles().size());
+  {
+    int64_t linear = 0;
+    for (const APInt &v : classes.getValues<APInt>())
+      sitesOf[v.getSExtValue()].push_back(linear++);
+  }
+
+  // -- one instantiation loop per role -------------------------------------
+  for (auto [roleIdx, a] : llvm::enumerate(op.getRoles())) {
+    auto role = llvm::cast<spmw::RoleAttr>(a);
+    ArrayRef<int64_t> mySites = sitesOf[roleIdx];
+    if (mySites.empty())
+      continue;
+
+    std::string table = ("_spmw_sites_" + role.getUnit().getValue()).str();
+    indent();
+    os << "static const int " << table << "[" << mySites.size() << "] = {";
+    for (size_t i = 0; i < mySites.size(); ++i)
+      os << (i ? ", " : "") << mySites[i];
+    os << "};\n";
+
+    indent();
+    os << "for (int _s = 0; _s < " << mySites.size() << "; ++_s) {\n";
+    addIndent();
+    indent();
+    os << "#pragma HLS unroll\n";
+
+    // Decode the linear site into its coordinates, so the call can pass them
+    // and the subscripts can be written in them.
+    int64_t stride = nSites;
+    for (size_t axis = 0; axis < grid.size(); ++axis) {
+      stride /= grid[axis];
+      indent();
+      os << "const int _c" << axis << " = (" << table << "[_s] / " << stride
+         << ") % " << grid[axis] << ";\n";
+    }
+
+    indent();
+    os << role.getUnit().getValue() << "(";
+    bool first = true;
+    for (auto operand : op.getTensors()) {
+      if (!first)
+        os << ", ";
+      emitValue(operand);
+      first = false;
+    }
+    for (size_t axis = 0; axis < grid.size(); ++axis)
+      os << (first && axis == 0 ? "" : ", ") << "_c" << axis;
+
+    for (Attribute pa : role.getPorts()) {
+      StringRef port = llvm::cast<StringAttr>(pa).getValue();
+      // Find the family this role's sites route the port to.
+      spmw::PortMapAttr pm;
+      for (Attribute b : topo.getPortMaps()) {
+        auto cand = llvm::cast<spmw::PortMapAttr>(b);
+        if (cand.getPort() != port)
+          continue;
+        pm = cand;
+        if (cand.getKind() == "table") {
+          auto slots = llvm::cast<DenseIntElementsAttr>(cand.getSlots());
+          auto it = slots.getValues<APInt>().begin();
+          bool live = true;
+          for (int64_t site : mySites)
+            if ((*(it + site)).getSExtValue() < 0)
+              live = false;
+          if (live)
+            break;
+        } else {
+          break;
+        }
+      }
+      if (!pm) {
+        op.emitOpError("port '") << port << "' has no port map";
+        return;
+      }
+      os << ", " << pm.getFamily();
+      if (pm.getKind() == "affine") {
+        ArrayRef<int64_t> off = pm.getOffset().asArrayRef();
+        for (size_t axis = 0; axis < grid.size(); ++axis) {
+          os << "[_c" << axis;
+          if (off[axis])
+            os << " + " << off[axis];
+          os << "]";
+        }
+      } else {
+        os << "[_spmw_slot_" << port << "_" << pm.getFamily() << "["
+           << table << "[_s]]]";
+      }
+    }
+    os << ");\n";
+
+    reduceIndent();
+    indent();
+    os << "}\n";
+  }
+}
+
 void allo::hls::VhlsModuleEmitter::emitStreamConstruct(StreamConstructOp op) {
   Value result = op.getResult();
   fixUnsignedType(result, op->hasAttr("unsigned"));

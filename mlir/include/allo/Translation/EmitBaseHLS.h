@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "allo/Dialect/AlloOps.h"
+#include "allo/Dialect/SPMW/SPMWOps.h"
 
 namespace mlir {
 namespace allo {
@@ -82,6 +83,9 @@ public:
   virtual void emitStreamConstruct(allo::StreamConstructOp op) {}
   virtual void emitStreamGet(allo::StreamGetOp op) {}
   virtual void emitStreamPut(allo::StreamPutOp op) {}
+  /// A rolled map: emitted as the array's channels plus one
+  /// instantiation loop per role.
+  virtual void emitSPMWMap(spmw::MapOp op) {}
 
   /// Top-level MLIR module emitter.
   virtual void emitModule(ModuleOp module) {}

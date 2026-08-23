@@ -69,6 +69,7 @@ public:
   void emitStreamConstruct(allo::StreamConstructOp op) override;
   void emitStreamGet(allo::StreamGetOp op) override;
   void emitStreamPut(allo::StreamPutOp op) override;
+  void emitSPMWMap(spmw::MapOp op) override;
 
   /// Top-level MLIR module emitter.
   void emitModule(ModuleOp module) override;

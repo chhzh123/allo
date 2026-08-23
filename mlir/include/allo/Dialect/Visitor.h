@@ -19,6 +19,7 @@
 
 #include "allo/Dialect/AlloDialect.h"
 #include "allo/Dialect/AlloOps.h"
+#include "allo/Dialect/SPMW/SPMWOps.h"
 
 namespace mlir {
 namespace allo {
@@ -82,7 +83,8 @@ public:
             allo::SubFixedOp, allo::MulFixedOp, allo::DivFixedOp,
             allo::CmpFixedOp, allo::ShLFixedOp, allo::ShRFixedOp,
             allo::MinFixedOp, allo::MaxFixedOp, allo::PrintOp,
-            allo::StreamConstructOp, allo::StreamGetOp, allo::StreamPutOp>(
+            allo::StreamConstructOp, allo::StreamGetOp, allo::StreamPutOp,
+        spmw::MapOp>(
             [&](auto opNode) -> ResultType {
               return thisCast->visitOp(opNode, args...);
             })
@@ -258,6 +260,7 @@ public:
   HANDLE(allo::StreamConstructOp);
   HANDLE(allo::StreamGetOp);
   HANDLE(allo::StreamPutOp);
+  HANDLE(spmw::MapOp);
 
 #undef HANDLE
 };
