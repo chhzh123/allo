@@ -183,6 +183,56 @@ independent ways (see Verification):
 | §3.5 mini-TPU | two placements, `link`, stationary weights, a seeded chain; also the staged form with `copy` under `phase` and `double=True` |
 | §3.6 attention P·V | interior boundaries, `split` axes, reduction as wiring, G ∈ {1,2,4} |
 
+### Where the rolling is lost, measured
+
+The frontend's O(#roles) property holds and is visible in the emitted source, but
+the dataflow builder unrolls per PID, so HLS still sees one function per grid
+point. Measured on the systolic GEMM (`target="vhls"`, counting emitted `void`
+functions):
+
+| grid | sites | signatures | source arms | HLS functions |
+|---|---|---|---|---|
+| 2×2 | 4 | 4 | 4 | 9 |
+| 3×3 | 9 | 9 | 9 | 16 |
+| 4×4 | 16 | **9** | **9** | 25 |
+| 6×6 | 36 | **9** | **9** | 49 |
+| 8×8 | 64 | **9** | **9** | 81 |
+
+Signatures and source arms go flat at 9 from 3×3 on — that is the design's claim,
+and it is already true. The HLS function count is `sites + 2·n + 1`, i.e. one
+body per PID plus the movers and the top. Closing that gap is the whole of the
+remaining work, and this table is the baseline to beat.
+
+### A cheaper route than a new dialect, measured
+
+Allo already deduplicates kernel instances by control-flow class: `builder.py`'s
+`if not ctx.unroll` branch keys each PID on its `func_predicate_tags` and emits
+one `func.func` per distinct tag. That path exists for AIE, but the property it
+provides is exactly the design's O(#roles) claim. Driving the SPMW-generated
+program through it, on the systolic GEMM:
+
+| grid | `unroll=True` funcs | `unroll=False` funcs |
+|---|---|---|
+| 3×3 | 16 | **12** |
+| 4×4 | 25 | **12** |
+| 6×6 | 49 | **12** |
+| 8×8 | 81 | **12** |
+
+Flat at twelve, at every size, with no new dialect and no new passes. The site
+signatures SPMW computes and the predicate tags Allo derives agree, which is why
+this works at all.
+
+**What is still missing is the instantiation.** `_build_top` emits no calls on
+this path (`func.call = 0` at every size above), so the bodies exist but nothing
+invokes them once per grid point. That rolled instantiation loop is the one
+genuinely new piece of work, and it is far smaller than the dialect the plan
+originally scoped.
+
+Two routes, and the trade is worth stating: extending the dataflow path touches
+shared `allo/dataflow.py`, where a mistake reaches the AIE and HLS backends
+everyone else uses; the dialect route stays inside SPMW's own files but is
+several times the work and needs a C++ rebuild.
+
 ### Follow-on: the rolled MLIR path
 
 The lowering emits a dataflow region, so Vitis HLS still schedules once per
