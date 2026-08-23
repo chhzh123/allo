@@ -57,10 +57,10 @@ def SPMW_PortMapAttr : SPMW_Attr<"PortMap", "port_map"> {
                         StringRefParameter<>:$kind,
                         OptionalParameter<"::mlir::DenseI64ArrayAttr">:$offset,
                         OptionalParameter<"::mlir::ElementsAttr">:$slots);
-  let assemblyFormat = [{
-    `<` `port` `=` $port `,` `family` `=` $family `,` `kind` `=` $kind
-    (`,` `offset` `=` $offset^)? (`,` `slots` `=` $slots^)? `>`
-  }];
+  // struct() rather than an explicit format: two optional groups that both
+  // begin with a comma are ambiguous to parse, and only one of offset/slots is
+  // ever present.
+  let assemblyFormat = "`<` struct(params) `>`";
 }
 
 //===----------------------------------------------------------------------===//

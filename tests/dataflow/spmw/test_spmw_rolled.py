@@ -105,5 +105,56 @@ def test_the_gap_is_quadratic_while_the_frontend_is_flat():
     ), f"bodies should still grow, got {bodies}"
 
 
+# --------------------------------------------------------------------------
+# The rolled form, where the count actually goes flat
+# --------------------------------------------------------------------------
+
+ROLLED_SIZES = [3, 4, 6, 8, 16]
+
+
+@pytest.mark.parametrize("size", ROLLED_SIZES)
+def test_the_rolled_form_verifies(size):
+    """What the frontend computes is a shape the dialect accepts."""
+    from allo._mlir.dialects import allo as allo_d
+    from allo._mlir.ir import Context, Module
+    from allo.spmw.lower_mlir import render_module
+
+    with Context() as ctx:
+        allo_d.register_dialect(ctx)
+        Module.parse(render_module(spmw.elaborate(gemm_of(size))))
+
+
+def test_the_rolled_body_count_does_not_grow():
+    """Nine roles at nine sites and at two hundred and fifty-six.
+
+    This is the design's load-bearing claim, and the contrast with
+    `test_hls_body_count_is_the_gap` above is the whole point: the same designs
+    expand to one body per site through the dataflow path and stay flat here.
+    """
+    from allo._mlir.dialects import allo as allo_d
+    from allo._mlir.ir import Context, Module
+    from allo.spmw.lower_df import _wiring_classes
+    from allo.spmw.lower_mlir import RolledEmitter, render_module
+
+    roles, funcs = {}, {}
+    with Context() as ctx:
+        allo_d.register_dialect(ctx)
+        for size in ROLLED_SIZES:
+            graph = spmw.elaborate(gemm_of(size))
+            emitter = RolledEmitter(graph)
+            placement = emitter.placements()[0]
+            roles[size] = len(
+                _wiring_classes(placement, emitter.low.resolutions[placement])
+            )
+            text = render_module(graph)
+            Module.parse(text)
+            funcs[size] = text.count("func.func @")
+
+    assert set(roles.values()) == {9}, f"roles should be flat at 9, got {roles}"
+    assert len(set(funcs.values())) == 1, f"functions should be flat, got {funcs}"
+    # The largest grid here has 256 sites; the dataflow path would emit 289.
+    assert max(ROLLED_SIZES) ** 2 // roles[max(ROLLED_SIZES)] > 25
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
