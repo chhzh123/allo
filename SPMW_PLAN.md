@@ -233,6 +233,34 @@ shared `allo/dataflow.py`, where a mistake reaches the AIE and HLS backends
 everyone else uses; the dialect route stays inside SPMW's own files but is
 several times the work and needs a C++ rebuild.
 
+### The dialect's step order, revised once it existed
+
+The port plan assumed the old branch's division of labour, where
+`spmw-role-partition` and `spmw-resolve-channels` *compute* what the emitter
+needs and write it onto the op. This frontend already computes all of it —
+signatures, per-site routing, families and their shapes — so `spmw.map` carries
+those directly and the two passes change role: they become **checks** that the
+declared tables agree with what the links imply, not the source of them.
+
+That moves the critical path. The step that actually makes HLS emit O(#roles)
+functions is the emitter hook, so the order is:
+
+1. **Dialect** — done. `spmw.map`, its attributes, and a verifier.
+2. **Frontend emits the op** — `allo/spmw/lower_mlir.py`. Everything it needs is
+   already computed in `lower_df.py`'s `_wiring_classes` and `channels.py`'s
+   `Family`.
+3. **Emitter hook** — the six edits in `Visitor.h`, `EmitBaseHLS.h`,
+   `EmitVivadoHLS.{h,cpp}`. This is where the number moves, and it is the only
+   genuinely new code: the old branch has no rolled instantiation in C++ at all,
+   only a Python emitter that regex-scrapes the IR and recognises two benchmark
+   shapes.
+4. **The two analysis passes** — worth having as verification, but no longer
+   blocking, and best written once the emitter has settled what the op must say.
+
+Note also that the role-selection rule (`missing ⊆ point.missing`, widest wins,
+ties are an error) is bit-for-bit this frontend's `Unit.body_for`, so when the
+passes are written that part is a transcription rather than a design.
+
 ### Follow-on: the rolled MLIR path
 
 The lowering emits a dataflow region, so Vitis HLS still schedules once per
