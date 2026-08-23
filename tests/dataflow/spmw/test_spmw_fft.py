@@ -7,9 +7,12 @@ which is exactly what key form is for: both ends name a shared label and the
 compiler completes the pairing.
 """
 
+import tempfile
+
 import numpy as np
 import pytest
 
+import allo.backend.hls as hls
 import allo.spmw as spmw
 from allo.ir.types import float32
 
@@ -151,6 +154,17 @@ def test_repeated_inputs(seed):
     x, X = _operands(seed)
     Y = np.zeros((FFT_N, 2), dtype=np.float32)
     spmw.build(fft_spatial, target="simulator")(X, Y)
+    got = Y[:, 0] + 1j * Y[:, 1]
+    np.testing.assert_allclose(got, np.fft.fft(x), atol=1e-4)
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+def test_hls_csim_matches_numpy_fft():
+    """Block-carrying streams and a resident ROM, through the HLS path."""
+    x, X = _operands()
+    Y = np.zeros((FFT_N, 2), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spmw.build(fft_spatial, target="vitis_hls", mode="csim", project=tmpdir)(X, Y)
     got = Y[:, 0] + 1j * Y[:, 1]
     np.testing.assert_allclose(got, np.fft.fft(x), atol=1e-4)
 

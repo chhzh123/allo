@@ -11,9 +11,12 @@ The PE and the activation unit are the mini-TPU's, unchanged; ``G`` is a Python
 argument, not a structural rewrite.
 """
 
+import tempfile
+
 import numpy as np
 import pytest
 
+import allo.backend.hls as hls
 import allo.spmw as spmw
 from allo.ir.types import int8, int32
 
@@ -131,6 +134,19 @@ def test_simulator_matches(groups):
     Pr, V = _operands(groups)
     Y = np.zeros((MT, C // groups), dtype=np.int8)
     spmw.build(attention_pv(groups), target="simulator")(Pr, V, Y)
+    np.testing.assert_array_equal(Y, _reference(Pr, V))
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+@pytest.mark.parametrize("groups", [1, 2])
+def test_hls_csim_matches(groups):
+    """Interior boundaries and split axes, through the HLS path."""
+    Pr, V = _operands(groups)
+    Y = np.zeros((MT, C // groups), dtype=np.int8)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spmw.build(
+            attention_pv(groups), target="vitis_hls", mode="csim", project=tmpdir
+        )(Pr, V, Y)
     np.testing.assert_array_equal(Y, _reference(Pr, V))
 
 

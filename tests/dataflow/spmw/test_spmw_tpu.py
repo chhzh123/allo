@@ -7,9 +7,12 @@ interior body is total -- the top row's missing upstream is a scalar binding and
 the chain's end is wired to a second placement -- so nothing is hand-specialised.
 """
 
+import tempfile
+
 import numpy as np
 import pytest
 
+import allo.backend.hls as hls
 import allo.spmw as spmw
 from allo.ir.types import int8, int32
 
@@ -129,6 +132,16 @@ def test_weights_are_stationary():
     assert shard.kind == "shard"
     assert shard.target.port is WsIO.w
     assert WsIO.w.shape == ()
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+def test_hls_csim_matches_reference():
+    """int8 operands into an int32 accumulator, through the HLS path."""
+    A, W = _operands()
+    Y = np.zeros((MT, NT), dtype=np.int8)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spmw.build(tpu_matmul, target="vitis_hls", mode="csim", project=tmpdir)(A, W, Y)
+    np.testing.assert_array_equal(Y, _reference(A, W))
 
 
 @spmw.fabric

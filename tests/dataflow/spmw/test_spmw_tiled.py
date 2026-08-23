@@ -9,9 +9,12 @@ mechanism: expanding a placed fabric is just running its body once per site with
 ``io`` bound to the slice that site owns.
 """
 
+import tempfile
+
 import numpy as np
 import pytest
 
+import allo.backend.hls as hls
 import allo.spmw as spmw
 from allo.ir.types import float32
 
@@ -96,6 +99,16 @@ def test_matches_numpy(target):
     A, B = _operands()
     C = np.zeros((M, N), dtype=np.float32)
     spmw.build(tiled_gemm, target=target)(A, B, C)
+    np.testing.assert_allclose(C, A @ B, atol=1e-5)
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+def test_hls_csim_matches_numpy():
+    """A placed fabric, expanded per tile, through the HLS path."""
+    A, B = _operands()
+    C = np.zeros((M, N), dtype=np.float32)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spmw.build(tiled_gemm, target="vitis_hls", mode="csim", project=tmpdir)(A, B, C)
     np.testing.assert_allclose(C, A @ B, atol=1e-5)
 
 
