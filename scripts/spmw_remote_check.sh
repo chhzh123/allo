@@ -8,6 +8,12 @@
 # picks the changes up directly. Vitis is sourced only when asked for, since the
 # simulator levels do not need it.
 #
+# If you do need a C++ rebuild, raise the file-descriptor limit first -- the
+# default of 1024 makes the link step fail with "cannot find -lm ... Too many
+# open files", which reads like a missing toolchain but is not:
+#
+#   ulimit -n 65536 && cd mlir/build && ninja
+#
 # Usage:
 #   bash scripts/spmw_remote_check.sh              # sync + the whole SPMW suite
 #   bash scripts/spmw_remote_check.sh gemm         # one file (tests/dataflow/spmw/test_spmw_gemm.py)
