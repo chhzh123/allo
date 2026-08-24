@@ -12,7 +12,7 @@ units.
 from .component import Fabric, Unit
 from .errors import SPMWPlacementError
 from .index import Axis
-from .interface import matches, unwrap
+from .iface import matches, unwrap
 from .ports import STREAM
 from .topology import Topology, _PendingGrid
 

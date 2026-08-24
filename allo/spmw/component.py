@@ -13,7 +13,7 @@ import inspect
 import textwrap
 
 from .errors import SPMWError, SPMWPlacementError
-from .interface import Interface, unwrap
+from .iface import Interface, unwrap
 from .ports import STREAM, IN, OUT  # noqa: F401
 
 

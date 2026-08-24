@@ -16,7 +16,7 @@ from .errors import (
     SPMWTopologyError,
     SPMWTypeError,
 )
-from .interface import unwrap
+from .iface import unwrap
 from .ports import STREAM, IN, OUT
 
 

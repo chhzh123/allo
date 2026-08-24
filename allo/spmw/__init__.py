@@ -69,7 +69,7 @@ from .errors import (
 )
 from .graph import Elaborated, elaborate
 from .index import Axis, split
-from .interface import Interface, interface, structural
+from .iface import Interface, interface, structural
 from .placement import Bundle, MemGrid, Placement, place
 from .ports import In, Mem, MemIn, MemOut, Out
 from .topology import Grid, Topology, key, mesh, ring, to

@@ -139,7 +139,7 @@ def test_nominal_matching_by_default():
         east = spmw.Out(float32)
         south = spmw.Out(float32)
 
-    from allo.spmw.interface import matches
+    from allo.spmw.iface import matches
 
     assert matches(NSEW, NSEW)
     assert not matches(Twin, NSEW)

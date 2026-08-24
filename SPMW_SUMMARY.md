@@ -19,14 +19,22 @@ five of the design's worked examples run and produce correct results**:
 | §3.2 tiled GEMM | a placed fabric, `shard(dim=)`, per-site tensor views | ✅ | ✅ | ✅ |
 | §3.4 FFT | key-form links, block streams, a resident twiddle ROM | ✅ | ✅ | ✅ |
 | §3.5 mini-TPU | two placements, `link`, stationary weights, seeded chain | ✅ | ✅ | ✅ |
-| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ✅ |
+| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ⚠️ G=1 |
 
 On top of that, the design's **load-bearing compilation claim is now realised**,
 and in the form that matters for hardware: **HLS synthesises the unit, RTL builds
 the array.** Nine C syntheses and nine IP exports for a 2-D mesh, whatever its
 size, and Vivado assembles the array from the exported IPs.
 
-`pylint allo` is 10.00/10, exit 0.
+**192 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
+`pylint allo --rcfile=./scripts/lint/pylintrc` is 10.00/10, exit 0.
+
+The deselected test is `test_spmw_attention.py::test_hls_csim_matches[2]`, which
+**hangs**. It is not a regression from this work — a run from before it stopped
+at the same test — and it is a csim problem rather than a design one: the same
+configuration passes both `ref` and `simulator`. The process sits on 75 threads
+in `futex_wait_queue` with no subprocess, so Allo's concurrent csim deadlocks
+rather than the generated C++ misbehaving. Worth a separate look.
 
 ---
 
@@ -106,7 +114,7 @@ the structure as a single `spmw.map` op that survives to code generation.
 
 | Module | What it holds |
 |---|---|
-| `ports.py`, `interface.py` | port symbols with protocol/direction/type; the `Interface` metaclass |
+| `ports.py`, `iface.py` | port symbols with protocol/direction/type; the `Interface` metaclass |
 | `component.py` | `@spmw.unit`, `@spmw.fabric`, roles, trace-time checks |
 | `topology.py` | both link forms, channels, site signatures |
 | `placement.py` | `place()`, boundary bundles, axis symbols |
@@ -162,8 +170,9 @@ exported.
 So the old branch answers "can this architecture work?" — yes, on hardware — and
 this branch answers "for which designs?" Here the netlist is read off the
 elaborated graph, so the FFT (keyed links, block tokens), the TPU (two placements
-joined by `link`) and attention (an interior boundary) all emit, elaborate, and
-export.
+joined by `link`) and attention (an interior boundary) all emit a fabric that
+Vivado elaborates. Building their *units* is a further step, and one of the three
+does not get there — see §5.
 
 ---
 

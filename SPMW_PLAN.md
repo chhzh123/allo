@@ -69,7 +69,7 @@ branches. Anything the elaborator can represent, the lowering can emit.
 | Module | Contents | Imports `allo._mlir`? |
 |---|---|---|
 | `ports.py` | `In`/`Out`/`MemIn`/`MemOut`/`Mem` descriptors, `PortSymbol`, accessors | no |
-| `interface.py` | `Interface` metaclass, `spmw.interface(...)` functional form, iteration, inheritance | no |
+| `iface.py` | `Interface` metaclass, `spmw.interface(...)` functional form, iteration, inheritance | no |
 | `component.py` | `@spmw.unit`, `@spmw.fabric`, `.role(unbound=)`, `Site` | no |
 | `topology.py` | `Topology`, `to()`, `key()`, `mesh()`, `Grid()`, link validation | no |
 | `placement.py` | `place()`, `Placement`, bundles, axis symbols, `split()` | no |
