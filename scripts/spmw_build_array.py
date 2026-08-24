@@ -27,6 +27,7 @@ cheaper.
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -37,6 +38,9 @@ sys.path.insert(
 
 import allo.spmw as spmw  # pylint: disable=wrong-import-position
 from allo.spmw import rtl  # pylint: disable=wrong-import-position
+from allo.spmw.cosim import (  # pylint: disable=wrong-import-position
+    render_testbench,
+)
 from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
     UnitEmitter,
     build_unit,
@@ -157,6 +161,105 @@ def assemble(out, part, top="spmw_top"):
     return elapsed
 
 
+IPGEN_TCL = """create_project -force ipgen {out}/ipgen -part {part}
+foreach x [glob {root}/pe_r*/prj/sol/impl/ip/tmp.srcs/sources_1/ip/*/*.xci] {{
+  import_ip $x
+}}
+generate_target {{simulation}} [get_ips]
+"""
+
+
+def cosim(graph, out, part, size):
+    """Simulate the assembled array and compare against the reference.
+
+    Elaborating is not computing, so this is the check that the mixed path is
+    right rather than merely well-formed. Inputs are small integers, exact in
+    float32, so the comparison is bit-exact rather than a tolerance.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    rng = np.random.default_rng(0)
+    tensors = {
+        "A": rng.integers(0, 4, size=(size, size)).astype(np.float32),
+        "B": rng.integers(0, 4, size=(size, size)).astype(np.float32),
+    }
+    result = np.zeros((size, size), dtype=np.float32)
+    spmw.build(gemm(size), target="ref")(tensors["A"], tensors["B"], result)
+    _write(os.path.join(out, "tb.sv"), render_testbench(graph, tensors, {"C": result}))
+
+    # The exported IPs instantiate Xilinx FP cores; xsim needs their generated
+    # simulation models, which only Vivado can produce from the .xci files.
+    _write(
+        os.path.join(out, "genip.tcl"),
+        IPGEN_TCL.format(out=out, part=part, root=out),
+    )
+    _run(
+        ["vivado", "-mode", "batch", "-source", "genip.tcl", "-nojournal", "-nolog"],
+        out,
+    )
+
+    sim = os.path.join(out, "sim")
+    os.makedirs(sim, exist_ok=True)
+    sources = ["spmw_fifo.sv", "spmw_top.sv", "tb.sv"]
+    for name in sources:
+        shutil.copy(os.path.join(out, name), sim)
+    # Each role contributes its wrapper (which lives in the role's own project
+    # directory, not at the top) and its exported netlist.
+    for role in sorted(os.listdir(out)):
+        wrapper = os.path.join(out, role, f"{role}.sv")
+        if os.path.isfile(wrapper):
+            shutil.copy(wrapper, sim)
+            sources.append(f"{role}.sv")
+        verilog = os.path.join(out, role, "prj", "sol", "syn", "verilog")
+        if os.path.isdir(verilog):
+            for name in os.listdir(verilog):
+                if name.endswith(".v"):
+                    shutil.copy(os.path.join(verilog, name), sim)
+    if len(sources) == 3:
+        raise SystemExit(f"no role wrappers found under {out}")
+    for root, _dirs, files in os.walk(os.path.join(out, "ipgen")):
+        if "sources_1" in root and os.sep + "ip" + os.sep in root + os.sep:
+            for name in files:
+                if name.endswith(".v"):
+                    shutil.copy(os.path.join(root, name), sim)
+
+    _run(["xvlog", "-sv"] + sources, sim)
+    _run(["xvlog"] + [f for f in os.listdir(sim) if f.endswith(".v")], sim)
+    _run(
+        [
+            "xelab",
+            "tb",
+            "-s",
+            "tbsim",
+            "-L",
+            "floating_point_v7_1_16",
+            "-L",
+            "unisims_ver",
+            "-L",
+            "unimacro_ver",
+            "-L",
+            "secureip",
+        ],
+        sim,
+    )
+    done = _run(["xsim", "tbsim", "-runall"], sim, check=False)
+    for line in done.stdout.splitlines():
+        if "SPMW COSIM" in line or "MISMATCH" in line:
+            print("  " + line.strip())
+    if "SPMW COSIM PASS" not in done.stdout:
+        raise SystemExit(f"cosim did not pass; see {sim}/xsim.log")
+
+
+def _run(command, cwd, check=True):
+    done = subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False)
+    if check and done.returncode != 0:
+        raise SystemExit(
+            f"{command[0]} failed in {cwd}:\n"
+            + "\n".join((done.stdout + done.stderr).splitlines()[-15:])
+        )
+    return done
+
+
 def _write(path, text):
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(text)
@@ -170,6 +273,11 @@ def main():
     parser.add_argument("--frequency", type=float, default=300.0)
     parser.add_argument(
         "--stage-only", action="store_true", help="write the projects, run nothing"
+    )
+    parser.add_argument(
+        "--cosim",
+        action="store_true",
+        help="simulate the assembled array against the reference",
     )
     args = parser.parse_args()
 
@@ -195,6 +303,10 @@ def main():
     print("assembling the array in Vivado:")
     elapsed = assemble(args.out, args.part)
     print(f"Vivado elaborated {cost['instances']} instances in {elapsed}s")
+
+    if args.cosim:
+        print("simulating the assembled array:")
+        cosim(graph, args.out, args.part, args.size)
     _write(
         os.path.join(args.out, "cost.json"),
         json.dumps(

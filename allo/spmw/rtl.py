@@ -77,7 +77,9 @@ def fifo_module():
     ``read`` -- what a free-running (``ap_ctrl_none``) HLS IP presents for an
     ``hls::stream`` argument, so a role IP drops straight onto it.
     """
-    return """module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
+    return """`timescale 1ns/1ps
+
+module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
   input  wire          clk,
   input  wire          rst_n,
   input  wire [DW-1:0] din,
@@ -383,7 +385,7 @@ class StructuralEmitter:
             "  input  wire                ap_rst_n",
         ]
         body = ",\n".join(head + _decl(signals))
-        return f"module {name} (\n{body}\n);\nendmodule\n"
+        return f"`timescale 1ns/1ps\n\nmodule {name} (\n{body}\n);\nendmodule\n"
 
     def _family_wires(self, fam, internal):
         """Wire declarations for one family's channels."""
@@ -448,22 +450,50 @@ class StructuralEmitter:
                 )
         return lines
 
+    @staticmethod
+    def boundary_direction(fam):
+        """Which way data crosses the array's edge on this family.
+
+        ``IN`` means the sites read it, so the fabric consumes and the outside
+        supplies; ``OUT`` is the reverse.  Every site touching a boundary family
+        touches it the same way -- a family with both directions has both ends
+        inside the fabric and is internal.
+        """
+        directions = {port.direction for _site, port in fam.slots}
+        if len(directions) != 1:
+            raise SPMWBindingError(
+                f"boundary family `{fam.name}` is touched in {sorted(directions)} "
+                f"directions; it cannot be one edge port."
+            )
+        return directions.pop()
+
     def _boundary_ports(self, boundary):
-        """The top's stream ports: one per channel of each edge family."""
+        """The top's stream ports: one per channel of each edge family.
+
+        Only the three signals that direction actually needs.  Declaring all six
+        elaborates too, but leaves half of them dangling and makes the interface
+        ambiguous to anything driving it -- a testbench cannot tell which side of
+        the handshake it owns.
+        """
         ports = ["  input  wire ap_clk", "  input  wire ap_rst_n"]
         for fam in boundary:
             count = _volume(fam.shape)
             span = f"[{_width(fam) - 1}:0] "
-            # The array's edge: a loader or drain leaves the top as a stream.
-            for sig, kind in (
-                ("din", "output"),
-                ("write", "output"),
-                ("read", "output"),
-                ("dout", "input"),
-                ("empty_n", "input"),
-                ("full_n", "input"),
-            ):
-                wide = span if sig in {"din", "dout"} else ""
+            if self.boundary_direction(fam) == IN:
+                # The outside feeds the array: it supplies data and readiness,
+                # the fabric acknowledges.
+                signals = (
+                    ("dout", "input", span),
+                    ("empty_n", "input", ""),
+                    ("read", "output", ""),
+                )
+            else:
+                signals = (
+                    ("din", "output", span),
+                    ("write", "output", ""),
+                    ("full_n", "input", ""),
+                )
+            for sig, kind, wide in signals:
                 ports.append(f"  {kind:<6} wire {wide}{fam.name}_{sig} [0:{count - 1}]")
         return ports
 
@@ -476,7 +506,8 @@ class StructuralEmitter:
         for placement in self.placements():
             body += self._instances(placement)
         return (
-            f"module {top} (\n"
+            "`timescale 1ns/1ps\n\n"
+            + f"module {top} (\n"
             + ",\n".join(self._boundary_ports(boundary))
             + "\n);\n"
             + "\n".join(body)
@@ -495,9 +526,104 @@ class StructuralEmitter:
 def emit_structural_verilog(graph, top="spmw_top"):
     """The whole fabric as one SystemVerilog source: FIFO, role stubs, top."""
     emitter = StructuralEmitter(graph)
-    return "`timescale 1ns/1ps\n\n" + "\n".join(
-        [fifo_module()] + emitter.stubs() + [emitter.fabric(top)]
+    return "\n".join([fifo_module()] + emitter.stubs() + [emitter.fabric(top)])
+
+
+def boundary_plan(graph):
+    """What a driver must feed each edge channel, and where its output belongs.
+
+    Each boundary channel is one edge stream. For an inbound family the plan
+    gives the tensor indices that channel must be handed, in order; for an
+    outbound one, where each arriving token goes. The order comes from the same
+    ``binding.imap.eval`` the reference simulator uses, so a testbench built from
+    this drives the array the way the design says rather than the way its author
+    guessed.
+
+    Returns ``{family: {"direction", "tensor", "channels": [[idx, ...], ...]}}``.
+    """
+    emitter = StructuralEmitter(graph)
+    low = emitter.rolled.low
+    plan = {}
+    for placement in emitter.placements():
+        for fam in emitter.boundary_families(placement):
+            mover = _mover_for(low, placement, fam)
+            if mover is None:
+                continue
+            channels = [None] * _volume(fam.shape)
+            for (site, _port), slot in fam.slots.items():
+                channels[slot] = _mover_indices(mover, site)
+            plan[fam.name] = {
+                "direction": emitter.boundary_direction(fam),
+                "tensor": mover.tensor.name,
+                "channels": channels,
+            }
+        for port in placement.iface.ports():
+            if port.protocol != MEMORY:
+                continue
+            entry = _memory_plan(low, placement, port)
+            if entry is not None:
+                fam = emitter.memory_family(placement, port)
+                channels = [None] * _volume(fam.shape)
+                for (site, _p), slot in fam.slots.items():
+                    channels[slot] = [entry[1](site)]
+                plan[fam.name] = {
+                    "direction": port.direction,
+                    "tensor": entry[0],
+                    "channels": channels,
+                }
+    return plan
+
+
+def _mover_for(low, placement, fam):
+    """The loader or drain whose channels this boundary family carries."""
+    for mover in low.movers:
+        if mover.bundle.placement is not placement:
+            continue
+        if any((site, mover.bundle.port) in fam.slots for site in mover.bundle.sites):
+            return mover
+    return None
+
+
+def _mover_indices(mover, site):
+    """The tensor indices this site's channel carries, in transfer order."""
+    env = dict(mover.bundle.placement.env(site), __coords__=site)
+    extent = mover.extent or 1
+    return [
+        tuple(int(v) for v in mover.imap.eval(env, step=step))
+        for step in range(int(extent))
+    ]
+
+
+def _memory_plan(low, placement, port):
+    """The tensor a memory port lands in, and where each site's value goes."""
+    binding = low.mem_reads.get((placement, port)) or low.mem_writes.get(
+        (placement, port)
     )
+    if binding is None:
+        return None
+    source = low.resolve_storage(
+        binding.source if binding.kind in {"shard", "stationary"} else binding.target
+    )
+    base = getattr(source, "base", None)
+    if base is None or not hasattr(source, "name"):
+        return None  # a brick is resident, not a tensor the driver touches
+
+    def where(site):
+        offsets = getattr(source, "offsets", None) or ()
+        # A bare binding carries a SliceMap rather than an index expression; for
+        # a scalar port every slice is one element, so its start *is* the index.
+        # The reference simulator makes the same split.
+        if hasattr(binding.imap, "slice_for"):
+            subs = [start for start, _size in binding.imap.slice_for(site)]
+        else:
+            env = dict(placement.env(site), __coords__=site)
+            subs = list(binding.imap.eval(env))
+        return tuple(
+            int(v) + int(offsets[k] if k < len(offsets) else 0)
+            for k, v in enumerate(subs)
+        )
+
+    return base.name, where
 
 
 def check_netlist(graph):

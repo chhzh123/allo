@@ -26,7 +26,7 @@ and in the form that matters for hardware: **HLS synthesises the unit, RTL build
 the array.** Nine C syntheses and nine IP exports for a 2-D mesh, whatever its
 size, and Vivado assembles the array from the exported IPs.
 
-**195 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
+**200 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
 `pylint allo --rcfile=./scripts/lint/pylintrc` is 10.00/10, exit 0.
 
 The deselected test is `test_spmw_attention.py::test_hls_csim_matches[2]`, which
@@ -43,23 +43,29 @@ rather than the generated C++ misbehaving. Worth a separate look.
 This is the part to check first, because it is the architecture and it is now
 end to end. Measured on `brg-zhang-xcel`, Vitis/Vivado 2023.2, `xcu280`:
 
-| sites | 9 (3×3) | 16 (4×4) | 36 (6×6) | 64 (8×8) | 144 (12×12) |
-|---|---|---|---|---|---|
-| `csynth` **one role** | 36s | 35s | — | 36s | — |
-| **nine roles**, `csynth` + `export_design` | **544.6s** | **544s** | — | — | — |
-| `csynth` the **whole array** | 39s | 43s | 60s | 93s | **280s** |
-| whole-array DSP / LUT | 45 / 5.6k | 80 / 9.9k | 180 / 22k | 320 / 39k | 720 / 86k |
-| Vivado assembles the array from role IPs | 70s | 17s RTL elab, 0 errors | — | — | — |
+| sites | 9 | 16 | 36 | 64 | 144 | 256 |
+|---|---|---|---|---|---|---|
+| **whole array**: Allo lowering | 1s | 1s | 2s | 3s | 7s | **578s** |
+| **whole array**: `csynth` | 39s | 43s | 60s | 93s | 280s | **807s** |
+| whole-array DSP | 45 | 80 | 180 | 320 | 720 | — |
+| **per role**: `csynth` | 36s | 35s | — | 36s | — | — |
+| **nine roles**: `csynth` + `export_design` | 545s | 544s | 544s | 544s | 544s | 544s |
+| Vivado assembles from the role IPs | 70s | 17s elab | — | — | — | — |
 
-**Per-role synthesis is flat**: 36s at 3×3 is 36s at 8×8, and nine roles cost the
-same 544s for a 9-site array as for a 16-site one. The unit does not know how
-large the array is, so the array's size is paid only in Vivado elaboration.
+**Per-role cost is flat.** 36s at 3×3 is 36s at 8×8; nine roles cost the same
+544s whatever the grid. The unit does not know how large the array is.
 
-**Whole-array synthesis works, and below roughly 200 sites it is the cheaper
-option.** At 144 sites the array csynths in 280s against 544s for the nine roles.
-It grows superlinearly (2.25× the sites from 64 to 144 cost 3× the time) while
-the role path is flat, so the two cross somewhere past 144 sites — but they had
-not crossed anywhere in the range measured here.
+**Whole-array synthesis works too, and below ~200 sites it wins.** 280s at 144
+sites against 544s for the roles. But it grows superlinearly and **the two cross
+between 144 and 256 sites**: at 256 the array costs 807s against the same 544s,
+and Allo's own lowering blows up before synthesis even starts — 578s to generate
+the 16×16 program against about a second for the roles. End to end at 256 sites
+that is ~1385s for the array against ~615s for roles-plus-assembly, and the gap
+widens from there.
+
+So the two paths answer different questions. Small arrays: emit the whole thing,
+it is simpler and faster. Large arrays: synthesise the units and glue them, which
+is the only cost that stays flat.
 
 An earlier version of this document claimed the whole-array program **could not**
 be synthesised at any size. **That was wrong**, and the correction matters enough
@@ -248,13 +254,24 @@ reached hardware; the RTL path (§2) now is, and it carries real bodies. The
 rolled form remains useful as the IR the dialect verifies and as the basis for
 whole-array C simulation, and `spmw.map` is what the structural emitter reads.
 
-**Numerics come through the dataflow path**, which every correctness test above
-exercises. The RTL path is verified structurally — every link lands on one
-channel, checked against `topology.channels`; nothing dangles; the array
-elaborates in Vivado with zero errors — but **it has not been simulated against
-the reference**. A cosim testbench driving `spmw_top` and comparing to
-`spmw.build(target="ref")` is the next thing worth doing, and until it exists
-"elaborates" is not "computes".
+**The RTL path is now verified numerically, not just structurally.** A 4×4
+systolic GEMM built from the nine exported role IPs, glued by the structural
+fabric, runs in xsim and produces all sixteen values of C bit-exact against
+`spmw.build(target="ref")`:
+
+```
+SPMW COSIM PASS (16/16 tokens, 0 errors)
+```
+
+The stimulus order is not hand-written — `rtl.boundary_plan` reads it off the
+same `binding.imap` the reference simulator evaluates, so a disagreement between
+the testbench and the array is a real one rather than a harness bug. Inputs are
+small integers, exact in float32, so the comparison is bit-exact rather than a
+tolerance. Reproduce with `--cosim`.
+
+Still true: the structural checks (every link on one channel, checked against
+`topology.channels`; nothing dangling) are what catch mis-wiring at sizes too
+large to simulate.
 
 **One of the five designs does not build as units.** Every role of the GEMM
 (9/9), the TPU (10/10), attention (7/7) and the tiled GEMM (16/16) compiles to a
@@ -306,11 +323,14 @@ The synthesis flow of §2, end to end — nine HLS syntheses and exports, then
 Vivado assembling the array from them:
 
 ```bash
-python3 scripts/spmw_build_array.py --size 4 --out /scratch/$USER/spmw_array
+python3 scripts/spmw_build_array.py --size 4 --out /scratch/$USER/spmw_array --cosim
 ```
 
-Add `--stage-only` to write the projects without running anything, which is the
-fast way to read the generated unit and the structural top.
+`--cosim` adds the numeric check: it generates the FP cores' simulation models,
+runs xsim, and compares every result token against `target="ref"`. Drop it to
+stop after Vivado elaboration. `--stage-only` writes the projects and runs
+nothing, which is the fast way to read the generated unit and the structural
+top.
 
 If you change any C++, rebuild first — and note the file-descriptor limit, which
 otherwise fails the link with a misleading `cannot find -lm`:

@@ -288,3 +288,71 @@ def test_the_partitioning_can_be_turned_off():
     """Kept switchable: it scalarises the interface arrays, which is a real cost."""
     code = str(spmw.build(gemm_of(3), target="vhls", partition=False).hls_code)
     assert "array_partition" not in code
+
+
+# -- driving the fabric ------------------------------------------------------
+#
+# The array elaborating is not the array computing. The numeric check is a real
+# xsim run against the exported IPs, which needs nine syntheses and so lives in
+# `scripts/spmw_build_array.py --cosim`. What is tested here is the part that
+# decides whether such a run means anything: the stimulus order.
+
+
+@pytest.mark.parametrize("size", [3, 4])
+def test_the_boundary_plan_is_the_design_s_own_order(size):
+    """Channel i of the A loader must carry row i, and B's must carry column j.
+
+    Derived from `binding.imap`, the same map the reference simulator evaluates,
+    rather than from a hand-written guess at the order -- so a testbench built
+    on it drives the array the way the design says.
+    """
+    plan = rtl.boundary_plan(spmw.elaborate(gemm_of(size)))
+    west = next(v for k, v in plan.items() if "west" in k)
+    north = next(v for k, v in plan.items() if "north" in k)
+    result = next(v for k, v in plan.items() if "_c_" in k)
+
+    assert west["tensor"] == "A" and west["direction"] == "in"
+    for i, channel in enumerate(west["channels"]):
+        assert channel == [(i, k) for k in range(size)], f"west[{i}]"
+    assert north["tensor"] == "B" and north["direction"] == "in"
+    for j, channel in enumerate(north["channels"]):
+        assert channel == [(k, j) for k in range(size)], f"north[{j}]"
+    assert result["tensor"] == "C" and result["direction"] == "out"
+    assert sorted(c[0] for c in result["channels"]) == sorted(
+        (i, j) for i in range(size) for j in range(size)
+    )
+
+
+def test_a_boundary_port_carries_only_its_own_half_of_the_handshake():
+    """An inbound family has no `din`; an outbound one has no `dout`.
+
+    Declaring all six elaborates but leaves half dangling, and a driver then
+    cannot tell which side of the handshake it owns.
+    """
+    emitter = rtl.StructuralEmitter(spmw.elaborate(gemm_of(4)))
+    head = emitter.fabric().split(");", 1)[0]
+    assert "pe_west_bind_dout" in head and "pe_west_bind_din" not in head
+    assert "pe_c_mem_din" in head and "pe_c_mem_dout" not in head
+
+
+@pytest.mark.skipif(_xvlog() is None, reason="Vivado xvlog not on PATH")
+@pytest.mark.parametrize("size", [3, 4])
+def test_the_testbench_compiles(size, tmp_path):
+    """The generated driver has to be legal SystemVerilog before it can judge."""
+    import numpy as np
+
+    from allo.spmw.cosim import render_testbench
+
+    graph = spmw.elaborate(gemm_of(size))
+    a = np.arange(size * size, dtype=np.float32).reshape(size, size) % 4
+    want = {"C": (a @ a).astype(np.float32)}
+    (tmp_path / "tb.sv").write_text(render_testbench(graph, {"A": a, "B": a}, want))
+    (tmp_path / "top.sv").write_text(rtl.emit_structural_verilog(graph))
+    done = subprocess.run(
+        ["xvlog", "-sv", "top.sv", "tb.sv"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr

@@ -436,7 +436,8 @@ def wrapper_sv(graph, placement, order, code, ip_suffix="_0"):
     decls, conns = _rename(unit_interface(code, name, ports), widths)
     head = ["  input  wire ap_clk", "  input  wire ap_rst_n"] + decls
     return (
-        f"module {name} (\n"
+        "`timescale 1ns/1ps\n\n"
+        + f"module {name} (\n"
         + ",\n".join(head)
         + "\n);\n"
         + f"  {name}{ip_suffix} u (\n      "
