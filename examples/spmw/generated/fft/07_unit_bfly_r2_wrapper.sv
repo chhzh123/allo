@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module bfly_r2 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  input  wire [31:0] _pid0_dout,
+  input  wire _pid0_empty_n,
+  output wire _pid0_read,
+  input  wire [31:0] _pid1_dout,
+  input  wire _pid1_empty_n,
+  output wire _pid1_read,
+  input  wire [63:0] up_in_dout,
+  input  wire up_in_empty_n,
+  output wire up_in_read,
+  input  wire [63:0] lo_in_dout,
+  input  wire lo_in_empty_n,
+  output wire lo_in_read,
+  output wire [63:0] up_out_din,
+  input  wire up_out_full_n,
+  output wire up_out_write,
+  output wire [63:0] lo_out_din,
+  input  wire lo_out_full_n,
+  output wire lo_out_write
+);
+  bfly_r2_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_dout(_pid0_dout),
+      .v0_empty_n(_pid0_empty_n),
+      .v0_read(_pid0_read),
+      .v1_dout(_pid1_dout),
+      .v1_empty_n(_pid1_empty_n),
+      .v1_read(_pid1_read),
+      .v2_dout(up_in_dout),
+      .v2_empty_n(up_in_empty_n),
+      .v2_read(up_in_read),
+      .v3_dout(lo_in_dout),
+      .v3_empty_n(lo_in_empty_n),
+      .v3_read(lo_in_read),
+      .v4_din(up_out_din),
+      .v4_full_n(up_out_full_n),
+      .v4_write(up_out_write),
+      .v5_din(lo_out_din),
+      .v5_full_n(lo_out_full_n),
+      .v5_write(lo_out_write));
+endmodule
