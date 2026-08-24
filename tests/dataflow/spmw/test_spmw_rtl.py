@@ -356,3 +356,62 @@ def test_the_testbench_compiles(size, tmp_path):
         check=False,
     )
     assert done.returncode == 0, done.stdout + done.stderr
+
+
+# -- what the fabric's edge carries, and what stays inside -------------------
+
+
+def test_a_resident_brick_never_reaches_the_edge():
+    """`mem(..., init=)` is compile-time data, so it is a ROM, not a port.
+
+    The FFT's twiddles are the same at every site. The array holds them in a
+    per-site ROM; a unit that took them on a stream would need the driver to
+    feed constants it already knows, and would carry an interface the design
+    does not have.
+    """
+    from allo.spmw.role_ip import UnitEmitter
+
+    graph = spmw.elaborate(fft_spatial)
+    emitter = rtl.StructuralEmitter(graph)
+    placement = emitter.placements()[0]
+    twiddle = next(p for p in placement.iface.ports() if p.name == "tw")
+    assert emitter.is_resident(placement, twiddle)
+    assert emitter.resolve(placement, next(iter(placement.sites())), twiddle) is None
+    names = [p.name for p, _f in emitter.unit_ports(placement, 0)]
+    assert "tw" not in names, names
+    text, _ = UnitEmitter(graph).program(placement, 0)
+    assert "_st_tw" in text and "tw[0].get()" not in text
+
+
+def test_a_sharded_tensor_does_reach_the_edge():
+    """The TPU's weights come from the caller, so they must arrive on a port."""
+    graph = spmw.elaborate(tpu_matmul)
+    emitter = rtl.StructuralEmitter(graph)
+    placement = emitter.placements()[0]
+    weight = next(p for p in placement.iface.ports() if p.name == "w")
+    assert not emitter.is_resident(placement, weight)
+    names = [p.name for p, _f in emitter.unit_ports(placement, 0)]
+    assert "w" in names, names
+
+
+def test_a_tile_is_fed_its_own_slice_not_the_first_tile_s():
+    """A placed fabric's mover addresses a *view*, so its indices need shifting.
+
+    `lower_df` shifts view coordinates into the base tensor when it emits the
+    loader. Without the same shift here every tile claimed the first tile's rows
+    — a driver built on that plan feeds plausible-looking data to the wrong
+    tiles, and the array computes a wrong answer with no error anywhere.
+    """
+    from test_spmw_tiled import M, Rt, tiled_gemm
+
+    plan = rtl.boundary_plan(spmw.elaborate(tiled_gemm))
+    rows = {
+        name: sorted({idx[0] for channel in entry["channels"] for idx in channel})
+        for name, entry in plan.items()
+        if entry["direction"] == "in" and "west" in name and entry["tensor"] == "A"
+    }
+    assert rows, "the tiled GEMM streams A into every tile's west edge"
+    # Some tile must own the bottom rows; if the shift were dropped they would
+    # all claim the top ones.
+    assert any(min(v) >= M - Rt for v in rows.values()), rows
+    assert any(min(v) == 0 for v in rows.values()), rows

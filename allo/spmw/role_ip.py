@@ -13,10 +13,11 @@ only because ``spmw.build`` completely partitions that tensor -- see
 :func:`allo.spmw.driver.build`.  A unit has no such tensor to partition: its
 result leaves on a port, which is also what makes the IP free-running.
 
-The cost argument for building units is scaling, not feasibility.  Whole-array
-``csynth`` works and is cheaper below roughly 200 sites (280s at 144 sites
-against 544s for nine roles); it grows superlinearly while the role count, and
-so the per-role cost, stays flat.
+The cost argument for building units is scaling and parallelism, not
+feasibility.  Whole-array ``csynth`` works too, but it is one monolithic run --
+39s at 9 sites, 280s at 144, 807s at 256 -- while roles are independent by
+construction and so synthesise concurrently: nine of them in 40.5s of wall clock
+whatever the grid.  Decomposing is what creates that parallelism.
 
 A role stands for many sites, so a unit is only well defined when its sites are
 interchangeable.  That is checked rather than assumed: the body is rewritten for
@@ -31,9 +32,15 @@ import tempfile
 import types
 
 from .errors import SPMWBindingError
-from .lower_df import Lowering, _BodyRewriter, _wiring_classes
+from .lower_df import Lowering, _BodyRewriter, _is_site_rank, _wiring_classes
 from .ports import IN, MEMORY, OUT
-from .rtl import StructuralEmitter, _port_signals, _width
+from .rtl import CoordPort, StructuralEmitter, _port_signals, _width
+
+
+# The coordinate ports' name stem. `rtl.CoordPort` builds `_pid<k>`, and the
+# unit holds each in `_st__pid<k>` -- the same `_st_` prefix a stationary weight
+# gets, because it is the same thing: read once, then used.
+_COORD = "_pid"
 
 
 class _UnitRewriter(_BodyRewriter):
@@ -56,6 +63,9 @@ class _UnitRewriter(_BodyRewriter):
         # *data*, not coordinate-dependent computation. A unit takes it on its
         # own port and holds it, which is what `stationary` already means.
         self.residents = {}
+        # Which grid axes the body reads. A role that reads its position needs it
+        # as an input, and the fabric must drive it per site.
+        self.coords = set()
 
     def _bound(self, port):
         return port in self.connected
@@ -77,6 +87,11 @@ class _UnitRewriter(_BodyRewriter):
         return ast.Name(id=f"_st_{port.name}", ctx=ast.Load())
 
     def visit_Subscript(self, node):
+        if self.site and _is_site_rank(node.value, self.site):
+            if isinstance(node.slice, ast.Constant) and isinstance(
+                node.slice.value, int
+            ):
+                self.coords.add(node.slice.value)
         port = self._port_of(node.value)
         if port is not None and port.protocol == MEMORY:
             return ast.Subscript(
@@ -87,6 +102,13 @@ class _UnitRewriter(_BodyRewriter):
         return super().visit_Subscript(node)
 
     def visit_Attribute(self, node):
+        if (
+            self.site
+            and isinstance(node.value, ast.Name)
+            and node.value.id == self.site
+            and node.attr == "rank"
+        ):
+            self.coords.update(range(len(self.pids)))
         port = self._port_of(node)
         if port is not None and port.protocol == MEMORY:
             return self._resident(port)
@@ -94,6 +116,20 @@ class _UnitRewriter(_BodyRewriter):
 
     def visit_Assign(self, node):
         """``io.c = acc`` writes to storage in the array, and out here."""
+        # `s, b = site.rank` restates the coordinates. In the array they come
+        # from df.get_pid(); a single-instance kernel's pid is always zero, so
+        # here they come from the unit's own coordinate inputs.
+        if self.site and _is_site_rank(node.value, self.site):
+            self.coords.update(range(len(self.pids)))
+            value = (
+                ast.Tuple(
+                    elts=[ast.Name(id=p, ctx=ast.Load()) for p in self.pids],
+                    ctx=ast.Load(),
+                )
+                if len(self.pids) > 1
+                else ast.Name(id=self.pids[0], ctx=ast.Load())
+            )
+            return ast.Assign(targets=node.targets, value=value)
         target = node.targets[0] if len(node.targets) == 1 else None
         port = self._port_of(target) if target is not None else None
         if port is not None and port.protocol == MEMORY:
@@ -152,7 +188,7 @@ class UnitEmitter:
                 f"`{placement.name}` is a placed fabric; a unit is defined for a "
                 f"placed *unit*, so inline the sub-fabric first."
             )
-        pids = [f"_p{k}" for k in range(len(placement.grid))]
+        pids = [f"_st_{_COORD}{k}" for k in range(len(placement.grid))]
         rewriter = _UnitRewriter(
             self.low,
             placement,
@@ -191,31 +227,42 @@ class UnitEmitter:
                     f"one IP cannot stand for them: the body reads its own "
                     f"coordinates, which a unit would have to take as inputs."
                 )
-        # Coordinates reach a body two ways: through the pid names this
-        # emitter substitutes, and through `site.rank`, which the base rewriter
-        # turns into `df.get_pid()`. A single-instance kernel's pid is always
-        # zero, so letting the second through would compile and silently run
-        # every site as if it were the origin.
-        for marker in list(pids) + ["df.get_pid()"]:
-            if marker in source:
-                raise SPMWBindingError(
-                    f"`{name}` reads its own grid coordinates, which a "
-                    f"standalone unit does not receive. The role is real -- its "
-                    f"sites differ by position, not just by wiring -- so the "
-                    f"unit would need them as inputs."
-                )
+        # `df.get_pid()` would be a silent wrong answer: a single-instance
+        # kernel's pid is always zero, so the unit would run every site as if it
+        # were the origin. Coordinates must arrive as inputs instead, and any
+        # route that still reaches get_pid() has escaped that.
+        if "df.get_pid()" in source:
+            raise SPMWBindingError(
+                f"`{name}` still reads df.get_pid(), which is zero in a "
+                f"single-instance kernel. Its coordinates should have become "
+                f"inputs; this is an emission bug."
+            )
 
     def _held(self, rewriter):
-        """Declarations for the memory ports this unit reads once and holds.
+        """Declarations for everything this unit reads once and holds.
 
-        That is what ``stationary`` already means, and it keeps the unit
-        free-running rather than re-reading a value the array kept in a
-        register.
+        A stationary weight and a grid coordinate are the same shape of thing:
+        per-site data that arrives on a port and does not change. Reading each
+        once keeps the unit free-running rather than re-reading a value the array
+        would have kept in a register.
         """
         out = []
+        resident = {
+            ast.unparse(decl.target): ast.unparse(decl)
+            for decl in self.low.stationary_locals(rewriter.placement)
+        }
         for name, port in rewriter.residents.items():
+            local = f"_st_{name}"
+            if local in resident:
+                # Compile-time contents: the same ROM the array gives each site.
+                out.append(resident[local])
+                continue
             ann = ast.unparse(self.low.type_ann(port.dtype, port.shape))
-            out.append(f"_st_{name}: {ann} = {name}[0].get()")
+            out.append(f"{local}: {ann} = {name}[0].get()")
+        for axis in sorted(rewriter.coords):
+            port = CoordPort(axis)
+            ann = ast.unparse(self.low.type_ann(port.dtype, port.shape))
+            out.append(f"_st_{_COORD}{axis}: {ann} = {_COORD}{axis}[0].get()")
         return out
 
     def _declarations(self, placement, order):
@@ -318,6 +365,29 @@ def _base_name(node):
     return node.id
 
 
+_COORD_CACHE = {}
+
+
+def coord_axes(graph, placement, order):
+    """Which grid axes this role's body reads, as a sorted tuple.
+
+    A fact about the body, so it is answered by rewriting the body -- the same
+    rewrite the unit is emitted from, so the ports the fabric drives and the
+    ports the unit declares cannot disagree.
+
+    Memoised because the fabric asks once per site.
+    """
+    key = (id(graph), id(placement), order)
+    if key not in _COORD_CACHE:
+        emitter = UnitEmitter(graph)
+        _sig, _routing, sites = emitter.classes(placement)[order]
+        _body, _pids, rewriter = emitter._body(  # pylint: disable=protected-access
+            placement, order, sites[0]
+        )
+        _COORD_CACHE[key] = tuple(sorted(rewriter.coords))
+    return _COORD_CACHE[key]
+
+
 def _unparse(body):
     """Unparse a rewritten body; constructed nodes carry no source locations."""
     return ast.unparse(
@@ -415,7 +485,9 @@ def unit_interface(code, name, ports):
             f"`{name}` was synthesised with {len(params)} stream parameters but "
             f"the role has {len(ports)} ports."
         )
-    decls = re.findall(r"hls::stream<[^>]*>\s*(\w+);", code)
+    # A block-carrying port is `hls::stream< hls::vector< float, 2 > >`, so the
+    # element type nests -- one level of angle brackets has to be allowed for.
+    decls = re.findall(r"hls::stream<(?:[^<>]|<[^<>]*>)*>\s*(\w+);", code)
     call = re.search(rf"{re.escape(kernel.group(1))}\(([^)]*)\);", code)
     if call is None or len(decls) != len(ports):
         raise SPMWBindingError(
@@ -519,6 +591,7 @@ def check_wrapper(wrapper, exported):
 
 __all__ = [
     "UnitEmitter",
+    "coord_axes",
     "trim_includes",
     "build_unit",
     "check_wrapper",

@@ -11,20 +11,26 @@ Run it on a machine with Vitis and Vivado on PATH::
 
     python3 scripts/spmw_build_array.py --size 4 --out /scratch/$USER/spmw_array
 
-It stages one HLS project per role, synthesises and exports each, then writes a
-Vivado script that reads the exported IPs together with the structural fabric
-and elaborates the whole array.  Measured on brg-zhang-xcel for a 4x4 GEMM: nine
-exports in 544s, and Vivado elaborates the 16-instance array in 17s.
+It stages one HLS project per role, synthesises and exports them *concurrently*
+-- roles are independent by construction, which is what having roles means --
+then writes a Vivado script that reads the exported IPs together with the
+structural fabric and elaborates the whole array.  ``--cosim`` goes further and
+simulates it against ``target="ref"``.
 
-For contrast, the whole-array program the dataflow path emits does not
-synthesise at all -- at any grid size.  Every site stores into the same result
-tensor and HLS dataflow permits one writer per array, so ``csynth`` rejects it
-with "failed dataflow checking".  Streaming each site's result out, which is what
-the unit does, is what makes the design synthesisable rather than merely
-cheaper.
+Measured on brg-zhang-xcel, systolic GEMM, xcu280: nine roles in **40.5s of wall
+clock** (361s of CPU across 48 cores), and Vivado assembles the array in ~69s.
+The same nine cost 332s run serially, and 545s before their unused headers were
+trimmed.
+
+The whole-array program also synthesises -- ``spmw.build`` partitions the tensor
+arguments, without which HLS dataflow rejects the shared result array -- but it
+is one monolithic ``csynth`` and cannot be split across cores: 39s at 9 sites,
+280s at 144, 807s at 256.  Decomposing into roles is what *creates* the
+parallelism, which is a second reason for the split beyond the flat cost.
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import shutil
@@ -67,7 +73,8 @@ exit
 ASSEMBLE_TCL = """create_project -in_memory -part {part}
 set root {root}
 add_files [glob $root/*.sv]
-foreach d [glob $root/pe_r*] {{
+foreach r {{{roles}}} {{
+  set d $root/$r
   add_files [glob -nocomplain $d/*.sv]
   add_files [glob -nocomplain $d/prj/sol/syn/verilog/*.v]
   foreach x [glob -nocomplain $d/prj/sol/impl/ip/tmp.srcs/sources_1/ip/*/*.xci] {{
@@ -81,57 +88,142 @@ puts "ELABORATION OK"
 """
 
 
-def gemm(size):
-    """The design under test: the design doc's systolic GEMM, at a chosen size."""
-    from test_spmw_rolled import gemm_of  # pylint: disable=import-outside-toplevel
+def design(name, size):
+    """One of the design doc's worked examples, by name.
 
-    return gemm_of(size)
+    They come from the test fixtures rather than being restated here, so the
+    thing built is the same thing the suite checks.
+    """
+    # pylint: disable=import-outside-toplevel
+    if name == "gemm":
+        from test_spmw_rolled import gemm_of
+
+        return gemm_of(size)
+    if name == "tpu":
+        from test_spmw_tpu import tpu_matmul
+
+        return tpu_matmul
+    if name == "fft":
+        from test_spmw_fft import fft_spatial
+
+        return fft_spatial
+    if name == "attention":
+        from test_spmw_attention import attention_pv
+
+        return attention_pv(2)
+    if name == "tiled":
+        from test_spmw_tiled import tiled_gemm
+
+        return tiled_gemm
+    raise SystemExit(f"unknown design {name!r}")
+
+
+def operands(fabric, graph):
+    """Inputs to drive the array with, and the outputs the design says to expect.
+
+    Which tensors are outputs is read off the graph rather than assumed from
+    their names. Inputs are small integers, exactly representable in every type
+    here, so the RTL comparison is bit-exact rather than a tolerance.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    from allo.spmw.lower_df import Lowering  # pylint: disable=import-outside-toplevel
+
+    written = Lowering(graph).written_tensors()
+    rng = np.random.default_rng(0)
+    arrays = {}
+    for tensor in graph.tensors.values():
+        kind = np.dtype(_NUMPY[str(tensor.dtype)])
+        if tensor.name in written:
+            arrays[tensor.name] = np.zeros(tensor.shape, dtype=kind)
+        else:
+            arrays[tensor.name] = rng.integers(0, 3, size=tensor.shape).astype(kind)
+    spmw.build(fabric, target="ref")(*[arrays[t.name] for t in graph.tensors.values()])
+    return arrays
+
+
+_NUMPY = {
+    "f32": "float32",
+    "f64": "float64",
+    "i8": "int8",
+    "i16": "int16",
+    "i32": "int32",
+    "i64": "int64",
+}
 
 
 def stage(graph, out, part, frequency):
-    """Write one HLS project per role, plus the fabric that will hold them."""
+    """Write one HLS project per role, plus the fabric that will hold them.
+
+    Every placement, not just the first: a design can put more than one
+    component down -- the mini-TPU is an MXU and an activation row joined by
+    ``link`` -- and each contributes its own roles.
+    """
     emitter = UnitEmitter(graph)
-    placement = emitter.placements()[0]
     names = []
-    for order in range(len(emitter.classes(placement))):
-        name = emitter.role_name(placement, order)
-        code = trim_includes(
-            str(build_unit(graph, placement, order, target="vhls").hls_code)
-        )
-        directory = os.path.join(out, name)
-        os.makedirs(directory, exist_ok=True)
-        _write(os.path.join(directory, "kernel.cpp"), code)
-        _write(
-            os.path.join(directory, f"{name}.sv"),
-            wrapper_sv(graph, placement, order, code),
-        )
-        _write(
-            os.path.join(directory, "run.tcl"),
-            ROLE_TCL.format(name=name, part=part, period=1000.0 / frequency),
-        )
-        names.append(name)
+    for placement in emitter.placements():
+        for order in range(len(emitter.classes(placement))):
+            name = emitter.role_name(placement, order)
+            code = trim_includes(
+                str(build_unit(graph, placement, order, target="vhls").hls_code)
+            )
+            directory = os.path.join(out, name)
+            os.makedirs(directory, exist_ok=True)
+            _write(os.path.join(directory, "kernel.cpp"), code)
+            _write(
+                os.path.join(directory, f"{name}.sv"),
+                wrapper_sv(graph, placement, order, code),
+            )
+            _write(
+                os.path.join(directory, "run.tcl"),
+                ROLE_TCL.format(name=name, part=part, period=1000.0 / frequency),
+            )
+            names.append(name)
     _write(os.path.join(out, "spmw_fifo.sv"), rtl.fifo_module())
+    _write(os.path.join(out, "spmw_const.sv"), rtl.const_module())
     _write(os.path.join(out, "spmw_top.sv"), rtl.StructuralEmitter(graph).fabric())
     return names
 
 
-def synthesise(out, names):
-    """One `csynth` + `export_design` per role -- the whole HLS cost."""
+def synthesise(out, names, jobs=None):
+    """One `csynth` + `export_design` per role -- the whole HLS cost.
+
+    The roles are independent by construction: that is what having roles *means*.
+    So they run concurrently, and the wall clock is one role rather than nine.
+    Each ``vitis_hls`` is effectively single-threaded (25s of CPU in 31s elapsed)
+    and holds ~300MB, so the useful limit is cores, not memory.
+    """
+    # One vitis_hls per role, but not more than the machine can carry: each is
+    # effectively single-threaded and holds ~300MB, so cores are the limit. A
+    # design with fifty roles should not launch fifty tools at once.
+    jobs = jobs or max(1, min(len(names), (os.cpu_count() or 4) - 2))
     times = {}
-    for name in names:
-        directory = os.path.join(out, name)
-        start = time.time()
-        done = subprocess.run(
-            ["vitis_hls", "-f", "run.tcl"],
-            cwd=directory,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        times[name] = round(time.time() - start, 1)
-        print(f"  {name}: rc={done.returncode} {times[name]}s", flush=True)
-        if done.returncode != 0:
-            raise SystemExit(f"{name} failed to synthesise; see {directory}/prj")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        futures = {pool.submit(_synthesise_one, out, name): name for name in names}
+        for future in concurrent.futures.as_completed(futures):
+            name, seconds, code = future.result()
+            times[name] = seconds
+            print(f"  {name}: rc={code} {seconds}s", flush=True)
+            if code != 0:
+                raise SystemExit(
+                    f"{name} failed to synthesise; see {os.path.join(out, name)}/prj"
+                )
+    return times
+
+
+def _synthesise_one(out, name):
+    """Synthesise and export one role, then check its wrapper against the IP."""
+    directory = os.path.join(out, name)
+    start = time.time()
+    done = subprocess.run(
+        ["vitis_hls", "-f", "run.tcl"],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    seconds = round(time.time() - start, 1)
+    if done.returncode == 0:
         exported = os.path.join(
             directory, "prj", "sol", "syn", "verilog", f"{name}_0.v"
         )
@@ -142,13 +234,16 @@ def synthesise(out, names):
                 os.path.join(directory, f"{name}.sv"), encoding="utf-8"
             ) as handle:
                 check_wrapper(handle.read(), netlist)
-    return times
+    return name, seconds, done.returncode
 
 
-def assemble(out, part, top="spmw_top"):
+def assemble(out, part, names, top="spmw_top"):
     """Vivado reads the exported IPs and elaborates the array."""
     script = os.path.join(out, "assemble.tcl")
-    _write(script, ASSEMBLE_TCL.format(part=part, root=out, top=top))
+    _write(
+        script,
+        ASSEMBLE_TCL.format(part=part, root=out, top=top, roles=" ".join(names)),
+    )
     start = time.time()
     done = subprocess.run(
         ["vivado", "-mode", "batch", "-source", script, "-nojournal", "-nolog"],
@@ -165,36 +260,29 @@ def assemble(out, part, top="spmw_top"):
 
 
 IPGEN_TCL = """create_project -force ipgen {out}/ipgen -part {part}
-foreach x [glob {root}/pe_r*/prj/sol/impl/ip/tmp.srcs/sources_1/ip/*/*.xci] {{
-  import_ip $x
+foreach r {{{roles}}} {{
+  foreach x [glob -nocomplain \
+      {root}/$r/prj/sol/impl/ip/tmp.srcs/sources_1/ip/*/*.xci] {{
+    import_ip $x
+  }}
 }}
 generate_target {{simulation}} [get_ips]
 """
 
 
-def cosim(graph, out, part, size):
+def cosim(graph, out, part, arrays, names):
     """Simulate the assembled array and compare against the reference.
 
     Elaborating is not computing, so this is the check that the mixed path is
-    right rather than merely well-formed. Inputs are small integers, exact in
-    float32, so the comparison is bit-exact rather than a tolerance.
+    right rather than merely well-formed.
     """
-    import numpy as np  # pylint: disable=import-outside-toplevel
-
-    rng = np.random.default_rng(0)
-    tensors = {
-        "A": rng.integers(0, 4, size=(size, size)).astype(np.float32),
-        "B": rng.integers(0, 4, size=(size, size)).astype(np.float32),
-    }
-    result = np.zeros((size, size), dtype=np.float32)
-    spmw.build(gemm(size), target="ref")(tensors["A"], tensors["B"], result)
-    _write(os.path.join(out, "tb.sv"), render_testbench(graph, tensors, {"C": result}))
+    _write(os.path.join(out, "tb.sv"), render_testbench(graph, arrays, arrays))
 
     # The exported IPs instantiate Xilinx FP cores; xsim needs their generated
     # simulation models, which only Vivado can produce from the .xci files.
     _write(
         os.path.join(out, "genip.tcl"),
-        IPGEN_TCL.format(out=out, part=part, root=out),
+        IPGEN_TCL.format(out=out, part=part, root=out, roles=" ".join(names)),
     )
     _run(
         ["vivado", "-mode", "batch", "-source", "genip.tcl", "-nojournal", "-nolog"],
@@ -203,23 +291,22 @@ def cosim(graph, out, part, size):
 
     sim = os.path.join(out, "sim")
     os.makedirs(sim, exist_ok=True)
-    sources = ["spmw_fifo.sv", "spmw_top.sv", "tb.sv"]
+    sources = ["spmw_fifo.sv", "spmw_const.sv", "spmw_top.sv", "tb.sv"]
     for name in sources:
         shutil.copy(os.path.join(out, name), sim)
-    # Each role contributes its wrapper (which lives in the role's own project
-    # directory, not at the top) and its exported netlist.
-    for role in sorted(os.listdir(out)):
+    # Each role contributes its wrapper -- which lives in the role's own project
+    # directory, not at the top -- and its exported netlist.
+    for role in names:
         wrapper = os.path.join(out, role, f"{role}.sv")
-        if os.path.isfile(wrapper):
-            shutil.copy(wrapper, sim)
-            sources.append(f"{role}.sv")
+        if not os.path.isfile(wrapper):
+            raise SystemExit(f"{role} has no wrapper at {wrapper}")
+        shutil.copy(wrapper, sim)
+        sources.append(f"{role}.sv")
         verilog = os.path.join(out, role, "prj", "sol", "syn", "verilog")
         if os.path.isdir(verilog):
             for name in os.listdir(verilog):
                 if name.endswith(".v"):
                     shutil.copy(os.path.join(verilog, name), sim)
-    if len(sources) == 3:
-        raise SystemExit(f"no role wrappers found under {out}")
     for root, _dirs, files in os.walk(os.path.join(out, "ipgen")):
         if "sources_1" in root and os.sep + "ip" + os.sep in root + os.sep:
             for name in files:
@@ -270,6 +357,12 @@ def _write(path, text):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--design",
+        default="gemm",
+        choices=("gemm", "tpu", "fft", "attention", "tiled"),
+        help="which worked example to build",
+    )
     parser.add_argument("--size", type=int, default=4)
     parser.add_argument("--out", required=True)
     parser.add_argument("--part", default=PART)
@@ -282,38 +375,53 @@ def main():
         action="store_true",
         help="simulate the assembled array against the reference",
     )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=0,
+        help="concurrent role syntheses (default: one per core, capped by roles)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
-    graph = spmw.elaborate(gemm(args.size))
+    fabric = design(args.design, args.size)
+    graph = spmw.elaborate(fabric)
     cost = rtl.cost(graph)
     rtl.check_netlist(graph)
-    print(f"{args.size}x{args.size} GEMM: {json.dumps(cost)}")
+    print(f"{args.design}: {json.dumps(cost)}")
 
     names = stage(graph, args.out, args.part, args.frequency)
     print(f"staged {len(names)} role project(s)")
     if args.stage_only:
         return
 
-    print("synthesising and exporting each role:")
-    times = synthesise(args.out, names)
-    total = round(sum(times.values()), 1)
+    print(f"synthesising and exporting {len(names)} roles concurrently:")
+    start = time.time()
+    times = synthesise(args.out, names, jobs=args.jobs or None)
+    wall = round(time.time() - start, 1)
     print(
-        f"HLS total: {total}s for {len(names)} roles "
-        f"({cost['instances']} instances)"
+        f"HLS: {wall}s wall for {len(names)} roles "
+        f"({round(sum(times.values()), 1)}s of CPU work, "
+        f"{cost['instances']} instances)"
     )
 
     print("assembling the array in Vivado:")
-    elapsed = assemble(args.out, args.part)
+    elapsed = assemble(args.out, args.part, names)
     print(f"Vivado elaborated {cost['instances']} instances in {elapsed}s")
 
     if args.cosim:
         print("simulating the assembled array:")
-        cosim(graph, args.out, args.part, args.size)
+        cosim(graph, args.out, args.part, operands(fabric, graph), names)
     _write(
         os.path.join(args.out, "cost.json"),
         json.dumps(
-            {"cost": cost, "hls_seconds": times, "vivado_seconds": elapsed}, indent=1
+            {
+                "cost": cost,
+                "hls_seconds": times,
+                "hls_wall_seconds": wall,
+                "vivado_seconds": elapsed,
+            },
+            indent=1,
         ),
     )
 

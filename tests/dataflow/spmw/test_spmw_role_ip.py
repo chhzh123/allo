@@ -22,6 +22,7 @@ import allo.spmw as spmw
 from allo.spmw import rtl
 from allo.spmw.role_ip import (
     UnitEmitter,
+    coord_axes,
     build_unit,
     check_wrapper,
     unit_interface,
@@ -140,18 +141,53 @@ def test_a_stationary_weight_is_held_not_indexed():
     assert "local_W" not in text, "the parent's tensor must not reach the unit"
 
 
-def test_a_genuinely_positional_role_is_refused():
-    """The FFT butterfly reads its stage and index, so it is not one unit.
+def test_a_positional_role_takes_its_coordinates_as_inputs():
+    """The FFT butterfly reads its stage and index, so the unit is given them.
 
-    A single-instance kernel's pid is always zero, so compiling this would run
-    every site as if it were the origin -- wrong numbers, no error. It is
-    refused until a unit can take its coordinates as inputs.
+    A single-instance kernel's `df.get_pid()` is always zero, so the coordinates
+    cannot come from there -- the unit would run every site as if it were the
+    origin. They arrive on ports instead, read once and held, exactly as a
+    stationary weight does, and the fabric drives each site's from a constant.
     """
     graph = spmw.elaborate(fft_spatial)
     emitter = UnitEmitter(graph)
     placement = emitter.placements()[0]
-    with pytest.raises(Exception, match="grid coordinates"):
-        emitter.program(placement, 0)
+    assert coord_axes(graph, placement, 0) == (0, 1)
+    text, _extras = emitter.program(placement, 0)
+    assert "_pid0: Stream[" in text and "_pid1: Stream[" in text
+    assert "_st__pid0" in text and "_st__pid1" in text
+    assert "df.get_pid()" not in text, "the pid would be zero in a unit"
+    # the coordinates reach the body where `site.rank` was
+    assert "s, b = (_st__pid0, _st__pid1)" in text
+
+
+def test_a_role_that_ignores_its_position_gains_no_coordinate_ports():
+    """The cost is paid only where it is needed."""
+    graph = spmw.elaborate(gemm_of(4))
+    emitter = UnitEmitter(graph)
+    placement = emitter.placements()[0]
+    for order in range(len(emitter.classes(placement))):
+        assert coord_axes(graph, placement, order) == ()
+        text, _ = emitter.program(placement, order)
+        assert "_pid" not in text
+
+
+def test_the_fabric_drives_each_site_s_own_coordinates():
+    """One constant source per site per axis, holding that site's index."""
+    graph = spmw.elaborate(fft_spatial)
+    struct = rtl.StructuralEmitter(graph)
+    placement = struct.placements()[0]
+    text = struct.fabric()
+    assert "spmw_const" in text
+    for axis, extent in enumerate(placement.grid):
+        fam = struct.coord_family(placement, axis)
+        assert f"{fam.name}_dout" in text
+        del extent
+    # each site's constant is its own coordinate on that axis
+    for pos, site in enumerate(placement.sites()):
+        for axis in range(len(placement.grid)):
+            fam = struct.coord_family(placement, axis)
+            assert f".VAL({site[axis]})) u_{fam.name}_{pos} " in text, (site, axis)
 
 
 # -- the toolchain ----------------------------------------------------------

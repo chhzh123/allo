@@ -111,6 +111,56 @@ endmodule
 """
 
 
+class CoordPort:
+    """A grid coordinate, presented to the unit as an ordinary input stream.
+
+    A role whose body reads its own position -- an FFT butterfly needs its stage
+    and index -- cannot be one module unless the position is an *input*.  Making
+    it a stream rather than a new interface kind means the unit stays a
+    free-running IP and the fabric wires it like anything else; the unit reads it
+    once and holds it, exactly as it does a stationary weight.
+    """
+
+    __slots__ = ("name", "axis", "direction", "protocol", "dtype", "shape", "depth")
+
+    def __init__(self, axis):
+        # pylint: disable=import-outside-toplevel
+        from allo.ir.types import int32
+
+        self.axis = axis
+        self.name = f"_pid{axis}"
+        self.direction = IN
+        self.protocol = STREAM
+        # A real Allo type, not its spelling: the emitted program annotates the
+        # held value with it, and `type_ann` injects the object itself.
+        self.dtype = int32
+        self.shape = ()
+        self.depth = 1
+
+    def __repr__(self):
+        return f"<coord {self.name}>"
+
+
+def const_module():
+    """A stream that always holds one constant.
+
+    Not a FIFO: a coordinate is not produced by anything, it simply *is*. Holding
+    ``empty_n`` high means a unit can read it whenever it starts, and reading it
+    never empties it, so no reset ordering matters.
+    """
+    return """`timescale 1ns/1ps
+
+module spmw_const #(parameter DW = 32, parameter [63:0] VAL = 0) (
+  output wire [DW-1:0] dout,
+  output wire          empty_n,
+  input  wire          read
+);
+  assign dout    = VAL[DW-1:0];
+  assign empty_n = 1'b1;
+endmodule
+"""
+
+
 def _port_signals(name, direction, width):
     """One stream port's ap_fifo signals, from the unit's point of view."""
     if direction == IN:
@@ -213,12 +263,16 @@ class StructuralEmitter:
         return internal, boundary
 
     def memory_families(self, placement):
-        """Every bound memory port at this placement, as an edge stream."""
-        out = []
-        for port in placement.iface.ports():
-            if port.protocol == MEMORY:
-                out.append(self.memory_family(placement, port))
-        return out
+        """Every memory port that crosses the edge, as a stream.
+
+        A resident port is skipped: its contents are compile-time, so it never
+        reaches the DMA.
+        """
+        return [
+            self.memory_family(placement, port)
+            for port in placement.iface.ports()
+            if port.protocol == MEMORY and not self.is_resident(placement, port)
+        ]
 
     def boundary_families(self, placement):
         """The loader/drain families at this placement, as top-level ports."""
@@ -238,6 +292,11 @@ class StructuralEmitter:
         entering the array.
         """
         if port.protocol == MEMORY:
+            # Compile-time contents are resident, not a channel: the array holds
+            # them in a per-site ROM and so does the unit. Only data that comes
+            # from outside crosses the fabric's edge.
+            if self.is_resident(placement, port):
+                return None
             return self.memory_family(placement, port)
         if port.protocol != STREAM:
             return None
@@ -252,6 +311,27 @@ class StructuralEmitter:
             return fam
         return None
 
+    def is_resident(self, placement, port):
+        """Is this memory port backed by contents known at compile time?
+
+        A ``mem(..., init=...)`` brick is; a shard of a caller's tensor is not.
+        The first belongs inside the unit, the second has to arrive on a port,
+        and telling them apart is what keeps a resident ROM out of the
+        interface.
+        """
+        low = self.rolled.low
+        binding = low.mem_reads.get((placement, port)) or low.mem_writes.get(
+            (placement, port)
+        )
+        if binding is None:
+            return False
+        source = low.resolve_storage(
+            binding.source
+            if binding.kind in {"shard", "stationary"}
+            else binding.target
+        )
+        return getattr(source, "init", None) is not None
+
     def site_ports(self, placement, site):
         """Every port connected at this site, with its family, in a stable order."""
         found = []
@@ -260,6 +340,43 @@ class StructuralEmitter:
             if fam is not None:
                 found.append((port, fam))
         return sorted(found, key=lambda pf: (pf[0].protocol, pf[0].name))
+
+    def coord_ports(self, placement, order):
+        """The coordinates this role reads, as input ports.
+
+        Which axes a role reads is a fact about its *body*, so it is computed
+        where the body is rewritten -- :mod:`allo.spmw.role_ip` -- and imported
+        here rather than guessed at from the interface.
+        """
+        # pylint: disable=import-outside-toplevel
+        from .role_ip import coord_axes
+
+        return [CoordPort(axis) for axis in coord_axes(self.graph, placement, order)]
+
+    def coord_family(self, placement, axis):
+        """One channel per site, each a constant source holding that coordinate."""
+        key = (id(placement), "coord", axis)
+        if key in self._mem_families:
+            return self._mem_families[key]
+        prefix = self.rolled.low.kernel_names[placement]
+        sites = list(placement.sites())
+        port = CoordPort(axis)
+        fam = ch.Family(
+            f"{prefix}_pid{axis}", port.dtype, (), 1, ch.TABLE, (len(sites),)
+        )
+        for pos, site in enumerate(sites):
+            fam.slots[(site, port)] = pos
+        fam.count = len(sites)
+        fam.coord_axis = axis
+        self._mem_families[key] = fam
+        return fam
+
+    def coord_families(self, placement):
+        """Every coordinate axis any role of this placement reads."""
+        axes = set()
+        for order in range(len(self.classes(placement))):
+            axes |= {p.axis for p in self.coord_ports(placement, order)}
+        return [self.coord_family(placement, axis) for axis in sorted(axes)]
 
     def unit_ports(self, placement, order):
         """The ports a role's IP carries -- one interface for all its sites.
@@ -280,7 +397,13 @@ class StructuralEmitter:
                     f"connect different ports ({names} vs {other}), so one IP "
                     f"cannot stand for both."
                 )
-        return first
+        # Coordinates come last, so a role that does not read its position has
+        # exactly the interface it had before they existed.
+        coords = [
+            (port, self.coord_family(placement, port.axis))
+            for port in self.coord_ports(placement, order)
+        ]
+        return first + coords
 
     def stream_ports(self, signature):
         """Just the FIFO ports of a signature, in name order."""
@@ -349,6 +472,8 @@ class StructuralEmitter:
         the same convention ``lower_df`` emits, and the reason both ends of a
         link land on one FIFO.
         """
+        if getattr(fam, "coord_axis", None) is not None:
+            return list(placement.sites()).index(tuple(site))
         if port.protocol == MEMORY:
             return fam.slots[(site, port)]
         if fam.kind == ch.AFFINE:
@@ -418,10 +543,13 @@ class StructuralEmitter:
             ]
         return lines
 
-    def _connections(self, placement, site):
+    def _connections(self, placement, site, order):
         """This site's port connections, each resolved to one channel."""
         conns = [".ap_clk(ap_clk)", ".ap_rst_n(ap_rst_n)"]
-        for port, fam in self.site_ports(placement, site):
+        for port, fam in self.site_ports(placement, site) + [
+            (port, self.coord_family(placement, port.axis))
+            for port in self.coord_ports(placement, order)
+        ]:
             idx = self.channel_index(placement, site, port, fam)
             if idx < 0:
                 raise SPMWBindingError(
@@ -445,7 +573,7 @@ class StructuralEmitter:
                 tag = "_".join(str(c) for c in site)
                 lines.append(
                     f"  {names[order]} u_{names[order]}_{tag} (\n      "
-                    + ",\n      ".join(self._connections(placement, site))
+                    + ",\n      ".join(self._connections(placement, site, order))
                     + ");"
                 )
         return lines
@@ -466,6 +594,30 @@ class StructuralEmitter:
                 f"directions; it cannot be one edge port."
             )
         return directions.pop()
+
+    def _coord_sources(self, placement):
+        """A constant source per site per coordinate axis this placement reads."""
+        lines = []
+        sites = list(placement.sites())
+        for fam in self.coord_families(placement):
+            width = _width(fam)
+            lines.append(
+                f"  // coordinate axis {fam.coord_axis}: {len(sites)} constant "
+                f"source(s)"
+            )
+            lines += [
+                f"  wire [{width - 1}:0] {fam.name}_dout [0:{len(sites) - 1}];",
+                f"  wire {fam.name}_empty_n [0:{len(sites) - 1}];",
+                f"  wire {fam.name}_read [0:{len(sites) - 1}];",
+            ]
+            for pos, site in enumerate(sites):
+                lines.append(
+                    f"  spmw_const #(.DW({width}), .VAL({int(site[fam.coord_axis])})) "
+                    f"u_{fam.name}_{pos} (.dout({fam.name}_dout[{pos}]), "
+                    f".empty_n({fam.name}_empty_n[{pos}]), "
+                    f".read({fam.name}_read[{pos}]));"
+                )
+        return lines
 
     def _boundary_ports(self, boundary):
         """The top's stream ports: one per channel of each edge family.
@@ -504,6 +656,7 @@ class StructuralEmitter:
         for fam in internal:
             body += self._family_wires(fam, internal=True)
         for placement in self.placements():
+            body += self._coord_sources(placement)
             body += self._instances(placement)
         return (
             "`timescale 1ns/1ps\n\n"
@@ -526,7 +679,9 @@ class StructuralEmitter:
 def emit_structural_verilog(graph, top="spmw_top"):
     """The whole fabric as one SystemVerilog source: FIFO, role stubs, top."""
     emitter = StructuralEmitter(graph)
-    return "\n".join([fifo_module()] + emitter.stubs() + [emitter.fabric(top)])
+    return "\n".join(
+        [fifo_module(), const_module()] + emitter.stubs() + [emitter.fabric(top)]
+    )
 
 
 def boundary_plan(graph):
@@ -554,7 +709,7 @@ def boundary_plan(graph):
                 channels[slot] = _mover_indices(mover, site)
             plan[fam.name] = {
                 "direction": emitter.boundary_direction(fam),
-                "tensor": mover.tensor.name,
+                "tensor": getattr(mover.tensor, "base", mover.tensor).name,
                 "channels": channels,
             }
         for port in placement.iface.ports():
@@ -585,13 +740,28 @@ def _mover_for(low, placement, fam):
 
 
 def _mover_indices(mover, site):
-    """The tensor indices this site's channel carries, in transfer order."""
+    """The tensor indices this site's channel carries, in transfer order.
+
+    Shifted into the *base* tensor.  A mover may address a view -- a tile of a
+    placed fabric reads its own slice of the caller's array -- and its index map
+    is written in the view's coordinates.  ``lower_df`` applies the same shift
+    when it emits the loader; without it here every tile claims the first tile's
+    rows, and the driver feeds the array data that looks plausible and is wrong.
+    """
     env = dict(mover.bundle.placement.env(site), __coords__=site)
     extent = mover.extent or 1
     return [
-        tuple(int(v) for v in mover.imap.eval(env, step=step))
+        _shift(mover.imap.eval(env, step=step), mover.tensor)
         for step in range(int(extent))
     ]
+
+
+def _shift(subs, tensor):
+    """View coordinates into base coordinates."""
+    offsets = getattr(tensor, "offsets", None) or ()
+    return tuple(
+        int(v) + int(offsets[k] if k < len(offsets) else 0) for k, v in enumerate(subs)
+    )
 
 
 def _memory_plan(low, placement, port):
@@ -707,7 +877,9 @@ def cost(graph):
 
 
 __all__ = [
+    "CoordPort",
     "StructuralEmitter",
+    "const_module",
     "check_netlist",
     "check_no_dangling_family",
     "cost",

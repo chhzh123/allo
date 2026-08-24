@@ -48,17 +48,25 @@ end to end. Measured on `brg-zhang-xcel`, Vitis/Vivado 2023.2, `xcu280`:
 | **whole array**: Allo lowering | 1s | 1s | 2s | 3s | 7s | **578s** |
 | **whole array**: `csynth` | 39s | 43s | 60s | 93s | 280s | **807s** |
 | whole-array DSP | 45 | 80 | 180 | 320 | 720 | — |
-| **nine roles**: `csynth` + `export_design` | **332s** | 332s | 332s | 332s | 332s | 332s |
+| **nine roles**: `csynth` + `export_design`, concurrent | **40.5s** | 40.5s | 40.5s | 40.5s | 40.5s | 40.5s |
+| the same nine, run serially | 332s | 332s | 332s | 332s | 332s | 332s |
 | Vivado assembles from the role IPs | 69s | 17s elab | — | — | — | — |
 
-**Per-role cost is flat**: nine roles cost the same 332s whatever the grid,
-because the unit does not know how large the array is.
+**Per-role cost is flat and parallel.** The unit does not know how large the
+array is, so nine roles cost the same whatever the grid — and because roles are
+independent *by construction*, which is what having roles means, they synthesise
+concurrently. Nine at once take 40.5s of wall clock for 361s of CPU: each role
+took 40s alongside eight others against 37s alone, so contention is negligible
+at 48 cores.
 
-**Whole-array synthesis is cheaper until about 150 sites.** 280s at 144 sites
-against 332s for the roles; at 256 sites the array costs 807s and Allo's own
-lowering blows up first — 578s to generate the 16×16 program against about a
-second for the roles. End to end at 256 sites that is ~1385s for the array
-against ~400s for roles-plus-assembly.
+**That is the second reason for the split, and the stronger one.** A whole-array
+`csynth` is one monolithic run — there is nothing to spread across cores. The
+role decomposition is what *creates* the parallelism. So the per-role path
+matches the array at the smallest grid measured (40.5s against 39s at 9 sites)
+and wins everywhere above it, rather than crossing over at ~150.
+
+At 256 sites the array needs 807s of `csynth` and 578s of Allo lowering before
+that; the roles need 40.5s and about a second.
 
 ### Why nine small roles ever cost more than the whole array
 

@@ -21,17 +21,48 @@ from .ports import IN
 from .rtl import StructuralEmitter, boundary_plan
 
 
-def _bits(value, dtype):
-    """One token as a Verilog literal, in the family's own bit pattern."""
+_SCALAR_BITS = {
+    "f32": 32,
+    "f64": 64,
+    "i8": 8,
+    "i16": 16,
+    "i32": 32,
+    "i64": 64,
+}
+
+
+def _one(value, name):
+    """One element's bit pattern as an integer."""
+    if name == "f32":
+        return struct.unpack("<I", struct.pack("<f", float(value)))[0]
+    if name == "f64":
+        return struct.unpack("<Q", struct.pack("<d", float(value)))[0]
+    width = _SCALAR_BITS[name]
+    return int(value) & ((1 << width) - 1)
+
+
+def _bits(value, dtype, block=()):
+    """One token as a Verilog literal, in the family's own bit pattern.
+
+    A block-carrying port sends a whole array per token, which HLS packs into one
+    word as ``hls::vector``: element zero in the low bits. Packing it the same way
+    here is an assumption the cosim then *tests* -- the hardware unpacks with its
+    own convention, so a mismatch shows up as wrong results rather than silence.
+    """
     name = str(dtype)
-    if name in ("f32", "float32"):
-        return f"32'h{struct.unpack('<I', struct.pack('<f', float(value)))[0]:08x}"
-    if name in ("f64", "float64"):
-        return f"64'h{struct.unpack('<Q', struct.pack('<d', float(value)))[0]:016x}"
-    width = {"i8": 8, "i16": 16, "i32": 32, "i64": 64}.get(name)
-    if width is None:
+    if name not in _SCALAR_BITS:
         raise SPMWBindingError(f"no cosim literal for `{name}`")
-    return f"{width}'h{int(value) & ((1 << width) - 1):0{width // 4}x}"
+    element = _SCALAR_BITS[name]
+    if not block:
+        return f"{element}'h{_one(value, name):0{element // 4}x}"
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    flat = np.asarray(value).reshape(-1)
+    total = element * flat.size
+    packed = 0
+    for position, item in enumerate(flat):
+        packed |= _one(item, name) << (element * position)
+    return f"{total}'h{packed:0{max(total // 4, 1)}x}"
 
 
 class Testbench:
@@ -49,9 +80,7 @@ class Testbench:
 
     def _width(self, name):
         fam = self.families[name]
-        bits = {"f64": 64, "f32": 32, "i64": 64, "i32": 32, "i16": 16, "i8": 8}[
-            str(fam.dtype)
-        ]
+        bits = _SCALAR_BITS[str(fam.dtype)]
         for extent in fam.block:
             bits *= int(extent)
         return bits
@@ -63,8 +92,9 @@ class Testbench:
             if entry["direction"] != IN:
                 continue
             array = self.data[entry["tensor"]]
+            block = self.families[name].block
             out[name] = [
-                [_bits(array[idx], self._dtype(name)) for idx in channel]
+                [_bits(array[idx], self._dtype(name), block) for idx in channel]
                 for channel in entry["channels"]
             ]
         return out
@@ -76,8 +106,9 @@ class Testbench:
             if entry["direction"] == IN:
                 continue
             array = results[entry["tensor"]]
+            block = self.families[name].block
             out[name] = [
-                [_bits(array[idx], self._dtype(name)) for idx in channel]
+                [_bits(array[idx], self._dtype(name), block) for idx in channel]
                 for channel in entry["channels"]
             ]
         return out
@@ -155,6 +186,40 @@ class Testbench:
             ]
         return lines
 
+    # Floating point cannot be compared bit-for-bit across two implementations.
+    # The FFT's twiddles are irrational whatever the input, so the reference and
+    # the hardware round differently -- observed at 1 to 4 ULP. A relative
+    # tolerance with an absolute floor keeps the check meaningful (a real wiring
+    # error is O(1) wrong, not O(1e-7)) without failing on rounding.
+    _REL_TOL = 1e-5
+    _ABS_TOL = 1e-6
+
+    def _differs(self, name, channel):
+        """The mismatch condition for one token: exact, or tolerant per element."""
+        fam = self.families[name]
+        got = f"{name}_din[{channel}]"
+        want = f"{name}_exp{channel}[{name}_q{channel}]"
+        element = _SCALAR_BITS[str(fam.dtype)]
+        if str(fam.dtype) not in ("f32", "f64"):
+            return f"{got} !== {want}"
+        count = 1
+        for extent in fam.block:
+            count *= int(extent)
+        cast = "$bitstoshortreal" if element == 32 else "$bitstoreal"
+        terms = []
+        for pos in range(count):
+            lo = element * pos
+            g = f"{cast}({got}[{lo + element - 1}:{lo}])"
+            w = f"{cast}({want}[{lo + element - 1}:{lo}])"
+            # abs() without a function: the difference either way.
+            terms.append(
+                f"((({g}) - ({w}) > {self._ABS_TOL} + {self._REL_TOL} * "
+                f"((({w}) < 0.0) ? -({w}) : ({w}))) || "
+                f"((({w}) - ({g})) > {self._ABS_TOL} + {self._REL_TOL} * "
+                f"((({w}) < 0.0) ? -({w}) : ({w}))))"
+            )
+        return " || ".join(terms)
+
     def _outbound(self, want, conns):
         """Collectors: always ready, check each token as it is written."""
         lines = []
@@ -180,7 +245,7 @@ class Testbench:
                     f"  assign {name}_full_n[{k}] = 1'b1;",
                     f"  always @(posedge clk) if (rst_n && {name}_write[{k}]) begin",
                     f"    if ({name}_q{k} < {depth}) begin",
-                    f"      if ({name}_din[{k}] !== {name}_exp{k}[{name}_q{k}]) begin",
+                    f"      if ({self._differs(name, k)}) begin",
                     "        errors = errors + 1;",
                     f'        $display("MISMATCH {name}[%0d] step %0d: got %h want %h",',
                     f"                 {k}, {name}_q{k}, {name}_din[{k}], "
