@@ -261,3 +261,30 @@ def test_the_other_designs_elaborate(name, tmp_path):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# -- what the whole-array path needs to synthesise --------------------------
+
+
+@pytest.mark.parametrize("size", [3, 4])
+def test_the_array_program_partitions_its_tensors(size):
+    """Without this the array compiles, simulates, and will not synthesise.
+
+    Every site writes one element of `C`, and HLS dataflow permits a single
+    writer per interface array unless its elements are independently
+    addressable. `csynth` stops at "Argument 'v185' failed dataflow checking",
+    which `csim` never shows because that is only a C++ compile -- so the gap is
+    invisible until synthesis. Partitioning is what closes it, and `feat/spmw`
+    emitted the same pragma for the same reason.
+    """
+    code = str(spmw.build(gemm_of(size), target="vhls").hls_code)
+    assert "array_partition" in code
+    top = code[code.index("void top(") :]
+    for axis in (1, 2):
+        assert f"complete dim={axis}" in top, f"dim={axis} not partitioned"
+
+
+def test_the_partitioning_can_be_turned_off():
+    """Kept switchable: it scalarises the interface arrays, which is a real cost."""
+    code = str(spmw.build(gemm_of(3), target="vhls", partition=False).hls_code)
+    assert "array_partition" not in code

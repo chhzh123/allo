@@ -26,7 +26,7 @@ and in the form that matters for hardware: **HLS synthesises the unit, RTL build
 the array.** Nine C syntheses and nine IP exports for a 2-D mesh, whatever its
 size, and Vivado assembles the array from the exported IPs.
 
-**192 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
+**195 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
 `pylint allo --rcfile=./scripts/lint/pylintrc` is 10.00/10, exit 0.
 
 The deselected test is `test_spmw_attention.py::test_hls_csim_matches[2]`, which
@@ -43,33 +43,46 @@ rather than the generated C++ misbehaving. Worth a separate look.
 This is the part to check first, because it is the architecture and it is now
 end to end. Measured on `brg-zhang-xcel`, Vitis/Vivado 2023.2, `xcu280`:
 
-| Step | 3×3 (9 sites) | 4×4 (16 sites) | 8×8 (64 sites) |
-|---|---|---|---|
-| `csynth` **one role** | 36s | 35s | 36s |
-| `csynth` the **whole array** | ❌ fails | ❌ fails | ❌ fails |
-| all nine roles, `csynth` + `export_design` | **544.6s** | **544s** | — |
-| Vivado assembles + elaborates the array | **70s** | **17s** RTL elab, 0 errors | — |
+| sites | 9 (3×3) | 16 (4×4) | 36 (6×6) | 64 (8×8) | 144 (12×12) |
+|---|---|---|---|---|---|
+| `csynth` **one role** | 36s | 35s | — | 36s | — |
+| **nine roles**, `csynth` + `export_design` | **544.6s** | **544s** | — | — | — |
+| `csynth` the **whole array** | 39s | 43s | 60s | 93s | **280s** |
+| whole-array DSP / LUT | 45 / 5.6k | 80 / 9.9k | 180 / 22k | 320 / 39k | 720 / 86k |
+| Vivado assembles the array from role IPs | 70s | 17s RTL elab, 0 errors | — | — | — |
 
-Two things in that table are worth stating plainly.
+**Per-role synthesis is flat**: 36s at 3×3 is 36s at 8×8, and nine roles cost the
+same 544s for a 9-site array as for a 16-site one. The unit does not know how
+large the array is, so the array's size is paid only in Vivado elaboration.
 
-**Per-role synthesis is flat.** 36s at 3×3 is 36s at 8×8, and the nine-role total
-is the same 544s for a 9-site array as for a 16-site one. The unit does not know
-how large the array is, so the array's size is paid only in Vivado elaboration.
+**Whole-array synthesis works, and below roughly 200 sites it is the cheaper
+option.** At 144 sites the array csynths in 280s against 544s for the nine roles.
+It grows superlinearly (2.25× the sites from 64 to 144 cost 3× the time) while
+the role path is flat, so the two cross somewhere past 144 sites — but they had
+not crossed anywhere in the range measured here.
 
-**The whole-array program does not synthesise at all** — not slowly, at all, at
-every size:
+An earlier version of this document claimed the whole-array program **could not**
+be synthesised at any size. **That was wrong**, and the correction matters enough
+to state plainly. It failed with
 
 ```
 ERROR: [HLS 200-979] Argument 'v185' failed dataflow checking:
                      it can only be written in one process function.
 ```
 
-Every site stores into the same result tensor `C`, and HLS dataflow permits one
-writer per array. The design passes `csim` — that is only a C++ compile — and is
-rejected by `csynth`. So streaming each site's result out, which is what
-`allo/spmw/role_ip.py` does, is what makes the design *synthesisable*, not merely
-cheaper. This was the strongest argument for the split and it was not anticipated;
-it came out of running the tool.
+because the lowering did not partition the tensor arguments. Every site writes
+one element of `C`, and HLS dataflow allows a single writer per interface array
+*unless its elements are independently addressable*. `feat/spmw` had already
+solved this — its rolled top emits `#pragma HLS array_partition variable=C
+complete dim=0`, with the comment that the streaming top "needs every element
+independently addressable, so no interface is read by more than one dataflow
+process". `spmw.build` now partitions every tensor through `Schedule.partition`
+before building, and the same program that failed csynths in 43s. Pass
+`partition=False` to see the original error.
+
+So the split is a scaling argument, not a feasibility one: flat synthesis cost
+and no scalarised interface arrays, against a path that is simpler and faster
+until the array gets large.
 
 Reproduce the whole flow with one command:
 

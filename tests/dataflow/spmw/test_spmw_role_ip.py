@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """The unit HLS synthesises once, and how it meets the fabric.
 
-The array program the dataflow path emits cannot be synthesised at all: every
-site stores into the same result tensor, and HLS dataflow permits one writer per
-array, so `csynth` rejects it at any grid size. A role built on its own -- every
-port a stream, results included -- synthesises in seconds and is reused across
-every site of its class.
+A role built on its own -- every port a stream, results included -- synthesises
+in ~36s whatever the array's size, and is reused across every site of its class.
+That is the scaling argument for the split: whole-array `csynth` also works (once
+`spmw.build` partitions the tensors) but grows with the grid, while this does
+not.
 
 What has to hold for that reuse to be sound is checked here: the unit must
 compute what its site computed, its sites must be interchangeable, and the

@@ -35,13 +35,31 @@ def customize(fabric_fn, tensor_specs=None, keep=None, verbose=False):
 
 
 def build(
-    fabric_fn, target="simulator", tensor_specs=None, keep=None, verbose=False, **kwargs
+    fabric_fn,
+    target="simulator",
+    tensor_specs=None,
+    keep=None,
+    verbose=False,
+    partition=True,
+    **kwargs,
 ):
     """Elaborate, lower, and compile a fabric for ``target``.
 
     ``target="ref"`` runs the graph directly -- one task per site over bounded
     channels -- and never touches the compiler, which is the fastest way to ask
     whether a fabric computes the right thing and whether it deadlocks.
+
+    ``partition`` completely partitions every tensor argument on the FPGA
+    targets, which a spatial design needs to *synthesise* at all: the sites read
+    and write one array between them, and HLS dataflow allows a single reader
+    and a single writer per interface array unless its elements are
+    independently addressable.  Without it ``csynth`` stops at
+
+        [HLS 200-979] Argument 'v185' failed dataflow checking:
+                      it can only be written in one process function.
+
+    Pass ``partition=False`` to emit the unpartitioned program -- worth doing to
+    see that error, and for a design whose arrays are too large to scalarise.
     """
     graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
     _check_realised(graph)
@@ -55,10 +73,36 @@ def build(
     top = build_dataflow(graph, keep=keep)
     if verbose:
         print(top._spmw_source)
-    module = df.build(top, target=target, **kwargs)
+    if partition and target not in ("simulator", "aie"):
+        module = _build_partitioned(df, top, graph, target, **kwargs)
+    else:
+        module = df.build(top, target=target, **kwargs)
     module.spmw_graph = graph
     module.spmw_source = top._spmw_source
     return _Callable(module, graph, top)
+
+
+def _build_partitioned(df, top, graph, target, **kwargs):
+    """Customize, partition every tensor, then build.
+
+    ``df.build`` customizes and builds in one step, so the partitioning has to
+    happen between them.
+    """
+    schedule = df.customize(top, enable_tensor=kwargs.pop("enable_tensor", False))
+    for tensor in graph.tensors.values():
+        buffer = getattr(schedule, tensor.name, None)
+        if buffer is None:
+            raise SPMWPlacementError(
+                f"`{tensor.name}` is a fabric tensor but the built schedule has "
+                f"no buffer for it, so it cannot be partitioned."
+            )
+        schedule.partition(buffer)
+    return schedule.build(
+        target=target,
+        mode=kwargs.pop("mode", "csim"),
+        project=kwargs.pop("project", "top.prj"),
+        **kwargs,
+    )
 
 
 class _Callable:

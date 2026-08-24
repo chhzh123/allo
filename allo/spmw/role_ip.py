@@ -7,11 +7,16 @@ role is emitted as its own single-kernel dataflow program in which *every* port,
 including a memory port, is an ``hls::stream``, so the synthesised IP is
 free-running and drops onto the fabric's FIFOs.
 
-Turning a memory port into a stream is not a convenience.  The whole-array
-program the dataflow path emits cannot be synthesised at all: every site stores
-into the same result tensor, and HLS dataflow requires one writer per array, so
-``csynth`` rejects it at any grid size.  Streaming each site's result out is what
-makes the design synthesisable, not merely cheaper.
+Turning a memory port into a stream is what lets the unit stand alone.  In the
+array every site stores into the same result tensor, which HLS dataflow accepts
+only because ``spmw.build`` completely partitions that tensor -- see
+:func:`allo.spmw.driver.build`.  A unit has no such tensor to partition: its
+result leaves on a port, which is also what makes the IP free-running.
+
+The cost argument for building units is scaling, not feasibility.  Whole-array
+``csynth`` works and is cheaper below roughly 200 sites (280s at 144 sites
+against 544s for nine roles); it grows superlinearly while the role count, and
+so the per-role cost, stays flat.
 
 A role stands for many sites, so a unit is only well defined when its sites are
 interchangeable.  That is checked rather than assumed: the body is rewritten for
