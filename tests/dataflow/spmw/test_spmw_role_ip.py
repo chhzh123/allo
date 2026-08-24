@@ -243,3 +243,62 @@ def test_check_wrapper_rejects_a_port_the_ip_lacks():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# -- where a unit's synthesis time actually goes -----------------------------
+
+
+def test_a_float_unit_keeps_only_the_stream_header():
+    """Vitis spends ~23s of a ~32s csynth parsing headers, 0.5s scheduling.
+
+    So a unit's synthesis cost is mostly the preamble, and the nine-role total
+    is mostly that cost paid nine times. Measured end to end: 545s to 332s for
+    nine roles, with the cosim still passing.
+    """
+    from allo.spmw.role_ip import trim_includes
+
+    code = "\n".join(
+        [
+            "#include <algorithm>",
+            "#include <ap_fixed.h>",
+            "#include <ap_int.h>",
+            "#include <hls_math.h>",
+            "#include <hls_stream.h>",
+            "#include <math.h>",
+            "#include <stdint.h>",
+            "",
+            "void pe(hls::stream< float >& v0) { float a = v0.read(); }",
+        ]
+    )
+    kept = [l for l in trim_includes(code).splitlines() if l.startswith("#include")]
+    assert kept == ["#include <hls_stream.h>"], kept
+
+
+def test_trimming_keeps_what_is_used():
+    """It errs toward keeping: a missing header costs a build, a spare one costs time."""
+    from allo.spmw.role_ip import trim_includes
+
+    body = (
+        "#include <ap_int.h>\n#include <hls_math.h>\n#include <math.h>\n"
+        "#include <stdint.h>\n#include <hls_stream.h>\n"
+        "void pe(hls::stream< ap_int<8> >& s) { int8_t x = s.read(); "
+        "float y = sqrtf(1.0f); float z = hls::exp(y); }\n"
+    )
+    kept = {l for l in trim_includes(body).splitlines() if l.startswith("#include")}
+    assert kept == {
+        "#include <ap_int.h>",
+        "#include <hls_math.h>",
+        "#include <math.h>",
+        "#include <stdint.h>",
+        "#include <hls_stream.h>",
+    }, kept
+
+
+def test_hls_stream_alone_does_not_pull_in_hls_math():
+    """`hls::` as a bare substring matched `hls::stream` and kept the heaviest header."""
+    from allo.spmw.role_ip import trim_includes
+
+    code = (
+        "#include <hls_math.h>\n#include <hls_stream.h>\nvoid f(hls::stream<int>& s);\n"
+    )
+    assert "<hls_math.h>" not in trim_includes(code)

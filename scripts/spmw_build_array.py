@@ -45,6 +45,7 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
     UnitEmitter,
     build_unit,
     check_wrapper,
+    trim_includes,
     wrapper_sv,
 )
 
@@ -94,7 +95,9 @@ def stage(graph, out, part, frequency):
     names = []
     for order in range(len(emitter.classes(placement))):
         name = emitter.role_name(placement, order)
-        code = str(build_unit(graph, placement, order, target="vhls").hls_code)
+        code = trim_includes(
+            str(build_unit(graph, placement, order, target="vhls").hls_code)
+        )
         directory = os.path.join(out, name)
         os.makedirs(directory, exist_ok=True)
         _write(os.path.join(directory, "kernel.cpp"), code)

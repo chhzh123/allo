@@ -26,7 +26,7 @@ and in the form that matters for hardware: **HLS synthesises the unit, RTL build
 the array.** Nine C syntheses and nine IP exports for a 2-D mesh, whatever its
 size, and Vivado assembles the array from the exported IPs.
 
-**200 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
+**203 passed, 1 deselected** on `brg-zhang-xcel` with Vitis sourced.
 `pylint allo --rcfile=./scripts/lint/pylintrc` is 10.00/10, exit 0.
 
 The deselected test is `test_spmw_attention.py::test_hls_csim_matches[2]`, which
@@ -48,24 +48,48 @@ end to end. Measured on `brg-zhang-xcel`, Vitis/Vivado 2023.2, `xcu280`:
 | **whole array**: Allo lowering | 1s | 1s | 2s | 3s | 7s | **578s** |
 | **whole array**: `csynth` | 39s | 43s | 60s | 93s | 280s | **807s** |
 | whole-array DSP | 45 | 80 | 180 | 320 | 720 | — |
-| **per role**: `csynth` | 36s | 35s | — | 36s | — | — |
-| **nine roles**: `csynth` + `export_design` | 545s | 544s | 544s | 544s | 544s | 544s |
-| Vivado assembles from the role IPs | 70s | 17s elab | — | — | — | — |
+| **nine roles**: `csynth` + `export_design` | **332s** | 332s | 332s | 332s | 332s | 332s |
+| Vivado assembles from the role IPs | 69s | 17s elab | — | — | — | — |
 
-**Per-role cost is flat.** 36s at 3×3 is 36s at 8×8; nine roles cost the same
-544s whatever the grid. The unit does not know how large the array is.
+**Per-role cost is flat**: nine roles cost the same 332s whatever the grid,
+because the unit does not know how large the array is.
 
-**Whole-array synthesis works too, and below ~200 sites it wins.** 280s at 144
-sites against 544s for the roles. But it grows superlinearly and **the two cross
-between 144 and 256 sites**: at 256 the array costs 807s against the same 544s,
-and Allo's own lowering blows up before synthesis even starts — 578s to generate
-the 16×16 program against about a second for the roles. End to end at 256 sites
-that is ~1385s for the array against ~615s for roles-plus-assembly, and the gap
-widens from there.
+**Whole-array synthesis is cheaper until about 150 sites.** 280s at 144 sites
+against 332s for the roles; at 256 sites the array costs 807s and Allo's own
+lowering blows up first — 578s to generate the 16×16 program against about a
+second for the roles. End to end at 256 sites that is ~1385s for the array
+against ~400s for roles-plus-assembly.
 
-So the two paths answer different questions. Small arrays: emit the whole thing,
-it is simpler and faster. Large arrays: synthesise the units and glue them, which
-is the only cost that stays flat.
+### Why nine small roles ever cost more than the whole array
+
+They shouldn't, and the first version of this table made that look intrinsic. It
+is not. `csynth_design` on a *single* PE originally took 31.6s, against 39s for
+the whole nine-PE array — so one role cost almost as much as the array. The
+per-phase log says why:
+
+```
+Source Code Analysis and Preprocessing:  23.24s
+Compiling Optimization and Transform:     7.45s
+Scheduling / Binding / RTL generation:    ~0.5s   (all phases combined)
+```
+
+Synthesising a PE is half a second of hardware work behind **23s of C++ header
+parsing**. Allo emits a fixed nine-header preamble — `ap_fixed.h`, `hls_math.h`,
+`hls_vector.h` and so on — and a streaming float PE uses exactly one of them.
+`role_ip.trim_includes` keeps only the headers a unit's body mentions, which took
+one role's `csynth` from **31.6s to 8.8s** (source analysis 23.2s → 0.6s) and the
+nine-role total from **545s to 332s**, with the cosim still passing.
+
+Process startup is not the culprit: a `vitis_hls` run that opens a project and
+exits takes 4s. Nor is batching — nine `csynth_design` calls in one invocation
+still cost 295s, because the header parsing is per *call*, not per process.
+
+What is left is `export_design`, now ~26s of each role's 37s. That is IP
+packaging, and it is the honest floor of this flow: nine IPs, nine packagings.
+
+**The array path pays the same header tax** — roughly 23s of its 39s at 3×3 — so
+trimming Allo's preamble generally would speed up both. That is a change to the
+shared HLS backend rather than to SPMW, so it is flagged rather than made.
 
 An earlier version of this document claimed the whole-array program **could not**
 be synthesised at any size. **That was wrong**, and the correction matters enough

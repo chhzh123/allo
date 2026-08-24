@@ -339,6 +339,53 @@ def _site_name(placement, site):
     return args[1].arg if len(args) > 1 else None
 
 
+# What each header of Allo's fixed preamble is actually needed for. Parsing the
+# whole block costs ~23s of every csynth -- against ~0.5s of scheduling, binding
+# and RTL for one PE -- so a unit's synthesis time is almost entirely header
+# parsing, and the nine-role total is mostly that cost paid nine times.
+#
+# Patterns, not substrings: `hls::` alone matches `hls::stream` and would keep
+# `hls_math.h` in every design, and a bare `exp` or `log` matches any identifier
+# containing them.
+_HEADER_USES = {
+    "<algorithm>": r"\bstd::",
+    "<ap_axi_sdata.h>": r"\bap_axi",
+    "<ap_fixed.h>": r"\bap_u?fixed\b",
+    "<ap_int.h>": r"\bap_u?int<",
+    "<hls_math.h>": r"\bhls::(?!stream|vector)\w",
+    "<hls_stream.h>": r"\bhls::stream\b",
+    "<hls_vector.h>": r"\bhls::vector\b",
+    "<math.h>": r"\b(?:sqrtf?|expf?|logf?|sinf?|cosf?|tanf?|tanhf?|fabsf?|powf?|"
+    r"floorf?|ceilf?)\s*\(",
+    "<stdint.h>": r"\b(?:u?int(?:8|16|32|64)_t)\b",
+}
+
+
+def trim_includes(code):
+    """Drop the headers this unit does not use.
+
+    Measured on one role: 31.6s to 8.8s of ``csynth_design``, with "Source Code
+    Analysis and Preprocessing" falling from 23.2s to 0.6s. Nothing about the
+    hardware changes -- scheduling saw the same 0.5s of work either way.
+
+    A header is kept when the body matches any pattern it provides, which errs
+    toward keeping: an unnecessary header costs seconds, a missing one costs the
+    build.
+    """
+    lines = code.splitlines(True)
+    body = "".join(line for line in lines if not line.startswith("#include"))
+    out = []
+    for line in lines:
+        if not line.startswith("#include"):
+            out.append(line)
+            continue
+        header = line.split(None, 1)[1].strip()
+        pattern = _HEADER_USES.get(header)
+        if pattern is None or re.search(pattern, body):
+            out.append(line)
+    return "".join(out)
+
+
 def unit_interface(code, name, ports):
     """Map the synthesised unit's parameters back to port names.
 
@@ -472,6 +519,7 @@ def check_wrapper(wrapper, exported):
 
 __all__ = [
     "UnitEmitter",
+    "trim_includes",
     "build_unit",
     "check_wrapper",
     "unit_interface",
