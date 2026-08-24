@@ -46,6 +46,11 @@ class _UnitRewriter(_BodyRewriter):
         # a loader is a real input to the unit but is absent from the signature,
         # which holds only peer links.
         self.connected = set(connected)
+        # Memory ports the unit reads. In the array a site reads the parent's
+        # tensor at its own coordinates -- `local_W[i, j]` -- which is per-site
+        # *data*, not coordinate-dependent computation. A unit takes it on its
+        # own port and holds it, which is what `stationary` already means.
+        self.residents = {}
 
     def _bound(self, port):
         return port in self.connected
@@ -61,12 +66,34 @@ class _UnitRewriter(_BodyRewriter):
             ctx=ast.Load(),
         )
 
+    def _resident(self, port):
+        """The local this unit holds a memory port's value in."""
+        self.residents[port.name] = port
+        return ast.Name(id=f"_st_{port.name}", ctx=ast.Load())
+
+    def visit_Subscript(self, node):
+        port = self._port_of(node.value)
+        if port is not None and port.protocol == MEMORY:
+            return ast.Subscript(
+                value=self._resident(port),
+                slice=node.slice,
+                ctx=node.ctx,
+            )
+        return super().visit_Subscript(node)
+
+    def visit_Attribute(self, node):
+        port = self._port_of(node)
+        if port is not None and port.protocol == MEMORY:
+            return self._resident(port)
+        return super().visit_Attribute(node)
+
     def visit_Assign(self, node):
         """``io.c = acc`` writes to storage in the array, and out here."""
         target = node.targets[0] if len(node.targets) == 1 else None
         port = self._port_of(target) if target is not None else None
         if port is not None and port.protocol == MEMORY:
             value = self.visit(node.value)
+            self.residents.pop(port.name, None)  # written, not held
             sub = self._subscript(port)
             if sub is None:
                 raise SPMWBindingError(
@@ -139,7 +166,7 @@ class UnitEmitter:
             visited = rewriter.visit(ast.fix_missing_locations(_copy(stmt)))
             if visited is not None:
                 out.append(visited)
-        return (out or [ast.Pass()]), pids
+        return (out or [ast.Pass()]), pids, rewriter
 
     def _check_uniform(self, placement, order, source, pids):
         """A role stands for its whole class, so its sites must be alike.
@@ -152,19 +179,51 @@ class UnitEmitter:
         name = self.role_name(placement, order)
         _sig, _routing, sites = self.classes(placement)[order]
         if len(sites) > 1:
-            other, _ = self._body(placement, order, sites[1])
-            if ast.unparse(ast.Module(body=other, type_ignores=[])) != source:
+            other, _pids, _rw = self._body(placement, order, sites[1])
+            if _unparse(other) != source:
                 raise SPMWBindingError(
                     f"`{name}` covers {len(sites)} sites whose bodies differ, so "
                     f"one IP cannot stand for them: the body reads its own "
                     f"coordinates, which a unit would have to take as inputs."
                 )
-        for pid in pids:
-            if pid in source:
+        # Coordinates reach a body two ways: through the pid names this
+        # emitter substitutes, and through `site.rank`, which the base rewriter
+        # turns into `df.get_pid()`. A single-instance kernel's pid is always
+        # zero, so letting the second through would compile and silently run
+        # every site as if it were the origin.
+        for marker in list(pids) + ["df.get_pid()"]:
+            if marker in source:
                 raise SPMWBindingError(
-                    f"`{name}` depends on its grid coordinates, which a "
-                    f"standalone unit does not receive."
+                    f"`{name}` reads its own grid coordinates, which a "
+                    f"standalone unit does not receive. The role is real -- its "
+                    f"sites differ by position, not just by wiring -- so the "
+                    f"unit would need them as inputs."
                 )
+
+    def _held(self, rewriter):
+        """Declarations for the memory ports this unit reads once and holds.
+
+        That is what ``stationary`` already means, and it keeps the unit
+        free-running rather than re-reading a value the array kept in a
+        register.
+        """
+        out = []
+        for name, port in rewriter.residents.items():
+            ann = ast.unparse(self.low.type_ann(port.dtype, port.shape))
+            out.append(f"_st_{name}: {ann} = {name}[0].get()")
+        return out
+
+    def _declarations(self, placement, order):
+        """The region's stream declarations, and the types they need in scope."""
+        decls, extras = [], {}
+        for port, _fam in self.ports(placement, order):
+            ann = self.low.type_ann(port.dtype, port.shape)
+            decls.append(
+                f"    {port.name}: Stream[{ast.unparse(ann)}, "
+                f"{placement.depths.get(port, port.depth)}][1]"
+            )
+            extras[_base_name(ann)] = port.dtype
+        return decls, extras
 
     def program(self, placement, order):
         """One role as a complete, self-contained dataflow program.
@@ -175,18 +234,11 @@ class UnitEmitter:
         """
         _sig, _routing, sites = self.classes(placement)[order]
         name = self.role_name(placement, order)
-        body, pids = self._body(placement, order, sites[0])
-        source = ast.unparse(ast.Module(body=body, type_ignores=[]))
-        self._check_uniform(placement, order, source, pids)
-
-        decls, extras = [], {}
-        for port, _fam in self.ports(placement, order):
-            ann = self.low.type_ann(port.dtype, port.shape)
-            decls.append(
-                f"    {port.name}: Stream[{ast.unparse(ann)}, "
-                f"{placement.depths.get(port, port.depth)}][1]"
-            )
-            extras[_base_name(ann)] = port.dtype
+        body, pids, rewriter = self._body(placement, order, sites[0])
+        plain = _unparse(body)
+        self._check_uniform(placement, order, plain, pids)
+        source = "\n".join(self._held(rewriter) + [plain])
+        decls, extras = self._declarations(placement, order)
         indented = "\n".join("        " + line for line in source.splitlines())
         text = (
             "import allo\n"
@@ -221,22 +273,34 @@ def build_unit(graph, placement, order, target="vhls", keep=None, **kwargs):
     emitter = UnitEmitter(graph)
     name = emitter.role_name(placement, order)
     src, extras = emitter.program(placement, order)
+    namespace = dict(emitter.low.injected)
+    namespace.update(extras)
+    module = _import_program(f"_spmw_unit_{name}", src, namespace, keep)
+    built = df.build(module.top, target=target, **kwargs)  # pylint: disable=no-member
+    built.spmw_unit_source = src
+    built.spmw_unit_name = name
+    return built
+
+
+def _import_program(stem, src, namespace, keep):
+    """Import generated source from a real file, with the body's names in scope.
+
+    A file on disk rather than a string, because the tracer reads the body back
+    with ``inspect.getsourcelines`` rather than from the code object -- the same
+    reason :func:`allo.spmw.lower_df.build_dataflow` does it this way.
+    """
     seq = _MODULE_SEQ[0] = _MODULE_SEQ[0] + 1
-    modname = f"_spmw_unit_{name}_{seq}"
+    modname = f"{stem}_{seq}"
     directory = keep or tempfile.mkdtemp(prefix="spmw_unit_")
     path = os.path.join(directory, f"{modname}.py")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(src)
     module = types.ModuleType(modname)
     module.__file__ = path
-    module.__dict__.update(emitter.low.injected)
-    module.__dict__.update(extras)
+    module.__dict__.update(namespace)
     sys.modules[modname] = module
     exec(compile(src, path, "exec"), module.__dict__)  # pylint: disable=exec-used
-    built = df.build(module.top, target=target, **kwargs)
-    built.spmw_unit_source = src
-    built.spmw_unit_name = name
-    return built
+    return module
 
 
 _MODULE_SEQ = [0]
@@ -247,6 +311,13 @@ def _base_name(node):
     while isinstance(node, ast.Subscript):
         node = node.value
     return node.id
+
+
+def _unparse(body):
+    """Unparse a rewritten body; constructed nodes carry no source locations."""
+    return ast.unparse(
+        ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
+    )
 
 
 def _copy(node):
@@ -298,29 +369,51 @@ def unit_interface(code, name, ports):
         raise SPMWBindingError(
             f"cannot read `{name}`'s wiring out of the generated program."
         )
-    actual = [a.strip() for a in call.group(1).split(",")]
-    order = [decls.index(a) for a in actual]
+    order = [decls.index(a.strip()) for a in call.group(1).split(",")]
     body = code[kernel.end() :]
     body = body[: body.index("\n}")]
     mapping = []
     for pos, param in enumerate(params):
         port = ports[order[pos]][0]
-        reads = f"{param}.read()" in body
-        writes = f"{param}.write(" in body
-        if reads == writes:
-            raise SPMWBindingError(
-                f"`{name}` parameter {param} is neither only read nor only "
-                f"written, so its direction cannot be confirmed."
-            )
-        want = IN if reads else OUT
-        if port.direction != want and port.protocol != MEMORY:
-            raise SPMWBindingError(
-                f"`{name}` parameter {param} maps to `{port.name}`, declared "
-                f"{port.direction}, but the body {'reads' if reads else 'writes'} "
-                f"it. The parameter mapping is wrong."
-            )
+        _confirm_direction(name, param, port, body)
         mapping.append((param, port))
     return mapping
+
+
+def _confirm_direction(name, param, port, body):
+    """Cross-check a positional mapping against how the body uses the parameter."""
+    reads = f"{param}.read()" in body
+    writes = f"{param}.write(" in body
+    if reads == writes:
+        raise SPMWBindingError(
+            f"`{name}` parameter {param} is neither only read nor only written, "
+            f"so its direction cannot be confirmed."
+        )
+    want = IN if reads else OUT
+    if port.direction != want and port.protocol != MEMORY:
+        raise SPMWBindingError(
+            f"`{name}` parameter {param} maps to `{port.name}`, declared "
+            f"{port.direction}, but the body {'reads' if reads else 'writes'} it. "
+            f"The parameter mapping is wrong."
+        )
+
+
+def _rename(mapping, widths):
+    """The wrapper's own ports, and the connections onto the IP's names."""
+    # A free-running (ap_ctrl_none) Vitis HLS IP presents an active-high
+    # synchronous `ap_rst`, while the fabric carries `ap_rst_n`; `check_wrapper`
+    # confirms this against the exported netlist rather than trusting it.
+    decls, conns = [], [".ap_clk(ap_clk)", ".ap_rst(~ap_rst_n)"]
+    for param, port in mapping:
+        for sig, kind, width in _port_signals(
+            port.name, port.direction, widths[port.name]
+        ):
+            span = f"[{width - 1}:0] " if width > 1 else ""
+            decls.append(
+                f"  {'input ' if kind == 'input' else 'output'} wire {span}{sig}"
+            )
+            conns.append(f".{param}_{sig[len(port.name) + 1:]}({sig})")
+    return decls, conns
 
 
 def wrapper_sv(graph, placement, order, code, ip_suffix="_0"):
@@ -334,18 +427,8 @@ def wrapper_sv(graph, placement, order, code, ip_suffix="_0"):
     emitter = UnitEmitter(graph)
     name = emitter.role_name(placement, order)
     ports = emitter.ports(placement, order)
-    mapping = unit_interface(code, name, ports)
     widths = {p.name: _width(f) for p, f in ports}
-
-    # A free-running (ap_ctrl_none) Vitis HLS IP presents an active-high
-    # synchronous `ap_rst`, while the fabric carries `ap_rst_n`; `check_wrapper`
-    # confirms this against the exported netlist rather than trusting it.
-    decls, conns = [], [".ap_clk(ap_clk)", ".ap_rst(~ap_rst_n)"]
-    for param, port in mapping:
-        for sig, kind, width in _port_signals(port.name, port.direction, widths[port.name]):
-            span = f"[{width - 1}:0] " if width > 1 else ""
-            decls.append(f"  {'input ' if kind == 'input' else 'output'} wire {span}{sig}")
-            conns.append(f".{param}_{sig[len(port.name) + 1:]}({sig})")
+    decls, conns = _rename(unit_interface(code, name, ports), widths)
     head = ["  input  wire ap_clk", "  input  wire ap_rst_n"] + decls
     return (
         f"module {name} (\n"

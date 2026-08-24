@@ -463,7 +463,7 @@ class StructuralEmitter:
                 ("empty_n", "input"),
                 ("full_n", "input"),
             ):
-                wide = span if sig in ("din", "dout") else ""
+                wide = span if sig in {"din", "dout"} else ""
                 ports.append(f"  {kind:<6} wire {wide}{fam.name}_{sig} [0:{count - 1}]")
         return ports
 

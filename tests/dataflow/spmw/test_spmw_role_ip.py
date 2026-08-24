@@ -28,7 +28,17 @@ from allo.spmw.role_ip import (
     wrapper_sv,
 )
 
+from test_spmw_attention import attention_pv
+from test_spmw_fft import fft_spatial
 from test_spmw_rolled import gemm_of
+from test_spmw_tiled import tiled_gemm
+from test_spmw_tpu import tpu_matmul
+
+# Every role of these builds as a unit. The TPU and attention only do so because
+# a memory port the unit *reads* becomes a value it holds: in the array a site
+# reads the parent's weight tensor at its own coordinates, `local_W[i, j]`,
+# which is per-site data rather than coordinate-dependent computation.
+BUILDS = {"tpu": tpu_matmul, "attention": attention_pv(2), "tiled": tiled_gemm}
 
 
 @pytest.mark.parametrize("size", [3, 4, 6])
@@ -94,12 +104,54 @@ def test_a_coordinate_dependent_role_is_refused():
     placement = emitter.placements()[0]
     order = 2
     _sig, _routing, sites = emitter.classes(placement)[order]
-    source, pids = emitter._body(placement, order, sites[0])
+    source, pids, _rw = emitter._body(placement, order, sites[0])
     import ast
 
     text = ast.unparse(ast.Module(body=source, type_ignores=[]))
     with pytest.raises(Exception, match="coordinates"):
         emitter._check_uniform(placement, order, text + f"\n{pids[0]}", pids)
+
+
+@pytest.mark.parametrize("name", sorted(BUILDS))
+def test_every_role_of_every_design_builds(name):
+    graph = spmw.elaborate(BUILDS[name])
+    emitter = UnitEmitter(graph)
+    built = 0
+    for placement in emitter.placements():
+        for order in range(len(emitter.classes(placement))):
+            text, _extras = emitter.program(placement, order)
+            assert "@df.kernel" in text
+            built += 1
+    assert built > 0
+
+
+def test_a_stationary_weight_is_held_not_indexed():
+    """`local_W[i, j]` is per-site data, so the unit takes it on a port.
+
+    Reading it once and holding it is what `stationary` already means, and it is
+    what lets a role whose sites differ only in *data* be one IP.
+    """
+    graph = spmw.elaborate(tpu_matmul)
+    emitter = UnitEmitter(graph)
+    placement = emitter.placements()[0]
+    text, _ = emitter.program(placement, 0)
+    assert "_st_w" in text, text
+    assert ".get()" in text.split("_st_w", 1)[1].splitlines()[0]
+    assert "local_W" not in text, "the parent's tensor must not reach the unit"
+
+
+def test_a_genuinely_positional_role_is_refused():
+    """The FFT butterfly reads its stage and index, so it is not one unit.
+
+    A single-instance kernel's pid is always zero, so compiling this would run
+    every site as if it were the origin -- wrong numbers, no error. It is
+    refused until a unit can take its coordinates as inputs.
+    """
+    graph = spmw.elaborate(fft_spatial)
+    emitter = UnitEmitter(graph)
+    placement = emitter.placements()[0]
+    with pytest.raises(Exception, match="grid coordinates"):
+        emitter.program(placement, 0)
 
 
 # -- the toolchain ----------------------------------------------------------
@@ -154,10 +206,14 @@ def test_the_wrapper_elaborates(tmp_path):
     # the wrapper elaborates without waiting on a synthesis run.
     signals = ["ap_clk", "ap_rst"]
     for param, port in unit_interface(code, "pe_r2", emitter.ports(placement, 2)):
-        tail = ("dout", "empty_n", "read") if port.direction == "in" else (
-            "din",
-            "full_n",
-            "write",
+        tail = (
+            ("dout", "empty_n", "read")
+            if port.direction == "in"
+            else (
+                "din",
+                "full_n",
+                "write",
+            )
         )
         signals += [f"{param}_{s}" for s in tail]
     src = tmp_path / "wrap.sv"
@@ -168,7 +224,11 @@ def test_the_wrapper_elaborates(tmp_path):
         + "\n);\nendmodule\n"
     )
     done = subprocess.run(
-        ["xvlog", "-sv", str(src)], cwd=tmp_path, capture_output=True, text=True, check=False
+        ["xvlog", "-sv", str(src)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert done.returncode == 0, done.stdout + done.stderr
 
