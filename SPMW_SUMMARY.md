@@ -13,13 +13,18 @@ against a declared port contract, declare how the copies are wired, and place
 components on topologies. That frontend now exists as `allo/spmw/`, and **all
 five of the design's worked examples run and produce correct results**:
 
-| Example | What it exercises | ref | simulator | HLS csim |
-|---|---|---|---|---|
-| §3.1 systolic GEMM | mesh, computed boundaries, loaders and drains | ✅ | ✅ | ✅ |
-| §3.2 tiled GEMM | a placed fabric, `shard(dim=)`, per-site tensor views | ✅ | ✅ | ✅ |
-| §3.4 FFT | key-form links, block streams, a resident twiddle ROM | ✅ | ✅ | ✅ |
-| §3.5 mini-TPU | two placements, `link`, stationary weights, seeded chain | ✅ | ✅ | ✅ |
-| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ⚠️ G=1 |
+| Example | What it exercises | ref | simulator | HLS csim | **RTL cosim** |
+|---|---|---|---|---|---|
+| §3.1 systolic GEMM | mesh, computed boundaries, loaders and drains | ✅ | ✅ | ✅ | ✅ 9/9 |
+| §3.2 tiled GEMM | a placed fabric, `shard(dim=)`, per-site tensor views | ✅ | ✅ | ✅ | ✅ 16/16 |
+| §3.4 FFT | key-form links, block streams, a resident twiddle ROM | ✅ | ✅ | ✅ | ✅ 8/8 |
+| §3.5 mini-TPU | two placements, `link`, stationary weights, seeded chain | ✅ | ✅ | ✅ | ✅ 4/4 |
+| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ⚠️ G=1 | ✅ 2/2 |
+
+The last column is the mixed flow end to end: every role synthesised by HLS and
+exported as an IP, the array assembled from them in Vivado, and the result
+checked in xsim against `target="ref"`. Generated code for every stage is checked
+in under [`examples/spmw/generated/`](examples/spmw/generated/).
 
 On top of that, the design's **load-bearing compilation claim is now realised**,
 and in the form that matters for hardware: **HLS synthesises the unit, RTL builds
@@ -305,27 +310,20 @@ Still true: the structural checks (every link on one channel, checked against
 `topology.channels`; nothing dangling) are what catch mis-wiring at sizes too
 large to simulate.
 
-**One of the five designs does not build as units.** Every role of the GEMM
-(9/9), the TPU (10/10), attention (7/7) and the tiled GEMM (16/16) compiles to a
-unit and its parameters map back to the fabric's ports. The **FFT does not**: its
-butterfly reads its own stage and index, so its sites differ by *position*, not
-only by wiring, and one IP cannot stand for them. It is refused with a clear
-message rather than compiled — a single-instance kernel's pid is always zero, so
-compiling it would run every site as if it were the origin.
+**All five designs build as units and pass cosim.** Three mechanisms got them
+there, and each is general rather than a special case:
 
-Closing it is a known, scoped piece of work. The dialect's calling convention
-already says a unit takes its grid coordinates as arguments, and the mechanism is
-in hand: Allo refuses a scalar kernel argument but accepts a one-element array,
-and coordinates could equally arrive on their own streams, read once and held —
-exactly how stationary weights are handled now. That last route needs no new
-interface kind and would make the fabric drive each site from a small
-constant-source module.
-
-The TPU and attention only build *because* of that stationary handling. In the
-array a site reads the parent's weight tensor at its own coordinates,
-`local_W[i, j]`, which looked like coordinate dependence but is per-site *data*.
-A unit takes it on its own port and holds it, which is what `stationary` already
-means.
+- *A role may read its own position.* The FFT butterfly needs its stage and
+  index. Coordinates arrive as ordinary input streams, read once and held, and
+  the fabric drives each site's from a `spmw_const` source. A role that ignores
+  its position gains no ports.
+- *Compile-time contents stay inside the unit.* A `mem(..., init=)` brick is the
+  same at every site and the array already holds it in a per-site ROM, so the
+  FFT's twiddles are not an edge stream. `is_resident` tells a brick from a shard
+  of the caller's tensor.
+- *Per-site data is held, not indexed.* The TPU reads `local_W[i, j]` in the
+  array, which looks like coordinate dependence but is per-site *data*; the unit
+  takes it on a port and holds it, which is what `stationary` already means.
 
 **The two analysis passes are not written.** `spmw-role-partition` and
 `spmw-resolve-channels` were in the plan, but since this frontend computes what
