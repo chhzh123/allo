@@ -7,6 +7,7 @@ existing backends.  The targets are the dataflow ones, unchanged:
 ``simulator`` for functional checks, ``vitis_hls`` and friends for hardware.
 """
 
+from . import schedule as sched
 from .errors import SPMWPlacementError
 from .graph import elaborate
 from .lower_df import build_dataflow, render_source
@@ -89,6 +90,12 @@ def _build_partitioned(df, top, graph, target, **kwargs):
     happen between them.
     """
     schedule = df.customize(top, enable_tensor=kwargs.pop("enable_tensor", False))
+    # Pipeline every kernel's innermost loop. The array path has the same gap the
+    # unit path did: without this, each site's loop is scheduled sequentially.
+    # One interval for the whole program -- the kernels are not separable here,
+    # unlike a unit, which is built on its own and takes its placement's own.
+    intervals = {sched.interval(p) for p in graph.placements} or {1}
+    sched.apply(schedule, sched.function_names(schedule), min(intervals))
     for tensor in graph.tensors.values():
         buffer = getattr(schedule, tensor.name, None)
         if buffer is None:

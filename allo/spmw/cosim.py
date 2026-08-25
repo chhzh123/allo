@@ -124,7 +124,11 @@ class Testbench:
             "  always #5 clk = ~clk;",
             "  integer errors = 0;",
             "  integer produced = 0;",
-            f"  localparam integer TOTAL = {sum(len(c) for c in want.values())};",
+            # Every token on every channel, not every channel: counting
+            # channels made the run stop at the first token of each and call
+            # that a pass, so attention checked 2 of its 12 and still said PASS.
+            f"  localparam integer TOTAL = "
+            f"{sum(len(t) for ch in want.values() for t in ch)};",
         ]
         conns = [".ap_clk(clk)", ".ap_rst_n(rst_n)"]
         lines += self._inbound(stim, conns)

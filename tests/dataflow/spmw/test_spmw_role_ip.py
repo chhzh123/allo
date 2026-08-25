@@ -105,12 +105,12 @@ def test_a_coordinate_dependent_role_is_refused():
     placement = emitter.placements()[0]
     order = 2
     _sig, _routing, sites = emitter.classes(placement)[order]
-    source, pids, _rw = emitter._body(placement, order, sites[0])
+    source, _pids, _rw = emitter.body_for(placement, order, sites[0])
     import ast
 
     text = ast.unparse(ast.Module(body=source, type_ignores=[]))
-    with pytest.raises(Exception, match="coordinates"):
-        emitter._check_uniform(placement, order, text + f"\n{pids[0]}", pids)
+    with pytest.raises(Exception, match="differ"):
+        emitter._check_uniform(placement, order, text + "\n_marker")
 
 
 @pytest.mark.parametrize("name", sorted(BUILDS))

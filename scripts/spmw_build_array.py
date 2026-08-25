@@ -51,6 +51,7 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
     UnitEmitter,
     build_unit,
     check_wrapper,
+    optimise,
     trim_includes,
     wrapper_sv,
 )
@@ -152,7 +153,7 @@ _NUMPY = {
 }
 
 
-def stage(graph, out, part, frequency):
+def stage(graph, out, part, frequency, ii=None):
     """Write one HLS project per role, plus the fabric that will hold them.
 
     Every placement, not just the first: a design can put more than one
@@ -164,9 +165,10 @@ def stage(graph, out, part, frequency):
     for placement in emitter.placements():
         for order in range(len(emitter.classes(placement))):
             name = emitter.role_name(placement, order)
-            code = trim_includes(
-                str(build_unit(graph, placement, order, target="vhls").hls_code)
-            )
+            if ii is not None:
+                spmw.pipeline(placement, ii=ii)
+            built = build_unit(graph, placement, order, target="vhls")
+            code, _bound = optimise(trim_includes(str(built.hls_code)), built)
             directory = os.path.join(out, name)
             os.makedirs(directory, exist_ok=True)
             _write(os.path.join(directory, "kernel.cpp"), code)
@@ -183,6 +185,96 @@ def stage(graph, out, part, frequency):
     _write(os.path.join(out, "spmw_const.sv"), rtl.const_module())
     _write(os.path.join(out, "spmw_top.sv"), rtl.StructuralEmitter(graph).fabric())
     return names
+
+
+def tune(graph, out, part, frequency, candidates=(0, 2, 3, 4, 5, 6)):
+    """Find the initiation interval that runs fastest and still closes timing.
+
+    A unit with a loop-carried accumulator cannot reach II=1: the recurrence runs
+    through a float add, so II = adder latency + 1. Asking for a shorter adder
+    buys interval and spends combinational delay, and which trade wins is a
+    property of the design *and* the clock -- so it is measured rather than
+    guessed. One representative role is enough; the roles of a placement differ
+    in wiring, not in arithmetic.
+
+    Returns the best interval, and the table it was chosen from.
+    """
+    target = 1000.0 / frequency
+    work = os.path.join(out, "_tune")
+    emitter = UnitEmitter(graph)
+    placement = emitter.placements()[0]
+    order = min(2, len(emitter.classes(placement)) - 1)
+    name = emitter.role_name(placement, order)
+
+    jobs = []
+    for ii in candidates:
+        spmw.pipeline(placement, ii=ii)
+        built = build_unit(graph, placement, order, target="vhls")
+        code, _bound = optimise(trim_includes(str(built.hls_code)), built)
+        directory = os.path.join(work, f"ii{ii}")
+        os.makedirs(directory, exist_ok=True)
+        _write(os.path.join(directory, "kernel.cpp"), code)
+        _write(
+            os.path.join(directory, "run.tcl"),
+            ROLE_TCL.format(name=name, part=part, period=target).replace(
+                "export_design -format ip_catalog\n", ""
+            ),
+        )
+        jobs.append((ii, directory))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        list(
+            pool.map(
+                lambda j: _run(["vitis_hls", "-f", "run.tcl"], j[1], check=False), jobs
+            )
+        )
+
+    table = []
+    for ii, directory in jobs:
+        measured = _measure(directory, name)
+        if measured is None:
+            continue
+        achieved, period = measured
+        closes = period <= target
+        table.append((ii, achieved, period, achieved * max(period, target), closes))
+    if not table:
+        raise SystemExit(f"no tuning run produced a report; see {work}")
+    closing = [row for row in table if row[4]] or table
+    best = min(closing, key=lambda row: row[3])
+    print(f"  {'ask':>4} {'II':>4} {'period':>8} {'ns/iter':>8}  closes timing")
+    for ii, achieved, period, cost, closes in table:
+        mark = " <-- chosen" if ii == best[0] else ""
+        print(
+            f"  {ii:>4} {achieved:>4} {period:>8.3f} {cost:>8.1f}  "
+            f"{'yes' if closes else 'NO':>3}{mark}"
+        )
+    return best[0], table
+
+
+def _measure(directory, name):
+    """The II and estimated period a tuning run reported."""
+    import re  # pylint: disable=import-outside-toplevel
+
+    reports = os.path.join(directory, "prj", "sol", "syn", "report")
+    if not os.path.isdir(reports):
+        return None
+    achieved = period = None
+    for filename in os.listdir(reports):
+        path = os.path.join(reports, filename)
+        text = open(
+            path, encoding="utf-8"
+        ).read()  # pylint: disable=consider-using-with
+        if "Pipeline" in filename:
+            match = re.search(r"\|-\s+\S+\s*\|[^|]*\|[^|]*\|[^|]*\|\s*(\d+)\|", text)
+            if match:
+                achieved = int(match.group(1))
+        if filename == f"{name}_0_csynth.rpt":
+            match = re.search(r"\|ap_clk\s*\|\s*[\d.]+ ns\|\s*([\d.]+) ns", text)
+            if match:
+                period = float(match.group(1))
+    if achieved is None or period is None:
+        return None
+    return achieved, period
 
 
 def synthesise(out, names, jobs=None):
@@ -364,6 +456,17 @@ def main():
         help="which worked example to build",
     )
     parser.add_argument("--size", type=int, default=4)
+    parser.add_argument(
+        "--ii",
+        type=int,
+        default=None,
+        help="target initiation interval for the units' loops (0 leaves it alone)",
+    )
+    parser.add_argument(
+        "--tune",
+        action="store_true",
+        help="measure the best initiation interval before building",
+    )
     parser.add_argument("--out", required=True)
     parser.add_argument("--part", default=PART)
     parser.add_argument("--frequency", type=float, default=300.0)
@@ -390,7 +493,11 @@ def main():
     rtl.check_netlist(graph)
     print(f"{args.design}: {json.dumps(cost)}")
 
-    names = stage(graph, args.out, args.part, args.frequency)
+    ii = args.ii
+    if args.tune:
+        print("tuning the initiation interval:")
+        ii, _table = tune(graph, args.out, args.part, args.frequency)
+    names = stage(graph, args.out, args.part, args.frequency, ii=ii)
     print(f"staged {len(names)} role project(s)")
     if args.stage_only:
         return

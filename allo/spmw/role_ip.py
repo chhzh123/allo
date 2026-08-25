@@ -34,7 +34,9 @@ import types
 from .errors import SPMWBindingError
 from .lower_df import Lowering, _BodyRewriter, _is_site_rank, _wiring_classes
 from .ports import IN, MEMORY, OUT
-from .rtl import CoordPort, StructuralEmitter, _port_signals, _width
+from . import schedule as sched
+from .abi import CoordPort, _port_signals, _width
+from .rtl import StructuralEmitter
 
 
 # The coordinate ports' name stem. `rtl.CoordPort` builds `_pid<k>`, and the
@@ -179,8 +181,12 @@ class UnitEmitter:
         """
         return self.struct.unit_ports(placement, order)
 
-    def _body(self, placement, order, site):
-        """The role's body rewritten for one concrete site."""
+    def body_for(self, placement, order, site):
+        """The role's body rewritten for one concrete site.
+
+        Public because the coordinate and accumulator analyses both need it:
+        each is a question about the body, and the body is what this returns.
+        """
         signature, routing, sites = self.classes(placement)[order]
         body = placement.roles.get(site)
         if body is None:
@@ -209,7 +215,7 @@ class UnitEmitter:
                 out.append(visited)
         return (out or [ast.Pass()]), pids, rewriter
 
-    def _check_uniform(self, placement, order, source, pids):
+    def _check_uniform(self, placement, order, source):
         """A role stands for its whole class, so its sites must be alike.
 
         Rewriting a second site and comparing is a check rather than an
@@ -220,7 +226,7 @@ class UnitEmitter:
         name = self.role_name(placement, order)
         _sig, _routing, sites = self.classes(placement)[order]
         if len(sites) > 1:
-            other, _pids, _rw = self._body(placement, order, sites[1])
+            other, _pids, _rw = self.body_for(placement, order, sites[1])
             if _unparse(other) != source:
                 raise SPMWBindingError(
                     f"`{name}` covers {len(sites)} sites whose bodies differ, so "
@@ -286,9 +292,9 @@ class UnitEmitter:
         """
         _sig, _routing, sites = self.classes(placement)[order]
         name = self.role_name(placement, order)
-        body, pids, rewriter = self._body(placement, order, sites[0])
+        body, _pids, rewriter = self.body_for(placement, order, sites[0])
         plain = _unparse(body)
-        self._check_uniform(placement, order, plain, pids)
+        self._check_uniform(placement, order, plain)
         source = "\n".join(self._held(rewriter) + [plain])
         decls, extras = self._declarations(placement, order)
         indented = "\n".join("        " + line for line in source.splitlines())
@@ -313,12 +319,16 @@ class UnitEmitter:
         return out
 
 
-def build_unit(graph, placement, order, target="vhls", keep=None, **kwargs):
+def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwargs):
     """Compile one role on its own.
 
     Imported the way :func:`allo.spmw.lower_df.build_dataflow` imports the array
     program -- from a real file, with the body's captured names in the module's
     namespace -- because the tracer reads the source back off disk.
+
+    The unit's loops are pipelined before it is built. Without that Vitis
+    schedules a PE's inner loop sequentially, which is a spatial design's entire
+    inner loop; see :mod:`allo.spmw.schedule`.
     """
     import allo.dataflow as df  # pylint: disable=import-outside-toplevel
 
@@ -328,10 +338,50 @@ def build_unit(graph, placement, order, target="vhls", keep=None, **kwargs):
     namespace = dict(emitter.low.injected)
     namespace.update(extras)
     module = _import_program(f"_spmw_unit_{name}", src, namespace, keep)
-    built = df.build(module.top, target=target, **kwargs)  # pylint: disable=no-member
+    # The requested interval is a *recurrence budget*: it buys interval by
+    # spending combinational delay on the accumulator's adder. A unit that
+    # carries nothing has no recurrence to trade against, so peak is free and
+    # asking for a wider interval would only slow it down -- which is exactly
+    # what forcing ii=4 on attention did, taking it from II=1 to II=4.
+    carried = _accumulators(emitter, placement, order)
+    want = sched.interval(placement, default=0) if ii is None else ii
+    if not carried and want:
+        want = 1
+    schedule = df.customize(module.top)  # pylint: disable=no-member
+    pipelined = sched.apply(schedule, [name, f"{name}_0"], want)
+    built = schedule.build(target=target, **kwargs)
     built.spmw_unit_source = src
     built.spmw_unit_name = name
+    built.spmw_pipelined = pipelined
+    built.spmw_accumulators = carried
+    built.spmw_interval = want
     return built
+
+
+def _accumulators(emitter, placement, order):
+    """The unit body's loop-carried names, from its own source."""
+    _sig, _routing, sites = emitter.classes(placement)[order]
+    body, _pids, _rw = emitter.body_for(placement, order, sites[0])
+    tree = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
+    return sched.accumulators(tree)
+
+
+def optimise(code, built):
+    """Apply the schedule's recurrence budget to generated HLS C++.
+
+    A unit that asks for II=N is asking for its accumulator's adder to fit in
+    N-1 cycles, because a recurrence through a float add costs II = latency + 1.
+    Vitis picks a deeply pipelined adder by default, which is why the systolic
+    GEMM's PE sits at II=7 while the mini-TPU's -- whose partial sum arrives on a
+    *stream*, so nothing is carried -- is already at 1.
+
+    Returns the code and the values bound; without an interval it is a no-op.
+    """
+    interval_ = getattr(built, "spmw_interval", 0)
+    names = getattr(built, "spmw_accumulators", ())
+    if not interval_ or not names:
+        return code, []
+    return sched.bind_recurrences(code, names, max(interval_ - 1, 0))
 
 
 def _import_program(stem, src, namespace, keep):
@@ -381,9 +431,7 @@ def coord_axes(graph, placement, order):
     if key not in _COORD_CACHE:
         emitter = UnitEmitter(graph)
         _sig, _routing, sites = emitter.classes(placement)[order]
-        _body, _pids, rewriter = emitter._body(  # pylint: disable=protected-access
-            placement, order, sites[0]
-        )
+        _body, _pids, rewriter = emitter.body_for(placement, order, sites[0])
         _COORD_CACHE[key] = tuple(sorted(rewriter.coords))
     return _COORD_CACHE[key]
 
@@ -591,6 +639,7 @@ def check_wrapper(wrapper, exported):
 
 __all__ = [
     "UnitEmitter",
+    "optimise",
     "coord_axes",
     "trim_includes",
     "build_unit",

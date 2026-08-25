@@ -70,6 +70,7 @@ from .errors import (
 from .graph import Elaborated, elaborate
 from .index import Axis, split
 from .iface import Interface, interface, structural
+from .schedule import pipeline
 from .placement import Bundle, MemGrid, Placement, place
 from .ports import In, Mem, MemIn, MemOut, Out
 from .topology import Grid, Topology, key, mesh, ring, to
@@ -133,6 +134,7 @@ __all__ = [
     "to",
     "key",
     # placement
+    "pipeline",
     "place",
     "Placement",
     "Bundle",

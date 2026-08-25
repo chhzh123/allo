@@ -18,8 +18,14 @@ five of the design's worked examples run and produce correct results**:
 | §3.1 systolic GEMM | mesh, computed boundaries, loaders and drains | ✅ | ✅ | ✅ | ✅ 9/9 |
 | §3.2 tiled GEMM | a placed fabric, `shard(dim=)`, per-site tensor views | ✅ | ✅ | ✅ | ✅ 16/16 |
 | §3.4 FFT | key-form links, block streams, a resident twiddle ROM | ✅ | ✅ | ✅ | ✅ 8/8 |
-| §3.5 mini-TPU | two placements, `link`, stationary weights, seeded chain | ✅ | ✅ | ✅ | ✅ 4/4 |
-| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ⚠️ G=1 | ✅ 2/2 |
+| §3.5 mini-TPU | two placements, `link`, stationary weights, seeded chain | ✅ | ✅ | ✅ | ✅ 24/24 |
+| §3.6 attention P·V | interior boundaries, split axes, G ∈ {1,2,4} | ✅ | ✅ | ⚠️ G=1 | ✅ 12/12 |
+
+An earlier version of this table said the TPU checked 4 tokens and attention 2.
+Those numbers were wrong, and wrong in the direction that matters: the testbench
+counted *channels* where it meant tokens, so it stopped at the first token of
+each channel and called that a pass. Attention was verifying 2 of its 12. Fixed,
+and the counts above are the real ones.
 
 The last column is the mixed flow end to end: every role synthesised by HLS and
 exported as an IP, the array assembled from them in Vivado, and the result
@@ -155,6 +161,73 @@ The frontend was always flat — signatures and emitted source arms sit at nine
 from 3×3 on. What grew was what the *dataflow builder* did with it: it expands
 `mapping=[R, C]` into one kernel instance per grid point. The rolled path keeps
 the structure as a single `spmw.map` op that survives to code generation.
+
+---
+
+## 2b. Do the units reach peak, and why not
+
+Peak for a systolic PE is II=1: one MAC per cycle. Measured from the synthesis
+reports (xcu280, 300 MHz target):
+
+| design | II achieved | at peak? | why |
+|---|---|---|---|
+| FFT butterfly | **1** | ✅ | nothing is carried between iterations |
+| attention MAC | **1** | ✅ | the partial sum arrives on a stream |
+| mini-TPU MAC | **1** | ✅ | same |
+| systolic GEMM PE | **7** | ❌ | a float accumulator held across `k` |
+
+The split is not about size or tuning, it is the design's dataflow. The TPU and
+attention are *output-flowing*: `p = p_in.get()` … `p_out.put(p + a*w)`, so each
+iteration is independent and II=1 falls out. The GEMM is *output-stationary*:
+`acc += a*b` holds the result in a register across the whole `k` loop, and that
+recurrence runs through a floating-point add. **II = adder latency + 1**, and
+Vitis picks a deeply pipelined adder, so II=7.
+
+`allo.spmw.schedule.accumulators` reads that distinction off the body: the GEMM
+and the tiled GEMM carry one, the other three carry none.
+
+### What fixes it
+
+`spmw.pipeline(P, ii=n)` asks for an interval, and the compiler binds the
+accumulator's adder to `n-1` cycles to allow it. The interval is a *recurrence
+budget*, so a unit that carries nothing ignores it and stays at II=1 — forcing
+`ii=4` on attention once took its MAC from 1 to 4, which is the whole cost of
+treating a budget as a target.
+
+Measured on the GEMM PE at K=16, where the loop must do 16 MACs:
+
+| asked | II | est. period | ns per MAC | vs default | closes 3.33 ns? |
+|---|---|---|---|---|---|
+| off | 7 | 2.431 ns | 23.3 | 1.00× | yes |
+| 2 | 2 | 6.692 ns | 13.4 | — | **no** |
+| 3 | 3 | 5.641 ns | 16.9 | — | **no** |
+| **4** | **4** | **3.165 ns** | **13.3** | **1.75×** | **yes** |
+| 5 | 5 | 2.470 ns | 16.7 | 1.40× | yes |
+| 6 | 6 | 2.431 ns | 20.0 | 1.17× | yes |
+
+**1.75× at the same clock, with 3 DSPs instead of 5** — and not one rounding
+changed, because `bind_op` alters the adder's implementation, not the
+arithmetic. The cosim still passes.
+
+Two things this table is there to stop:
+
+*Chasing II.* `latency=0` reaches II=1 — and an estimated period of 26.27 ns,
+eight times the target. In real time that is 26.3 ns per MAC, **slower than the
+II=7 default**. The metric is ns per MAC, not II.
+
+*Reaching for reassociation.* Splitting the sum across eight partial
+accumulators also gives 13.3 ns/MAC — at 1236/1336 FF/LUT against 534/628, and
+it changes the summation order. The shorter adder dominates it on every axis.
+
+Since the best interval depends on the design *and* the clock, it is measured
+rather than guessed:
+
+```bash
+python3 scripts/spmw_build_array.py --design gemm --size 16 --tune --out DIR
+```
+
+which synthesises one representative role at each candidate interval in parallel
+and picks the fastest that closes timing.
 
 ---
 

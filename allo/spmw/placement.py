@@ -151,6 +151,9 @@ class Placement:
             )
             for i, extent in enumerate(self.grid)
         )
+        # How this placement's unit is compiled, as opposed to what it means:
+        # see allo.spmw.schedule.
+        self.schedule = []
         self.roles = {}
         self.expanded = False
         self._bundles = {}

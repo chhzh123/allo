@@ -415,3 +415,29 @@ def test_a_tile_is_fed_its_own_slice_not_the_first_tile_s():
     # all claim the top ones.
     assert any(min(v) >= M - Rt for v in rows.values()), rows
     assert any(min(v) == 0 for v in rows.values()), rows
+
+
+def test_the_testbench_expects_every_token_not_every_channel():
+    """Counting channels stopped the run at the first token of each.
+
+    Attention's result family has 2 channels carrying 6 tokens apiece; the
+    simulation declared PASS after 2 of the 12 and stopped. A design that went
+    wrong on token three would have passed.
+    """
+    import numpy as np
+
+    from allo.spmw.cosim import Testbench
+
+    graph = spmw.elaborate(attention_pv(2))
+    arrays = {}
+    for tensor in graph.tensors.values():
+        arrays[tensor.name] = np.zeros(
+            tensor.shape, dtype=np.float32 if "f" in str(tensor.dtype) else np.int8
+        )
+    bench = Testbench(graph, arrays)
+    want = bench.expected(arrays)
+    tokens = sum(len(t) for channels in want.values() for t in channels)
+    channels = sum(len(channels) for channels in want.values())
+    assert tokens > channels, "attention is exactly the case that exposed this"
+    text = bench.render(arrays)
+    assert f"TOTAL = {tokens}" in text, f"expected TOTAL={tokens}"
