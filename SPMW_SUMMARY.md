@@ -270,6 +270,39 @@ II=7 default**. The metric is ns per MAC, not II.
 accumulators also gives 13.3 ns/MAC — at 1236/1336 FF/LUT against 534/628, and
 it changes the summation order. The shorter adder dominates it on every axis.
 
+### The integer mesh, built and measured
+
+The analysis above says the float mesh is held back by a float add in a
+distance-1 cycle, not by being a systolic array. `test_spmw_gemm_int8.py` is the
+control built as a real design: the *same* mesh, the same computed boundaries,
+the same loaders and drain, the same output-stationary body holding `acc` across
+the whole `k` loop — int8 operands into an int32 accumulator instead of float32.
+
+Its PE reaches **II=1 at 2.431 ns**, meeting 300 MHz with room to spare.
+
+The whole 4×4 array, post-synthesis, against its float twin — same shape, same
+64 MACs:
+
+| variant | unit II | cycles | array clock | wall clock | LUT | FF | DSP |
+|---|---|---|---|---|---|---|---|
+| fp32, default | 7 | 43 | 2.411 ns | 103.7 ns | 6,495 | 10,480 | 80 |
+| fp32, `ii=4` | 4 | 30 | 3.215 ns | 96.5 ns | 8,512 | 7,504 | 48 |
+| **int8** | **1** | **16** | **1.584 ns** | **25.3 ns** | **545** | **608** | **16** |
+
+**4.1× faster than the float mesh, with 12× fewer LUTs and 5× fewer DSPs** — and
+1.749 ns of timing slack, so it would clock past 600 MHz where the tuned float
+mesh has 0.118 ns and is pinned at 300.
+
+Worth noticing in the middle row: buying interval on the float mesh *raises* LUT
+use (6,495 → 8,512) while lowering DSPs (80 → 48). The shorter adder is built
+out of fabric rather than DSP blocks. It is a real trade, and a small one next to
+changing the number format.
+
+That is the honest ranking of the three levers. Scheduling the float mesh buys
+1.07×; changing its arithmetic buys 4.1×. The compiler can do the first on its
+own — the second is the design's to choose, which is exactly why it is in the
+frontend and not in the schedule.
+
 ### The unit's report is not the array's performance
 
 Everything above is per *unit*, which is all HLS ever sees — it synthesised one

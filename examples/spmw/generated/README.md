@@ -5,8 +5,9 @@ Checked in so the stages can be read side by side. Everything here is generated
 `scripts/spmw_dump_generated.py`, so it can be diffed after a change to see what
 actually moved.
 
-Five designs, one directory each: `gemm` (§3.1 systolic GEMM, 3×3), `tiled`
-(§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU), `attention` (§3.6 P·V).
+Six designs, one directory each: `gemm` (§3.1 systolic GEMM, 3×3), `gemm8` (the
+same mesh in int8), `tiled` (§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU),
+`attention` (§3.6 P·V).
 
 ## The two paths, and where they diverge
 
@@ -62,6 +63,16 @@ own structure and then cross-checked against how the body uses each parameter.
 **Two placements.** `tpu/10_spmw_top.sv` instantiates `mac_r*` and `act_r*` and
 joins them with FIFOs — the `link` between the MXU and the activation row is
 internal to the fabric, not an edge port.
+
+**The same mesh, two number formats.** `gemm` and `gemm8` are structurally
+identical — diff `01_dataflow.py` between them and only the types move. What
+changes downstream is large: the float PE carries `acc` through an fp32 add in a
+distance-1 cycle, so its interval is the adder's latency (II=7, or 4 with a
+shorter adder); the int8 PE's add is single-cycle, so it runs at II=1. Compare
+`06_unit_pe_r2.cpp` in each, and the exported `12_exported_pe_r2_0.v`.
+
+Measured on the 4×4 array: 103.7 ns and 6,495 LUTs for float, 25.3 ns and 545
+LUTs for int8.
 
 ## Regenerating
 

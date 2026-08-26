@@ -32,7 +32,7 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
     wrapper_sv,
 )
 
-DESIGNS = ("gemm", "tiled", "fft", "tpu", "attention")
+DESIGNS = ("gemm", "gemm8", "tiled", "fft", "tpu", "attention")
 
 
 def dump(name, out, size):

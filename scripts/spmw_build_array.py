@@ -115,6 +115,13 @@ def design(name, size):
         from test_spmw_rolled import gemm_of
 
         return gemm_of(size)
+    if name == "gemm8":
+        # The same mesh in integers. Its float twin cannot reach II=1 because a
+        # float add sits in a distance-1 recurrence; an integer add is
+        # single-cycle, so this one can.
+        from test_spmw_gemm_int8 import gemm_int8
+
+        return gemm_int8
     if name == "tpu":
         from test_spmw_tpu import tpu_matmul
 
@@ -495,7 +502,7 @@ def main():
     parser.add_argument(
         "--design",
         default="gemm",
-        choices=("gemm", "tpu", "fft", "attention", "tiled"),
+        choices=("gemm", "gemm8", "tpu", "fft", "attention", "tiled"),
         help="which worked example to build",
     )
     parser.add_argument("--size", type=int, default=4)
