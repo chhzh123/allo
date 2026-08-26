@@ -4,42 +4,42 @@ module {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[0, %arg2] {from = "local_A"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_west_load_1(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[1, %arg2] {from = "local_A"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_west_load_2(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[2, %arg2] {from = "local_A"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_north_load_0(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[%arg2, 0] {from = "local_B"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_north_load_1(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[%arg2, 1] {from = "local_B"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_north_load_2(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 3 {
       %0 = affine.load %arg0[%arg2, 2] {from = "local_B"} : memref<3x3xf32, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @pe_0_0(%arg0: memref<3x3xf32, #map>, %arg1: !allo.stream<f32, 2>, %arg2: !allo.stream<f32, 2>, %arg3: !allo.stream<f32, 2>, %arg4: !allo.stream<f32, 2>) attributes {df.kernel, itypes = "_____", otypes = "", stypes = "_iioo"} {
@@ -63,7 +63,7 @@ module {
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
       %9 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg4, [], %9) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[0, 0] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -89,7 +89,7 @@ module {
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
       %9 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg4, [], %9) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[0, 1] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -113,7 +113,7 @@ module {
       affine.store %7, %alloc[] {to = "acc"} : memref<f32>
       %8 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[0, 2] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -139,7 +139,7 @@ module {
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
       %9 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg4, [], %9) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[1, 0] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -165,7 +165,7 @@ module {
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
       %9 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg4, [], %9) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[1, 1] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -189,7 +189,7 @@ module {
       affine.store %7, %alloc[] {to = "acc"} : memref<f32>
       %8 = affine.load %alloc_1[] {from = "b"} : memref<f32>
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[1, 2] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -213,7 +213,7 @@ module {
       affine.store %7, %alloc[] {to = "acc"} : memref<f32>
       %8 = affine.load %alloc_0[] {from = "a"} : memref<f32>
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[2, 0] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -237,7 +237,7 @@ module {
       affine.store %7, %alloc[] {to = "acc"} : memref<f32>
       %8 = affine.load %alloc_0[] {from = "a"} : memref<f32>
       allo.stream_put(%arg3, [], %8) : !allo.stream<f32, 2> contains f32
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[2, 1] {to = "local_C"} : memref<3x3xf32, #map>
     return
@@ -259,7 +259,7 @@ module {
       %6 = affine.load %alloc[] {from = "acc"} : memref<f32>
       %7 = arith.addf %6, %5 : f32
       affine.store %7, %alloc[] {to = "acc"} : memref<f32>
-    } {loop_name = "k", op_name = "S_k_0"}
+    } {loop_name = "k", op_name = "S_k_0", pipeline_ii = 1 : ui32}
     %0 = affine.load %alloc[] {from = "acc"} : memref<f32>
     affine.store %0, %arg0[2, 2] {to = "local_C"} : memref<3x3xf32, #map>
     return

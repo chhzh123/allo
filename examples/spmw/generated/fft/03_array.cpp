@@ -29,6 +29,7 @@ void bfly_up_in_load_0(
       _blk[v5] = (float)0.000000;	// L9
     }
     l_S__b0_0__b0: for (int _b0 = 0; _b0 < 2; _b0++) {	// L10
+    #pragma HLS pipeline II=1
       int32_t v7 = _ix0[_t][0];	// L11
       int v8 = v7;	// L12
       float v9 = v0[v8][_b0];	// L13
@@ -59,6 +60,7 @@ void bfly_up_in_load_1(
       _blk1[v15] = (float)0.000000;	// L26
     }
     l_S__b0_0__b01: for (int _b01 = 0; _b01 < 2; _b01++) {	// L27
+    #pragma HLS pipeline II=1
       int32_t v17 = _ix0_0[_t1][0];	// L28
       int v18 = v17;	// L29
       float v19 = v10[v18][_b01];	// L30
@@ -89,6 +91,7 @@ void bfly_up_in_load_2(
       _blk2[v25] = (float)0.000000;	// L43
     }
     l_S__b0_0__b02: for (int _b02 = 0; _b02 < 2; _b02++) {	// L44
+    #pragma HLS pipeline II=1
       int32_t v27 = _ix0_1[_t2][0];	// L45
       int v28 = v27;	// L46
       float v29 = v20[v28][_b02];	// L47
@@ -119,6 +122,7 @@ void bfly_up_in_load_3(
       _blk3[v35] = (float)0.000000;	// L60
     }
     l_S__b0_0__b03: for (int _b03 = 0; _b03 < 2; _b03++) {	// L61
+    #pragma HLS pipeline II=1
       int32_t v37 = _ix0_2[_t3][0];	// L62
       int v38 = v37;	// L63
       float v39 = v30[v38][_b03];	// L64
@@ -149,6 +153,7 @@ void bfly_lo_in_load_0(
       _blk4[v45] = (float)0.000000;	// L77
     }
     l_S__b0_0__b04: for (int _b04 = 0; _b04 < 2; _b04++) {	// L78
+    #pragma HLS pipeline II=1
       int32_t v47 = _ix0_3[_t4][0];	// L79
       int v48 = v47;	// L80
       float v49 = v40[v48][_b04];	// L81
@@ -179,6 +184,7 @@ void bfly_lo_in_load_1(
       _blk5[v55] = (float)0.000000;	// L94
     }
     l_S__b0_0__b05: for (int _b05 = 0; _b05 < 2; _b05++) {	// L95
+    #pragma HLS pipeline II=1
       int32_t v57 = _ix0_4[_t5][0];	// L96
       int v58 = v57;	// L97
       float v59 = v50[v58][_b05];	// L98
@@ -209,6 +215,7 @@ void bfly_lo_in_load_2(
       _blk6[v65] = (float)0.000000;	// L111
     }
     l_S__b0_0__b06: for (int _b06 = 0; _b06 < 2; _b06++) {	// L112
+    #pragma HLS pipeline II=1
       int32_t v67 = _ix0_5[_t6][0];	// L113
       int v68 = v67;	// L114
       float v69 = v60[v68][_b06];	// L115
@@ -239,6 +246,7 @@ void bfly_lo_in_load_3(
       _blk7[v75] = (float)0.000000;	// L128
     }
     l_S__b0_0__b07: for (int _b07 = 0; _b07 < 2; _b07++) {	// L129
+    #pragma HLS pipeline II=1
       int32_t v77 = _ix0_6[_t7][0];	// L130
       int v78 = v77;	// L131
       float v79 = v70[v78][_b07];	// L132
@@ -1472,6 +1480,7 @@ void bfly_up_out_drain_0(
       }
     }	// L1013
     l_S__b0_0__b08: for (int _b08 = 0; _b08 < 2; _b08++) {	// L1014
+    #pragma HLS pipeline II=1
       float v746 = v744[_b08];	// L1015
       int32_t v747 = _ix0_7[_t8][0];	// L1016
       int v748 = v747;	// L1017
@@ -1498,6 +1507,7 @@ void bfly_up_out_drain_1(
       }
     }	// L1027
     l_S__b0_0__b09: for (int _b09 = 0; _b09 < 2; _b09++) {	// L1028
+    #pragma HLS pipeline II=1
       float v755 = v753[_b09];	// L1029
       int32_t v756 = _ix0_8[_t9][0];	// L1030
       int v757 = v756;	// L1031
@@ -1524,6 +1534,7 @@ void bfly_up_out_drain_2(
       }
     }	// L1041
     l_S__b0_0__b010: for (int _b010 = 0; _b010 < 2; _b010++) {	// L1042
+    #pragma HLS pipeline II=1
       float v764 = v762[_b010];	// L1043
       int32_t v765 = _ix0_9[_t10][0];	// L1044
       int v766 = v765;	// L1045
@@ -1550,6 +1561,7 @@ void bfly_up_out_drain_3(
       }
     }	// L1055
     l_S__b0_0__b011: for (int _b011 = 0; _b011 < 2; _b011++) {	// L1056
+    #pragma HLS pipeline II=1
       float v773 = v771[_b011];	// L1057
       int32_t v774 = _ix0_10[_t11][0];	// L1058
       int v775 = v774;	// L1059
@@ -1576,6 +1588,7 @@ void bfly_lo_out_drain_0(
       }
     }	// L1069
     l_S__b0_0__b012: for (int _b012 = 0; _b012 < 2; _b012++) {	// L1070
+    #pragma HLS pipeline II=1
       float v782 = v780[_b012];	// L1071
       int32_t v783 = _ix0_11[_t12][0];	// L1072
       int v784 = v783;	// L1073
@@ -1602,6 +1615,7 @@ void bfly_lo_out_drain_1(
       }
     }	// L1083
     l_S__b0_0__b013: for (int _b013 = 0; _b013 < 2; _b013++) {	// L1084
+    #pragma HLS pipeline II=1
       float v791 = v789[_b013];	// L1085
       int32_t v792 = _ix0_12[_t13][0];	// L1086
       int v793 = v792;	// L1087
@@ -1628,6 +1642,7 @@ void bfly_lo_out_drain_2(
       }
     }	// L1097
     l_S__b0_0__b014: for (int _b014 = 0; _b014 < 2; _b014++) {	// L1098
+    #pragma HLS pipeline II=1
       float v800 = v798[_b014];	// L1099
       int32_t v801 = _ix0_13[_t14][0];	// L1100
       int v802 = v801;	// L1101
@@ -1654,6 +1669,7 @@ void bfly_lo_out_drain_3(
       }
     }	// L1111
     l_S__b0_0__b015: for (int _b015 = 0; _b015 < 2; _b015++) {	// L1112
+    #pragma HLS pipeline II=1
       float v809 = v807[_b015];	// L1113
       int32_t v810 = _ix0_14[_t15][0];	// L1114
       int v811 = v810;	// L1115

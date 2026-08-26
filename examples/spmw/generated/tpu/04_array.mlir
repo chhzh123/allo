@@ -4,28 +4,28 @@ module {
     affine.for %arg2 = 0 to 6 {
       %0 = affine.load %arg0[%arg2, 0] {from = "local_A"} : memref<6x4xi8, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_a_in_load_1(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 6 {
       %0 = affine.load %arg0[%arg2, 1] {from = "local_A"} : memref<6x4xi8, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_a_in_load_2(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 6 {
       %0 = affine.load %arg0[%arg2, 2] {from = "local_A"} : memref<6x4xi8, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_a_in_load_3(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_o"} {
     affine.for %arg2 = 0 to 6 {
       %0 = affine.load %arg0[%arg2, 3] {from = "local_A"} : memref<6x4xi8, #map>
       allo.stream_put(%arg1, [], %0) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_0_0(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_ioo"} {
@@ -48,7 +48,7 @@ module {
       allo.stream_put(%arg2, [], %9) : !allo.stream<i32, 2> contains i33
       %10 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg3, [], %10) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_0_1(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_ioo"} {
@@ -71,7 +71,7 @@ module {
       allo.stream_put(%arg2, [], %9) : !allo.stream<i32, 2> contains i33
       %10 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg3, [], %10) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_0_2(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_ioo"} {
@@ -94,7 +94,7 @@ module {
       allo.stream_put(%arg2, [], %9) : !allo.stream<i32, 2> contains i33
       %10 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg3, [], %10) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_0_3(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>) attributes {df.kernel, itypes = "s__", otypes = "", stypes = "_io"} {
@@ -115,7 +115,7 @@ module {
       %8 = arith.extsi %6 : i16 to i33
       %9 = arith.addi %7, %8 : i33
       allo.stream_put(%arg2, [], %9) : !allo.stream<i32, 2> contains i33
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_1_0(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -138,7 +138,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_1_1(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -161,7 +161,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_1_2(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -184,7 +184,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_1_3(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_iio"} {
@@ -205,7 +205,7 @@ module {
       %9 = arith.extsi %7 : i16 to i33
       %10 = arith.addi %8, %9 : i33
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_2_0(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -228,7 +228,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_2_1(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -251,7 +251,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_2_2(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -274,7 +274,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_2_3(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_iio"} {
@@ -295,7 +295,7 @@ module {
       %9 = arith.extsi %7 : i16 to i33
       %10 = arith.addi %8, %9 : i33
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_3_0(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -318,7 +318,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_3_1(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -341,7 +341,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_3_2(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>, %arg4: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s____", otypes = "", stypes = "_iioo"} {
@@ -364,7 +364,7 @@ module {
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
       %11 = affine.load %alloc[] {from = "a"} : memref<i8>
       allo.stream_put(%arg4, [], %11) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @mac_3_3(%arg0: memref<4x4xi8, #map>, %arg1: !allo.stream<i8, 2>, %arg2: !allo.stream<i32, 2>, %arg3: !allo.stream<i32, 2>) attributes {df.kernel, itypes = "s___", otypes = "", stypes = "_iio"} {
@@ -385,7 +385,7 @@ module {
       %9 = arith.extsi %7 : i16 to i33
       %10 = arith.addi %8, %9 : i33
       allo.stream_put(%arg3, [], %10) : !allo.stream<i32, 2> contains i33
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_0(%arg0: !allo.stream<i32, 2>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "io"} {
@@ -407,7 +407,7 @@ module {
       affine.store %5, %alloc_0[] {to = "y"} : memref<i8>
       %6 = affine.load %alloc_0[] {from = "y"} : memref<i8>
       allo.stream_put(%arg1, [], %6) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_1(%arg0: !allo.stream<i32, 2>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "io"} {
@@ -429,7 +429,7 @@ module {
       affine.store %5, %alloc_0[] {to = "y"} : memref<i8>
       %6 = affine.load %alloc_0[] {from = "y"} : memref<i8>
       allo.stream_put(%arg1, [], %6) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_2(%arg0: !allo.stream<i32, 2>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "io"} {
@@ -451,7 +451,7 @@ module {
       affine.store %5, %alloc_0[] {to = "y"} : memref<i8>
       %6 = affine.load %alloc_0[] {from = "y"} : memref<i8>
       allo.stream_put(%arg1, [], %6) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_3(%arg0: !allo.stream<i32, 2>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "__", otypes = "", stypes = "io"} {
@@ -473,35 +473,35 @@ module {
       affine.store %5, %alloc_0[] {to = "y"} : memref<i8>
       %6 = affine.load %alloc_0[] {from = "y"} : memref<i8>
       allo.stream_put(%arg1, [], %6) : !allo.stream<i8, 2> contains i8
-    } {loop_name = "m", op_name = "S_m_0"}
+    } {loop_name = "m", op_name = "S_m_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_y_out_drain_0(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_i"} {
     affine.for %arg2 = 0 to 6 {
       %0 = allo.stream_get(%arg1, []) : !allo.stream<i8, 2> -> i8
       affine.store %0, %arg0[%arg2, 0] {to = "local_Y"} : memref<6x4xi8, #map>
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_y_out_drain_1(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_i"} {
     affine.for %arg2 = 0 to 6 {
       %0 = allo.stream_get(%arg1, []) : !allo.stream<i8, 2> -> i8
       affine.store %0, %arg0[%arg2, 1] {to = "local_Y"} : memref<6x4xi8, #map>
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_y_out_drain_2(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_i"} {
     affine.for %arg2 = 0 to 6 {
       %0 = allo.stream_get(%arg1, []) : !allo.stream<i8, 2> -> i8
       affine.store %0, %arg0[%arg2, 2] {to = "local_Y"} : memref<6x4xi8, #map>
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @act_y_out_drain_3(%arg0: memref<6x4xi8, #map>, %arg1: !allo.stream<i8, 2>) attributes {df.kernel, itypes = "s_", otypes = "", stypes = "_i"} {
     affine.for %arg2 = 0 to 6 {
       %0 = allo.stream_get(%arg1, []) : !allo.stream<i8, 2> -> i8
       affine.store %0, %arg0[%arg2, 3] {to = "local_Y"} : memref<6x4xi8, #map>
-    } {loop_name = "_t", op_name = "S__t_0"}
+    } {loop_name = "_t", op_name = "S__t_0", pipeline_ii = 1 : ui32}
     return
   }
   func.func @top(%arg0: memref<6x4xi8, #map>, %arg1: memref<4x4xi8, #map>, %arg2: memref<6x4xi8, #map>) attributes {dataflow, itypes = "sss", top} {

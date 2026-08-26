@@ -22,6 +22,7 @@ void mac_a_in_load_0(
   #pragma HLS array_partition variable=v0 complete dim=2
 
   l_S__t_0__t: for (int _t = 0; _t < 6; _t++) {	// L4
+  #pragma HLS pipeline II=1
     int8_t v3 = v0[_t][0];	// L5
     v1.write(v3);	// L6
   }
@@ -35,6 +36,7 @@ void mac_a_in_load_1(
   #pragma HLS array_partition variable=v4 complete dim=2
 
   l_S__t_0__t1: for (int _t1 = 0; _t1 < 6; _t1++) {	// L11
+  #pragma HLS pipeline II=1
     int8_t v7 = v4[_t1][1];	// L12
     v5.write(v7);	// L13
   }
@@ -48,6 +50,7 @@ void mac_a_in_load_2(
   #pragma HLS array_partition variable=v8 complete dim=2
 
   l_S__t_0__t2: for (int _t2 = 0; _t2 < 6; _t2++) {	// L18
+  #pragma HLS pipeline II=1
     int8_t v11 = v8[_t2][2];	// L19
     v9.write(v11);	// L20
   }
@@ -61,6 +64,7 @@ void mac_a_in_load_3(
   #pragma HLS array_partition variable=v12 complete dim=2
 
   l_S__t_0__t3: for (int _t3 = 0; _t3 < 6; _t3++) {	// L25
+  #pragma HLS pipeline II=1
     int8_t v15 = v12[_t3][3];	// L26
     v13.write(v15);	// L27
   }
@@ -76,6 +80,7 @@ void mac_0_0(
   #pragma HLS array_partition variable=v16 complete dim=2
 
   l_S_m_0_m: for (int m = 0; m < 6; m++) {	// L33
+  #pragma HLS pipeline II=1
     int8_t v21 = v17.read();	// L34
     int8_t a;	// L35
     a = v21;	// L36
@@ -106,6 +111,7 @@ void mac_0_1(
   #pragma HLS array_partition variable=v34 complete dim=2
 
   l_S_m_0_m1: for (int m1 = 0; m1 < 6; m1++) {	// L56
+  #pragma HLS pipeline II=1
     int8_t v39 = v35.read();	// L57
     int8_t a1;	// L58
     a1 = v39;	// L59
@@ -136,6 +142,7 @@ void mac_0_2(
   #pragma HLS array_partition variable=v52 complete dim=2
 
   l_S_m_0_m2: for (int m2 = 0; m2 < 6; m2++) {	// L79
+  #pragma HLS pipeline II=1
     int8_t v57 = v53.read();	// L80
     int8_t a2;	// L81
     a2 = v57;	// L82
@@ -165,6 +172,7 @@ void mac_0_3(
   #pragma HLS array_partition variable=v70 complete dim=2
 
   l_S_m_0_m3: for (int m3 = 0; m3 < 6; m3++) {	// L102
+  #pragma HLS pipeline II=1
     int8_t v74 = v71.read();	// L103
     int8_t a3;	// L104
     a3 = v74;	// L105
@@ -194,6 +202,7 @@ void mac_1_0(
   #pragma HLS array_partition variable=v86 complete dim=2
 
   l_S_m_0_m4: for (int m4 = 0; m4 < 6; m4++) {	// L122
+  #pragma HLS pipeline II=1
     int8_t v92 = v87.read();	// L123
     int8_t a4;	// L124
     a4 = v92;	// L125
@@ -226,6 +235,7 @@ void mac_1_1(
   #pragma HLS array_partition variable=v106 complete dim=2
 
   l_S_m_0_m5: for (int m5 = 0; m5 < 6; m5++) {	// L145
+  #pragma HLS pipeline II=1
     int8_t v112 = v107.read();	// L146
     int8_t a5;	// L147
     a5 = v112;	// L148
@@ -258,6 +268,7 @@ void mac_1_2(
   #pragma HLS array_partition variable=v126 complete dim=2
 
   l_S_m_0_m6: for (int m6 = 0; m6 < 6; m6++) {	// L168
+  #pragma HLS pipeline II=1
     int8_t v132 = v127.read();	// L169
     int8_t a6;	// L170
     a6 = v132;	// L171
@@ -289,6 +300,7 @@ void mac_1_3(
   #pragma HLS array_partition variable=v146 complete dim=2
 
   l_S_m_0_m7: for (int m7 = 0; m7 < 6; m7++) {	// L191
+  #pragma HLS pipeline II=1
     int8_t v151 = v147.read();	// L192
     int8_t a7;	// L193
     a7 = v151;	// L194
@@ -319,6 +331,7 @@ void mac_2_0(
   #pragma HLS array_partition variable=v164 complete dim=2
 
   l_S_m_0_m8: for (int m8 = 0; m8 < 6; m8++) {	// L212
+  #pragma HLS pipeline II=1
     int8_t v170 = v165.read();	// L213
     int8_t a8;	// L214
     a8 = v170;	// L215
@@ -351,6 +364,7 @@ void mac_2_1(
   #pragma HLS array_partition variable=v184 complete dim=2
 
   l_S_m_0_m9: for (int m9 = 0; m9 < 6; m9++) {	// L235
+  #pragma HLS pipeline II=1
     int8_t v190 = v185.read();	// L236
     int8_t a9;	// L237
     a9 = v190;	// L238
@@ -383,6 +397,7 @@ void mac_2_2(
   #pragma HLS array_partition variable=v204 complete dim=2
 
   l_S_m_0_m10: for (int m10 = 0; m10 < 6; m10++) {	// L258
+  #pragma HLS pipeline II=1
     int8_t v210 = v205.read();	// L259
     int8_t a10;	// L260
     a10 = v210;	// L261
@@ -414,6 +429,7 @@ void mac_2_3(
   #pragma HLS array_partition variable=v224 complete dim=2
 
   l_S_m_0_m11: for (int m11 = 0; m11 < 6; m11++) {	// L281
+  #pragma HLS pipeline II=1
     int8_t v229 = v225.read();	// L282
     int8_t a11;	// L283
     a11 = v229;	// L284
@@ -444,6 +460,7 @@ void mac_3_0(
   #pragma HLS array_partition variable=v242 complete dim=2
 
   l_S_m_0_m12: for (int m12 = 0; m12 < 6; m12++) {	// L302
+  #pragma HLS pipeline II=1
     int8_t v248 = v243.read();	// L303
     int8_t a12;	// L304
     a12 = v248;	// L305
@@ -476,6 +493,7 @@ void mac_3_1(
   #pragma HLS array_partition variable=v262 complete dim=2
 
   l_S_m_0_m13: for (int m13 = 0; m13 < 6; m13++) {	// L325
+  #pragma HLS pipeline II=1
     int8_t v268 = v263.read();	// L326
     int8_t a13;	// L327
     a13 = v268;	// L328
@@ -508,6 +526,7 @@ void mac_3_2(
   #pragma HLS array_partition variable=v282 complete dim=2
 
   l_S_m_0_m14: for (int m14 = 0; m14 < 6; m14++) {	// L348
+  #pragma HLS pipeline II=1
     int8_t v288 = v283.read();	// L349
     int8_t a14;	// L350
     a14 = v288;	// L351
@@ -539,6 +558,7 @@ void mac_3_3(
   #pragma HLS array_partition variable=v302 complete dim=2
 
   l_S_m_0_m15: for (int m15 = 0; m15 < 6; m15++) {	// L371
+  #pragma HLS pipeline II=1
     int8_t v307 = v303.read();	// L372
     int8_t a15;	// L373
     a15 = v307;	// L374
@@ -563,6 +583,7 @@ void act_0(
   hls::stream< int8_t >& v321
 ) {	// L391
   l_S_m_0_m16: for (int m16 = 0; m16 < 6; m16++) {	// L394
+  #pragma HLS pipeline II=1
     int32_t v323 = v320.read();	// L395
     int32_t z;	// L396
     z = v323;	// L397
@@ -586,6 +607,7 @@ void act_1(
   hls::stream< int8_t >& v333
 ) {	// L413
   l_S_m_0_m17: for (int m17 = 0; m17 < 6; m17++) {	// L416
+  #pragma HLS pipeline II=1
     int32_t v335 = v332.read();	// L417
     int32_t z1;	// L418
     z1 = v335;	// L419
@@ -609,6 +631,7 @@ void act_2(
   hls::stream< int8_t >& v345
 ) {	// L435
   l_S_m_0_m18: for (int m18 = 0; m18 < 6; m18++) {	// L438
+  #pragma HLS pipeline II=1
     int32_t v347 = v344.read();	// L439
     int32_t z2;	// L440
     z2 = v347;	// L441
@@ -632,6 +655,7 @@ void act_3(
   hls::stream< int8_t >& v357
 ) {	// L457
   l_S_m_0_m19: for (int m19 = 0; m19 < 6; m19++) {	// L460
+  #pragma HLS pipeline II=1
     int32_t v359 = v356.read();	// L461
     int32_t z3;	// L462
     z3 = v359;	// L463
@@ -658,6 +682,7 @@ void act_y_out_drain_0(
   #pragma HLS array_partition variable=v368 complete dim=2
 
   l_S__t_0__t4: for (int _t4 = 0; _t4 < 6; _t4++) {	// L480
+  #pragma HLS pipeline II=1
     int8_t v371 = v369.read();	// L481
     v368[_t4][0] = v371;	// L482
   }
@@ -671,6 +696,7 @@ void act_y_out_drain_1(
   #pragma HLS array_partition variable=v372 complete dim=2
 
   l_S__t_0__t5: for (int _t5 = 0; _t5 < 6; _t5++) {	// L487
+  #pragma HLS pipeline II=1
     int8_t v375 = v373.read();	// L488
     v372[_t5][1] = v375;	// L489
   }
@@ -684,6 +710,7 @@ void act_y_out_drain_2(
   #pragma HLS array_partition variable=v376 complete dim=2
 
   l_S__t_0__t6: for (int _t6 = 0; _t6 < 6; _t6++) {	// L494
+  #pragma HLS pipeline II=1
     int8_t v379 = v377.read();	// L495
     v376[_t6][2] = v379;	// L496
   }
@@ -697,6 +724,7 @@ void act_y_out_drain_3(
   #pragma HLS array_partition variable=v380 complete dim=2
 
   l_S__t_0__t7: for (int _t7 = 0; _t7 < 6; _t7++) {	// L501
+  #pragma HLS pipeline II=1
     int8_t v383 = v381.read();	// L502
     v380[_t7][3] = v383;	// L503
   }

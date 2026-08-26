@@ -124,6 +124,7 @@ class Testbench:
             "  always #5 clk = ~clk;",
             "  integer errors = 0;",
             "  integer produced = 0;",
+            "  integer first = -1;",
             # Every token on every channel, not every channel: counting
             # channels made the run stop at the first token of each and call
             # that a pass, so attention checked 2 of its 12 and still said PASS.
@@ -138,16 +139,24 @@ class Testbench:
             "  initial begin",
             "    repeat (4) @(posedge clk);",
             "    rst_n = 1;",
+            # The cycle count is the point of running the whole array rather
+            # than reading a unit's report: fill, drain and any FIFO stall are
+            # in it, and none of them are visible to HLS, which only ever saw
+            # one unit. `first` catches the wavefront reaching the output.
             f"    for (integer c = 0; c < {cycles}; c = c + 1) begin",
             "      @(posedge clk);",
+            "      if (produced > 0 && first < 0) first = c;",
             "      if (produced == TOTAL) begin",
             '        $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",',
             '                 errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);',
+            '        $display("SPMW CYCLES total=%0d first_out=%0d",',
+            "                 c + 1, first + 1);",
             "        $finish;",
             "      end",
             "    end",
             '    $display("SPMW COSIM TIMEOUT (%0d/%0d tokens, %0d errors)",',
             "             produced, TOTAL, errors);",
+            '    $display("SPMW CYCLES total=-1 first_out=%0d", first + 1);',
             "    $finish;",
             "  end",
             "endmodule",

@@ -22,6 +22,7 @@ void pe_west_load_0(
   #pragma HLS array_partition variable=v0 complete dim=2
 
   l_S__t_0__t: for (int _t = 0; _t < 4; _t++) {	// L4
+  #pragma HLS pipeline II=1
     float v3 = v0[0][_t];	// L5
     v1.write(v3);	// L6
   }
@@ -35,6 +36,7 @@ void pe_west_load_1(
   #pragma HLS array_partition variable=v4 complete dim=2
 
   l_S__t_0__t1: for (int _t1 = 0; _t1 < 4; _t1++) {	// L11
+  #pragma HLS pipeline II=1
     float v7 = v4[1][_t1];	// L12
     v5.write(v7);	// L13
   }
@@ -48,6 +50,7 @@ void pe_north_load_0(
   #pragma HLS array_partition variable=v8 complete dim=2
 
   l_S__t_0__t2: for (int _t2 = 0; _t2 < 4; _t2++) {	// L18
+  #pragma HLS pipeline II=1
     float v11 = v8[_t2][0];	// L19
     v9.write(v11);	// L20
   }
@@ -61,6 +64,7 @@ void pe_north_load_1(
   #pragma HLS array_partition variable=v12 complete dim=2
 
   l_S__t_0__t3: for (int _t3 = 0; _t3 < 4; _t3++) {	// L25
+  #pragma HLS pipeline II=1
     float v15 = v12[_t3][1];	// L26
     v13.write(v15);	// L27
   }
@@ -74,6 +78,7 @@ void pe_1_west_load_0(
   #pragma HLS array_partition variable=v16 complete dim=2
 
   l_S__t_0__t4: for (int _t4 = 0; _t4 < 4; _t4++) {	// L32
+  #pragma HLS pipeline II=1
     float v19 = v16[0][_t4];	// L33
     v17.write(v19);	// L34
   }
@@ -87,6 +92,7 @@ void pe_1_west_load_1(
   #pragma HLS array_partition variable=v20 complete dim=2
 
   l_S__t_0__t5: for (int _t5 = 0; _t5 < 4; _t5++) {	// L39
+  #pragma HLS pipeline II=1
     float v23 = v20[1][_t5];	// L40
     v21.write(v23);	// L41
   }
@@ -100,6 +106,7 @@ void pe_1_north_load_0(
   #pragma HLS array_partition variable=v24 complete dim=2
 
   l_S__t_0__t6: for (int _t6 = 0; _t6 < 4; _t6++) {	// L46
+  #pragma HLS pipeline II=1
     float v27 = v24[_t6][2];	// L47
     v25.write(v27);	// L48
   }
@@ -113,6 +120,7 @@ void pe_1_north_load_1(
   #pragma HLS array_partition variable=v28 complete dim=2
 
   l_S__t_0__t7: for (int _t7 = 0; _t7 < 4; _t7++) {	// L53
+  #pragma HLS pipeline II=1
     float v31 = v28[_t7][3];	// L54
     v29.write(v31);	// L55
   }
@@ -126,6 +134,7 @@ void pe_2_west_load_0(
   #pragma HLS array_partition variable=v32 complete dim=2
 
   l_S__t_0__t8: for (int _t8 = 0; _t8 < 4; _t8++) {	// L60
+  #pragma HLS pipeline II=1
     float v35 = v32[2][_t8];	// L61
     v33.write(v35);	// L62
   }
@@ -139,6 +148,7 @@ void pe_2_west_load_1(
   #pragma HLS array_partition variable=v36 complete dim=2
 
   l_S__t_0__t9: for (int _t9 = 0; _t9 < 4; _t9++) {	// L67
+  #pragma HLS pipeline II=1
     float v39 = v36[3][_t9];	// L68
     v37.write(v39);	// L69
   }
@@ -152,6 +162,7 @@ void pe_2_north_load_0(
   #pragma HLS array_partition variable=v40 complete dim=2
 
   l_S__t_0__t10: for (int _t10 = 0; _t10 < 4; _t10++) {	// L74
+  #pragma HLS pipeline II=1
     float v43 = v40[_t10][0];	// L75
     v41.write(v43);	// L76
   }
@@ -165,6 +176,7 @@ void pe_2_north_load_1(
   #pragma HLS array_partition variable=v44 complete dim=2
 
   l_S__t_0__t11: for (int _t11 = 0; _t11 < 4; _t11++) {	// L81
+  #pragma HLS pipeline II=1
     float v47 = v44[_t11][1];	// L82
     v45.write(v47);	// L83
   }
@@ -178,6 +190,7 @@ void pe_3_west_load_0(
   #pragma HLS array_partition variable=v48 complete dim=2
 
   l_S__t_0__t12: for (int _t12 = 0; _t12 < 4; _t12++) {	// L88
+  #pragma HLS pipeline II=1
     float v51 = v48[2][_t12];	// L89
     v49.write(v51);	// L90
   }
@@ -191,6 +204,7 @@ void pe_3_west_load_1(
   #pragma HLS array_partition variable=v52 complete dim=2
 
   l_S__t_0__t13: for (int _t13 = 0; _t13 < 4; _t13++) {	// L95
+  #pragma HLS pipeline II=1
     float v55 = v52[3][_t13];	// L96
     v53.write(v55);	// L97
   }
@@ -204,6 +218,7 @@ void pe_3_north_load_0(
   #pragma HLS array_partition variable=v56 complete dim=2
 
   l_S__t_0__t14: for (int _t14 = 0; _t14 < 4; _t14++) {	// L102
+  #pragma HLS pipeline II=1
     float v59 = v56[_t14][2];	// L103
     v57.write(v59);	// L104
   }
@@ -217,6 +232,7 @@ void pe_3_north_load_1(
   #pragma HLS array_partition variable=v60 complete dim=2
 
   l_S__t_0__t15: for (int _t15 = 0; _t15 < 4; _t15++) {	// L109
+  #pragma HLS pipeline II=1
     float v63 = v60[_t15][3];	// L110
     v61.write(v63);	// L111
   }
@@ -235,6 +251,7 @@ void pe_0_0(
   float acc;	// L117
   acc = (float)0.000000;	// L118
   l_S_k_0_k: for (int k = 0; k < 4; k++) {	// L119
+  #pragma HLS pipeline II=1
     float v71 = v65.read();	// L120
     float a;	// L121
     a = v71;	// L122
@@ -268,6 +285,7 @@ void pe_0_1(
   float acc1;	// L143
   acc1 = (float)0.000000;	// L144
   l_S_k_0_k1: for (int k1 = 0; k1 < 4; k1++) {	// L145
+  #pragma HLS pipeline II=1
     float v89 = v84.read();	// L146
     float a1;	// L147
     a1 = v89;	// L148
@@ -299,6 +317,7 @@ void pe_1_0(
   float acc2;	// L167
   acc2 = (float)0.000000;	// L168
   l_S_k_0_k2: for (int k2 = 0; k2 < 4; k2++) {	// L169
+  #pragma HLS pipeline II=1
     float v106 = v101.read();	// L170
     float a2;	// L171
     a2 = v106;	// L172
@@ -329,6 +348,7 @@ void pe_1_1(
   float acc3;	// L191
   acc3 = (float)0.000000;	// L192
   l_S_k_0_k3: for (int k3 = 0; k3 < 4; k3++) {	// L193
+  #pragma HLS pipeline II=1
     float v122 = v118.read();	// L194
     float a3;	// L195
     a3 = v122;	// L196
@@ -359,6 +379,7 @@ void pe_1_0_0(
   float acc4;	// L213
   acc4 = (float)0.000000;	// L214
   l_S_k_0_k4: for (int k4 = 0; k4 < 4; k4++) {	// L215
+  #pragma HLS pipeline II=1
     float v139 = v133.read();	// L216
     float a4;	// L217
     a4 = v139;	// L218
@@ -392,6 +413,7 @@ void pe_1_0_1(
   float acc5;	// L239
   acc5 = (float)0.000000;	// L240
   l_S_k_0_k5: for (int k5 = 0; k5 < 4; k5++) {	// L241
+  #pragma HLS pipeline II=1
     float v157 = v152.read();	// L242
     float a5;	// L243
     a5 = v157;	// L244
@@ -423,6 +445,7 @@ void pe_1_1_0(
   float acc6;	// L263
   acc6 = (float)0.000000;	// L264
   l_S_k_0_k6: for (int k6 = 0; k6 < 4; k6++) {	// L265
+  #pragma HLS pipeline II=1
     float v174 = v169.read();	// L266
     float a6;	// L267
     a6 = v174;	// L268
@@ -453,6 +476,7 @@ void pe_1_1_1(
   float acc7;	// L287
   acc7 = (float)0.000000;	// L288
   l_S_k_0_k7: for (int k7 = 0; k7 < 4; k7++) {	// L289
+  #pragma HLS pipeline II=1
     float v190 = v186.read();	// L290
     float a7;	// L291
     a7 = v190;	// L292
@@ -483,6 +507,7 @@ void pe_2_0_0(
   float acc8;	// L309
   acc8 = (float)0.000000;	// L310
   l_S_k_0_k8: for (int k8 = 0; k8 < 4; k8++) {	// L311
+  #pragma HLS pipeline II=1
     float v207 = v201.read();	// L312
     float a8;	// L313
     a8 = v207;	// L314
@@ -516,6 +541,7 @@ void pe_2_0_1(
   float acc9;	// L335
   acc9 = (float)0.000000;	// L336
   l_S_k_0_k9: for (int k9 = 0; k9 < 4; k9++) {	// L337
+  #pragma HLS pipeline II=1
     float v225 = v220.read();	// L338
     float a9;	// L339
     a9 = v225;	// L340
@@ -547,6 +573,7 @@ void pe_2_1_0(
   float acc10;	// L359
   acc10 = (float)0.000000;	// L360
   l_S_k_0_k10: for (int k10 = 0; k10 < 4; k10++) {	// L361
+  #pragma HLS pipeline II=1
     float v242 = v237.read();	// L362
     float a10;	// L363
     a10 = v242;	// L364
@@ -577,6 +604,7 @@ void pe_2_1_1(
   float acc11;	// L383
   acc11 = (float)0.000000;	// L384
   l_S_k_0_k11: for (int k11 = 0; k11 < 4; k11++) {	// L385
+  #pragma HLS pipeline II=1
     float v258 = v254.read();	// L386
     float a11;	// L387
     a11 = v258;	// L388
@@ -607,6 +635,7 @@ void pe_3_0_0(
   float acc12;	// L405
   acc12 = (float)0.000000;	// L406
   l_S_k_0_k12: for (int k12 = 0; k12 < 4; k12++) {	// L407
+  #pragma HLS pipeline II=1
     float v275 = v269.read();	// L408
     float a12;	// L409
     a12 = v275;	// L410
@@ -640,6 +669,7 @@ void pe_3_0_1(
   float acc13;	// L431
   acc13 = (float)0.000000;	// L432
   l_S_k_0_k13: for (int k13 = 0; k13 < 4; k13++) {	// L433
+  #pragma HLS pipeline II=1
     float v293 = v288.read();	// L434
     float a13;	// L435
     a13 = v293;	// L436
@@ -671,6 +701,7 @@ void pe_3_1_0(
   float acc14;	// L455
   acc14 = (float)0.000000;	// L456
   l_S_k_0_k14: for (int k14 = 0; k14 < 4; k14++) {	// L457
+  #pragma HLS pipeline II=1
     float v310 = v305.read();	// L458
     float a14;	// L459
     a14 = v310;	// L460
@@ -701,6 +732,7 @@ void pe_3_1_1(
   float acc15;	// L479
   acc15 = (float)0.000000;	// L480
   l_S_k_0_k15: for (int k15 = 0; k15 < 4; k15++) {	// L481
+  #pragma HLS pipeline II=1
     float v326 = v322.read();	// L482
     float a15;	// L483
     a15 = v326;	// L484

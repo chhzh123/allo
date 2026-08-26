@@ -5,7 +5,8 @@ module tb;
   always #5 clk = ~clk;
   integer errors = 0;
   integer produced = 0;
-  localparam integer TOTAL = 2;
+  integer first = -1;
+  localparam integer TOTAL = 12;
   wire [7:0] mac_a_in_bind_dout [0:7];
   wire mac_a_in_bind_empty_n [0:7];
   wire mac_a_in_bind_read [0:7];
@@ -303,14 +304,18 @@ module tb;
     rst_n = 1;
     for (integer c = 0; c < 200000; c = c + 1) begin
       @(posedge clk);
+      if (produced > 0 && first < 0) first = c;
       if (produced == TOTAL) begin
         $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",
                  errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);
+        $display("SPMW CYCLES total=%0d first_out=%0d",
+                 c + 1, first + 1);
         $finish;
       end
     end
     $display("SPMW COSIM TIMEOUT (%0d/%0d tokens, %0d errors)",
              produced, TOTAL, errors);
+    $display("SPMW CYCLES total=-1 first_out=%0d", first + 1);
     $finish;
   end
 endmodule

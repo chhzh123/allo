@@ -84,8 +84,23 @@ foreach r {{{roles}}} {{
 }}
 generate_target synthesis [get_ips]
 set_property top {top} [current_fileset]
-synth_design -top {top} -part {part} -rtl -name rtl_elab
-puts "ELABORATION OK"
+{step}
+"""
+
+ELABORATE = (
+    'synth_design -top {top} -part {part} -rtl -name rtl_elab\nputs "ELABORATION OK"'
+)
+
+# Real synthesis of the whole fabric. The per-unit HLS estimate is not the
+# array's clock: the fabric adds the FIFOs, the fanout of a shared boundary
+# stream, and the routing between instances, none of which HLS ever saw.
+SYNTHESISE = """add_files -fileset constrs_1 {root}/clock.xdc
+synth_design -top {top} -part {part}
+report_utilization -file util.rpt
+report_timing_summary -file timing.rpt
+set wns [get_property SLACK [get_timing_paths -delay_type max]]
+puts "ARRAY WNS $wns"
+puts "SYNTHESIS OK"
 """
 
 
@@ -329,12 +344,32 @@ def _synthesise_one(out, name):
     return name, seconds, done.returncode
 
 
-def assemble(out, part, names, top="spmw_top"):
-    """Vivado reads the exported IPs and elaborates the array."""
+def assemble(out, part, names, top="spmw_top", frequency=None):
+    """Vivado reads the exported IPs and builds the array.
+
+    With ``frequency`` it runs real synthesis and reports the array's own clock
+    and area; without it, elaboration only. The distinction matters: a unit's
+    HLS period says nothing about the assembled fabric, which adds FIFOs,
+    fanout and routing that HLS never saw.
+    """
+    period = 1000.0 / frequency if frequency else None
+    if period:
+        # The clock has to be a constraint *file*: `create_clock` needs an open
+        # design, so issuing it before synth_design fails, and issuing it after
+        # means synthesis ran with no timing target at all.
+        _write(
+            os.path.join(out, "clock.xdc"),
+            f"create_clock -period {period:.3f} -name ap_clk [get_ports ap_clk]\n",
+        )
+        step = SYNTHESISE.format(top=top, part=part, root=out)
+    else:
+        step = ELABORATE.format(top=top, part=part)
     script = os.path.join(out, "assemble.tcl")
     _write(
         script,
-        ASSEMBLE_TCL.format(part=part, root=out, top=top, roles=" ".join(names)),
+        ASSEMBLE_TCL.format(
+            part=part, root=out, top=top, roles=" ".join(names), step=step
+        ),
     )
     start = time.time()
     done = subprocess.run(
@@ -345,10 +380,18 @@ def assemble(out, part, names, top="spmw_top"):
         check=False,
     )
     elapsed = round(time.time() - start, 1)
-    if "ELABORATION OK" not in done.stdout:
+    marker = "SYNTHESIS OK" if period else "ELABORATION OK"
+    if marker not in done.stdout:
         tail = "\n".join(done.stdout.splitlines()[-25:])
-        raise SystemExit(f"Vivado did not elaborate the array:\n{tail}")
-    return elapsed
+        raise SystemExit(f"Vivado did not finish the array:\n{tail}")
+    wns = None
+    for line in done.stdout.splitlines():
+        if line.startswith("ARRAY WNS "):
+            try:
+                wns = float(line.split()[-1])
+            except ValueError:
+                wns = None
+    return elapsed, wns
 
 
 IPGEN_TCL = """create_project -force ipgen {out}/ipgen -part {part}
@@ -426,7 +469,7 @@ def cosim(graph, out, part, arrays, names):
     )
     done = _run(["xsim", "tbsim", "-runall"], sim, check=False)
     for line in done.stdout.splitlines():
-        if "SPMW COSIM" in line or "MISMATCH" in line:
+        if "SPMW COSIM" in line or "SPMW CYCLES" in line or "MISMATCH" in line:
             print("  " + line.strip())
     if "SPMW COSIM PASS" not in done.stdout:
         raise SystemExit(f"cosim did not pass; see {sim}/xsim.log")
@@ -466,6 +509,11 @@ def main():
         "--tune",
         action="store_true",
         help="measure the best initiation interval before building",
+    )
+    parser.add_argument(
+        "--synth",
+        action="store_true",
+        help="synthesise the whole array, for its own clock and area",
     )
     parser.add_argument("--out", required=True)
     parser.add_argument("--part", default=PART)
@@ -513,8 +561,20 @@ def main():
     )
 
     print("assembling the array in Vivado:")
-    elapsed = assemble(args.out, args.part, names)
-    print(f"Vivado elaborated {cost['instances']} instances in {elapsed}s")
+    elapsed, wns = assemble(
+        args.out,
+        args.part,
+        names,
+        frequency=args.frequency if args.synth else None,
+    )
+    verb = "synthesised" if args.synth else "elaborated"
+    print(f"Vivado {verb} {cost['instances']} instances in {elapsed}s")
+    if wns is not None:
+        period = 1000.0 / args.frequency
+        print(
+            f"  array clock: {period - wns:.3f} ns achieved against a "
+            f"{period:.3f} ns target (WNS {wns:+.3f} ns)"
+        )
 
     if args.cosim:
         print("simulating the assembled array:")

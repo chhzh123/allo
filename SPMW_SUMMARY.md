@@ -219,6 +219,52 @@ II=7 default**. The metric is ns per MAC, not II.
 accumulators also gives 13.3 ns/MAC — at 1236/1336 FF/LUT against 534/628, and
 it changes the summation order. The shorter adder dominates it on every axis.
 
+### The unit's report is not the array's performance
+
+Everything above is per *unit*, which is all HLS ever sees — it synthesised one
+role and never met the fabric. The array adds FIFOs, the fanout of a shared
+boundary stream, and routing between instances, and its clock is set by the
+worst path across all of that. So array performance has to be measured, from two
+places HLS cannot reach:
+
+- **cycles** — from the RTL simulation. The cosim drives the assembled array and
+  now counts clocks from reset to the last output token, so fill, drain and any
+  FIFO stall are in the number.
+- **period** — from Vivado synthesising the whole fabric (`--synth`), not from
+  the unit's estimate.
+
+Measured on the GEMM, the same design both ways, at two sizes:
+
+| array | | cycles | array clock | wall clock | speedup |
+|---|---|---|---|---|---|
+| 3×3 | default (unit II=7) | 34 | 2.411 ns | 82.0 ns | |
+| 3×3 | `ii=4` (unit II=4) | 24 | 3.215 ns | **77.2 ns** | **1.06×** |
+| 6×6 | default | 61 | 2.411 ns | 147.1 ns | |
+| 6×6 | `ii=4` | 42 | 3.215 ns | **135.0 ns** | **1.09×** |
+
+**1.06–1.09× — not the 1.75× the unit's report implies.** The shorter adder buys
+interval and spends it again on the critical path of the whole fabric: cycles
+fall ~1.43× and the clock worsens 1.33×. An earlier version of this document
+quoted 1.75× as *the* speedup; that is the unit's number, and the array does not
+inherit it.
+
+Fill and drain also blunt it: 24 cycles for 3 MACs at 3×3, 42 for 6. The cycle
+ratio does climb with K — 1.42× at K=3, 1.45× at K=6, tending to 7/4 — but the
+clock penalty is fixed, so the array asymptote is near **1.3×**, reached slowly.
+
+The array's own numbers, at 300 MHz:
+
+| design | instances | array clock | WNS | cycles | cosim |
+|---|---|---|---|---|---|
+| GEMM 3×3 | 9 | 3.215 ns | +0.118 | 24 | ✅ 9/9 |
+| FFT | 12 | 2.411 ns | +0.922 | 186 | ✅ 8/8 |
+| attention | 18 | 1.668 ns | +1.665 | 45 | ✅ 12/12 |
+
+All three close timing at 300 MHz with margin. Note the FFT's 186 cycles against
+its 8 output tokens: its butterflies are at II=1, so the cost is the three
+dependent stages and the block-token traffic between them, not the arithmetic —
+another thing only the array-level measurement shows.
+
 Since the best interval depends on the design *and* the clock, it is measured
 rather than guessed:
 

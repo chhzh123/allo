@@ -14,7 +14,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -33,7 +33,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -52,7 +52,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -71,7 +71,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -90,7 +90,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -109,7 +109,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -128,7 +128,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -147,7 +147,7 @@ module {
         %2 = arith.index_cast %1 : i32 to index
         %3 = memref.load %arg0[%2, %arg3] {from = "local_X"} : memref<8x2xf32, #map>
         affine.store %3, %alloc[%arg3] {to = "_blk"} : memref<2xf32>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
       allo.stream_put(%arg1, [], %alloc) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     } {loop_name = "_t", op_name = "S__t_0"}
     return
@@ -165,19 +165,19 @@ module {
     affine.store %c1_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c0_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -185,20 +185,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -211,19 +211,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -241,19 +241,19 @@ module {
     affine.store %c1_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c1_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -261,20 +261,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -287,19 +287,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -318,19 +318,19 @@ module {
     affine.store %c1_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c2_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -338,20 +338,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -364,19 +364,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -395,19 +395,19 @@ module {
     affine.store %c1_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c3_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -415,20 +415,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -441,19 +441,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -472,19 +472,19 @@ module {
     affine.store %c2_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c0_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -492,20 +492,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -518,19 +518,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -549,19 +549,19 @@ module {
     affine.store %c2_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c1_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -569,20 +569,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -595,19 +595,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -625,19 +625,19 @@ module {
     affine.store %c2_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c2_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -645,20 +645,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -671,19 +671,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -702,19 +702,19 @@ module {
     affine.store %c2_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c3_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -722,20 +722,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -748,19 +748,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -778,19 +778,19 @@ module {
     affine.store %c4_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c0_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -798,20 +798,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -824,19 +824,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -854,19 +854,19 @@ module {
     affine.store %c4_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c1_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -874,20 +874,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -900,19 +900,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -930,19 +930,19 @@ module {
     affine.store %c4_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c2_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -950,20 +950,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -976,19 +976,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -1006,19 +1006,19 @@ module {
     affine.store %c4_i32, %alloc[] {to = "span"} : memref<i32>
     %1 = affine.load %alloc[] {from = "span"} : memref<i32>
     %2 = arith.remsi %c3_i32, %1 {name = "%2"} : i32
-    %3 = arith.floordivsi %c4_i32, %1 {name = "%4"} : i32
-    %4 = arith.extsi %2 {name = "%5"} : i32 to i64
-    %5 = arith.extsi %3 {name = "%6"} : i32 to i64
-    %6 = arith.muli %4, %5 {name = "%7"} : i64
+    %3 = arith.floordivsi %c4_i32, %1 {name = "%3"} : i32
+    %4 = arith.extsi %2 {name = "%4"} : i32 to i64
+    %5 = arith.extsi %3 {name = "%5"} : i32 to i64
+    %6 = arith.muli %4, %5 {name = "%6"} : i64
     %alloc_0 = memref.alloc() {name = "k"} : memref<i64>
     affine.store %6, %alloc_0[] {to = "k"} : memref<i64>
     %7 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %8 = arith.index_cast %7 {name = "%9"} : i64 to index
+    %8 = arith.index_cast %7 {name = "%8"} : i64 to index
     %9 = memref.load %0[%8, %c0] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_1 = memref.alloc() {name = "wr"} : memref<f32>
     affine.store %9, %alloc_1[] {to = "wr"} : memref<f32>
     %10 = affine.load %alloc_0[] {from = "k"} : memref<i64>
-    %11 = arith.index_cast %10 {name = "%12"} : i64 to index
+    %11 = arith.index_cast %10 {name = "%11"} : i64 to index
     %12 = memref.load %0[%11, %c1] {from = "_st_tw"} : memref<4x2xf32>
     %alloc_2 = memref.alloc() {name = "wi"} : memref<f32>
     affine.store %12, %alloc_2[] {to = "wi"} : memref<f32>
@@ -1026,20 +1026,20 @@ module {
     %14 = allo.stream_get(%arg1, []) {name = "c"} : !allo.stream<memref<2xf32>, 2> -> memref<2xf32>
     %15 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %16 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %17 = arith.mulf %15, %16 {name = "%18"} : f32
+    %17 = arith.mulf %15, %16 {name = "%17"} : f32
     %18 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %19 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %20 = arith.mulf %18, %19 {name = "%21"} : f32
-    %21 = arith.subf %17, %20 {name = "%22"} : f32
+    %20 = arith.mulf %18, %19 {name = "%20"} : f32
+    %21 = arith.subf %17, %20 {name = "%21"} : f32
     %alloc_3 = memref.alloc() {name = "tr"} : memref<f32>
     affine.store %21, %alloc_3[] {to = "tr"} : memref<f32>
     %22 = affine.load %alloc_1[] {from = "wr"} : memref<f32>
     %23 = affine.load %14[1] {from = "c"} : memref<2xf32>
-    %24 = arith.mulf %22, %23 {name = "%25"} : f32
+    %24 = arith.mulf %22, %23 {name = "%24"} : f32
     %25 = affine.load %alloc_2[] {from = "wi"} : memref<f32>
     %26 = affine.load %14[0] {from = "c"} : memref<2xf32>
-    %27 = arith.mulf %25, %26 {name = "%28"} : f32
-    %28 = arith.addf %24, %27 {name = "%29"} : f32
+    %27 = arith.mulf %25, %26 {name = "%27"} : f32
+    %28 = arith.addf %24, %27 {name = "%28"} : f32
     %alloc_4 = memref.alloc() {name = "ti"} : memref<f32>
     affine.store %28, %alloc_4[] {to = "ti"} : memref<f32>
     %alloc_5 = memref.alloc() {name = "u"} : memref<2xf32>
@@ -1052,19 +1052,19 @@ module {
     }
     %29 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %30 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %31 = arith.addf %29, %30 {name = "%32"} : f32
+    %31 = arith.addf %29, %30 {name = "%31"} : f32
     affine.store %31, %alloc_5[0] {to = "u"} : memref<2xf32>
     %32 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %33 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %34 = arith.addf %32, %33 {name = "%35"} : f32
+    %34 = arith.addf %32, %33 {name = "%34"} : f32
     affine.store %34, %alloc_5[1] {to = "u"} : memref<2xf32>
     %35 = affine.load %13[0] {from = "a"} : memref<2xf32>
     %36 = affine.load %alloc_3[] {from = "tr"} : memref<f32>
-    %37 = arith.subf %35, %36 {name = "%38"} : f32
+    %37 = arith.subf %35, %36 {name = "%37"} : f32
     affine.store %37, %alloc_6[0] {to = "l"} : memref<2xf32>
     %38 = affine.load %13[1] {from = "a"} : memref<2xf32>
     %39 = affine.load %alloc_4[] {from = "ti"} : memref<f32>
-    %40 = arith.subf %38, %39 {name = "%41"} : f32
+    %40 = arith.subf %38, %39 {name = "%40"} : f32
     affine.store %40, %alloc_6[1] {to = "l"} : memref<2xf32>
     allo.stream_put(%arg2, [], %alloc_5) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
     allo.stream_put(%arg3, [], %alloc_6) : !allo.stream<memref<2xf32>, 2> contains memref<2xf32>
@@ -1080,7 +1080,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1094,7 +1094,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1108,7 +1108,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1122,7 +1122,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1136,7 +1136,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1150,7 +1150,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1164,7 +1164,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
@@ -1178,7 +1178,7 @@ module {
         %3 = affine.load %0[%arg2, 0] {from = "_ix0"} : memref<1x1xi32>
         %4 = arith.index_cast %3 : i32 to index
         memref.store %2, %arg0[%4, %arg3] {to = "local_Y"} : memref<8x2xf32, #map>
-      } {loop_name = "_b0", op_name = "S__b0_0"}
+      } {loop_name = "_b0", op_name = "S__b0_0", pipeline_ii = 1 : ui32}
     } {loop_name = "_t", op_name = "S__t_0"}
     return
   }
