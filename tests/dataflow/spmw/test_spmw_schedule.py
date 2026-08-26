@@ -212,3 +212,40 @@ def test_a_unit_that_carries_nothing_is_left_at_peak():
     body, _pids, _rw = emitter.body_for(placement, 0, sites[0])
     tree = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
     assert sched.accumulators(tree) == [], "the TPU streams its partial sum"
+
+
+# -- why II=1 is out of reach for an output-stationary float PE --------------
+#
+# Measured on the same 16-iteration loop, three ways (xcu280, 300 MHz):
+#
+#     arithmetic   carries?          II   iteration latency
+#     float        yes, distance 1    7   14
+#     int          yes, distance 1    1    5
+#     float        no                 1   14
+#
+# Removing either condition gives II=1, so the constraint is a float add inside
+# a distance-1 cycle -- not the systolic structure, and not float on its own.
+# The bound is II >= latency of the recurrence / dependence distance.
+
+
+def test_the_two_conditions_for_a_binding_recurrence():
+    """A carried value only costs II when something slow is in the cycle.
+
+    The detector answers the first half -- is a value carried at all -- which is
+    what decides whether a recurrence budget can buy anything. The second half
+    (how slow the operation is) is the adder's latency, and is what
+    `bind_recurrences` trades against.
+    """
+    carried = ast.parse(OUTPUT_STATIONARY)
+    flowing = ast.parse(OUTPUT_FLOWING)
+    assert sched.accumulators(carried) == ["acc"]
+    assert sched.accumulators(flowing) == []
+
+    # An integer accumulator is still carried: the detector is about dataflow,
+    # not types. It reaches II=1 because integer add is single-cycle, which is a
+    # property of the adder rather than of the loop.
+    integer = ast.parse(
+        "acc: int32 = 0\nfor k in range(16):\n"
+        "    acc += a_in[0].get() * b_in[0].get()\nc[0].put(acc)\n"
+    )
+    assert sched.accumulators(integer) == ["acc"]

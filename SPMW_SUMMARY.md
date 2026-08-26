@@ -186,6 +186,57 @@ Vitis picks a deeply pipelined adder, so II=7.
 `allo.spmw.schedule.accumulators` reads that distinction off the body: the GEMM
 and the tiled GEMM carry one, the other three carry none.
 
+### Why II=1 is out of reach, specifically
+
+"A float recurrence" is a description. The binding constraint is the standard
+modulo-scheduling bound:
+
+> **II ≥ ⌈ latency of the recurrence cycle ÷ dependence distance ⌉**
+
+The GEMM's cycle is `acc → fadd → acc`, with distance 1, so II is the fp32
+adder's latency. Three variants of the *same* 16-iteration loop separate the two
+candidate causes:
+
+| variant | arithmetic | carries a value? | II | iteration latency |
+|---|---|---|---|---|
+| as written | float | yes, distance 1 | **7** | 14 |
+| integer accumulator | int | yes, distance 1 | **1** | 5 |
+| streamed partial sum | float | **no** | **1** | 14 |
+
+Removing *either* condition gives II=1. It is not the systolic structure, and it
+is not float arithmetic on its own — it is a float add inside a distance-1 cycle.
+
+The third row is the clearest: the arithmetic is still float and one iteration
+still takes 14 cycles, but a new one starts every cycle. **Latency is how long an
+iteration takes; II is how often another can begin.** They are only coupled when
+a result feeds the next iteration.
+
+Shortening the adder does not escape it, because its logic depth has to go
+somewhere — into stages (latency, which bounds II) or into combinational delay
+(period). Measured, that trade is:
+
+| adder latency | II | period | usable clock |
+|---|---|---|---|
+| 3 | 4 | 2.778 ns | **300 MHz** ✅ |
+| 2 | 3 | 5.641 ns | 177 MHz |
+| 1 | 2 | 6.692 ns | 149 MHz |
+| 0 | 1 | 26.270 ns | 38 MHz |
+
+**At 300 MHz, II=4 is the floor for an output-stationary fp32 PE** — which is
+exactly what `--tune` picks, so the tuner is finding the real optimum rather
+than a lucky point. II=1 would cost a 38 MHz clock.
+
+Reassociating into partial sums raises the distance to D and would allow
+II ≥ L/D, but selecting among D accumulators from a single token stream needs a
+runtime index (`k % D`) that HLS cannot disambiguate — measured II=4 at double
+the resources. Making the selection static means unrolling by D and consuming D
+tokens per cycle, which is no longer a PE with one input per cycle.
+
+So the three ways to actually reach II=1 are all *specification* choices, not
+schedule ones: integer or fixed-point accumulation, output-flowing dataflow
+(stream the partial sum, as the mini-TPU and attention do — which is why they are
+already at peak), or a much slower clock.
+
 ### What fixes it
 
 `spmw.pipeline(P, ii=n)` asks for an interval, and the compiler binds the
