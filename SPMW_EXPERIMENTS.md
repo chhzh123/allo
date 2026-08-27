@@ -121,7 +121,12 @@ post-route WNS. Without it a reviewer will discount the clock numbers.
 show the two produce equivalent hardware. This is the parity experiment and it
 does not exist yet — currently the two paths are compared only on compile time.
 
-### E6. On-board execution ❌ not done
+### E6. On-board execution ❌ not done — and blocked on E14
+
+Blocked by the same gap: SPMW emits no memory interface, so there is nothing to
+package as an `.xo` yet. AutoSA documents the full path (bitstream, then run
+on-board) and its tooling supports `cosim_design` too, so the baseline can go
+wherever we can.
 
 Package as an `.xo`, link with `v++`, run under XRT, compare against a CPU
 reference. `feat/spmw` has `_vitis_rtl_package_tcl` for the packaging step.
@@ -299,6 +304,58 @@ needs NTL and LLVM/Clang 9 in user space, plus two fixes — `src/autogen.sh` mu
 be run **twice** (the first pass emits no top-level `configure` and exits 0), and
 `src/autosa_common.cpp:1231` has `if (index < 0)` on an `isl_multi_pw_aff *`,
 which GCC 11 rejects; upstream ppcg has `if (!index)`.
+
+### E14. Making the AutoSA comparison fair — decide this before writing
+
+The comparison as it stands is contaminated in **all three** headline metrics, in
+the same direction, by one asymmetry: **AutoSA generates a complete accelerator
+and SPMW generates a bare compute fabric.**
+
+| metric | who it flatters | why |
+|---|---|---|
+| compile time | SPMW | AutoSA synthesises ~2.3× the modules |
+| int8 array clock | SPMW | AutoSA's critical path is in `A_IO_L2_in`, which we have no counterpart for |
+| whole-kernel area | SPMW | ~5×, almost all of it I/O and drain networks |
+
+None of those is a compute-fabric result. Publishing them as-is invites exactly
+the rebuttal that the numbers measure the absence of a feature.
+
+**What AutoSA's I/O actually is**, from its int8 kernel: 256 PEs, an A and B DRAM
+input network (`A_IO_L2_in`/`B_IO_L2_in`, O(N) modules each), and a **C-drain
+network of 241 wrappers — O(N²), one per PE**. The drain is the large part, and
+it is large because collecting one result per PE is intrinsically O(N²) work.
+
+**Two ways to fix it, and a recommendation.**
+
+*Option A — strip AutoSA to its PE array.* Cheap, and their hierarchical
+utilisation report already isolates it (int8: 15,557 LUT for PEs + inter-PE FIFOs
+against SPMW's 10,458). But it measures a design AutoSA never intended to emit
+standalone, its I/O network and latency hiding are *claimed contributions* of the
+paper, and it leaves SPMW still undeployable. It also does not fix compile time,
+which cannot be meaningfully attributed to "the PE part" of a monolithic csynth.
+
+*Option B — give SPMW a memory interface.* Real work: address generation, AXI
+master, a drain collector. But it removes the objection permanently rather than
+arguing around it, makes every metric a system-to-system comparison, and unlocks
+E6 (on-board), which is the strongest evidence available.
+
+**Recommendation: B, with A as the interim.** For a submission now, report
+PE-array-only for QoR on both sides and state the compile-time asymmetry in
+words rather than normalising it away. For a strong submission, build the
+interface.
+
+**A testable prediction worth stating either way:** SPMW's compile-time claim
+should *survive* adding the I/O, because SPMW would generate that network
+**structurally in RTL** — the same `generate`-nest treatment the fabric gets —
+rather than putting it through HLS scheduling. AutoSA pays csynth for all 595
+modules; SPMW would pay csynth for the roles and Vivado elaboration for the rest.
+If that holds, the compile-time result stops being an artefact of generating less
+and becomes a claim about *how* the I/O is generated. If it does not hold, that
+is worth knowing before the paper is written, not after.
+
+**Also unresolved:** whether AutoSA can be asked *not* to emit a DRAM interface
+(a stream-fed array), which would make Option A a supported configuration rather
+than surgery. Worth checking its flags before doing anything else here.
 
 ### The gap this exposes ❌
 
