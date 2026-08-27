@@ -122,6 +122,12 @@ def design(name, size):
         from test_spmw_gemm_int8 import gemm_int8_of
 
         return gemm_int8_of(size)
+    if name == "daisy":
+        # The chained-drain mesh -- the structural match for AutoSA, whose
+        # C_drain_IO network this replaces with a link.
+        from test_spmw_daisy import daisy_of
+
+        return daisy_of(size)
     if name == "tpu":
         from test_spmw_tpu import tpu_matmul
 
@@ -167,6 +173,7 @@ def operands(fabric, graph):
 
 _NUMPY = {
     "f32": "float32",
+    "i16": "int16",
     "f64": "float64",
     "i8": "int8",
     "i16": "int16",
@@ -502,7 +509,7 @@ def main():
     parser.add_argument(
         "--design",
         default="gemm",
-        choices=("gemm", "gemm8", "tpu", "fft", "attention", "tiled"),
+        choices=("gemm", "gemm8", "daisy", "tpu", "fft", "attention", "tiled"),
         help="which worked example to build",
     )
     parser.add_argument("--size", type=int, default=4)

@@ -317,6 +317,55 @@ be run **twice** (the first pass emits no top-level `configure` and exits 0), an
 `src/autosa_common.cpp:1231` has `if (index < 0)` on an `isl_multi_pw_aff *`,
 which GCC 11 rejects; upstream ppcg has `if (!index)`.
 
+### E15. The daisy-chained mesh — a structural match ✅ measured
+
+`tests/dataflow/spmw/test_spmw_daisy.py` reimplements Allo's
+`test_daisy_chain_gemm.py` in SPMW: results are **chained** out of the array
+rather than given a port each. Every PE takes the partial column arriving from
+the north, drops its own result into its own slot, and passes it south; the
+bottom row's columns are what leaves. That is AutoSA's `C_drain_IO_L1_out`
+network expressed as a link instead of as generated glue, and it is what makes
+the two comparable.
+
+At 16×16 against the plain mesh:
+
+| | plain mesh | daisy-chained |
+|---|---|---|
+| edge streams | 288 | **48** |
+| internal FIFOs | 512 | 768 |
+| cosim cycles | 52 | **660** |
+| array clock | 1.595 ns | 1.665 ns |
+| LUT / FF / DSP | 10,458 / 11,136 / 256 | 147,848 / 150,256 / 256 |
+
+**This reframes the AutoSA comparison, and not in our favour.** The plain mesh's
+52 cycles were fast because it drains through 256 parallel output ports — which
+is not something a real systolic array does, and not something that could be
+fed by any realistic memory system. Chain the drain, as both AutoSA and Allo's
+own daisy-chain design do, and the same computation takes **660 cycles**.
+
+Against AutoSA's 859 measured cosim cycles, that is a far more meaningful
+number: 660 for a bare fabric with a chained drain, 859 for a whole accelerator
+with a chained drain *plus* DRAM reads. The remaining gap is plausibly the
+memory system — which is exactly what E14 says to go and build.
+
+**Do not quote the plain mesh against AutoSA.** Quote this.
+
+Remaining mismatches with AutoSA, in order of size:
+
+1. **A and B are still fed directly**, one edge stream per row and column;
+   AutoSA daisy-chains them too through its `A_IO_L2_in`/`B_IO_L2_in` networks.
+   Extending this design to chain the inputs is the obvious next step and would
+   use the same mechanism.
+2. **int16 here against AutoSA's int8** — inherited from Allo's original. The
+   cycle count should be insensitive to that; the area is not.
+3. Still no DRAM interface (E14).
+
+**One general bug this found.** A bare `gather` from a *stream* bundle computed
+its positional identity from `placement.grid` rather than the bundle's own
+shape, so draining off an edge demanded a tensor shaped like the whole mesh.
+`_positional_identity` now uses the bundle. It only shows up when a port is
+consumed by a peer link everywhere but one edge, which no earlier design did.
+
 ### E14. Making the AutoSA comparison fair — decide this before writing
 
 The comparison as it stands is contaminated in **all three** headline metrics, in

@@ -409,17 +409,21 @@ def _positional_identity(side, tensor, where):
     shape = tuple(tensor.shape)
 
     if side.port.protocol == STREAM:
-        # A stream drain moves one token per site, so the identity is an element
-        # map over the site axes rather than a slice: `...` never appears, and
-        # the block covers the trailing axes as everywhere else.
-        if shape != grid + block:
+        # A stream drain moves one token per site of *this bundle*, not per site
+        # of the grid -- a port consumed by a peer link everywhere but one edge
+        # leaves a bundle along that edge only. Using the grid here made a
+        # chained drain (the daisy-chained GEMM: each column's results leave from
+        # the bottom row) demand a tensor shaped like the whole mesh.
+        span = tuple(side.shape) if side.shape is not None else grid
+        axes = tuple(side.axes) if side.axes else tuple(side.placement.axes)
+        if shape != span + block:
             raise SPMWBindingError(
                 f"{where}: index= was omitted, which means the full positional "
-                f"identity -- site axes leading {list(grid)}, block axes trailing "
-                f"{list(block)}, so {list(grid + block)}. `{tensor.name}` is "
+                f"identity -- site axes leading {list(span)}, block axes trailing "
+                f"{list(block)}, so {list(span + block)}. `{tensor.name}` is "
                 f"{list(shape)}. Spell the tuple, or match the shapes."
             )
-        return IndexMap(tuple(side.placement.axes), len(grid))
+        return IndexMap(axes, len(span))
 
     if not block and shape == grid:
         axis_of = tuple(range(len(grid)))
