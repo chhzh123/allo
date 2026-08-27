@@ -15,7 +15,9 @@ matter.
 SPMW does **not** produce better hardware than HLS. The processing element is
 synthesised by Vitis either way, so per-PE quality of results is identical by
 construction. Claiming a QoR win would invite a reviewer to find the place where
-it isn't true.
+it isn't true — and E13 found one: **AutoSA's fp32 PE beats ours by 1.28×**, so
+the QoR claim is not merely unsupported, it is false in at least one measured
+case.
 
 The defensible claim is about **cost and composition**:
 
@@ -208,26 +210,92 @@ frontend's dataflow choice, not the compiler, decides whether peak is reachable.
 
 ---
 
-## 5. Baselines — the biggest gap
+## 5. Baselines
 
-Everything above compares SPMW against **Allo's own dataflow expansion**. That is
-a fair internal control and it is *not* a baseline a reviewer will accept as
-"native HLS".
+### E13. AutoSA ✅ measured
 
-**Needed, roughly in order of importance:**
+AutoSA (Wang et al., FPGA'21) built from source and configured to match:
+`--sa-sizes="{kernel[]->space_time[3];array_part[16,16,16];latency[1,1];simd[1]}"`
+gives 256 PEs, and `space_time[3]` was confirmed **output-stationary by reading
+the generated PE** — one `local_C[1][1]` accumulator held across the whole `k`
+loop, no `fifo_C_in` — rather than by trusting the flag name. `[4]`/`[5]` are
+output-flowing. int8 is just the declared C types. AutoSA's SIMD does *not*
+auto-pack narrow types; `simd[N]` packs N lanes at any width, so `simd[1]` is the
+matched setting.
 
-1. **Hand-written HLS** for the same designs — what an engineer actually writes:
-   one templated PE plus an unrolled instantiation loop, `#pragma HLS dataflow`.
-   This is the honest "native HLS" column and it is currently missing entirely.
-2. **AutoSA** (Wang et al., FPGA'21) — the closest published systolic-array
-   compiler. Comparing compile time and QoR against it is close to mandatory.
-3. **SuSy**, **Spatial**, or **HeteroCL** as a second point, depending on the
-   framing.
-4. The whole-array HLS route taken to P&R (see E5) as the internal parity
-   control.
+**Compile time**, same part and clock:
 
-Without at least (1) and (2), the compile-time result reads as "our second
-backend is faster than our first".
+| | AutoSA int8 | SPMW int8 | AutoSA fp32 | SPMW fp32 |
+|---|---|---|---|---|
+| frontend / codegen | 1.52 s | 1.1 s | 1.55 s | 1.2 s |
+| HLS, monolithic | 1652.1 s | 1255.5 s | 1657.0 s | 1291.3 s |
+| **HLS, per-role concurrent** | **n/a** | **43.1 s** | **n/a** | **40.7 s** |
+| Vivado synth, 256 instances | 595.8 s | 224.9 s | 1401.0 s | 867.4 s |
+
+**Throughput**, from measured II × measured array clock:
+
+| | II | array clock | ns per MAC |
+|---|---|---|---|
+| AutoSA fp32 | 4 | 2.510 ns | **10.04** |
+| SPMW fp32, `ii=4` | 4 | 3.215 ns | 12.86 |
+| SPMW fp32, default | 7 | 2.411 ns | 16.88 |
+| AutoSA int8 | 1 | 2.126 ns | 2.13 |
+| SPMW int8 | 1 | 1.595 ns | **1.59** |
+
+**Where AutoSA wins, and it matters.** Its fp32 PE reaches II=4 *by default*,
+where ours needs `spmw.pipeline(ii=4)` to get there — and it does so at a better
+period, so it beats both of our fp32 operating points: **1.28× our tuned one and
+1.68× our default**. It gets the interval and the clock together where we had to
+trade one for the other. Vitis names the mechanism in our case and not theirs, so
+their PE's adder is coming out shallower by default; **finding out why is the
+most useful follow-up in this document.**
+
+**Where SPMW wins.** int8 throughput by 1.33×, and compile time — decisively, but
+only through role decomposition, which is a structural difference: AutoSA emits
+one monolithic kernel that cannot be split across cores. Against the monolithic
+routes the margin is a modest 1.3×, and part of even that is explained below.
+
+**Caveats that must travel with these numbers:**
+
+- **AutoSA builds a whole accelerator; SPMW builds a bare array.** AutoSA's
+  kernel is ~595 modules: 256 PEs *plus* a C-drain network, a 3-level DRAM I/O
+  network, and AXI master + AXI-Lite control. **SPMW's design has no DRAM
+  interface at all.** Quote the PE-array-only row (AutoSA int8 15,557 LUT against
+  SPMW's 10,458; fp32 157,281 against 139,749 — 1.13–1.49×), never the
+  whole-kernel row, which overstates AutoSA's cost by 5×.
+- **Which means the compile-time comparison is not clean either**: AutoSA's
+  1652 s is synthesising ~2.3× the modules.
+- **No cycle comparison exists.** AutoSA's whole-kernel estimate (401/408 cycles)
+  includes DRAM reads and a serialised drain; ours (52/102) is a bare array in
+  RTL simulation. Not comparable, and no AutoSA cosim was run.
+- AutoSA fp32 needed `export_design` (1312 s, excluded above) before
+  `synth_design` would resolve its FP cores.
+- AutoSA's `mm` uses `B[J][K]` transposed, and its stock kernel leaves `C`
+  uninitialised — adding the zeroing makes the PE byte-identical bar one
+  register.
+
+**Reproducing the build** (~8 min of machine time; ~40 min including diagnosis):
+needs NTL and LLVM/Clang 9 in user space, plus two fixes — `src/autogen.sh` must
+be run **twice** (the first pass emits no top-level `configure` and exits 0), and
+`src/autosa_common.cpp:1231` has `if (index < 0)` on an `isl_multi_pw_aff *`,
+which GCC 11 rejects; upstream ppcg has `if (!index)`.
+
+### The gap this exposes ❌
+
+**SPMW has no memory interface.** AutoSA generates the DRAM I/O and drain
+networks that make its array a deployable kernel; ours ends at the fabric's edge
+streams. This is a functional gap, not a measurement artefact, and a reviewer
+will raise it. Either build the interface, or state plainly that SPMW composes
+the compute fabric and delegates I/O — and then compare only the compute fabric,
+as the PE-array-only row does.
+
+### Still needed
+
+1. **Hand-written HLS** — what an engineer actually writes: one templated PE plus
+   an unrolled instantiation loop. Still missing, and still the most honest
+   "native HLS" column.
+2. The whole-array route taken to P&R (see E5) as the internal parity control.
+3. **SuSy**, **Spatial**, or **HeteroCL** as a second published point.
 
 ---
 
@@ -248,6 +316,13 @@ backend is faster than our first".
   use a larger K.
 - **Synthesis-only clocks** until E5's P&R is done.
 - **One FPGA, one toolchain version.**
+- **Against AutoSA, the compile-time margin is 1.3× on the monolithic route** and
+  only becomes large through role decomposition — and AutoSA is synthesising
+  ~2.3× the modules, because it builds a whole accelerator where SPMW builds a
+  bare compute fabric. Present the decomposition as the architectural claim it
+  is, not as a raw ratio.
+- **SPMW generates no memory interface.** AutoSA's DRAM I/O and drain networks
+  are most of its area and none of ours. Compare compute fabrics, and say why.
 
 ---
 
