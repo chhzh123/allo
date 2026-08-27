@@ -330,17 +330,34 @@ past 600 MHz.
 large the array is. What grows is Vivado, and sub-linearly: 16× the instances
 (16 → 256) costs 1.8× the synthesis (128 s → 225 s for int8).
 
-Set against the whole-array HLS path at the same size, which is where that route
-stops being usable:
+### Where the HLS speedup comes from, at 16×16
 
-| | per-role + RTL (int8) | whole-array HLS (fp32) |
+Three ways to get the same design through HLS, measured on the same machine and
+the same code generation:
+
+| | int8 | fp32 |
 |---|---|---|
-| Allo lowering | 1.1 s | **578 s** |
-| HLS | 43.1 s | **807 s** |
-| result | a synthesised, simulated 256-instance array | a `csynth` report |
+| **per-role, 9 concurrent** — Allo lowering + HLS | 1.1 s + **43.1 s** = **44.2 s** | 1.2 s + 40.7 s = 41.9 s |
+| **per-role, serial** (`--jobs 1`) | 1.1 s + 372.0 s = 373.1 s | 1.2 s + 360.0 s = 361.2 s |
+| **whole array, one `csynth`** | 719.5 s + 536.0 s = 1255.5 s | 585.3 s + 706.0 s = 1291.3 s |
 
-1385 s to get one HLS report against 308 s for a working array. The array path's
-own *lowering* costs more than the entire role path, before synthesis starts.
+It factors cleanly into two independent wins:
+
+- **Decomposition: ~3.4×.** Nine roles run *serially* still beat the monolithic
+  run (373 s against 1256 s), because the tool only ever sees one PE, and
+  because Allo's own lowering of a 256-site program costs 585–720 s against
+  about a second.
+- **Parallelism: ~8.6×.** The roles are independent by construction, so the nine
+  serial syntheses become one concurrent batch (373 s → 44 s, near-ideal for
+  nine jobs on 48 cores).
+
+**Together: 28× for int8, 31× for fp32.** And the monolithic run buys a report,
+not an array — there is no composable RTL at the end of it.
+
+The whole-array route does complete here (`rc=0` both times), so this is a cost
+comparison rather than a feasibility one. What makes it unusable at scale is the
+combination: its lowering alone exceeds the entire role path, and it cannot be
+spread across cores.
 
 ### The unit's report is not the array's performance
 
