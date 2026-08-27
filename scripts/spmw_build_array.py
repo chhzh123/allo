@@ -119,9 +119,9 @@ def design(name, size):
         # The same mesh in integers. Its float twin cannot reach II=1 because a
         # float add sits in a distance-1 recurrence; an integer add is
         # single-cycle, so this one can.
-        from test_spmw_gemm_int8 import gemm_int8
+        from test_spmw_gemm_int8 import gemm_int8_of
 
-        return gemm_int8
+        return gemm_int8_of(size)
     if name == "tpu":
         from test_spmw_tpu import tpu_matmul
 
@@ -552,8 +552,12 @@ def main():
     if args.tune:
         print("tuning the initiation interval:")
         ii, _table = tune(graph, args.out, args.part, args.frequency)
+    start = time.time()
     names = stage(graph, args.out, args.part, args.frequency, ii=ii)
-    print(f"staged {len(names)} role project(s)")
+    print(
+        f"staged {len(names)} role project(s) in {time.time() - start:.1f}s "
+        f"(frontend + per-role HLS codegen)"
+    )
     if args.stage_only:
         return
 

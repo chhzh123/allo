@@ -26,40 +26,46 @@ from allo.ir.types import int8, int32
 N = 4
 
 
-class MacIO(spmw.Interface):
-    west = spmw.In(int8)
-    north = spmw.In(int8)
-    east = spmw.Out(int8)
-    south = spmw.Out(int8)
-    c = spmw.MemOut(int32)  # the product of two int8s, summed N times
+def gemm_int8_of(size):
+    """The integer mesh at a chosen size; the grid is a parameter, not structure."""
+
+    class MacIO(spmw.Interface):
+        west = spmw.In(int8)
+        north = spmw.In(int8)
+        east = spmw.Out(int8)
+        south = spmw.Out(int8)
+        c = spmw.MemOut(int32)  # two int8s multiplied, summed `size` times
+
+    @spmw.unit
+    def pe(io: MacIO):
+        acc: int32 = 0
+        for k in range(size):
+            a = io.west.get()
+            b = io.north.get()
+            acc += a * b
+            io.east.put(a)
+            io.south.put(b)
+        io.c = acc
+
+    @spmw.fabric
+    def g(A: int8[size, size], B: int8[size, size], C: int32[size, size]):
+        P = spmw.place(pe, on=spmw.mesh(MacIO, (size, size)))
+        spmw.stream_in(A, into=P.west, index=(P.rows, ...))
+        spmw.stream_in(B, into=P.north, index=(..., P.cols))
+        spmw.gather(C, from_=P.c)
+
+    return g
 
 
-@spmw.unit
-def pe(io: MacIO):
-    acc: int32 = 0
-    for k in range(N):
-        a = io.west.get()
-        b = io.north.get()
-        acc += a * b
-        io.east.put(a)
-        io.south.put(b)
-    io.c = acc
+gemm_int8 = gemm_int8_of(N)
 
 
-@spmw.fabric
-def gemm_int8(A: int8[N, N], B: int8[N, N], C: int32[N, N]):
-    P = spmw.place(pe, on=spmw.mesh(MacIO, (N, N)))
-    spmw.stream_in(A, into=P.west, index=(P.rows, ...))
-    spmw.stream_in(B, into=P.north, index=(..., P.cols))
-    spmw.gather(C, from_=P.c)
-
-
-def _operands(seed=3):
+def _operands(seed=3, size=N):
     """Small enough that the int32 accumulator cannot overflow."""
     rng = np.random.default_rng(seed)
-    a = rng.integers(-8, 8, size=(N, N)).astype(np.int8)
-    b = rng.integers(-8, 8, size=(N, N)).astype(np.int8)
-    return a, b, np.zeros((N, N), dtype=np.int32)
+    a = rng.integers(-8, 8, size=(size, size)).astype(np.int8)
+    b = rng.integers(-8, 8, size=(size, size)).astype(np.int8)
+    return a, b, np.zeros((size, size), dtype=np.int32)
 
 
 def test_reference_matches_numpy():
@@ -119,3 +125,18 @@ def test_hls_csim_matches_numpy():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("size", [2, 3, 8])
+def test_it_scales(size):
+    """The grid is a parameter; nine roles at any size big enough to have them."""
+    from allo.spmw import rtl
+
+    graph = spmw.elaborate(gemm_int8_of(size))
+    cost = rtl.cost(graph)
+    assert cost["instances"] == size * size
+    if size >= 3:
+        assert cost["roles"] == 9
+    a, b, c = _operands(size=size)
+    spmw.build(gemm_int8_of(size), target="ref")(a, b, c)
+    np.testing.assert_array_equal(c, a.astype(np.int32) @ b.astype(np.int32))

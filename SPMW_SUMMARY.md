@@ -303,6 +303,45 @@ That is the honest ranking of the three levers. Scheduling the float mesh buys
 own — the second is the design's to choose, which is exactly why it is in the
 frontend and not in the schedule.
 
+### At 256 sites
+
+Both meshes taken to 16×16 — 256 instances, 4096 MACs — end to end: nine
+syntheses, nine IP exports, Vivado assembly and synthesis, then simulation
+against the reference.
+
+| | int8 | fp32 (`ii=4`) |
+|---|---|---|
+| frontend + per-role codegen | 1.1 s | 1.1 s |
+| HLS, 9 roles concurrent | **43.1 s** | 40.7 s |
+| Vivado, 256 instances | 224.9 s | 867.4 s |
+| **total build** | **308 s** | 998 s |
+| array clock | 1.595 ns (WNS +1.738) | 3.215 ns (WNS +0.118) |
+| cycles | 52 | 102 |
+| **wall clock** | **82.9 ns** | 327.9 ns |
+| LUT / FF / DSP | 10,458 / 11,136 / 256 | 139,749 / 120,960 / 768 |
+| cosim | ✅ 256/256 | ✅ 256/256 |
+
+**The int8 array is 4.0× faster, 13× smaller in LUTs, and builds 3.2× quicker.**
+Both close timing at 300 MHz; the int8 mesh has 1.738 ns of slack and would run
+past 600 MHz.
+
+**HLS time does not move with the grid.** 43.1 s at 16×16 is the same 43 s as at
+3×3 and 4×4 — nine roles, synthesised concurrently, and the unit never learns how
+large the array is. What grows is Vivado, and sub-linearly: 16× the instances
+(16 → 256) costs 1.8× the synthesis (128 s → 225 s for int8).
+
+Set against the whole-array HLS path at the same size, which is where that route
+stops being usable:
+
+| | per-role + RTL (int8) | whole-array HLS (fp32) |
+|---|---|---|
+| Allo lowering | 1.1 s | **578 s** |
+| HLS | 43.1 s | **807 s** |
+| result | a synthesised, simulated 256-instance array | a `csynth` report |
+
+1385 s to get one HLS report against 308 s for a working array. The array path's
+own *lowering* costs more than the entire role path, before synthesis starts.
+
 ### The unit's report is not the array's performance
 
 Everything above is per *unit*, which is all HLS ever sees — it synthesised one
