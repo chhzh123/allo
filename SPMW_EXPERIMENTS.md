@@ -286,13 +286,25 @@ routes the margin is a modest 1.3×, and part of even that is explained below.
   whole-kernel row, which overstates AutoSA's cost by 5×.
 - **Which means the compile-time comparison is not clean either**: AutoSA's
   1652 s is synthesising ~2.3× the modules.
-- **Cycle counts: ours are cosim, AutoSA's do not exist.** SPMW's 52/102 come
-  from **RTL simulation** — xsim driving the assembled array, counting clocks
-  from reset release to the last output token. The AutoSA figures quoted anywhere
-  (401/408) are **HLS latency estimates for the whole kernel**, including DRAM
-  reads and a serialised C drain. They are a different measurement of a different
-  thing and must not be put in the same column. An AutoSA `cosim_design` run
-  would fix this and is in progress.
+- **Cycle counts: both are now cosim, and they still are not comparable.**
+  SPMW's 52/102 come from RTL simulation — xsim driving the assembled array,
+  counting clocks from reset release to the last output token. AutoSA's int8
+  kernel now has a measured number too: **859 cycles, C/RTL co-simulation PASS**.
+  But it is a whole accelerator — DRAM reads through AXI, the PE array, and a
+  serialised C drain — against our bare fabric fed directly on its edge streams.
+  859 against 52 is a scope difference, not a performance one. See E14.
+
+  **Worth publishing in its own right:** AutoSA's *HLS latency estimate* for the
+  same design is 401 cycles against 859 measured — **the estimate is 2.1×
+  optimistic**. Any comparison built on HLS estimates rather than simulation is
+  wrong by about that much, in the tool's own favour. It also means AutoSA's
+  autotuner, which optimises against an analytical latency model rather than
+  simulation, is tuning against a number with that much slack in it.
+
+  Reproducing it needed one fix: AutoSA emits `m_axi` pragmas with no `depth=`,
+  which csynth accepts and cosim rejects (`A depth specification is required for
+  MAXI interface port 'gmem_A'`). Depths were added to a *copy*, leaving the
+  checked-in artefact exactly as AutoSA emitted it.
 - AutoSA fp32 needed `export_design` (1312 s, excluded above) before
   `synth_design` would resolve its FP cores.
 - AutoSA's `mm` uses `B[J][K]` transposed, and its stock kernel leaves `C`
