@@ -232,15 +232,31 @@ matched setting.
 | **HLS, per-role concurrent** | **n/a** | **43.1 s** | **n/a** | **40.7 s** |
 | Vivado synth, 256 instances | 595.8 s | 224.9 s | 1401.0 s | 867.4 s |
 
-**Throughput**, from measured II × measured array clock:
+**Throughput.** Note what this metric is: II × array clock is a *steady-state
+per-MAC bound*, not measured end-to-end throughput. It ignores fill, drain and
+any array-level stall. It is used here because no comparable end-to-end number
+exists — see "cycles" below.
 
-| | II | array clock | ns per MAC |
-|---|---|---|---|
-| AutoSA fp32 | 4 | 2.510 ns | **10.04** |
-| SPMW fp32, `ii=4` | 4 | 3.215 ns | 12.86 |
-| SPMW fp32, default | 7 | 2.411 ns | 16.88 |
-| AutoSA int8 | 1 | 2.126 ns | 2.13 |
-| SPMW int8 | 1 | 1.595 ns | **1.59** |
+| | II | array clock | ns per MAC | what limits the clock |
+|---|---|---|---|---|
+| AutoSA fp32 | 4 | 2.510 ns | **10.04** | a PE's `fadd_..._5_no_dsp` |
+| SPMW fp32, `ii=4` | 4 | 3.215 ns | 12.86 | a PE's `fadd_..._4_no_dsp` |
+| SPMW fp32, default | 7 | 2.411 ns | 16.88 | — |
+| AutoSA int8 | 1 | 2.126 ns | 2.13 | **`A_IO_L2_in` — the DRAM I/O network** |
+| SPMW int8 | 1 | 1.595 ns | 1.59 | a PE's DSP MAC |
+
+**The int8 row is not a like-for-like comparison and should not be quoted as a
+win.** Both designs reach II=1, and the clock difference is not a property of
+their compute: AutoSA's critical path is in `A_IO_L2_in_5_U0` — the second level
+of its DRAM input network — with 78% of the delay in routing. SPMW has no such
+network, so it is not competing for that path. The honest statement is that on
+int8 **both reach II=1 and no throughput difference has been demonstrated**.
+
+The fp32 row *is* like-for-like: both critical paths land in a PE's float adder.
+There AutoSA is genuinely ahead — and interestingly its adder is the *deeper*
+core (latency 5 against our 4), which should bound II at 5 or 6 by the recurrence
+argument in E12, yet it reports II=4. Our model does not explain that, and it is
+the single most useful thing left to chase.
 
 **Where AutoSA wins, and it matters.** Its fp32 PE reaches II=4 *by default*,
 where ours needs `spmw.pipeline(ii=4)` to get there — and it does so at a better
@@ -265,9 +281,13 @@ routes the margin is a modest 1.3×, and part of even that is explained below.
   whole-kernel row, which overstates AutoSA's cost by 5×.
 - **Which means the compile-time comparison is not clean either**: AutoSA's
   1652 s is synthesising ~2.3× the modules.
-- **No cycle comparison exists.** AutoSA's whole-kernel estimate (401/408 cycles)
-  includes DRAM reads and a serialised drain; ours (52/102) is a bare array in
-  RTL simulation. Not comparable, and no AutoSA cosim was run.
+- **Cycle counts: ours are cosim, AutoSA's do not exist.** SPMW's 52/102 come
+  from **RTL simulation** — xsim driving the assembled array, counting clocks
+  from reset release to the last output token. The AutoSA figures quoted anywhere
+  (401/408) are **HLS latency estimates for the whole kernel**, including DRAM
+  reads and a serialised C drain. They are a different measurement of a different
+  thing and must not be put in the same column. An AutoSA `cosim_design` run
+  would fix this and is in progress.
 - AutoSA fp32 needed `export_design` (1312 s, excluded above) before
   `synth_design` would resolve its FP cores.
 - AutoSA's `mm` uses `B[J][K]` transposed, and its stock kernel leaves `C`
