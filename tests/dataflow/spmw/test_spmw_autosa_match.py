@@ -40,8 +40,13 @@ def autosa_match_of(size):
         north = spmw.In(int8)
         east = spmw.Out(int8)
         south = spmw.Out(int8)
-        c_in = spmw.In(int32[n])
-        c_out = spmw.Out(int32[n])
+        # A *scalar* drain, as AutoSA's is (`typedef int C_t1`,
+        # `hls::stream<int>`): each PE emits its own result and then forwards
+        # what came from above, one at a time. Packing the whole column into one
+        # wide token instead -- which is what Allo's daisy-chain design does --
+        # puts a 512-bit register in every PE and costs ~5x the area.
+        c_in = spmw.In(int32)
+        c_out = spmw.Out(int32)
 
     class FeedIO(spmw.Interface):
         """One link of a distribution chain: take a packed vector, keep one
@@ -76,9 +81,9 @@ def autosa_match_of(size):
             acc += a * b
             io.east.put(a)
             io.south.put(b)
-        column: int32[n] = io.c_in.get()
-        column[row] = acc
-        io.c_out.put(column)
+        io.c_out.put(acc)
+        for _i in range(row):
+            io.c_out.put(io.c_in.get())
 
     @spmw.unit
     def feed(io: FeedIO, site: spmw.Site):
@@ -100,7 +105,9 @@ def autosa_match_of(size):
         spmw.link(Fa.lane, to=P.west)
         spmw.link(Fb.lane, to=P.north)
         spmw.stream_in(0, into=P.c_in)
-        spmw.gather(Ct, from_=P.c_out)
+        # Each bottom PE emits n results: its own first, then what it forwards
+        # from above -- so a column arrives in reverse row order.
+        spmw.gather(Ct, from_=P.c_out, index=(P.cols, ...))
 
     g.spmw_parts = (MacIO, FeedIO, mesh, chain, pe, feed)
     return g
@@ -117,16 +124,21 @@ def _operands(size=SIZE, seed=9):
     return a, b, np.ascontiguousarray(a.T), b, np.zeros((size, size), dtype=np.int32)
 
 
+def _unpack(ct):
+    """`ct[c][t]` is column c's t-th arrival, and they arrive bottom row first."""
+    return ct[:, ::-1].T
+
+
 def test_reference_matches_numpy():
     a, b, at, bt, ct = _operands()
     spmw.build(autosa_match, target="ref")(at, bt, ct)
-    np.testing.assert_array_equal(ct.T, a.astype(np.int32) @ b.astype(np.int32))
+    np.testing.assert_array_equal(_unpack(ct), a.astype(np.int32) @ b.astype(np.int32))
 
 
 def test_simulator_matches_numpy():
     a, b, at, bt, ct = _operands()
     spmw.build(autosa_match, target="simulator")(at, bt, ct)
-    np.testing.assert_array_equal(ct.T, a.astype(np.int32) @ b.astype(np.int32))
+    np.testing.assert_array_equal(_unpack(ct), a.astype(np.int32) @ b.astype(np.int32))
 
 
 def test_the_edge_is_two_chains_and_a_drain():

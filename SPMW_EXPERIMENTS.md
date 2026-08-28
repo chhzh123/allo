@@ -366,6 +366,66 @@ shape, so draining off an edge demanded a tensor shaped like the whole mesh.
 `_positional_identity` now uses the bundle. It only shows up when a port is
 consumed by a peer link everywhere but one edge, which no earlier design did.
 
+### E16. The matched design — chained inputs, chained drain, int8 ✅ measured
+
+`tests/dataflow/spmw/test_spmw_autosa_match.py` closes the mismatches E15 left.
+Operands arrive through daisy-chained distribution networks (AutoSA's
+`A_IO_L2_in`/`B_IO_L2_in`), results leave through a chained drain
+(`C_drain_IO_L1_out`), and the arithmetic is int8 into int32. Three placements
+joined by `link`; 15 roles, constant in the grid; 288 instances at 16×16 and
+**18 edge streams**, against 288 for a plain mesh.
+
+**Matching the topology was not enough — the token width mattered more.** The
+first version packed each column into one wide token, as Allo's daisy-chain
+design does. AutoSA drains a *scalar* (`typedef int C_t1`,
+`hls::stream<int>`): each PE emits its own result then forwards what came from
+above, one at a time. Changing only that:
+
+| 16×16, 256 PEs | packed column | **scalar (matched)** |
+|---|---|---|
+| LUT | 273,998 | **40,022** |
+| FF | 287,472 | **24,208** |
+| cosim cycles | 694 | **104** |
+| array clock | 1.715 ns | 1.748 ns |
+| Vivado synth | 1342 s | **367 s** |
+
+**6.8× the LUTs, 11.9× the registers and 6.7× the cycles, from one port's
+width.** The packed version puts a 512-bit register in every PE and serialises
+the drain behind a full column; the scalar version pipelines it. Worth stating
+in the paper as a design-space observation in its own right — the topology is
+what gets drawn in figures, and it was the smaller half of the decision.
+
+Against AutoSA's int8 16×16:
+
+| | SPMW matched | AutoSA |
+|---|---|---|
+| cosim cycles | **104** | 859 |
+| array clock | 1.748 ns | 2.126 ns |
+| wall clock | **182 ns** | 1826 ns |
+| LUT (whole kernel) | 40,022 | 55,358 |
+| LUT (their PE array only) | — | 15,557 |
+| DSP | 256 | 256 |
+
+Read this carefully. Cycles and wall clock still are not like-for-like: AutoSA's
+859 includes DRAM reads through AXI, and ours has no memory system to wait for.
+The area row is closer to fair — we are 1.38× *smaller* than their whole kernel
+and 2.57× *larger* than their PE array alone, and the truth is between those,
+because our fabric now contains the distribution and drain networks their PE-only
+figure excludes but not the DRAM interface their whole-kernel figure includes.
+
+**What is left to match:** the DRAM interface (E14), and their second-level C
+drain, which chains once more across the bottom row where we still export one
+stream per column (18 edge streams against their ~3).
+
+**Two compiler bugs this design found**, both in paths nothing had exercised:
+
+- A bare `gather` from a *stream* bundle computed its positional identity from
+  `placement.grid` rather than the bundle's own shape, so draining off an edge
+  demanded a tensor shaped like the whole mesh.
+- `(slot,) = site.rank` on a *1-D* placement emitted `slot, = _st__pid0`, a
+  scalar unpack, because the unit rewriter shaped the value from the grid rank
+  rather than from the assignment target.
+
 ### E14. Making the AutoSA comparison fair — decide this before writing
 
 The comparison as it stands is contaminated in **all three** headline metrics, in
