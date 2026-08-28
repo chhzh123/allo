@@ -30,6 +30,7 @@ from .abi import (
     _decl,
     _port_signals,
     _width,
+    _WIDTH,
     const_module,
     fifo_module,
 )
@@ -46,6 +47,73 @@ def _volume(shape):
     return n
 
 
+class MoverPlan:
+    """The loaders and drains a design's bindings ask for, and how they wire up.
+
+    There is one mover per *binding*, not per site, so this is what the memory
+    interface costs in synthesis runs -- three for the matched GEMM at any grid
+    size.  What grows is the *instance* count, and only for a binding whose
+    bundle is more than one site: a chain's head is a single instance however
+    large the array behind it, which is what lets one AXI master feed it.
+    """
+
+    def __init__(self, emitter):
+        self.emitter = emitter
+
+    def __len__(self):
+        return len(self.emitter.rolled.low.movers)
+
+    def __getitem__(self, index):
+        return self.emitter.rolled.low.movers[index]
+
+    def name(self, index):
+        """The module name this mover's IP is exported under."""
+        return f"{self[index].name}_io"
+
+    def shape(self, index):
+        """The bundle's dense extents, which the mover's pids range over.
+
+        Empty for a single-site bundle -- the head of a distribution chain has
+        no coordinate to be told, and so takes no ``_pid`` input at all.
+        """
+        return tuple(int(e) for e in (self[index].bundle.shape or ()))
+
+    def masters(self):
+        """How many DRAM ports the whole design would need."""
+        return sum(len(self.instances(i)) for i in range(len(self)))
+
+    def instances(self, index):
+        """Per instance: its pid coordinates, and the family channel it owns.
+
+        A mover kernel addresses ``fam[member]`` where ``member`` is its pids
+        flattened row-major, so instance *p* owns member *p*.  The channel that
+        member lands on is read with the same ``channel_index`` the unit side
+        uses -- both ends must name one FIFO, so both ask the same question.
+
+        Returns ``[(position, pid coordinates, site, channel), ...]``.  The
+        position names the instance and the coordinates drive its ``_pid``
+        inputs; they are not the same list, because a single-site bundle has one
+        instance and no coordinates.
+        """
+        # pylint: disable=import-outside-toplevel
+        from .lower_df import _geometry
+
+        mover = self[index]
+        geom = _geometry(mover.bundle)
+        placement, port = mover.bundle.placement, mover.bundle.port
+        shape = self.shape(index)
+        out = []
+        for pos in range(max(1, len(mover.bundle.sites))):
+            site = geom.site_of(pos)
+            coords, rem = [], pos
+            for axis in reversed(range(len(shape))):
+                coords.insert(0, rem % shape[axis])
+                rem //= shape[axis]
+            channel = self.emitter.channel_index(placement, site, port, mover.family)
+            out.append((pos, coords, site, channel))
+        return out
+
+
 class StructuralEmitter:
     """Emits the fabric: FIFOs for peer channels, one role instance per site."""
 
@@ -53,6 +121,13 @@ class StructuralEmitter:
         self.graph = graph
         self.rolled = RolledEmitter(graph)
         self._mem_families = {}
+        # What width each mover's AXI master came out at; empty until a
+        # memory-mapped fabric is asked for, and filled from the exported IPs.
+        self._axi_widths = {}
+        # The memory side of the fabric, kept together rather than spread across
+        # the emitter: it is one coherent question -- which transfers exist and
+        # how each is wired -- and the array side never asks it.
+        self.movers = MoverPlan(self)
 
     # -- inspection ---------------------------------------------------------
 
@@ -514,19 +589,153 @@ class StructuralEmitter:
                 ports.append(f"  {kind:<6} wire {wide}{fam.name}_{sig} [0:{count - 1}]")
         return ports
 
-    def fabric(self, top="spmw_top"):
-        """The structural top: boundary ports, internal FIFOs, role instances."""
+    # -- the memory interface -----------------------------------------------
+
+    def _mover_wires(self, index, inst, coords):
+        """One mover instance's connections: control, AXI, coordinates, stream."""
+        # pylint: disable=import-outside-toplevel
+        from .abi import axi_signals
+
+        mover = self.movers[index]
+        edge = self.boundary_direction(mover.family)
+        conns = [
+            ".ap_clk(ap_clk)",
+            ".ap_rst_n(ap_rst_n)",
+            ".ap_start(ap_start)",
+            f".ap_done({inst}_done)",
+            f".ap_idle({inst}_idle)",
+            f".ap_ready({inst}_ready)",
+            f".offset({inst}_offset)",
+        ]
+        for sig, _kind, _w in axi_signals("gmem", self._axi_width(index)):
+            conns.append(f".{sig}(m_axi_{inst}{sig[len('m_axi_gmem'):]})")
+        for axis in range(len(coords)):
+            for sig, _kind, _w in _port_signals(f"_pid{axis}", IN, 32):
+                conns.append(f".{sig}({inst}_pid{axis}_{sig.rsplit('_', 1)[-1]})")
+        # The mover sits on the other side of the family from the sites: a
+        # loader writes what they read.
+        direction = OUT if edge == IN else IN
+        for sig, _kind, _w in _port_signals("chan", direction, _width(mover.family)):
+            wire = sig[len("chan") + 1 :]
+            conns.append(f".{sig}({mover.family.name}_{wire}[{{idx}}])")
+        return conns
+
+    def _axi_width(self, index):
+        """The AXI data width the wrapper was written for."""
+        return self._axi_widths.get(index, _WIDTH[str(self.movers[index].tensor.dtype)])
+
+    def _mover_instances(self):
+        """Instantiate every mover, with a constant source per coordinate."""
+        lines = []
+        for index in range(len(self.movers)):
+            name = self.movers.name(index)
+            places = self.movers.instances(index)
+            lines.append(f"  // mover {name}: {len(places)} instance(s)")
+            for pos, coords, site, channel in places:
+                inst = f"{name}_{pos}"
+                for axis, value in enumerate(coords):
+                    lines.append(
+                        f"  spmw_const #(.DW(32), .VAL({int(value)})) "
+                        f"u_{inst}_pid{axis} (.dout({inst}_pid{axis}_dout), "
+                        f".empty_n({inst}_pid{axis}_empty_n), "
+                        f".read({inst}_pid{axis}_read));"
+                    )
+                conns = [
+                    c.format(idx=channel)
+                    for c in self._mover_wires(index, inst, coords)
+                ]
+                lines.append(
+                    f"  // site {tuple(int(c) for c in site)} -> channel {channel}\n"
+                    f"  {name} u_{inst} (\n      " + ",\n      ".join(conns) + ");"
+                )
+        return lines
+
+    def _mover_signals(self):
+        """Wires the mover instances need that no family declares."""
+        lines = []
+        dones = []
+        for index in range(len(self.movers)):
+            name = self.movers.name(index)
+            for pos, coords, _site, _channel in self.movers.instances(index):
+                inst = f"{name}_{pos}"
+                dones.append(f"{inst}_done")
+                lines.append(f"  wire {inst}_done, {inst}_idle, {inst}_ready;")
+                for axis in range(len(coords)):
+                    lines.append(
+                        f"  wire [31:0] {inst}_pid{axis}_dout; "
+                        f"wire {inst}_pid{axis}_empty_n, {inst}_pid{axis}_read;"
+                    )
+        # The array is finished when every transfer is: one `ap_done` out, so a
+        # host driving this sees a single completion rather than one per port.
+        lines.append("  assign ap_done = " + " & ".join(dones) + ";")
+        return lines
+
+    def _memory_ports(self):
+        """The top's own memory interface: control, and one AXI master each."""
+        # pylint: disable=import-outside-toplevel
+        from .abi import AXI_ADDR_WIDTH, axi_signals
+
+        ports = [
+            "  input  wire ap_clk",
+            "  input  wire ap_rst_n",
+            "  input  wire ap_start",
+            "  output wire ap_done",
+        ]
+        for index in range(len(self.movers)):
+            name = self.movers.name(index)
+            for _pos, _coords, _site, _channel in self.movers.instances(index):
+                inst = f"{name}_{_pos}"
+                ports.append(f"  input  wire [{AXI_ADDR_WIDTH - 1}:0] {inst}_offset")
+                for sig, kind, width in axi_signals("gmem", self._axi_width(index)):
+                    span = f"[{width - 1}:0] " if width > 1 else ""
+                    pad = "input " if kind == "input" else "output"
+                    ports.append(
+                        f"  {pad} wire {span}m_axi_{inst}{sig[len('m_axi_gmem'):]}"
+                    )
+        return ports
+
+    def fabric(self, top="spmw_top", memory=False, axi_widths=None):
+        """The structural top: boundary ports, internal FIFOs, role instances.
+
+        With ``memory`` the array's edge streams are driven from inside instead:
+        each binding's mover is instantiated and its tensor reaches DRAM through
+        an AXI master, so the fabric is a complete accelerator rather than a
+        core that a testbench has to hold operands for.  Without it the edge
+        stays exposed, which is what the cosim testbench drives.
+        """
+        self._axi_widths = dict(axi_widths or {})
         internal, boundary = self.families()
+        if memory:
+            fed = {id(self.movers[i].family) for i in range(len(self.movers))}
+            stranded = [
+                fam.name
+                for fam in boundary
+                if id(fam) not in fed and getattr(fam, "kind", None) is ch.TABLE
+            ]
+            internal = internal + [fam for fam in boundary if id(fam) in fed]
+            boundary = [fam for fam in boundary if id(fam) not in fed]
+            if boundary:
+                raise SPMWBindingError(
+                    f"a memory-mapped fabric has no mover for {stranded or [f.name for f in boundary]}, "
+                    f"so those channels would still have to be driven from "
+                    f"outside; a `MemOut` gathered per site is not a transfer "
+                    f"the loader/drain path builds."
+                )
         body = []
         for fam in internal:
             body += self._family_wires(fam, internal=True)
+        if memory:
+            body += self._mover_signals()
         for placement in self.placements():
             body += self._coord_sources(placement)
             body += self._instances(placement)
+        if memory:
+            body += self._mover_instances()
+        ports = self._memory_ports() if memory else self._boundary_ports(boundary)
         return (
             "`timescale 1ns/1ps\n\n"
             + f"module {top} (\n"
-            + ",\n".join(self._boundary_ports(boundary))
+            + ",\n".join(ports)
             + "\n);\n"
             + "\n".join(body)
             + "\nendmodule\n"

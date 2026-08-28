@@ -48,9 +48,13 @@ from allo.spmw.cosim import (  # pylint: disable=wrong-import-position
     render_testbench,
 )
 from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
+    MoverEmitter,
     UnitEmitter,
+    axi_data_width,
+    build_mover,
     build_unit,
     check_wrapper,
+    mover_wrapper_sv,
     optimise,
     trim_includes,
     wrapper_sv,
@@ -66,6 +70,19 @@ set_part {part}
 create_clock -period {period:.2f} -name default
 config_interface -clock_enable=0
 set_directive_interface -mode ap_ctrl_none "{name}_0" return
+csynth_design
+export_design -format ip_catalog
+exit
+"""
+
+MOVER_TCL = """open_project prj
+set_top {name}_0
+add_files kernel.cpp
+open_solution sol
+set_part {part}
+create_clock -period {period:.2f} -name default
+config_interface -clock_enable=0 -m_axi_max_widen_bitwidth {widen}
+set_directive_interface -mode m_axi -offset direct -depth {depth} "{name}_0" {arg}
 csynth_design
 export_design -format ip_catalog
 exit
@@ -220,6 +237,89 @@ def stage(graph, out, part, frequency, ii=None):
     _write(os.path.join(out, "spmw_const.sv"), rtl.const_module())
     _write(os.path.join(out, "spmw_top.sv"), rtl.StructuralEmitter(graph).fabric())
     return names
+
+
+def stage_movers(graph, out, part, frequency, widen=512):
+    """Write one HLS project per *mover* -- the array's memory interface.
+
+    A mover is not a role: it walks a whole tensor and stops, so it keeps
+    ``ap_ctrl_hs`` and its tensor argument becomes an AXI master rather than a
+    stream.  There is one per binding whatever the grid, which is why giving the
+    fabric DRAM access costs a fixed number of extra synthesis runs.
+
+    The wrapper is written twice.  Once here, from the element width, so the
+    fabric elaborates before Vitis has run; and again after ``csynth``, from the
+    width Vitis actually achieved -- widening is a ceiling, not a promise, and a
+    16-byte operand cannot reach 512 bits however wide the request.
+    """
+    emitter = MoverEmitter(graph)
+    names = []
+    for index in range(len(emitter.movers())):
+        name = emitter.name(index)
+        built = build_mover(graph, index, target="vhls")
+        code = trim_includes(str(built.hls_code))
+        directory = os.path.join(out, name)
+        os.makedirs(directory, exist_ok=True)
+        _write(os.path.join(directory, "kernel.cpp"), code)
+        _write(
+            os.path.join(directory, f"{name}.sv"), mover_wrapper_sv(graph, index, code)
+        )
+        tensor = emitter.movers()[index].tensor
+        _write(
+            os.path.join(directory, "run.tcl"),
+            MOVER_TCL.format(
+                name=name,
+                part=part,
+                period=1000.0 / frequency,
+                widen=widen,
+                depth=_volume(tensor.base.shape),
+                arg=_tensor_param(code, name),
+            ),
+        )
+        names.append(name)
+    return names
+
+
+def _tensor_param(code, name):
+    """Which generated parameter the ``m_axi`` directive has to name."""
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw.role_ip import mover_interface
+
+    return mover_interface(code, name)[0]
+
+
+def _volume(shape):
+    total = 1
+    for extent in shape:
+        total *= int(extent)
+    return total
+
+
+def rewrite_mover_wrappers(graph, out, names):
+    """Re-emit each mover's wrapper at the AXI width Vitis actually built.
+
+    Returns ``{mover index: data width}``, which the fabric needs so its own
+    ports match the IPs it instantiates.
+    """
+    emitter = MoverEmitter(graph)
+    widths = {}
+    for index in range(len(emitter.movers())):
+        name = emitter.name(index)
+        if name not in names:
+            continue
+        directory = os.path.join(out, name)
+        exported = os.path.join(
+            directory, "prj", "sol", "syn", "verilog", f"{name}_0.v"
+        )
+        with open(exported, encoding="utf-8") as handle:
+            netlist = handle.read()
+        widths[index] = axi_data_width(netlist)
+        with open(os.path.join(directory, "kernel.cpp"), encoding="utf-8") as handle:
+            code = handle.read()
+        wrapper = mover_wrapper_sv(graph, index, code, data_width=widths[index])
+        _write(os.path.join(directory, f"{name}.sv"), wrapper)
+        check_wrapper(wrapper, netlist)
+    return widths
 
 
 def tune(graph, out, part, frequency, candidates=(0, 2, 3, 4, 5, 6)):
@@ -556,6 +656,12 @@ def main():
         help="simulate the assembled array against the reference",
     )
     parser.add_argument(
+        "--memory",
+        action="store_true",
+        help="give the fabric a DRAM interface: build each binding's mover as "
+        "an AXI master and drive the edge streams from inside",
+    )
+    parser.add_argument(
         "--jobs",
         type=int,
         default=0,
@@ -580,24 +686,48 @@ def main():
         f"staged {len(names)} role project(s) in {time.time() - start:.1f}s "
         f"(frontend + per-role HLS codegen)"
     )
+    movers = []
+    if args.memory:
+        start = time.time()
+        movers = stage_movers(graph, args.out, args.part, args.frequency)
+        emitter = MoverEmitter(graph)
+        masters = sum(emitter.instances(i) for i in range(len(movers)))
+        print(
+            f"staged {len(movers)} mover project(s) in {time.time() - start:.1f}s "
+            f"-- {masters} AXI master(s) at this size"
+        )
     if args.stage_only:
         return
 
-    print(f"synthesising and exporting {len(names)} roles concurrently:")
+    print(
+        f"synthesising and exporting {len(names) + len(movers)} unit(s) concurrently:"
+    )
     start = time.time()
-    times = synthesise(args.out, names, jobs=args.jobs or None)
+    times = synthesise(args.out, names + movers, jobs=args.jobs or None)
     wall = round(time.time() - start, 1)
     print(
-        f"HLS: {wall}s wall for {len(names)} roles "
+        f"HLS: {wall}s wall for {len(names)} roles and {len(movers)} movers "
         f"({round(sum(times.values()), 1)}s of CPU work, "
         f"{cost['instances']} instances)"
     )
+    if args.memory:
+        # The AXI width is only known now, and the fabric's own ports have to
+        # match the IPs it holds -- so both are re-emitted against the truth.
+        widths = rewrite_mover_wrappers(graph, args.out, movers)
+        _write(
+            os.path.join(args.out, "spmw_top.sv"),
+            rtl.StructuralEmitter(graph).fabric(memory=True, axi_widths=widths),
+        )
+        print(
+            "  AXI data widths: "
+            + ", ".join(f"{movers[i]}={w}b" for i, w in sorted(widths.items()))
+        )
 
     print("assembling the array in Vivado:")
     elapsed, wns = assemble(
         args.out,
         args.part,
-        names,
+        names + movers,
         frequency=args.frequency if args.synth else None,
     )
     verb = "synthesised" if args.synth else "elaborated"

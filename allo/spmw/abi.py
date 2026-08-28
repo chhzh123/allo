@@ -155,6 +155,63 @@ def _port_signals(name, direction, width):
     ]
 
 
+# One AXI4 master's ports, in the order Vitis HLS declares them, as
+# ``(suffix, direction, width)`` from the *master's* point of view. Written down
+# rather than read back: a wrapper is emitted before synthesis has run, so the
+# port list has to be known in advance. `check_wrapper` compares it against the
+# exported IP afterwards, which is what keeps the table honest.
+AXI_ADDR_WIDTH = 64
+AXI_ID_WIDTH = 1
+AXI_USER_WIDTH = 1
+
+
+def axi_signals(bundle, data, addr=AXI_ADDR_WIDTH):
+    """The ports an ``m_axi`` argument becomes on the synthesised IP."""
+    idw, usr = AXI_ID_WIDTH, AXI_USER_WIDTH
+    table = []
+    for kind in ("AW", "AR"):
+        table += [
+            (f"{kind}VALID", "output", 1),
+            (f"{kind}READY", "input", 1),
+            (f"{kind}ADDR", "output", addr),
+            (f"{kind}ID", "output", idw),
+            (f"{kind}LEN", "output", 8),
+            (f"{kind}SIZE", "output", 3),
+            (f"{kind}BURST", "output", 2),
+            (f"{kind}LOCK", "output", 2),
+            (f"{kind}CACHE", "output", 4),
+            (f"{kind}PROT", "output", 3),
+            (f"{kind}QOS", "output", 4),
+            (f"{kind}REGION", "output", 4),
+            (f"{kind}USER", "output", usr),
+        ]
+        if kind == "AW":
+            table += [
+                ("WVALID", "output", 1),
+                ("WREADY", "input", 1),
+                ("WDATA", "output", data),
+                ("WSTRB", "output", max(1, data // 8)),
+                ("WLAST", "output", 1),
+                ("WID", "output", idw),
+                ("WUSER", "output", usr),
+            ]
+    table += [
+        ("RVALID", "input", 1),
+        ("RREADY", "output", 1),
+        ("RDATA", "input", data),
+        ("RLAST", "input", 1),
+        ("RID", "input", idw),
+        ("RUSER", "input", usr),
+        ("RRESP", "input", 2),
+        ("BVALID", "input", 1),
+        ("BREADY", "output", 1),
+        ("BRESP", "input", 2),
+        ("BID", "input", idw),
+        ("BUSER", "input", usr),
+    ]
+    return [(f"m_axi_{bundle}_{s}", d, w) for s, d, w in table]
+
+
 def _decl(signals, indent="  "):
     out = []
     for sig, kind, width in signals:
@@ -166,6 +223,7 @@ def _decl(signals, indent="  "):
 
 __all__ = [
     "CoordPort",
+    "axi_signals",
     "const_module",
     "fifo_module",
 ]
