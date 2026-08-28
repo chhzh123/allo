@@ -526,14 +526,97 @@ Reading it:
 
 - **LUTs are a tie** — 1.6% apart, which is noise at this scale. The headline
   "1.38× smaller" from before was measuring our missing memory interface.
-- **Registers are not**: SPMW uses 2.2× fewer. AutoSA's I/O hierarchy buffers
-  and double-buffers at every level, and that is where its flip-flops go.
 - **DSPs are identical** at 256 — one per PE on both sides, which is the check
   that the two designs really are doing the same arithmetic.
 - **AutoSA holds the better clock**, 2.126 ns against 2.412 ns. We win on wall
   clock anyway, 909 ns against 1826 ns, because 377 cycles against 859 is the
   larger factor.
 - **We pay for it in ports.** 18 AXI masters against 3.
+
+#### Where the area actually goes
+
+`report_utilization -hierarchical`, depth 1, summed by module class. Both columns
+reconcile exactly to their design totals, so nothing is double-counted.
+
+| SPMW | inst | LUT | FF | SRL | LUTRAM | DSP |
+|---|---|---|---|---|---|---|
+| PE array (drain fused in) | 256 | 25,293 | 18,432 | 256 | 0 | 256 |
+| channel FIFOs | 800 | 14,841 | 3,200 | 0 | 10,656 | 0 |
+| movers (AXI masters) | 18 | 13,456 | 19,304 | 2,890 | 0 | 0 |
+| feed chain | 32 | 503 | 2,648 | 0 | 0 | 0 |
+| top | 1 | 392 | 36 | 2 | 0 | 0 |
+
+| AutoSA | inst | LUT | FF | SRL | LUTRAM | DSP |
+|---|---|---|---|---|---|---|
+| FIFOs | 1105 | 31,472 | 55,792 | 0 | 148 | 0 |
+| PE array | 512 | 9,310 | 5,632 | 512 | 0 | 256 |
+| C drain network | 530 | 9,026 | 14,084 | 1 | 0 | 0 |
+| A/B I/O network | 66 | 2,813 | 17,916 | 2 | 0 | 0 |
+| PE dummy feeds | 64 | 623 | 384 | 0 | 0 | 0 |
+| other | 6 | 2,114 | 3,136 | 327 | 0 | 0 |
+
+Three things fall out, and **two of them are against us**. The earlier reading of
+the register gap — that it was AutoSA's I/O buffering — was wrong.
+
+1. **The register gap is a FIFO storage choice, not architecture.** Our
+   `spmw_fifo` infers **distributed RAM**: 800 FIFOs hold their data in 10,656
+   LUTRAM and spend only 3,200 flip-flops. AutoSA's HLS FIFOs are
+   register-based: 55,792 flip-flops across 1,105. That single difference is
+   52,592 registers against a total gap of 53,324 — **98.6% of it**. Same
+   function, different primitive. It is not evidence that our architecture
+   carries less state.
+
+2. **Their PE array is 2.7× smaller than ours** — 9,310 LUT against 25,293, for
+   the same 256 DSPs. Because we *fused* the drain into the PE: the body's
+   `for _i in range(row)` has a coordinate-dependent trip count, so every PE
+   carries a counter, a comparator and a variable-latency FSM. AutoSA puts that
+   in a separate `C_drain_IO_L1_out` network. Compared like function:
+
+   | | LUT | FF |
+   |---|---|---|
+   | SPMW PE array (drain inside) | 25,293 | 18,432 |
+   | AutoSA PE array + C drain | 18,336 | 19,716 |
+
+   We are **1.38× larger in LUTs** and level on registers. Splitting the drain
+   out of the unit is the obvious thing to try.
+
+3. **The I/O is where we are genuinely comparable.** Our 18 masters cost 13,456
+   LUT and 19,304 FF; their 3 masters plus the whole L1/L2/L3 hierarchy cost
+   ~11,839 LUT and ~32,000 FF. Similar LUTs; they pay ~1.7× the registers for
+   the buffering that gets them from 18 ports to 3.
+
+#### CARRY8, and why ours is 23× theirs
+
+CARRY8 is the UltraScale+ CLB's hardened 8-bit carry chain — dedicated silicon
+and fast vertical routing for the carry in an adder, subtractor, comparator or
+counter, with LUTs computing the bit functions around it. There are 162,960 on
+this part, so at 1,989 and 86 neither design is remotely constrained by it. It is
+worth reporting only as a *diagnostic*: it measures how much arithmetic is in the
+fabric rather than in DSPs.
+
+Ours, by direct cell query (`get_cells -hier -filter {REF_NAME =~ CARRY*}`):
+
+| | CARRY8 |
+|---|---|
+| PE array | 1,440 |
+| movers (AXI masters) | 448 |
+| top | 101 |
+| channel FIFOs | **0** |
+| total | 1,989 |
+
+The FIFOs contribute nothing, which was the first guess and it was wrong. The
+matrix arithmetic contributes nothing either — Vitis puts the whole MAC inside
+the DSP (`mul → dsp_slice`, `add → dsp_slice` in the role's report), so the
+accumulator never touches a carry chain.
+
+What is left is **the fused drain again**: 5.6 CARRY8 per PE for the loop counter
+and the comparison against a runtime `row`, where AutoSA's PE is a pure MAC with
+a fixed trip count. Plus 25 per mover for 64-bit AXI address arithmetic, which
+they pay once for 3 masters and we pay 18 times.
+
+So the LUT anomaly and the CARRY8 anomaly have **one shared root cause**: fusing
+the drain into the unit. That makes it the single highest-value thing to change
+in the design.
 
 **What the area numbers leave out, and it favours us:** neither figure includes
 the shell's AXI interconnect, and servicing 18 masters costs materially more of
