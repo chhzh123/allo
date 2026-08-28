@@ -123,13 +123,17 @@ class _UnitRewriter(_BodyRewriter):
         # here they come from the unit's own coordinate inputs.
         if self.site and _is_site_rank(node.value, self.site):
             self.coords.update(range(len(self.pids)))
+            names = [ast.Name(id=p, ctx=ast.Load()) for p in self.pids]
+            # Shape the value like the *target*, not like the grid: `(slot,) =
+            # site.rank` on a 1-D placement unpacks a one-tuple, and handing it a
+            # bare name emits `slot, = _st__pid0`, which is a scalar unpack.
+            unpacking = len(node.targets) == 1 and isinstance(
+                node.targets[0], (ast.Tuple, ast.List)
+            )
             value = (
-                ast.Tuple(
-                    elts=[ast.Name(id=p, ctx=ast.Load()) for p in self.pids],
-                    ctx=ast.Load(),
-                )
-                if len(self.pids) > 1
-                else ast.Name(id=self.pids[0], ctx=ast.Load())
+                ast.Tuple(elts=names, ctx=ast.Load())
+                if unpacking or len(names) > 1
+                else names[0]
             )
             return ast.Assign(targets=node.targets, value=value)
         target = node.targets[0] if len(node.targets) == 1 else None

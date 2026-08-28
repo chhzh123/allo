@@ -128,6 +128,12 @@ def design(name, size):
         from test_spmw_daisy import daisy_of
 
         return daisy_of(size)
+    if name == "autosa":
+        # Structurally matched to what AutoSA emits: chained A/B distribution,
+        # chained C drain, int8 into int32.
+        from test_spmw_autosa_match import autosa_match_of
+
+        return autosa_match_of(size)
     if name == "tpu":
         from test_spmw_tpu import tpu_matmul
 
@@ -509,7 +515,16 @@ def main():
     parser.add_argument(
         "--design",
         default="gemm",
-        choices=("gemm", "gemm8", "daisy", "tpu", "fft", "attention", "tiled"),
+        choices=(
+            "gemm",
+            "gemm8",
+            "daisy",
+            "autosa",
+            "tpu",
+            "fft",
+            "attention",
+            "tiled",
+        ),
         help="which worked example to build",
     )
     parser.add_argument("--size", type=int, default=4)
