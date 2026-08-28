@@ -59,6 +59,10 @@ class MoverPlan:
 
     def __init__(self, emitter):
         self.emitter = emitter
+        # What width each mover's AXI master came out at, once the exported IPs
+        # have been read; the element width is the fallback that lets the fabric
+        # elaborate before Vitis has run.
+        self.widths = {}
 
     def __len__(self):
         return len(self.emitter.rolled.low.movers)
@@ -81,6 +85,15 @@ class MoverPlan:
     def masters(self):
         """How many DRAM ports the whole design would need."""
         return sum(len(self.instances(i)) for i in range(len(self)))
+
+    def width(self, index):
+        """This mover's AXI data width.
+
+        Widening is a ceiling rather than a promise -- a 16-byte operand cannot
+        reach 512 bits however wide the request -- so the achieved width is read
+        back off the exported IP and recorded here.
+        """
+        return self.widths.get(index, _WIDTH[str(self[index].tensor.dtype)])
 
     def instances(self, index):
         """Per instance: its pid coordinates, and the family channel it owns.
@@ -121,9 +134,6 @@ class StructuralEmitter:
         self.graph = graph
         self.rolled = RolledEmitter(graph)
         self._mem_families = {}
-        # What width each mover's AXI master came out at; empty until a
-        # memory-mapped fabric is asked for, and filled from the exported IPs.
-        self._axi_widths = {}
         # The memory side of the fabric, kept together rather than spread across
         # the emitter: it is one coherent question -- which transfers exist and
         # how each is wired -- and the array side never asks it.
@@ -601,17 +611,22 @@ class StructuralEmitter:
         conns = [
             ".ap_clk(ap_clk)",
             ".ap_rst_n(ap_rst_n)",
-            ".ap_start(ap_start)",
+            f".ap_start({inst}_start)",
             f".ap_done({inst}_done)",
             f".ap_idle({inst}_idle)",
             f".ap_ready({inst}_ready)",
             f".offset({inst}_offset)",
         ]
-        for sig, _kind, _w in axi_signals("gmem", self._axi_width(index)):
+        for sig, _kind, _w in axi_signals("gmem", self.movers.width(index)):
             conns.append(f".{sig}(m_axi_{inst}{sig[len('m_axi_gmem'):]})")
         for axis in range(len(coords)):
-            for sig, _kind, _w in _port_signals(f"_pid{axis}", IN, 32):
-                conns.append(f".{sig}({inst}_pid{axis}_{sig.rsplit('_', 1)[-1]})")
+            port = f"_pid{axis}"
+            for sig, _kind, _w in _port_signals(port, IN, 32):
+                # The suffix is what follows the *port name*, not what follows
+                # the last underscore: `_pid0_empty_n` rsplit at the last one
+                # gives `n`, and the fabric quietly wired the pid's readiness to
+                # an implicit wire. The drain then blocked forever.
+                conns.append(f".{sig}({inst}_pid{axis}_{sig[len(port) + 1:]})")
         # The mover sits on the other side of the family from the sites: a
         # loader writes what they read.
         direction = OUT if edge == IN else IN
@@ -619,10 +634,6 @@ class StructuralEmitter:
             wire = sig[len("chan") + 1 :]
             conns.append(f".{sig}({mover.family.name}_{wire}[{{idx}}])")
         return conns
-
-    def _axi_width(self, index):
-        """The AXI data width the wrapper was written for."""
-        return self._axi_widths.get(index, _WIDTH[str(self.movers[index].tensor.dtype)])
 
     def _mover_instances(self):
         """Instantiate every mover, with a constant source per coordinate."""
@@ -651,15 +662,40 @@ class StructuralEmitter:
         return lines
 
     def _mover_signals(self):
-        """Wires the mover instances need that no family declares."""
+        """Wires the mover instances need that no family declares.
+
+        A mover keeps ``ap_ctrl_hs``, so ``ap_done`` is a *pulse* and the
+        instances do not finish together -- a loader is done long before the
+        drain is.  ANDing the raw pulses is therefore a condition that never
+        holds, which is exactly what it did: the array ran correctly and the
+        bench waited forever.  Each is latched instead, and a latched instance
+        does not restart while ``ap_start`` stays high.
+        """
         lines = []
         dones = []
         for index in range(len(self.movers)):
             name = self.movers.name(index)
             for pos, coords, _site, _channel in self.movers.instances(index):
                 inst = f"{name}_{pos}"
-                dones.append(f"{inst}_done")
-                lines.append(f"  wire {inst}_done, {inst}_idle, {inst}_ready;")
+                dones.append(f"{inst}_done_r")
+                lines += [
+                    f"  wire {inst}_done, {inst}_idle, {inst}_ready;",
+                    f"  reg  {inst}_done_r, {inst}_run_r;",
+                    # `ap_done` is a pulse and `done_r` rises the cycle after,
+                    # so gating the start on `done_r` alone leaves `ap_start`
+                    # high for one more cycle and the IP begins a second pass --
+                    # which showed up as a loader writing six tokens where the
+                    # design has four. `ap_ready` is the handshake that says the
+                    # start was taken, so that is what stops it.
+                    f"  wire {inst}_start = ap_start & ~{inst}_run_r;",
+                    "  always @(posedge ap_clk)",
+                    "    if (!ap_rst_n) begin",
+                    f"      {inst}_done_r <= 1'b0; {inst}_run_r <= 1'b0;",
+                    "    end else begin",
+                    f"      if ({inst}_start && {inst}_ready) {inst}_run_r <= 1'b1;",
+                    f"      if ({inst}_done) {inst}_done_r <= 1'b1;",
+                    "    end",
+                ]
                 for axis in range(len(coords)):
                     lines.append(
                         f"  wire [31:0] {inst}_pid{axis}_dout; "
@@ -686,7 +722,7 @@ class StructuralEmitter:
             for _pos, _coords, _site, _channel in self.movers.instances(index):
                 inst = f"{name}_{_pos}"
                 ports.append(f"  input  wire [{AXI_ADDR_WIDTH - 1}:0] {inst}_offset")
-                for sig, kind, width in axi_signals("gmem", self._axi_width(index)):
+                for sig, kind, width in axi_signals("gmem", self.movers.width(index)):
                     span = f"[{width - 1}:0] " if width > 1 else ""
                     pad = "input " if kind == "input" else "output"
                     ports.append(
@@ -703,7 +739,7 @@ class StructuralEmitter:
         core that a testbench has to hold operands for.  Without it the edge
         stays exposed, which is what the cosim testbench drives.
         """
-        self._axi_widths = dict(axi_widths or {})
+        self.movers.widths = dict(axi_widths or {})
         internal, boundary = self.families()
         if memory:
             fed = {id(self.movers[i].family) for i in range(len(self.movers))}

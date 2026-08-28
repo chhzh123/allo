@@ -101,9 +101,7 @@ def test_the_compile_cost_does_not_grow():
     interface costs a fixed three synthesis runs at any size. This is what keeps
     the flat compile time flat.
     """
-    counts = {
-        size: len(_emitter(autosa_match_of, size).movers) for size in (4, 8, 16)
-    }
+    counts = {size: len(_emitter(autosa_match_of, size).movers) for size in (4, 8, 16)}
     assert set(counts.values()) == {3}, counts
 
 
@@ -180,3 +178,56 @@ def test_the_axi_table_is_a_complete_master():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def _bench(size=4, latency=0):
+    """A memory bench for the matched design, without running a simulator."""
+    import numpy as np
+
+    from allo.spmw.dram import MemoryBench
+
+    graph = spmw.elaborate(autosa_match_of(size))
+    data = {
+        t.name: np.zeros(t.shape, dtype=np.int32 if str(t.dtype) == "i32" else np.int8)
+        for t in graph.tensors.values()
+    }
+    return MemoryBench(graph, data, data, latency=latency)
+
+
+def test_every_master_gets_a_memory_and_a_direction():
+    """Two read masters and four written ones, at 4x4."""
+    masters = _bench().masters()
+    assert len(masters) == 6
+    assert sum(1 for m in masters if m["reads"]) == 2
+    assert {m["tensor"] for m in masters if m["reads"]} == {"At", "Bt"}
+    assert {m["tensor"] for m in masters if not m["reads"]} == {"Ct"}
+
+
+def test_a_drain_is_only_checked_where_it_writes():
+    """Each instance fills its own slice of the result.
+
+    Its memory is private, so everything else in it stays uninitialised.
+    Comparing the whole tensor against one master reported twelve of Ct's
+    sixteen elements as wrong when the design was in fact correct.
+    """
+    masters = _bench().masters()
+    drains = [m for m in masters if not m["reads"]]
+    for master in drains:
+        assert len(master["touches"]) == 4, master["name"]
+    # together they cover the result exactly once
+    seen = [tuple(i) for m in drains for i in m["touches"]]
+    assert len(seen) == len(set(seen)) == 16
+
+
+def test_the_bench_starts_the_array_and_waits_for_one_done():
+    """One start and one completion, whatever the port count."""
+    text = _bench().render()
+    assert text.count(".ap_start(start)") == 1
+    assert text.count(".ap_done(done)") == 1
+    assert "spmw_axi_ram" in text
+    assert text.count("spmw_axi_ram #(") == 6
+
+
+def test_the_latency_is_recorded_with_the_cycle_count():
+    """A cycle count that does not say what memory it assumed is not a result."""
+    assert "latency=64" in _bench(latency=64).render()
