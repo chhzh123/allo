@@ -614,9 +614,75 @@ and the comparison against a runtime `row`, where AutoSA's PE is a pure MAC with
 a fixed trip count. Plus 25 per mover for 64-bit AXI address arithmetic, which
 they pay once for 3 masters and we pay 18 times.
 
-So the LUT anomaly and the CARRY8 anomaly have **one shared root cause**: fusing
-the drain into the unit. That makes it the single highest-value thing to change
-in the design.
+So the LUT anomaly and the CARRY8 anomaly have **one shared root cause**. It is
+not, as first guessed, that the drain is fused into the unit.
+
+### Splitting the drain out, and what it actually showed
+
+Four variants at 16×16, all int8, all Vivado post-synthesis, all passing cosim
+DRAM to DRAM:
+
+| | fused | split | split + specialised | **fused + specialised** | AutoSA |
+|---|---|---|---|---|---|
+| LUT | 54,485 | 59,172 | 47,717 | **43,209** | 55,358 |
+| FF | 43,620 | 44,644 | 38,308 | **36,788** | 96,944 |
+| CARRY8 | 1,989 | 1,989 | 560 | **549** | 86 |
+| DSP | 256 | 256 | 256 | 256 | 256 |
+| clock | 2.412 ns | 2.341 ns | 2.202 ns | **2.202 ns** | 2.126 ns |
+| cosim cycles | 377 | 378 | 378 | 377 | 859 |
+| wall clock | 909 ns | 885 ns | 832 ns | **830 ns** | 1826 ns |
+| roles | 15 | 18 | 31 | 54 | — |
+| instances | 288 | 544 | 544 | 288 | — |
+| HLS wall clock | 44.7 s | 45.7 s | 55.0 s | 108.8 s | 1255.5 s |
+| Vivado | 437.5 s | 469.8 s | 441.8 s | 433.2 s | 595.8 s |
+
+**Splitting the drain out on its own made things worse** — 59,172 LUT against
+54,485, because 256 extra module boundaries mean 256 extra FIFOs, and the CARRY8
+total did not move at all. A direct cell query says why: the 1,440 carry chains
+that were in the PEs reappeared, to the cell, in the drains (`u_drain_r0` 1,344 +
+`u_drain_r2` 96). The work is intrinsic to the drain. Moving it across a module
+boundary relocates it and charges for the boundary.
+
+**What the carry chains actually are is a *runtime* trip count.** `for _i in
+range(row)` where `row` arrives on a `_pid` stream needs a counter, a comparator
+and a variable-latency FSM in every instance. AutoSA does not have this because
+it emits **a separate specialised module per instance** — `C_drain_IO_L1_out_314`,
+`_330`, `_346` and so on, 1,872 modules in all — so every trip count is a literal
+in its own module. That is what its 1255.5 s of HLS buys.
+
+So the real trade is not fused-versus-split. It is:
+
+> A role stands for many sites and is *told* where it is, which keeps the role
+> count independent of the grid — and makes everything derived from the position
+> runtime logic.
+
+### `place(..., specialise=...)`
+
+Which is now a choice rather than a fixed property. Naming a grid axis makes that
+coordinate part of the *role* instead of an input to it: the body sees a literal,
+the fabric drives no `_pid`, and a loop bounded by it has a constant trip count.
+One drain unit, measured both ways at 16×16:
+
+| drain role | FF | LUT | latency |
+|---|---|---|---|
+| generic (row on a `_pid` stream) | 70 | 207 | unbounded |
+| specialised (row is the role) | **10** | **161** | 9 cycles, known |
+
+Applied to the whole array it is worth **21% of the LUTs, 16% of the registers
+and 72% of the carry chains** against the fused baseline, and takes the clock
+from 2.412 ns to 2.202 ns — with the cycle count unchanged at 377.
+
+**The price is roles, and roles are concurrent.** Specialising the drain alone
+takes 18 roles to 31 and the HLS wall clock from 45.7 s to 55.0 s; specialising
+the fused mesh takes 15 to 54 and 44.7 s to 108.8 s. The CPU cost is real — 3608 s
+against 793 s — but it parallelises, which is exactly the property the role
+decomposition was for. Even the most specialised variant compiles **11.5× faster
+than AutoSA** while being 22% smaller and 2.6× lighter on registers.
+
+**And the split was not needed.** `fused + specialised` beats `split +
+specialised` on every metric (43,209 LUT against 47,717, 288 instances against
+544) because it does not pay for the extra module boundary. The useful change was
+specialisation; splitting was a wrong guess that the control run caught.
 
 **What the area numbers leave out, and it favours us:** neither figure includes
 the shell's AXI interconnect, and servicing 18 masters costs materially more of

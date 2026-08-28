@@ -131,10 +131,22 @@ class Placement:
     # pylint: disable=too-many-instance-attributes
 
     def __init__(
-        self, component, topology, depths=None, fold=None, unroll=None, layout=None
+        self,
+        component,
+        topology,
+        depths=None,
+        fold=None,
+        unroll=None,
+        layout=None,
+        specialise=(),
     ):
         self.component = component
         self.topology = topology
+        # Grid axes whose coordinate is part of a *role's* identity rather than
+        # an input to it. A body that reads a specialised axis sees a literal,
+        # so a loop bounded by it has a compile-time trip count -- at the price
+        # of one role per position along that axis. See `place`.
+        self.specialise = tuple(sorted(specialise or ()))
         self.grid = topology.grid
         self.depths = dict(depths or {})
         self.fold = dict(fold or {})
@@ -261,11 +273,27 @@ def _coord_resolver(axis_index):
     return resolve
 
 
-def place(component, on, depths=None, fold=None, unroll=None, layout=None):
+def place(
+    component, on, depths=None, fold=None, unroll=None, layout=None, specialise=()
+):
     """Instantiate ``component`` on the topology ``on``.
 
     Legal iff the component's Interface and the topology's match.  The error is
     the Lego error and reads like one.
+
+    ``specialise`` names grid axes whose coordinate becomes part of the role
+    rather than an input to it. By default a role stands for every site with the
+    same wiring and is told where it is on a ``_pid`` stream, which keeps the
+    role count independent of the grid -- but it also makes anything derived
+    from the position *runtime* logic. A drain that forwards ``row`` results
+    then needs a counter, a comparator and a variable-latency FSM in every
+    instance; specialising ``row`` turns the same loop into a constant trip
+    count. Measured on one such unit: 70 FF and 227 LUT against 11 and 174.
+
+    The cost is one role per position along the axis, and therefore one more
+    HLS run. Roles are independent and synthesise concurrently, so that is
+    mostly wall-clock-free until the role count passes the core count -- but it
+    is a real choice, and it is spelled out here rather than taken silently.
     """
     if not isinstance(component, (Unit, Fabric)):
         raise SPMWPlacementError(
@@ -286,8 +314,21 @@ def place(component, on, depths=None, fold=None, unroll=None, layout=None):
         )
     if not matches(iface, on.iface):
         _report_mismatch(component, unwrap(iface), unwrap(on.iface), on)
+    for axis in specialise or ():
+        if not 0 <= axis < len(on.grid):
+            raise SPMWPlacementError(
+                f"place(specialise={tuple(specialise)}) names axis {axis}, but "
+                f"`{getattr(component, 'name', 'component')}` is placed on a "
+                f"{len(on.grid)}-D grid {tuple(on.grid)}."
+            )
     placement = Placement(
-        component, on, depths=depths, fold=fold, unroll=unroll, layout=layout
+        component,
+        on,
+        depths=depths,
+        fold=fold,
+        unroll=unroll,
+        layout=layout,
+        specialise=specialise,
     )
     from .context import current_fabric  # pylint: disable=import-outside-toplevel
 

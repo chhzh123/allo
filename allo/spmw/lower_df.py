@@ -1347,21 +1347,27 @@ def _wiring_classes(placement, resolution):
 
     In the ordinary case every site with a signature shares its routing, so this
     is the signature partition and the arm count is unchanged.
+
+    A *specialised* axis joins the key: sites that differ along it get different
+    roles even when they are wired identically, which is what lets the body see
+    its position as a literal. See :func:`allo.spmw.place`.
     """
+    axes = getattr(placement, "specialise", ()) or ()
     groups = {}
     for (
         site,
         signature,
     ) in placement.topology._bound.items():
-        key = (signature, resolution.routing(site, signature))
+        fixed = tuple(int(site[a]) for a in axes)
+        key = (signature, resolution.routing(site, signature), fixed)
         groups.setdefault(key, (signature, {}, []))[2].append(site)
     ordered = sorted(
         groups.items(),
-        key=lambda kv: (-len(kv[1][2]), sorted(p.name for p in kv[0][0])),
+        key=lambda kv: (-len(kv[1][2]), kv[0][2], sorted(p.name for p in kv[0][0])),
     )
     return [
         (signature, dict(routing), sites)
-        for (signature, routing), (signature_, _, sites) in ordered
+        for (signature, routing, _fixed), (signature_, _, sites) in ordered
     ]
 
 

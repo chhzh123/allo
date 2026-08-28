@@ -151,6 +151,24 @@ def design(name, size):
         from test_spmw_autosa_match import autosa_match_of
 
         return autosa_match_of(size)
+    if name == "autosa-spec":
+        # The fused design with the PE's row specialised -- the control that
+        # says whether splitting the drain out was needed at all.
+        from test_spmw_autosa_match import autosa_match_of
+
+        return autosa_match_of(size, specialise=True)
+    if name == "split":
+        # The same, with the drain lifted out of the PE into its own placement,
+        # as AutoSA's `C_drain_IO_L1_out` is. The PE becomes a pure MAC.
+        from test_spmw_split_drain import split_drain_of
+
+        return split_drain_of(size)
+    if name == "split-spec":
+        # And with the drain's row specialised, so its forwarding loop has a
+        # compile-time trip count -- one role per row, synthesised concurrently.
+        from test_spmw_split_drain import split_drain_of
+
+        return split_drain_of(size, specialise=True)
     if name == "tpu":
         from test_spmw_tpu import tpu_matmul
 
@@ -620,6 +638,9 @@ def main():
             "gemm8",
             "daisy",
             "autosa",
+            "autosa-spec",
+            "split",
+            "split-spec",
             "tpu",
             "fft",
             "attention",

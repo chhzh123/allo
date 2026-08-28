@@ -54,8 +54,13 @@ class _UnitRewriter(_BodyRewriter):
     untouched, so the unit computes what the array's site computes.
     """
 
-    def __init__(self, *args, connected=(), **kwargs):
+    def __init__(self, *args, connected=(), fixed=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Coordinates this role knows at compile time, because its placement
+        # specialises those axes. The body sees a literal and the fabric drives
+        # no `_pid` for them -- which is the whole point: a loop bounded by a
+        # specialised coordinate has a constant trip count.
+        self.fixed = dict(fixed or {})
         # What the *site* connects, not what the signature holds: a port fed by
         # a loader is a real input to the unit but is absent from the signature,
         # which holds only peer links.
@@ -93,7 +98,10 @@ class _UnitRewriter(_BodyRewriter):
             if isinstance(node.slice, ast.Constant) and isinstance(
                 node.slice.value, int
             ):
-                self.coords.add(node.slice.value)
+                axis = node.slice.value
+                if axis in self.fixed:
+                    return ast.Constant(value=int(self.fixed[axis]))
+                self.coords.add(axis)
         port = self._port_of(node.value)
         if port is not None and port.protocol == MEMORY:
             return ast.Subscript(
@@ -110,7 +118,7 @@ class _UnitRewriter(_BodyRewriter):
             and node.value.id == self.site
             and node.attr == "rank"
         ):
-            self.coords.update(range(len(self.pids)))
+            self.coords.update(a for a in range(len(self.pids)) if a not in self.fixed)
         port = self._port_of(node)
         if port is not None and port.protocol == MEMORY:
             return self._resident(port)
@@ -122,8 +130,15 @@ class _UnitRewriter(_BodyRewriter):
         # from df.get_pid(); a single-instance kernel's pid is always zero, so
         # here they come from the unit's own coordinate inputs.
         if self.site and _is_site_rank(node.value, self.site):
-            self.coords.update(range(len(self.pids)))
-            names = [ast.Name(id=p, ctx=ast.Load()) for p in self.pids]
+            self.coords.update(a for a in range(len(self.pids)) if a not in self.fixed)
+            names = [
+                (
+                    ast.Constant(value=int(self.fixed[a]))
+                    if a in self.fixed
+                    else ast.Name(id=pid, ctx=ast.Load())
+                )
+                for a, pid in enumerate(self.pids)
+            ]
             # Shape the value like the *target*, not like the grid: `(slot,) =
             # site.rank` on a 1-D placement unpacks a one-tuple, and handing it a
             # bare name emits `slot, = _st__pid0`, which is a scalar unpack.
@@ -209,6 +224,7 @@ class UnitEmitter:
             _io_name(placement, site),
             _site_name(placement, site),
             connected=[p for p, _f in self.struct.site_ports(placement, site)],
+            fixed={a: site[a] for a in getattr(placement, "specialise", ()) or ()},
         )
         out = []
         for stmt in body.tree.body:

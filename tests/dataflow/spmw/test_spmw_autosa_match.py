@@ -31,8 +31,13 @@ from allo.ir.types import int8, int32
 SIZE = 4
 
 
-def autosa_match_of(size):
-    """The matched design at a chosen size."""
+def autosa_match_of(size, specialise=False):
+    """The matched design at a chosen size.
+
+    ``specialise`` makes the PE's row part of its role rather than an input, so
+    the drain loop it carries gets a compile-time trip count. See
+    `test_spmw_split_drain.py` for what that is worth.
+    """
     n = size
 
     class MacIO(spmw.Interface):
@@ -95,7 +100,7 @@ def autosa_match_of(size):
 
     @spmw.fabric
     def g(At: int8[n, n], Bt: int8[n, n], Ct: int32[n, n]):
-        P = spmw.place(pe, on=mesh)
+        P = spmw.place(pe, on=mesh, specialise=(0,) if specialise else ())
         Fa = spmw.place(feed, on=chain)
         Fb = spmw.place(feed, on=chain)
         # One packed vector per step enters the head of each chain; every link
