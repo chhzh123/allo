@@ -441,15 +441,92 @@ and ours stops at the fabric's edge after one.
 
 **So: the compute matches, and the cycle comparison is measuring their memory
 system against our absence of one.** Which is E14's point arriving from a third
-direction, and the reason the honest headline is compile time, not throughput.
+direction.
+
+**That gap is now closed — see "The measured end-to-end comparison" below.**
+SPMW's fabric reaches DRAM itself, and the matched 16×16 design completes in
+**377 cycles** against AutoSA's 859.
 
 (Our own PE reports no static latency, incidentally: the scalar drain's
 `for _i in range(row)` has a coordinate-dependent trip count, so HLS gives `?`.
 That is correct behaviour and matches what AutoSA's drain does with `idx`/`idy`.)
 
-**What is left to match:** the DRAM interface (E14), and their second-level C
-drain, which chains once more across the bottom row where we still export one
-stream per column (18 edge streams against their ~3).
+**What is left to match:** their second-level C drain, which chains once more
+across the bottom row where we still export one stream per column (18 masters
+against their 3). The DRAM interface itself is built.
+
+### The measured end-to-end comparison
+
+`StructuralEmitter.fabric(memory=True)` builds each binding's mover as an IP
+whose tensor argument is an AXI master, so the fabric loads and stores for
+itself. `allo.spmw.dram` puts a behavioural AXI4 slave behind every master and
+runs the array from `ap_start` to `ap_done`. Both sides now measure the same
+thing: DRAM in, DRAM out.
+
+| 16×16 int8 | SPMW matched | AutoSA |
+|---|---|---|
+| cosim cycles, end to end | **377** | 859 |
+| DRAM ports | 18 | 3 |
+| HLS runs to build it | **18** (15 roles + 3 movers) | 1 whole-kernel |
+| HLS wall clock | **45.3 s** | 1255.5 s |
+
+Where SPMW's 377 go, from the per-master completion times:
+
+| phase | cycles |
+|---|---|
+| loading A and B from DRAM | 272 |
+| compute wavefront and drain | 105 |
+
+**The loads are 72% of the run, and the reason is not the memory.** The loader's
+outer loop runs at II=16 because its inner loop copies the block a byte at a
+time — `_blk[_b0] = v0[_t][_b0]`, sixteen sequential accesses per token — so
+Vitis never widens the master past 8 bits and 256 elements cost 256 cycles.
+AutoSA's `A_IO_L3_in` reads 512 bits a beat and covers the same 256 bytes in
+four. Emitting a wide read in the mover would take the load phase from 272
+cycles towards ~20, and the whole run from 377 towards ~125. That is the
+clearest piece of headroom in the flow and it is codegen, not design.
+
+Sensitivity to the memory, sweeping the model's read latency:
+
+| read latency (cycles) | 0 | 8 | 32 | 64 | 128 |
+|---|---|---|---|---|---|
+| 4×4 total | 68 | 76 | 100 | 132 | 196 |
+| 16×16 total | 377 | 385 | 412 | 540 | 796 |
+
+At 4×4 the cost is exactly `68 + latency`: one burst per master, latency paid
+once. At 16×16 it stays flat to about 32 cycles and then grows, because 256
+bytes at 4 bytes a beat is four maximum-length bursts rather than one, and only
+the first hides behind the packing loop. Both are consequences of the same
+narrow master.
+
+**Read the 377-vs-859 carefully.** The memory models are not the same: ours is
+described in `allo/spmw/dram.py` — one memory per master, no contention, one
+outstanding transaction, a beat a cycle — and AutoSA's 859 was measured under
+Vitis' own. The defensible claim is that SPMW is now measuring the same *scope*
+as AutoSA rather than a strictly smaller one, and that within our model it is
+faster at every latency we swept. A controlled comparison would need AutoSA
+re-run against this same slave, which is worth doing before the number is
+published.
+
+**Where the hierarchy does and does not matter.** The prediction was that
+lacking AutoSA's three levels would degrade memory access badly. Half right, and
+the half that is right is not the half one expects:
+
+- *Reuse* is not the problem. The distribution chain already gives it: each
+  element of A is fetched from DRAM exactly once and broadcast down the chain,
+  which is what AutoSA's L2 is for. The chain is an ordinary SPMW placement.
+- *Port count* is a real problem, and it is the drain. A plain mesh would need
+  2N masters and the chained design needs N+2 — 18 at 16×16, against AutoSA's
+  3. A U280 has 32 HBM channels, so 16×16 fits and 32×32 does not.
+- *Burst width* is the immediate cost, and it is the mover's codegen rather
+  than the hierarchy.
+
+| design | masters at 16×16 | why |
+|---|---|---|
+| `gemm8`, plain mesh | 32 | one loader per row and per column |
+| `daisy`, chained drain | 48 | the same, plus a per-column drain |
+| `autosa`, both chained | 18 | two chain heads, plus a per-column drain |
+| AutoSA | 3 | one more drain level than we have |
 
 **Two compiler bugs this design found**, both in paths nothing had exercised:
 

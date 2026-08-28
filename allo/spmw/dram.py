@@ -214,7 +214,6 @@ class MemoryBench:
             "  wire done;",
             "  integer errors = 0;",
             "  integer cycle = 0;",
-            "  integer i;",
         ]
         conns = [
             ".ap_clk(clk)",
@@ -225,6 +224,7 @@ class MemoryBench:
         for master in masters:
             lines += self._ram(master, conns)
         lines.append(f"  {top} dut (" + ",\n      ".join(conns) + ");")
+        lines += self._timing(masters)
         lines += [
             "  initial begin",
             "    repeat (4) @(posedge clk);",
@@ -243,6 +243,14 @@ class MemoryBench:
         for master in masters:
             if not master["reads"]:
                 lines += self._check(master)
+        for master in masters:
+            lines.append(
+                f'        $display("SPMW MASTER {master["name"]} '
+                f'{"read" if master["reads"] else "write"} done=%0d", '
+                # The last master to finish latches on the same edge the run
+                # ends on, so its sampler has not fired yet; it finished now.
+                f'{master["name"]}_at < 0 ? cycle : {master["name"]}_at);'
+            )
         lines += [
             '        $display("SPMW COSIM %s (%0d errors)",',
             '                 errors == 0 ? "PASS" : "FAIL", errors);',
@@ -259,6 +267,23 @@ class MemoryBench:
             "endmodule",
         ]
         return "\n".join(lines) + "\n"
+
+    def _timing(self, masters):
+        """When each transfer finished, so the run can be broken down.
+
+        A single end-to-end number cannot say whether the loads, the compute or
+        the drain is the cost, and that is the question the comparison against
+        AutoSA turns on -- their own report splits the same way.
+        """
+        lines = []
+        for master in masters:
+            name = master["name"]
+            lines += [
+                f"  integer {name}_at = -1;",
+                f"  always @(posedge clk) if (rst_n && {name}_at < 0 && "
+                f"dut.{name}_done_r) {name}_at = cycle;",
+            ]
+        return lines
 
     def _bytes(self, master):
         """How large this master's memory has to be."""
