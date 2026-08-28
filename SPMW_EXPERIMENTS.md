@@ -499,6 +499,58 @@ bytes at 4 bytes a beat is four maximum-length bursts rather than one, and only
 the first hides behind the packing loop. Both are consequences of the same
 narrow master.
 
+### Area, like for like
+
+With the memory interface built, both sides are whole accelerators, and both
+numbers now come from **Vivado `synth_design`** on the same part (xcu280) at the
+same clock target (3.333 ns against their 3.330 ns). No HLS estimates on either
+side, and no PE-array-only row: that row existed to work around the scope
+asymmetry and the asymmetry is gone.
+
+| 16×16 int8, Vivado post-synthesis | SPMW matched | AutoSA |
+|---|---|---|
+| LUT | **54,485** | 55,358 |
+| FF | **43,620** | 96,944 |
+| CARRY8 | 1,989 | 86 |
+| BRAM | 9 | 4.5 |
+| URAM | 0 | 0 |
+| DSP | 256 | 256 |
+| achieved clock | 2.412 ns (WNS +0.921) | **2.126 ns** (WNS +1.204) |
+| cosim cycles, DRAM to DRAM | **377** | 859 |
+| wall clock | **909 ns** | 1826 ns |
+| DRAM ports | 18 | **3** |
+| HLS wall clock | **44.7 s** | 1255.5 s |
+| Vivado synthesis | **437.5 s** | 595.8 s |
+
+Reading it:
+
+- **LUTs are a tie** — 1.6% apart, which is noise at this scale. The headline
+  "1.38× smaller" from before was measuring our missing memory interface.
+- **Registers are not**: SPMW uses 2.2× fewer. AutoSA's I/O hierarchy buffers
+  and double-buffers at every level, and that is where its flip-flops go.
+- **DSPs are identical** at 256 — one per PE on both sides, which is the check
+  that the two designs really are doing the same arithmetic.
+- **AutoSA holds the better clock**, 2.126 ns against 2.412 ns. We win on wall
+  clock anyway, 909 ns against 1826 ns, because 377 cycles against 859 is the
+  larger factor.
+- **We pay for it in ports.** 18 AXI masters against 3.
+
+**What the area numbers leave out, and it favours us:** neither figure includes
+the shell's AXI interconnect, and servicing 18 masters costs materially more of
+it than servicing 3. On a real platform that gap is not free. Chaining the drain
+one more level — the one structural thing still missing — would take us to 3 and
+close it.
+
+**What the memory interface cost us**, against the same design without it:
+
+| | bare fabric | memory-mapped |
+|---|---|---|
+| LUT | 40,022 | 54,485 |
+| clock | 1.748 ns | 2.412 ns |
+
++36% area and +38% period for the AXI masters and their address generation. That
+is the honest price of the thing that makes the comparison meaningful.
+
 **Read the 377-vs-859 carefully.** The memory models are not the same: ours is
 described in `allo/spmw/dram.py` — one memory per master, no contention, one
 outstanding transaction, a beat a cycle — and AutoSA's 859 was measured under
@@ -561,7 +613,12 @@ it is large because collecting one result per PE is intrinsically O(N²) work.
 
 *Option A — strip AutoSA to its PE array.* Cheap, and their hierarchical
 utilisation report already isolates it (int8: 15,557 LUT for PEs + inter-PE FIFOs
-against SPMW's 10,458). But it measures a design AutoSA never intended to emit
+against SPMW's 10,458). Note the provenance mismatch if this row is ever quoted:
+15,557 is Vitis HLS's *estimate* from `csynth.rpt`, while SPMW's 10,458 is Vivado
+post-synthesis. The whole-kernel row (55,358) is Vivado on both sides and is the
+one to use — see "Area, like for like".
+
+Stripping AutoSA also measures a design it never intended to emit
 standalone, its I/O network and latency hiding are *claimed contributions* of the
 paper, and it leaves SPMW still undeployable. It also does not fix compile time,
 which cannot be meaningfully attributed to "the PE part" of a monolithic csynth.
@@ -571,7 +628,10 @@ master, a drain collector. But it removes the objection permanently rather than
 arguing around it, makes every metric a system-to-system comparison, and unlocks
 E6 (on-board), which is the strongest evidence available.
 
-**Recommendation: B, with A as the interim.** For a submission now, report
+**Done: B.** The memory interface is built and measured; see "Area, like for
+like" and "The measured end-to-end comparison". A is no longer needed.
+
+*(The original recommendation, kept for the reasoning.)* **B, with A as the interim.** For a submission now, report
 PE-array-only for QoR on both sides and state the compile-time asymmetry in
 words rather than normalising it away. For a strong submission, build the
 interface.
