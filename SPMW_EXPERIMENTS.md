@@ -413,6 +413,40 @@ and 2.57× *larger* than their PE array alone, and the truth is between those,
 because our fabric now contains the distribution and drain networks their PE-only
 figure excludes but not the DRAM interface their whole-kernel figure includes.
 
+**Why the cycle counts differ by 8x — it is not the compute.** AutoSA's own
+per-module report says where its 859 go:
+
+| module | latency | count |
+|---|---|---|
+| `PE_wrapper` — **the compute** | **22** | 256 |
+| `C_drain_IO_L1_out_wrapper` | 36 | 240 |
+| `A`/`B_IO_L2_in` | 56 | 30 |
+| **`C_drain_IO_L2_out`** | **321** | 15 |
+| **`C_drain_IO_L3_out`** | **267** | 1 |
+| `A`/`B_IO_L3_in` | 27 | 2 |
+
+Compute is 22 cycles of it. The **C drain hierarchy is 321 + 267**, and it ends
+at an AXI write. Set against the same 4096 MACs measured end to end:
+
+| | cycles |
+|---|---|
+| SPMW, plain mesh (256 parallel drain ports) | 52 |
+| SPMW, matched (chained feed + chained drain) | 104 |
+| AutoSA (chained + three levels + AXI) | 859 |
+
+Chaining costs us **+52 cycles**; it costs AutoSA **+837** over its 22-cycle PE.
+The difference is not that our PEs are faster — theirs is 22 cycles and ours is
+comparable — it is that their drain aggregates through three levels into DRAM
+and ours stops at the fabric's edge after one.
+
+**So: the compute matches, and the cycle comparison is measuring their memory
+system against our absence of one.** Which is E14's point arriving from a third
+direction, and the reason the honest headline is compile time, not throughput.
+
+(Our own PE reports no static latency, incidentally: the scalar drain's
+`for _i in range(row)` has a coordinate-dependent trip count, so HLS gives `?`.
+That is correct behaviour and matches what AutoSA's drain does with `idx`/`idy`.)
+
 **What is left to match:** the DRAM interface (E14), and their second-level C
 drain, which chains once more across the bottom row where we still export one
 stream per column (18 edge streams against their ~3).
