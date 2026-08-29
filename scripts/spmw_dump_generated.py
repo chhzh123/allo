@@ -25,14 +25,44 @@ from allo.spmw import rtl  # pylint: disable=wrong-import-position
 from allo.spmw.cosim import render_testbench  # pylint: disable=wrong-import-position
 from allo.spmw.lower_df import render_source  # pylint: disable=wrong-import-position
 from allo.spmw.lower_mlir import render_module  # pylint: disable=wrong-import-position
+from allo.spmw.dram import (  # pylint: disable=wrong-import-position
+    ram_module,
+    render_memory_testbench,
+)
 from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
+    MoverEmitter,
     UnitEmitter,
+    build_mover,
     build_unit,
+    mover_wrapper_sv,
     trim_includes,
     wrapper_sv,
 )
 
-DESIGNS = ("gemm", "gemm8", "tiled", "fft", "tpu", "attention")
+DESIGNS = (
+    "gemm",
+    "gemm8",
+    "tiled",
+    "fft",
+    "tpu",
+    "attention",
+    # The AutoSA comparison, and the two things learned from it.
+    "autosa",
+    "autosa-spec",
+    "split",
+)
+
+# Designs whose bindings synthesise movers, so the memory-mapped fabric and its
+# AXI masters can be dumped too. A `MemOut` gathered per site has no mover, so
+# the plain meshes stop at their edge streams.
+MEMORY = ("autosa", "autosa-spec", "split")
+
+# Sizes that differ from the default. A 3x3 mesh has nine sites in nine wiring
+# classes -- every one is an edge or a corner -- so specialising a coordinate
+# cannot split anything and `autosa-spec` would be a byte-for-byte copy of
+# `autosa`. From 4x4 there is an interior to split, and the role counts diverge:
+# 15 against 18 at 4x4, 15 against 21 at 5x5.
+SIZES = {"autosa": 4, "autosa-spec": 4, "split": 4}
 
 
 def dump(name, out, size):
@@ -72,7 +102,29 @@ def dump(name, out, size):
     write("10_spmw_top.sv", rtl.StructuralEmitter(graph).fabric())
     arrays = operands(fabric, graph)
     write("11_tb.sv", render_testbench(graph, arrays, arrays))
+
+    if name in MEMORY:
+        _dump_memory(name, graph, arrays, write)
     return rtl.cost(graph)
+
+
+def _dump_memory(name, graph, arrays, write):
+    """The DRAM side: each binding's mover as an IP, and the fabric holding them.
+
+    This is what makes the design an accelerator rather than a core, and it is
+    the part the AutoSA comparison turns on -- so it is checked in too.
+    """
+    movers = MoverEmitter(graph)
+    for index in range(len(movers.movers())):
+        mover = movers.name(index)
+        write(f"13_mover_{mover}.py", movers.program(index)[0])
+        code = trim_includes(str(build_mover(graph, index, target="vhls").hls_code))
+        write(f"14_mover_{mover}.cpp", code)
+        write(f"15_mover_{mover}_wrapper.sv", mover_wrapper_sv(graph, index, code))
+    write("16_spmw_top_memory.sv", rtl.StructuralEmitter(graph).fabric(memory=True))
+    write("17_spmw_axi_ram.sv", ram_module())
+    write("18_tb_memory.sv", render_memory_testbench(graph, arrays, arrays))
+    del name
 
 
 def main():
@@ -82,7 +134,8 @@ def main():
     parser.add_argument("--design", choices=DESIGNS, help="just one of them")
     args = parser.parse_args()
     for name in [args.design] if args.design else DESIGNS:
-        print(f"{name}: {dump(name, args.out, args.size)}", flush=True)
+        size = SIZES.get(name, args.size)
+        print(f"{name} ({size}x{size}): {dump(name, args.out, size)}", flush=True)
 
 
 if __name__ == "__main__":

@@ -5,9 +5,21 @@ Checked in so the stages can be read side by side. Everything here is generated
 `scripts/spmw_dump_generated.py`, so it can be diffed after a change to see what
 actually moved.
 
-Six designs, one directory each: `gemm` (§3.1 systolic GEMM, 3×3), `gemm8` (the
-same mesh in int8), `tiled` (§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU),
-`attention` (§3.6 P·V).
+Nine designs, one directory each.
+
+From the design doc, at 3×3: `gemm` (§3.1 systolic GEMM), `gemm8` (the same mesh
+in int8), `tiled` (§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU), `attention`
+(§3.6 P·V).
+
+From the AutoSA comparison, at 4×4: `autosa` (chained A/B distribution, chained
+drain, int8 — structurally what AutoSA emits), `autosa-spec` (the same with the
+PE's row specialised), `split` (the drain lifted into its own placement). These
+three also reach DRAM, so they carry files 13–18.
+
+Why 4×4 for those three: a 3×3 mesh has nine sites in nine wiring classes —
+every one is an edge or a corner — so there is no interior for `specialise` to
+split, and `autosa-spec` would be a byte-for-byte copy of `autosa`. At 4×4 the
+role counts diverge, 15 against 18.
 
 ## The two paths, and where they diverge
 
@@ -26,10 +38,27 @@ A fabric is elaborated once, then lowered two ways.
 | **9** | `09_spmw_const.sv` | a constant source, for a role that reads its own coordinates |
 | **10** | `10_spmw_top.sv` | the structural fabric: FIFOs, constant sources, one instance per site |
 | **11** | `11_tb.sv` | the self-checking testbench, driven from the design's own index maps |
-| **12** | `12_exported_*.v` | what Vitis HLS actually exported for one role (`gemm`, `fft` only) |
+| **12** | `12_exported_*.v` | what Vitis HLS actually exported for one role (`gemm`, `gemm8`, `fft` only) |
 
 Files 3–4 are the whole array as one HLS program. Files 5–12 are the split:
 HLS builds the unit, RTL builds the array.
+
+### The memory path (`autosa`, `autosa-spec`, `split` only)
+
+Everything above ends at the array's edge streams, with something outside
+holding the operands. These five say how the array reaches DRAM itself.
+
+| | file | what it is |
+|---|---|---|
+| **13** | `13_mover_*.py` | one *mover* — the loader or drain a binding implies — as its own dataflow program |
+| **14** | `14_mover_*.cpp` | that mover as standalone HLS C++; its tensor argument becomes an AXI master |
+| **15** | `15_mover_*_wrapper.sv` | the shim, forwarding the whole AXI4 master plus the base-address input |
+| **16** | `16_spmw_top_memory.sv` | the fabric again, with the movers inside it and AXI masters at the top |
+| **17** | `17_spmw_axi_ram.sv` | a behavioural AXI4 slave to simulate against |
+| **18** | `18_tb_memory.sv` | the bench: a memory per master, start once, stop at `ap_done` |
+
+Diff `10_spmw_top.sv` against `16_spmw_top_memory.sv` to see the change: the edge
+stream ports disappear and mover instances drive those FIFOs from inside.
 
 ## Things worth looking at
 
@@ -64,6 +93,28 @@ own structure and then cross-checked against how the body uses each parameter.
 joins them with FIFOs — the `link` between the MXU and the activation row is
 internal to the fabric, not an edge port.
 
+**What specialising a coordinate does.** Diff `05_unit_pe_r2.py` between
+`autosa` and `autosa-spec`. The fused PE forwards `row` results after its MAC.
+In `autosa` the row arrives on a `_pid` stream —
+
+    row, _col = (_st__pid0, _st__pid1)
+
+— so the loop bound is a variable, and every instance carries a counter, a
+comparator and a variable-latency FSM. In `autosa-spec` the row is part of the
+*role*, so the same line reads
+
+    row, _col = (2, _st__pid1)
+
+and the bound is constant by the time it reaches HLS. Measured on one drain unit
+at 16×16: 70 FF and 207 LUT against 10 and 161. Across a 16×16 array it is worth
+21% of the LUTs, 16% of the registers and 72% of the carry chains, at the price
+of more roles — which synthesise concurrently. See `SPMW_EXPERIMENTS.md`.
+
+**How many DRAM ports a design needs.** Count the `_offset` inputs at the top of
+`16_spmw_top_memory.sv`. `autosa` has six at 4×4 — two chain heads and one per
+drain column — and the chain heads stay at one however large the array gets,
+which is the whole reason the chain is worth writing.
+
 **The same mesh, two number formats.** `gemm` and `gemm8` are structurally
 identical — diff `01_dataflow.py` between them and only the types move. What
 changes downstream is large: the float PE carries `acc` through an fp32 add in a
@@ -72,7 +123,7 @@ shorter adder); the int8 PE's add is single-cycle, so it runs at II=1. Compare
 `06_unit_pe_r2.cpp` in each, and the exported `12_exported_pe_r2_0.v`.
 
 Measured on the 4×4 array: 103.7 ns and 6,495 LUTs for float, 25.3 ns and 545
-LUTs for int8.
+LUTs for int8. (The `gemm`/`gemm8` directories themselves are dumped at 3×3.)
 
 ## Regenerating
 

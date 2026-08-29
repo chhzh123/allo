@@ -1,0 +1,16 @@
+import allo
+import allo.dataflow as df
+from allo.ir.types import Stream
+
+@df.region()
+def top(At: int8[4, 4]):
+    chan: Stream[int8[4], 2][1]
+
+    @df.kernel(mapping=[1], args=[At])
+    def feed_up_load_io(local_At: int8[4, 4]):
+        _q0 = 0
+        for _t in range(4):
+            _blk: int8[4] = 0
+            for _b0 in range(4):
+                _blk[_b0] = local_At[_t, _b0]
+            chan[0].put(_blk)

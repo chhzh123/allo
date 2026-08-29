@@ -6,7 +6,7 @@
 
 `timescale 1 ns / 1 ps 
 
-(* CORE_GENERATION_INFO="pe_r2_0_pe_r2_0,hls_ip_2023_2,{HLS_INPUT_TYPE=cxx,HLS_INPUT_FLOAT=0,HLS_INPUT_FIXED=0,HLS_INPUT_PART=xcu280-fsvh2892-2L-e,HLS_INPUT_CLOCK=3.330000,HLS_INPUT_ARCH=others,HLS_SYN_CLOCK=2.430900,HLS_SYN_LAT=11,HLS_SYN_TPT=none,HLS_SYN_MEM=0,HLS_SYN_DSP=0,HLS_SYN_FF=99,HLS_SYN_LUT=197,HLS_VERSION=2023_2}" *)
+(* CORE_GENERATION_INFO="pe_r2_0_pe_r2_0,hls_ip_2023_2,{HLS_INPUT_TYPE=cxx,HLS_INPUT_FLOAT=0,HLS_INPUT_FIXED=0,HLS_INPUT_PART=xcu280-fsvh2892-2L-e,HLS_INPUT_CLOCK=3.330000,HLS_INPUT_ARCH=others,HLS_SYN_CLOCK=2.430900,HLS_SYN_LAT=10,HLS_SYN_TPT=none,HLS_SYN_MEM=0,HLS_SYN_DSP=0,HLS_SYN_FF=97,HLS_SYN_LUT=211,HLS_VERSION=2023_2}" *)
 
 module pe_r2_0 (
         ap_clk,
@@ -22,7 +22,10 @@ module pe_r2_0 (
         v2_write,
         v3_din,
         v3_full_n,
-        v3_write
+        v3_write,
+        v4_din,
+        v4_full_n,
+        v4_write
 );
 
 parameter    ap_ST_fsm_state1 = 3'd1;
@@ -40,29 +43,35 @@ output   v1_read;
 output  [7:0] v2_din;
 input   v2_full_n;
 output   v2_write;
-output  [31:0] v3_din;
+output  [7:0] v3_din;
 input   v3_full_n;
 output   v3_write;
+output  [31:0] v4_din;
+input   v4_full_n;
+output   v4_write;
 
 reg v0_read;
 reg v1_read;
 reg v2_write;
 reg v3_write;
+reg v4_write;
 
-reg    v3_blk_n;
+reg    v4_blk_n;
 (* fsm_encoding = "none" *) reg   [2:0] ap_CS_fsm;
 wire    ap_CS_fsm_state3;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_done;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_idle;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_ready;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v0_read;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v1_read;
-wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_din;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_write;
-wire   [17:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_acc_1_out;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_acc_1_out_ap_vld;
-reg    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_idle;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_ready;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read;
+wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write;
+wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_write;
+wire   [16:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out_ap_vld;
+reg    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg;
 wire    ap_CS_fsm_state1;
 wire    ap_CS_fsm_state2;
 reg   [2:0] ap_NS_fsm;
@@ -74,27 +83,30 @@ wire    ap_ce_reg;
 // power-on initialization
 initial begin
 #0 ap_CS_fsm = 3'd1;
-#0 grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg = 1'b0;
+#0 grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg = 1'b0;
 end
 
-pe_r2_0_pe_r2_0_Pipeline_l_S_k_0_k grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45(
+pe_r2_0_pe_r2_0_Pipeline_l_S_k_0_k grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47(
     .ap_clk(ap_clk),
     .ap_rst(ap_rst),
-    .ap_start(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start),
-    .ap_done(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_done),
-    .ap_idle(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_idle),
-    .ap_ready(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_ready),
+    .ap_start(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start),
+    .ap_done(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done),
+    .ap_idle(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_idle),
+    .ap_ready(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_ready),
     .v0_dout(v0_dout),
     .v0_empty_n(v0_empty_n),
-    .v0_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v0_read),
+    .v0_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read),
     .v1_dout(v1_dout),
     .v1_empty_n(v1_empty_n),
-    .v1_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v1_read),
-    .v2_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_din),
+    .v1_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read),
+    .v2_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din),
     .v2_full_n(v2_full_n),
-    .v2_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_write),
-    .acc_1_out(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_acc_1_out),
-    .acc_1_out_ap_vld(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_acc_1_out_ap_vld)
+    .v2_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write),
+    .v3_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din),
+    .v3_full_n(v3_full_n),
+    .v3_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_write),
+    .acc_1_out(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out),
+    .acc_1_out_ap_vld(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out_ap_vld)
 );
 
 always @ (posedge ap_clk) begin
@@ -107,12 +119,12 @@ end
 
 always @ (posedge ap_clk) begin
     if (ap_rst == 1'b1) begin
-        grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg <= 1'b0;
+        grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg <= 1'b0;
     end else begin
         if ((1'b1 == ap_CS_fsm_state1)) begin
-            grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg <= 1'b1;
-        end else if ((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_ready == 1'b1)) begin
-            grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg <= 1'b0;
+            grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg <= 1'b1;
+        end else if ((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_ready == 1'b1)) begin
+            grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg <= 1'b0;
         end
     end
 end
@@ -120,7 +132,7 @@ end
 assign ap_ST_fsm_state1_blk = 1'b0;
 
 always @ (*) begin
-    if ((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_done == 1'b0)) begin
+    if ((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done == 1'b0)) begin
         ap_ST_fsm_state2_blk = 1'b1;
     end else begin
         ap_ST_fsm_state2_blk = 1'b0;
@@ -128,7 +140,7 @@ always @ (*) begin
 end
 
 always @ (*) begin
-    if ((v3_full_n == 1'b0)) begin
+    if ((v4_full_n == 1'b0)) begin
         ap_ST_fsm_state3_blk = 1'b1;
     end else begin
         ap_ST_fsm_state3_blk = 1'b0;
@@ -137,7 +149,7 @@ end
 
 always @ (*) begin
     if ((1'b1 == ap_CS_fsm_state2)) begin
-        v0_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v0_read;
+        v0_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read;
     end else begin
         v0_read = 1'b0;
     end
@@ -145,7 +157,7 @@ end
 
 always @ (*) begin
     if ((1'b1 == ap_CS_fsm_state2)) begin
-        v1_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v1_read;
+        v1_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read;
     end else begin
         v1_read = 1'b0;
     end
@@ -153,25 +165,33 @@ end
 
 always @ (*) begin
     if ((1'b1 == ap_CS_fsm_state2)) begin
-        v2_write = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_write;
+        v2_write = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write;
     end else begin
         v2_write = 1'b0;
     end
 end
 
 always @ (*) begin
-    if ((1'b1 == ap_CS_fsm_state3)) begin
-        v3_blk_n = v3_full_n;
+    if ((1'b1 == ap_CS_fsm_state2)) begin
+        v3_write = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_write;
     end else begin
-        v3_blk_n = 1'b1;
+        v3_write = 1'b0;
     end
 end
 
 always @ (*) begin
-    if (((v3_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
-        v3_write = 1'b1;
+    if ((1'b1 == ap_CS_fsm_state3)) begin
+        v4_blk_n = v4_full_n;
     end else begin
-        v3_write = 1'b0;
+        v4_blk_n = 1'b1;
+    end
+end
+
+always @ (*) begin
+    if (((v4_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
+        v4_write = 1'b1;
+    end else begin
+        v4_write = 1'b0;
     end
 end
 
@@ -181,14 +201,14 @@ always @ (*) begin
             ap_NS_fsm = ap_ST_fsm_state2;
         end
         ap_ST_fsm_state2 : begin
-            if (((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_done == 1'b1) & (1'b1 == ap_CS_fsm_state2))) begin
+            if (((grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done == 1'b1) & (1'b1 == ap_CS_fsm_state2))) begin
                 ap_NS_fsm = ap_ST_fsm_state3;
             end else begin
                 ap_NS_fsm = ap_ST_fsm_state2;
             end
         end
         ap_ST_fsm_state3 : begin
-            if (((v3_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
+            if (((v4_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
                 ap_NS_fsm = ap_ST_fsm_state1;
             end else begin
                 ap_NS_fsm = ap_ST_fsm_state3;
@@ -206,10 +226,12 @@ assign ap_CS_fsm_state2 = ap_CS_fsm[32'd1];
 
 assign ap_CS_fsm_state3 = ap_CS_fsm[32'd2];
 
-assign grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_ap_start_reg;
+assign grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg;
 
-assign v2_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_v2_din;
+assign v2_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din;
 
-assign v3_din = $signed(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_45_acc_1_out);
+assign v3_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din;
+
+assign v4_din = $signed(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out);
 
 endmodule //pe_r2_0
