@@ -132,14 +132,23 @@ class _IO:
 
 
 def _scalar(value):
-    """Widen an integer read; leave floats and blocks alone.
+    """Widen an integer read; leave floats alone.
 
     An int8 operand feeding an int32 accumulator is widened by the datapath, so
     the reference widens too rather than wrapping at the narrow width.
+
+    That applies to an element of a *block* as much as to a scalar. It did not
+    use to: a block came back at its declared width, so `io.w[t] * a` on two
+    int8s wrapped at 127 where the same expression on `io.w` did not. C++
+    promotes both to `int` and so does HLS, which left the reference the only
+    target that wrapped -- and it wrapped silently, as a numpy warning rather
+    than an error.
     """
     import numpy as np  # pylint: disable=import-outside-toplevel
 
     if isinstance(value, np.ndarray):
+        if np.issubdtype(value.dtype, np.integer):
+            return value.astype(np.int64)
         return value
     if isinstance(value, np.integer):
         return int(value)
@@ -553,6 +562,12 @@ class RefSim:
             if sym.direction == OUT:
                 return _Cell(holder, index)
             return _scalar(holder[index])
+        if sym.direction != OUT:
+            # A block is read the way a scalar is, so it widens the way a scalar
+            # does. Without this `io.w[t] * a` wrapped at int8 where the very
+            # same expression on a scalar `io.w` did not -- and it wrapped as a
+            # numpy warning rather than an error, so it was silent.
+            return _scalar(view)
         return view
 
 

@@ -890,18 +890,23 @@ def _memory_plan(low, placement, port):
 
     def where(site):
         offsets = getattr(source, "offsets", None) or ()
-        # A bare binding carries a SliceMap rather than an index expression; for
-        # a scalar port every slice is one element, so its start *is* the index.
-        # The reference simulator makes the same split.
+        # A bare binding carries a SliceMap rather than an index expression, and
+        # a site owns a *slice* of each axis. Collapsing that to its start is
+        # right only for a scalar port. A block-valued port -- a cell holding
+        # one weight per tile -- owns several elements, and taking the start
+        # drove one of them onto a port carrying all of them, so every tile but
+        # the first reached the array as zero. The reference simulator keeps the
+        # slice; see `refsim._view`.
         if hasattr(binding.imap, "slice_for"):
-            subs = [start for start, _size in binding.imap.slice_for(site)]
+            spans = [(start, size) for start, size in binding.imap.slice_for(site)]
         else:
             env = dict(placement.env(site), __coords__=site)
-            subs = list(binding.imap.eval(env))
-        return tuple(
-            int(v) + int(offsets[k] if k < len(offsets) else 0)
-            for k, v in enumerate(subs)
-        )
+            spans = [(value, 1) for value in binding.imap.eval(env)]
+        out = []
+        for axis, (start, size) in enumerate(spans):
+            begin = int(start) + int(offsets[axis] if axis < len(offsets) else 0)
+            out.append(slice(begin, begin + int(size)) if int(size) > 1 else begin)
+        return tuple(out)
 
     return base.name, where
 

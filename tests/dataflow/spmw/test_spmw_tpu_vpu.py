@@ -331,3 +331,262 @@ def test_the_same_hardware_runs_a_different_program(target):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# K-tiling: a matmul deeper than the array
+# ---------------------------------------------------------------------------
+#
+# The engine above computes A[MT, KT] @ W[KT, NT] and nothing larger: the
+# reduction depth is the array's depth. A real layer is deeper than any array,
+# so a TPU walks the reduction in tiles and accumulates across passes. That is
+# not a new mechanism here -- it is one more instruction.
+
+NTILE = 2  # weight tiles, so the reduction depth is NTILE * KT
+NPROG_T = 12  # a tiled program is longer: one ACCZ per tile
+
+ACCZ = 9  # r[dst] += the next accumulator from the MXU column
+
+
+def tiled_program(*instructions):
+    """A program for the tiled engine, checked against the hardware's contract.
+
+    The lane consumes an accumulator exactly when it executes ``ACCZ``, so a
+    program with the wrong number of them does not compute the wrong answer --
+    it deadlocks against an MXU that is still producing, or hangs waiting for
+    one that has stopped. That is a programming error worth catching here
+    rather than in a waveform.
+    """
+    words = [encode(*i) for i in instructions]
+    accs = sum(1 for i in instructions if i[0] == ACCZ)
+    if accs != NTILE:
+        raise ValueError(f"{accs} ACCZ instructions, the MXU emits {NTILE} per output")
+    if len(words) > NPROG_T:
+        raise ValueError(f"{len(words)} instructions, buffer holds {NPROG_T}")
+    return np.array(words + [encode(NOP)] * (NPROG_T - len(words)), dtype=np.int32)
+
+
+TILED_RELU = tiled_program(
+    (LOADI, 0, 0, 0),  # r0 = 0, the reduction accumulator
+    (ACCZ, 0),  # += tile 0's partial sum
+    (ACCZ, 0),  # += tile 1's
+    (LOADB, 1),
+    (ADD, 0, 1),
+    (LOADI, 2, 0, 0),
+    (MAX, 0, 2),
+    (SHR, 0, 0, 4),
+    (STORE, 0),
+)
+
+
+class TiledMacIO(spmw.Interface):
+    """A cell holding one weight per tile rather than one weight."""
+
+    a_in = spmw.In(int8)
+    a_out = spmw.Out(int8)
+    p_in = spmw.In(int32)
+    p_out = spmw.Out(int32)
+    # One weight per tile. A block-valued memory port takes the block axis
+    # *last* in the tensor it is sharded from, so the weights arrive laid out
+    # per cell -- `W[k, c, t]` -- rather than as the mathematical `W[k', c]`.
+    # A real TPU's host pre-tiles its weights for the same reason.
+    w = spmw.MemIn(int8[NTILE])
+
+
+class TiledVpuIO(spmw.Interface):
+    op_in = spmw.In(int32)
+    op_out = spmw.Out(int32)
+    z_in = spmw.In(int32)
+    y_out = spmw.Out(int32)
+    b = spmw.MemIn(int32)
+
+
+tiled_mxu = spmw.Topology(
+    TiledMacIO,
+    grid=(KT, NT),
+    link=lambda i, j: {
+        TiledMacIO.a_out: spmw.to((i, j + 1), TiledMacIO.a_in),
+        TiledMacIO.p_out: spmw.to((i + 1, j), TiledMacIO.p_in),
+    },
+)
+
+tiled_chain = spmw.Topology(
+    TiledVpuIO,
+    grid=(NT,),
+    link=lambda i: {TiledVpuIO.op_out: spmw.to((i + 1,), TiledVpuIO.op_in)},
+)
+
+
+@spmw.unit
+def tiled_mac(io: TiledMacIO):
+    """The same cell, walking its weight vector.
+
+    `m` outside and `t` inside is not arbitrary: it makes a column emit all of
+    one output's partial sums before moving on, which is the order the lane's
+    `ACCZ` instructions consume them in. The other nesting would need a buffer
+    in every lane.
+    """
+    for m in range(MT):
+        for t in range(NTILE):
+            a = io.a_in.get()
+            p = io.p_in.get()
+            # Widened before the multiply, not after. Two int8s can product to
+            # 225, which does not fit in an int8: C++ promotes and gets this
+            # right by accident, the reference simulator keeps numpy's int8 and
+            # wraps. Saying int32 here makes all three targets agree.
+            wt: int32 = io.w[t]
+            io.p_out.put(p + a * wt)
+            io.a_out.put(a)
+
+
+@spmw.unit
+def tiled_vpu(io: TiledVpuIO):
+    """A lane that reads an accumulator only when the program says to."""
+    prog: int32[NPROG_T]
+    for pc in range(NPROG_T):
+        word: int32 = io.op_in.get()
+        prog[pc] = word
+        io.op_out.put(word)
+
+    for m in range(MT):
+        reg: int32[REGS]
+        for step in range(NPROG_T):
+            word2: int32 = prog[step]
+            opcode: int32 = (word2 >> 24) & 255
+            dst: int32 = (word2 >> 20) & 15
+            src: int32 = (word2 >> 16) & 15
+            imm: int32 = word2 & 65535
+            if opcode == ACCZ:
+                zz: int32 = io.z_in.get()
+                reg[dst] = reg[dst] + zz
+            elif opcode == LOADB:
+                reg[dst] = io.b
+            elif opcode == LOADI:
+                reg[dst] = imm
+            elif opcode == ADD:
+                reg[dst] = reg[dst] + reg[src]
+            elif opcode == MUL:
+                reg[dst] = reg[dst] * reg[src]
+            elif opcode == MAX:
+                if reg[src] > reg[dst]:
+                    reg[dst] = reg[src]
+            elif opcode == SHR:
+                reg[dst] = reg[dst] >> imm
+            elif opcode == STORE:
+                io.y_out.put(reg[dst])
+
+
+@spmw.fabric
+def tpu_tiled(
+    A: int8[MT * NTILE, KT],
+    W: int8[KT, NT, NTILE],
+    Bias: int32[NT],
+    Prog: int32[NPROG_T],
+    Y: int32[MT, NT],
+):
+    P = spmw.place(tiled_mac, on=tiled_mxu)
+    V = spmw.place(tiled_vpu, on=tiled_chain)
+    spmw.shard(W, into=P.w)  # cell (k, c) holds W[k, c, :], one weight per tile
+    spmw.shard(Bias, into=V.b)
+    # One streamed axis, so the activations arrive pre-tiled too: row
+    # `m * NTILE + t` is what output row m needs from tile t, in the order the
+    # cell's `m` outside `t` asks for them.
+    spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
+    spmw.stream_in(0, into=P.p_in)
+    spmw.link(P.p_out, to=V.z_in)
+    spmw.stream_in(Prog, into=V.op_in, index=(...,))
+    (lane,) = V.axes
+    spmw.gather(Y, from_=V.y_out, index=(..., lane))
+
+
+tpu_tiled.spmw_operands = {"Prog": TILED_RELU}
+
+
+def _tiled_reference(A, W, Bias):
+    """The whole reduction, in one numpy matmul -- the thing tiling must equal.
+
+    The point of the test is that the engine's answer is a *single* matmul of
+    depth NTILE*KT, so the reference does not tile at all: it undoes the
+    per-cell weight layout and multiplies once.
+    """
+    flat_a = A.reshape(MT, NTILE * KT).astype(np.int32)  # (m, t*KT + k)
+    # W[k, c, t] is the weight for reduction index t*KT + k
+    flat_w = W.transpose(2, 0, 1).reshape(NTILE * KT, NT).astype(np.int32)
+    return np.maximum(flat_a @ flat_w + Bias, 0) >> 4
+
+
+def _tiled_operands(seed=2):
+    rng = np.random.default_rng(seed)
+    A = rng.integers(-16, 16, (MT * NTILE, KT)).astype(np.int8)
+    W = rng.integers(-16, 16, (KT, NT, NTILE)).astype(np.int8)
+    Bias = rng.integers(-64, 64, (NT,)).astype(np.int32)
+    return A, W, Bias
+
+
+def test_a_tiled_program_must_match_the_hardware():
+    """One ACCZ per tile, or the lane and the array disagree about how many."""
+    with pytest.raises(ValueError, match="ACCZ"):
+        tiled_program((LOADI, 0, 0, 0), (ACCZ, 0), (STORE, 0))
+
+
+def test_the_tiled_operands_exercise_the_program():
+    A, W, Bias = _tiled_operands()
+    out = _tiled_reference(A, W, Bias)
+    assert np.count_nonzero(out) >= out.size // 3, out
+    assert np.count_nonzero(out == 0) >= 1, out
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_the_tiled_engine_computes_the_deeper_matmul(target):
+    """A reduction twice the array's depth, and the answer is the whole matmul."""
+    A, W, Bias = _tiled_operands()
+    Y = np.zeros((MT, NT), dtype=np.int32)
+    spmw.build(tpu_tiled, target=target)(A, W, Bias, TILED_RELU, Y)
+    np.testing.assert_array_equal(Y, _tiled_reference(A, W, Bias))
+
+
+def test_a_block_memory_port_is_driven_whole():
+    """The cosim driver must hand a cell *all* of its weights, not the first.
+
+    `_memory_plan` collapsed each site's slice to its start, which is right for
+    a scalar port and wrong for a block one: a cell holding NTILE weights got
+    one, so every tile but the first reached the array as zero. It was silent --
+    the array still ran, and only some outputs crossed the requantising shift
+    differently, so cosim reported 5 wrong tokens out of 24 with no hint where
+    they came from.
+
+    This asks the plan the question directly: does the index it gives cover the
+    whole block?
+    """
+    from allo.spmw import rtl
+
+    graph = spmw.elaborate(tpu_tiled)
+    plan = rtl.boundary_plan(graph)
+    family = next(name for name in plan if name.endswith("_w_mem"))
+    entry = plan[family]
+    assert entry["tensor"] == "W"
+    A, W, Bias = _tiled_operands()
+    arrays = {"W": W}
+    for channel in entry["channels"]:
+        for index in channel:
+            block = arrays[entry["tensor"]][index]
+            assert block.shape == (NTILE,), (index, block.shape)
+    del A, Bias
+
+
+def test_every_cell_gets_its_own_weights():
+    """And the blocks are the right ones, cell by cell."""
+    from allo.spmw import rtl
+
+    graph = spmw.elaborate(tpu_tiled)
+    plan = rtl.boundary_plan(graph)
+    entry = plan[next(n for n in plan if n.endswith("_w_mem"))]
+    _A, W, _B = _tiled_operands()
+    seen = []
+    for channel in entry["channels"]:
+        for index in channel:
+            seen.append(W[index])
+    flat = np.array(seen)
+    assert flat.shape == (KT * NT, NTILE)
+    # the union of every cell's block is the whole weight tensor, once
+    np.testing.assert_array_equal(np.sort(flat.reshape(-1)), np.sort(W.reshape(-1)))

@@ -157,6 +157,12 @@ def design(name, size):
         from test_spmw_tpu_vpu import tpu
 
         return tpu
+    if name == "tputiled":
+        # The same engine reducing deeper than the array: NTILE weight tiles
+        # accumulated by the lane's own ACCZ instructions.
+        from test_spmw_tpu_vpu import tpu_tiled
+
+        return tpu_tiled
     if name == "autosa-spec":
         # The fused design with the PE's row specialised -- the control that
         # says whether splitting the drain out was needed at all.
@@ -659,6 +665,7 @@ def main():
             "split-spec",
             "tpu",
             "tpuvpu",
+            "tputiled",
             "fft",
             "attention",
             "tiled",
