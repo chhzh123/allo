@@ -46,6 +46,10 @@ DESIGNS = (
     "fft",
     "tpu",
     "attention",
+    # The programmable TPU: a matrix unit, a vector unit with its own ISA, and
+    # a program that arrives as data.
+    "tpuvpu",
+    "tputiled",
     # The AutoSA comparison, and the two things learned from it.
     "autosa",
     "autosa-spec",
@@ -85,17 +89,21 @@ def dump(name, out, size):
     write("03_array.cpp", str(module.hls_code))
     write("04_array.mlir", str(module.module))
 
+    # One representative role from *every* placement, not just the first. A
+    # design with more than one component -- the TPU's matrix unit and its
+    # vector unit, the matched GEMM's mesh and its feed chains -- is mostly
+    # interesting in the parts the first placement is not.
     emitter = UnitEmitter(graph)
-    placement = emitter.placements()[0]
-    order = min(2, len(emitter.classes(placement)) - 1)
-    role = emitter.role_name(placement, order)
-    program, _extras = emitter.program(placement, order)
-    write(f"05_unit_{role}.py", program)
-    code = trim_includes(
-        str(build_unit(graph, placement, order, target="vhls").hls_code)
-    )
-    write(f"06_unit_{role}.cpp", code)
-    write(f"07_unit_{role}_wrapper.sv", wrapper_sv(graph, placement, order, code))
+    for placement in emitter.placements():
+        order = min(2, len(emitter.classes(placement)) - 1)
+        role = emitter.role_name(placement, order)
+        program, _extras = emitter.program(placement, order)
+        write(f"05_unit_{role}.py", program)
+        code = trim_includes(
+            str(build_unit(graph, placement, order, target="vhls").hls_code)
+        )
+        write(f"06_unit_{role}.cpp", code)
+        write(f"07_unit_{role}_wrapper.sv", wrapper_sv(graph, placement, order, code))
 
     write("08_spmw_fifo.sv", rtl.fifo_module())
     write("09_spmw_const.sv", rtl.const_module())

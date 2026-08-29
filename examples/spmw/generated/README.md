@@ -5,11 +5,15 @@ Checked in so the stages can be read side by side. Everything here is generated
 `scripts/spmw_dump_generated.py`, so it can be diffed after a change to see what
 actually moved.
 
-Nine designs, one directory each.
+Eleven designs, one directory each.
 
 From the design doc, at 3×3: `gemm` (§3.1 systolic GEMM), `gemm8` (the same mesh
 in int8), `tiled` (§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU), `attention`
 (§3.6 P·V).
+
+The programmable TPU: `tpuvpu` (a matrix unit, a vector unit with its own
+instruction set, and a program that arrives as data) and `tputiled` (the same,
+reducing deeper than the array by accumulating tiles under program control).
 
 From the AutoSA comparison, at 4×4: `autosa` (chained A/B distribution, chained
 drain, int8 — structurally what AutoSA emits), `autosa-spec` (the same with the
@@ -31,7 +35,7 @@ A fabric is elaborated once, then lowered two ways.
 | **2** | `02_rolled.mlir` | the same design *rolled*: one `spmw.map` op carrying the grid, the channel families, per-port routing and the site→role table |
 | **3** | `03_array.cpp` | **whole-array path**: the dataflow program as HLS C++ |
 | **4** | `04_array.mlir` | the MLIR behind it |
-| **5** | `05_unit_*.py` | **unit path**: one role as its own single-kernel dataflow program |
+| **5** | `05_unit_*.py` | **unit path**: one role as its own single-kernel dataflow program — one per placement, so a two-component design shows both |
 | **6** | `06_unit_*.cpp` | that role as standalone HLS C++, with unused headers trimmed |
 | **7** | `07_unit_*_wrapper.sv` | the shim giving the synthesised IP the fabric's port names |
 | **8** | `08_spmw_fifo.sv` | the FIFO primitive, one per channel |
@@ -92,6 +96,15 @@ own structure and then cross-checked against how the body uses each parameter.
 **Two placements.** `tpu/10_spmw_top.sv` instantiates `mac_r*` and `act_r*` and
 joins them with FIFOs — the `link` between the MXU and the activation row is
 internal to the fabric, not an edge port.
+
+**A pipeline stage against a processor.** Diff `tpu/06_unit_act_r*.cpp` against
+`tpuvpu/06_unit_vpu_r2.cpp`. The first is an expression: clamp, shift, write. The
+second latches a program off the instruction chain into `prog[8]`, then for each
+accumulator decodes an opcode with two shifts and a mask and dispatches on it
+against a four-register file. They compute the same thing for one program, and
+only one of them can compute anything else. `tputiled/06_unit_tiled_vpu_r2.cpp`
+adds `ACCZ`, which reads an accumulator only when the program says to — the
+instruction that lets the reduction be deeper than the array.
 
 **What specialising a coordinate does.** Diff `05_unit_pe_r2.py` between
 `autosa` and `autosa-spec`. The fused PE forwards `row` results after its MAC.
