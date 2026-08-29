@@ -151,6 +151,12 @@ def design(name, size):
         from test_spmw_autosa_match import autosa_match_of
 
         return autosa_match_of(size)
+    if name == "tpuvpu":
+        # The TPU with a programmable vector unit: MXU, a VPU chain with a
+        # register file, and a program streamed in as data.
+        from test_spmw_tpu_vpu import tpu
+
+        return tpu
     if name == "autosa-spec":
         # The fused design with the PE's row specialised -- the control that
         # says whether splitting the drain out was needed at all.
@@ -208,6 +214,16 @@ def operands(fabric, graph):
             arrays[tensor.name] = np.zeros(tensor.shape, dtype=kind)
         else:
             arrays[tensor.name] = rng.integers(0, 3, size=tensor.shape).astype(kind)
+    # Some inputs are not data. A tensor holding a *program* has to be a legal
+    # program, and small random integers decode to opcodes the design does not
+    # have -- so a fabric may say what a given tensor must contain.
+    for name, value in getattr(fabric, "spmw_operands", {}).items():
+        if name not in arrays:
+            raise SystemExit(
+                f"`spmw_operands` names {name!r}, which is not one of this "
+                f"design's tensors: {sorted(arrays)}"
+            )
+        arrays[name][...] = value
     spmw.build(fabric, target="ref")(*[arrays[t.name] for t in graph.tensors.values()])
     return arrays
 
@@ -642,6 +658,7 @@ def main():
             "split",
             "split-spec",
             "tpu",
+            "tpuvpu",
             "fft",
             "attention",
             "tiled",
