@@ -157,6 +157,12 @@ def design(name, size):
         from test_spmw_tpu_vpu import tpu
 
         return tpu
+    if name == "tpuisa":
+        # Both units instruction-driven: the MXU's opcode selects the weight
+        # matrix, so one load serves several matmuls.
+        from test_spmw_tpu_isa import ONE_PASS
+
+        return ONE_PASS
     if name == "tputiled":
         # The same engine reducing deeper than the array: NTILE weight tiles
         # accumulated by the lane's own ACCZ instructions.
@@ -666,6 +672,7 @@ def main():
             "tpu",
             "tpuvpu",
             "tputiled",
+            "tpuisa",
             "fft",
             "attention",
             "tiled",
