@@ -63,6 +63,9 @@ from test_spmw_tpu_isa import (
     MAX,
     MSKIP,
     MUL,
+    MZERO,
+    NOP,
+    REGS,
     NB,
     NPROG,
     NW,
@@ -477,3 +480,197 @@ def test_a_vpu_only_pass_selects_the_identity():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# Programs the design was not written for
+# ---------------------------------------------------------------------------
+#
+# The eleven steps above show that a Transformer needs no rebuild, which is a
+# weaker claim than it looks: they are the programs this engine was written for.
+# These are not. One of them issues MZERO, an MXU opcode the block never uses.
+# `scripts/spmw_program_check.py` runs every one of them against the netlist the
+# Transformer was simulated on, without rebuilding anything.
+
+_NOVEL_X = np.arange(-64, -64 + STEPS * D, dtype=np.int64).reshape(STEPS, D)
+
+
+def _novel_inputs(seed=11):
+    rng = np.random.default_rng(seed)
+    acts = rng.integers(-40, 40, (STEPS, D)).astype(np.int8)
+    w = np.zeros((D, D, NW), dtype=np.int8)
+    for tile in range(NW - 1):
+        w[:, :, tile] = rng.integers(-6, 6, (D, D)).astype(np.int8)
+    w[:, :, IDENT] = np.eye(D, dtype=np.int8)
+    return acts, w
+
+
+def _pairs(acts, w, tile):
+    """The two accumulators the array feeds each output, as int64."""
+    prod = acts.astype(np.int64) @ w[:, :, tile].astype(np.int64)
+    return prod[0::2], prod[1::2]
+
+
+def _square(acts, w):
+    lo, hi = _pairs(acts, w, 0)
+    return ((lo + hi) * (lo + hi)) >> 8
+
+
+def _maxpair(acts, w):
+    lo, hi = _pairs(acts, w, 0)
+    return np.maximum(lo, hi)
+
+
+def _absval(acts, w):
+    lo, hi = _pairs(acts, w, 0)
+    return np.abs(lo + hi)
+
+
+def _mzero(acts, w):
+    """MZERO restarts the column at every row, so only the last row survives."""
+    last = D - 1
+    return np.outer(acts[0::2, last].astype(np.int64), w[last, :, 1].astype(np.int64))
+
+
+def _recip(acts, w):
+    lo, hi = _pairs(acts, w, 0)
+    total = lo + hi
+    return np.where(total > 0, (np.int64(1) << 12) // np.maximum(total, 1), 0)
+
+
+#: ``(name, MXU program, VPU program, what it should compute)``.
+NOVEL_PROGRAMS = [
+    (
+        "square",
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        vpu_program(
+            [
+                (LOADI, 0, 0, 0),
+                (ACCZ, 0),
+                (ACCZ, 0),
+                (MUL, 0, 0),
+                (SHR, 0, 0, 8),
+                (STORE, 0),
+            ],
+            reads=PER_OUT,
+        ),
+        _square,
+    ),
+    (
+        "max_of_pair",
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        vpu_program([(LOADZ, 0), (LOADZ, 1), (MAX, 0, 1), (STORE, 0)], reads=PER_OUT),
+        _maxpair,
+    ),
+    (
+        "abs",
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        vpu_program(
+            [
+                (LOADI, 0, 0, 0),
+                (ACCZ, 0),
+                (ACCZ, 0),
+                (LOADI, 1, 0, 0),
+                (SUB, 1, 0),
+                (MAX, 0, 1),
+                (STORE, 0),
+            ],
+            reads=PER_OUT,
+        ),
+        _absval,
+    ),
+    (
+        "mzero",  # an MXU opcode the Transformer never issues
+        mxu_program([(MZERO, 1), (MSKIP,)] * OUTS),
+        vpu_program(
+            [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)], reads=PER_OUT
+        ),
+        _mzero,
+    ),
+    (
+        "reciprocal",
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        vpu_program(
+            [
+                (LOADI, 0, 0, 0),
+                (ACCZ, 0),
+                (ACCZ, 0),
+                (RECIP, 0, 0, 12),
+                (STORE, 0),
+            ],
+            reads=PER_OUT,
+        ),
+        _recip,
+    ),
+]
+
+
+def novel_operands(name):
+    """The tensors one novel program is driven with, and what it should give."""
+    acts, w = _novel_inputs()
+    entry = next(e for e in NOVEL_PROGRAMS if e[0] == name)
+    _n, mprog, vprog, expect = entry
+    return {
+        "A": acts,
+        "W": w,
+        "Bias": np.zeros((D, NB), dtype=np.int32),
+        "MProg": mprog,
+        "VProg": vprog,
+        "Y": expect(acts, w).astype(np.int32),
+    }
+
+
+@pytest.mark.parametrize("name", [e[0] for e in NOVEL_PROGRAMS])
+def test_a_novel_program_runs_on_the_same_design(name):
+    """Each computes what it says, on the engine built for something else."""
+    arrays = novel_operands(name)
+    eng = Engine()
+    got = eng(
+        arrays["A"], arrays["W"], arrays["VProg"], arrays["MProg"], arrays["Bias"]
+    )
+    np.testing.assert_array_equal(got, arrays["Y"])
+
+
+def test_the_novel_programs_are_novel():
+    """None of them is one of the block's, and one uses an opcode it never does."""
+    _out, eng = transformer_block(*_params())
+    used = {step["VProg"].tobytes() for step in eng.trace}
+    for name, _m, vprog, _f in NOVEL_PROGRAMS:
+        assert vprog.tobytes() not in used, name
+    block_opcodes = {
+        (int(w) >> 24) & 0xFF for step in eng.trace for w in step["MProg"].reshape(-1)
+    }
+    assert MZERO not in block_opcodes, "the block already uses MZERO"
+    novel = {
+        (int(w) >> 24) & 0xFF for _n, m, _v, _f in NOVEL_PROGRAMS for w in m.reshape(-1)
+    }
+    assert MZERO in novel
+
+
+def test_what_a_rebuild_would_cost():
+    """The envelope is hardware; everything inside it is data.
+
+    Worth stating as numbers rather than prose, because "programmable" without
+    a bound is not a claim. A program longer than the instruction buffer, a
+    sequence longer than the array's step count, a fifth weight matrix or a
+    fifth register -- each of those is a loop bound or an array size inside a
+    unit, so each needs a new build.
+    """
+    from allo.spmw.role_ip import UnitEmitter, build_unit, trim_includes
+
+    graph = spmw.elaborate(engine)
+    emitter = UnitEmitter(graph)
+    # The C++ that goes to synthesis, where a loop bound has to be a literal.
+    code = "".join(
+        trim_includes(str(build_unit(graph, placement, 0, target="vhls").hls_code))
+        for placement in emitter.placements()
+    )
+    assert f"< {STEPS};" in code  # the MXU's step count
+    assert f"< {OUTS};" in code  # the VPU's output count
+    assert f"< {NPROG};" in code  # walking the instruction buffer
+    assert f"prog[{NPROG}]" in code  # and its storage
+    assert f"reg[{REGS}]" in code  # the register file
+    # A program that does not fit is refused in Python rather than silently
+    # truncated onto hardware that cannot hold it.
+    with pytest.raises(ValueError, match="buffer holds"):
+        vpu_program([(NOP,)] * (NPROG + 1))
