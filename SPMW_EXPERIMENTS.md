@@ -1007,3 +1007,57 @@ alternative. At 16×16 on a real part it is not equivalent — it is slower to
 compile, larger, and it does not close.
 
 *(The retry at a lower kernel clock is what the next section reports.)*
+
+### It runs on the board
+
+The retry at **150 MHz** closed. Routing converged at global iteration 0 with
+**zero** overlapping nodes, where the 300 MHz attempt was still at 263,000 after
+an hour — the congestion was timing pressure, not capacity.
+
+`v++`, 16×16 TPU, `xilinx_u280_gen3x16_xdma_1_202211_1`:
+
+| step | elapsed |
+|---|---|
+| Allo lowering + HLS codegen | 195.3 s |
+| `v++` HLS (`csynth_design`) | 2439.3 s |
+| `v++ system_link` | 29 s |
+| `v++ vpl` (synth, place, route, bitstream) | **3 h 35 m 14 s** |
+| `rtdgen` + `xclbinutil` + driver | 6 s |
+| **v++ total** | **3 h 36 m 21 s** |
+| package | 7 s |
+| **build to xclbin, end to end** | **4 h 31 m** (16,243.8 s) |
+
+| result | |
+|---|---|
+| xclbin | 58 MB |
+| timing | **WNS 0.000 ns, TNS 0.000, 0 failing endpoints** of 1,146,593 |
+| LUT | 348,840 (26.8%) |
+| FF | 433,189 (16.6%) |
+| DSP | 292 (3.2%) |
+| BRAM | 243 (12.1%) |
+
+Those totals are the whole device image — the XDMA shell, the AXI
+infrastructure and the kernel — not the kernel alone.
+
+**The Transformer block, executed on the card**, one invocation per step,
+compared against the reference for that step:
+
+| step | s | | step | s |
+|---|---|---|---|---|
+| 1 proj0 (Q) | 4.2 | | 7 softmax | 4.1 |
+| 2 proj1 (K) | 4.1 | | 8 attn (P·V) | 4.1 |
+| 3 proj2 (V) | 4.1 | | 9 proj_out + residual | 4.0 |
+| 4 scores (K·Q′) | 4.0 | | 10 ffn1 (ReLU) | 4.1 |
+| 5 row_max | 4.2 | | 11 ffn2 + residual | 4.1 |
+| 6 row_sum | 4.0 | | | |
+
+**11/11 steps match.** The ~4 s per step is host round-trip — OpenCL buffer
+setup, PCIe transfer and kernel launch for a 16×16 tile — not compute; the array
+itself finishes in the low thousands of cycles. Comparing that number to
+anything would be measuring XRT.
+
+**A bug this turned up in Allo.** The second and later invocations reuse an
+existing xclbin, and that path built the command as `../{bitstream_folder}` with
+`bitstream_folder` already absolute, giving `..//scratch/...`. Only the *second*
+call ever hit it, so it survived every single-shot test. Fixed in
+`allo/backend/hls.py`.

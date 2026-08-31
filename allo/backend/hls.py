@@ -626,7 +626,10 @@ class HLSModule:
                 prefix += (
                     f" XCL_EMULATION_MODE={self.mode}" if self.mode != "hw" else ""
                 )
-                cmd = f"{prefix} ./{self.top_func_name} ../{bitstream_folder}/{self.top_func_name}.xclbin"
+                # `bitstream_folder` is already absolute, so the leading `../` produced
+                # paths like `..//scratch/...` -- which only bit on the *second*
+                # invocation, the one that skips the build and reuses the xclbin.
+                cmd = f"{prefix} ./{self.top_func_name} {bitstream_folder}/{self.top_func_name}.xclbin"
                 print(cmd)
                 process = subprocess.Popen(cmd, shell=True)
                 process.wait()
@@ -769,7 +772,10 @@ class HLSModule:
                 prefix += (
                     f" XCL_EMULATION_MODE={self.mode}" if self.mode != "hw" else ""
                 )
-                cmd = f"{prefix} ./{self.top_func_name} ../{bitstream_folder}/{self.top_func_name}.xclbin"
+                # `bitstream_folder` is already absolute, so the leading `../` produced
+                # paths like `..//scratch/...` -- which only bit on the *second*
+                # invocation, the one that skips the build and reuses the xclbin.
+                cmd = f"{prefix} ./{self.top_func_name} {bitstream_folder}/{self.top_func_name}.xclbin"
                 print(cmd)
                 process = subprocess.Popen(cmd, shell=True)
                 process.wait()
