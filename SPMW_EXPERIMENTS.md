@@ -1133,3 +1133,68 @@ controllers and AXI crossbars included.
 
 Implementation is 59% of it, HLS 15%. Neither scales with the role count, which
 is the limit of what the role decomposition buys once a design is real.
+
+### Performance, and why it is what it is
+
+| | |
+|---|---|
+| peak | 256 cells × 150 MHz = **38.4 GMAC/s** (76.8 GOPS int8) |
+| kernel latency | **9,172 cycles = 61.2 µs** per invocation |
+| the block, compute only | 11 × 61.2 µs = **673 µs** → 48.7 MMAC/s, **0.13% of peak** |
+| the block, wall clock | **45 s** → 0.73 KMAC/s |
+
+Four losses, multiplicative, largest first.
+
+**1. Host round-trip — 66,903×.** 45 s of wall clock against 673 µs of compute.
+Every invocation is a fresh `./top xclbin` process that re-loads and re-programs
+a 58 MB bitstream. This is not the accelerator; it is `subprocess` plus PCIe
+configuration. Nothing about it should be quoted as a hardware number.
+
+**2. The vector unit runs at II=35 — 17.4×.** `csynth` puts 8,961 of the
+kernel's 9,172 cycles in one loop: the VPU's 256 instruction executions, at an
+initiation interval of 35 instead of 1.
+
+The cause is one opcode. `RECIP` compiles to `vpu_r0_0_sdiv_32ns_32ns_32_36_1`
+— a **36-cycle signed divider** — and the register file is indexed at *runtime*
+(`reg[dst]`), so HLS must assume a loop-carried dependency through it. The
+divider lands in that recurrence, and every instruction pays for it: a NOP costs
+35 cycles because one arm of the dispatch can divide.
+
+Measured, by rebuilding the same unit with that one divide replaced by a shift:
+
+| | iteration latency | II | loop cycles |
+|---|---|---|---|
+| with `RECIP` | 37 | **35** | 8,961 |
+| divide → shift | 5 | **2** | **514** |
+
+This is the fp32-accumulator lesson from §3.1 again — *the interval is set by the
+operator in the recurrence* — but with a divider, so 36 cycles instead of 7.
+
+**3. The program starves the array — 8×.** A lane executes 16 instructions per
+output while the matrix unit takes 2 steps. Even at II=1 the MXU waits 8:1. The
+VPU's program length, not the array, is the throughput limit.
+
+**4. Slot utilisation — 36%.** `MSKIP` bubbles and softmax's three identity
+passes, as above.
+
+**What the fixes are worth:**
+
+| | block time | rate | of peak |
+|---|---|---|---|
+| as built | 673 µs | 48.7 MMAC/s | 0.13% |
+| divider out of the recurrence | **53 µs** | 616 MMAC/s | 1.6% |
+| …and batched in one process | ~53 µs + one load | — | — |
+
+The divider fix is the cheap one and does not need new hardware: hoist the
+reciprocal out of the per-element loop (the row sum is constant across a pass,
+so it can be computed once and passed in as the lane's second constant, which
+the `b` port already carries), or give `RECIP` a path outside the register-file
+recurrence.
+
+**Why even 1.6% is the honest ceiling here.** With d = n = 16, one matmul is
+4,096 MACs — sixteen cycles of work for a 256-cell array — against roughly 32
+cycles of systolic fill and drain. A 16-deep problem cannot fill a 16-deep
+array; the design is latency-bound, not throughput-bound, and no amount of
+tuning changes that. Efficiency needs the sequence dimension to be much longer
+than the array, which is what a real TPU arranges and what §E1 (32×32 and
+beyond) would have to measure.
