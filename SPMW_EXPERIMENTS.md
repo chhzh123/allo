@@ -943,3 +943,25 @@ the AXI master; the 256-port case synthesises in 34 s. The host lays each
 family's tokens out in the order `rtl.boundary_plan` says its channels consume
 them, so the index arithmetic stays on the host and the hardware walks a flat
 buffer.
+
+### The same design, both lowerings, at 16×16
+
+The deployment build takes the *whole-array* path — one monolithic kernel for
+`v++` — while everything else in this document takes the role path. Running both
+on the same 16×16 TPU gives the cleanest compile-time comparison here, because
+it is one design and one machine:
+
+| to RTL | role path | whole-array path |
+|---|---|---|
+| Allo lowering + HLS codegen | 2.0 s | 196.3 s |
+| C synthesis | **47.0 s** (12 roles, concurrent) | **2439.3 s** (one `csynth`) |
+| **total** | **49.0 s** | **2635.6 s** |
+| | | **53.8× slower** |
+
+The 2,439 s is one process; there is nothing to parallelise, because the design
+is one function. The 47 s is twelve processes on a 48-core machine, and it is
+the *same* 47 s at 4×4 — the role count does not change with the array.
+
+That is the argument this repository is about, measured on a real design at a
+real size. What the P&R numbers above add is the other half of it: the role path
+wins the front end by 54×, and then both paths hand Vivado the same problem.
