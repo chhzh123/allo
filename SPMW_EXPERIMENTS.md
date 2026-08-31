@@ -1061,3 +1061,75 @@ existing xclbin, and that path built the command as `../{bitstream_folder}` with
 `bitstream_folder` already absolute, giving `..//scratch/...`. Only the *second*
 call ever hit it, so it survived every single-shot test. Fixed in
 `allo/backend/hls.py`.
+
+### How to read these numbers
+
+**The workload.** The block is functionally complete — QKV, scaled scores,
+softmax, attention, output projection with a residual, and a two-layer FFN with
+a residual — at the dimensions a 16×16 array holds:
+
+| | |
+|---|---|
+| model dimension / sequence / heads / FFN hidden | 16 / 16 / 1 / 16 |
+| parameters | 6 × 16×16 int8 = **1,536** |
+| arithmetic | **32,768 MACs** (65,536 FLOPs) |
+| array MAC slots issued | 90,112 — **36% useful** |
+| for scale, one BERT-base block | 4.03 G MACs, 7.1 M parameters |
+
+So this is **1/122,880 of a BERT-base block**. It demonstrates that the
+instruction set expresses a Transformer and that the hardware computes it
+correctly; it is not a throughput result and none of the timings below should be
+read as one. The 36% figure is the cost of the design's own conventions —
+`MSKIP` bubbles on plain matmuls, and the three identity passes softmax needs.
+
+**The two paths are alternatives, not stages.** Both lower the *same* SPMW
+design; you pick one, you do not run both.
+
+| | role path | whole-array path |
+|---|---|---|
+| C++ → RTL | 12 `csynth` runs, one per role, concurrent | 1 `csynth` run on one big function |
+| RTL → array | Vivado assembles exported IPs | — (already one function) |
+| what was done with it | implemented standalone behind a harness | **taken to xclbin and run on the card** |
+
+**The board result came from the whole-array path.** The role path's 32.2 min is
+a separate measurement of what implementing that fabric costs; it was *not*
+deployed, because deploying it needs the AXI shell packaged as an RTL kernel,
+which is generated (`shell.feeder_cpp`) but not taken through `package_xo`. Do
+not add 32.2 min to 4 h 31 m — they are two answers to two different questions.
+
+**`csynth_design` and `synth_design` are different tools.** Every FPGA flow runs
+both, in this order:
+
+```
+C++  --csynth_design (Vitis HLS)-->  RTL  --synth_design (Vivado)-->  netlist
+     --place_design-->  --route_design-->  bitstream
+```
+
+`csynth_design` is *high-level* synthesis: C++ to Verilog. `synth_design` is
+*logic* synthesis: Verilog to LUTs, flip-flops and DSPs. The comparison that is
+like-for-like is csynth against csynth:
+
+| | role path | whole-array path |
+|---|---|---|
+| `csynth_design` | **47.0 s** (12 concurrent) | **2445.9 s** (1 process) |
+
+The two `synth_design` numbers are *not* comparable. The role path's 514 s is
+the fabric alone; inside `v++` the equivalent step is 52.3 min of block-level
+synthesis covering 149 jobs — the kernel *and* the whole platform, HBM
+controllers and AXI crossbars included.
+
+**Where the 4 h 31 m went**, decomposed:
+
+| | elapsed | what it is |
+|---|---|---|
+| Allo lowering + HLS codegen | 195.3 s | SPMW → one HLS C++ program |
+| `v++` HLS | 2445.9 s | C++ → RTL (`csynth_design`) |
+| `v++ system_link` | 29 s | kernel metadata into the platform |
+| `vpl`: platform + BD setup | ~200 s | |
+| `vpl`: block-level synthesis | **52.3 min** | 149 jobs, kernel and platform |
+| `vpl`: implementation | **2 h 39 m** | opt, place, route, bitstream |
+| `rtdgen` / `xclbinutil` / package | 13 s | |
+| **total** | **4 h 31 m** | |
+
+Implementation is 59% of it, HLS 15%. Neither scales with the role count, which
+is the limit of what the role decomposition buys once a design is real.
