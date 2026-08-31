@@ -1198,3 +1198,56 @@ array; the design is latency-bound, not throughput-bound, and no amount of
 tuning changes that. Efficiency needs the sequence dimension to be much longer
 than the array, which is what a real TPU arranges and what §E1 (32×32 and
 beyond) would have to measure.
+
+### Removing the host round-trip
+
+The 4.1 s per step was never the accelerator. `allo.backend.hls` runs the host
+as a *fresh subprocess per call*, so every invocation re-loaded a 58 MB bitstream
+and reprogrammed the device. `scripts/spmw_board_run.py` opens the device once
+and reuses it, which is what a host would actually do:
+
+| | block | per step | rate | of peak |
+|---|---|---|---|---|
+| a process per step | 45 s | 4.1 s | 0.73 KMAC/s | 0.000002% |
+| **xclbin loaded once** | **2.200 ms** | 0.200 ms | 14.9 MMAC/s | 0.039% |
+| steady state (steps 3–11) | 1.29 ms | **0.117 ms** | 25.5 MMAC/s | 0.066% |
+| kernel compute alone (`csynth`) | 0.673 ms | 0.061 ms | 48.7 MMAC/s | 0.127% |
+
+**20,500×**, and none of it hardware. Device open, xclbin load and programming
+is **0.50 s, paid once**. All 11 steps still match.
+
+The gap between 0.117 ms observed and 0.061 ms of kernel is the per-call cost
+that remains: six buffer syncs, an enqueue and a PCIe round trip. That is what
+batching the whole block into one invocation would remove.
+
+### Why the block is not one invocation
+
+It could be, and it is the right thing to want — but it needs one piece of a TPU
+this design does not have.
+
+*What is easy.* The weight file is `NW = 4` tiles and the block uses nine
+distinct matrices (Wq, Wk, Wv, Wo, W1, W2, the identity, plus the computed Qᵀ
+and V). Raising `NW` is a parameter, paid in storage per cell.
+
+*What is not.* **Step k's activations are step k−1's outputs.** Today the VPU's
+results leave the fabric and the host hands them back as the next `A`. Doing
+that on-chip means routing `V.y_out` back to `P.a_in` — a link from the vector
+unit to the matrix unit, which closes a **cycle** in a dataflow graph that is
+feed-forward by construction. HLS dataflow will not schedule a cycle, and SPMW's
+elaborator models the connection as a stream, which cannot break one.
+
+A TPU solves this with a **unified buffer**: results are written to on-chip
+SRAM and the next instruction reads them back. That is a memory between the
+units, not a channel — and it is also what the two remaining host-side
+operations need, the requantise-and-clip (trivial, a VPU instruction) and the
+transpose of P (a different read order out of that same buffer).
+
+So "batch the instructions" is not an instruction-set limitation. The ISA
+already sequences a whole block. What is missing is the **memory the sequence
+would flow through**, and adding it is the one substantial piece of TPU
+architecture still absent here.
+
+*What it would be worth.* Of the 1.29 ms steady-state block, 0.673 ms is kernel
+and ~0.62 ms is per-call host cost. One invocation removes the latter — about
+**1.9×**. Getting the divider out of the VPU's recurrence is worth **12×** and
+is a program change, not a hardware one. That is the order to do them in.
