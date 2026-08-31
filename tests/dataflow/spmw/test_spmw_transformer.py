@@ -1,0 +1,479 @@
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""A Transformer block, run on the TPU by handing it instructions.
+
+`test_spmw_tpu_isa.py` builds the engine: a matrix unit whose instruction picks
+which weight matrix to use, and a vector unit with a register file and a program
+of its own. Nothing in it knows about attention. This file writes the
+instructions that make it compute one.
+
+**One fabric runs the whole block.** Every step below is the same silicon --
+the same exported IPs, the same netlist -- handed a different weight tensor, a
+different MXU program and a different VPU program. That is the claim being
+tested, and the reason each step is an engine *invocation* rather than a new
+design.
+
+    step  what                              MXU program            VPU program
+    ----  --------------------------------  ---------------------  ------------
+     1-3  Q, K, V = X.Wq, X.Wk, X.Wv        MACC tile 0 / 1 / 2    requantise
+      4   S' = K.Q'                         MACC tile 0            requantise
+      5   row max of S'                     MACC identity          running MAX
+      6   row sum of exp(S' - max)          MACC identity          EXP2, sum
+      7   P' = exp(S' - max) / sum          MACC identity          EXP2, RECIP
+      8   O = P.V                           MACC tile 0            requantise
+      9   Y = O.Wo + X                      MACC 0 / MACC identity two ACCZ
+     10   H = relu(Y.W1)                    MACC tile 0            MAX 0, shift
+     11   Out = H.W2 + Y                    MACC 0 / MACC identity two ACCZ
+
+Three things in that table are worth pausing on.
+
+**Steps 1-3 share one weight load.** Wq, Wk and Wv sit in tiles 0, 1 and 2 of
+the same weight tensor, and only the instruction differs. That is what the MXU's
+tile field bought.
+
+**Steps 5-7 do no matrix arithmetic at all.** They select the *identity* tile, so
+the array passes its activations through untouched and the pass is a pure vector
+operation. A VPU-only pass needs no separate datapath -- it is an instruction.
+
+**Steps 9 and 11 add the residual in the MXU.** `Y = O.Wo + X` is two matmuls,
+one against Wo and one against the identity, interleaved a row at a time and
+folded back together by two ACCZ instructions in the lane. The skip connection
+is not special-cased anywhere; it is an extra MACC.
+
+What is *not* on the engine, stated plainly: the host requantises int32
+accumulators back to int8 between steps, transposes P, and feeds each step's
+reductions back as the next step's per-lane constants. A real TPU does the first
+in its accumulator path and the second in a transpose unit; both are memory
+formatting rather than arithmetic. The arithmetic is all here.
+"""
+
+import numpy as np
+import pytest
+
+import allo.spmw as spmw
+from test_spmw_tpu_isa import (
+    ACCZ,
+    ADD,
+    D,
+    EXP2,
+    LOADB,
+    LOADI,
+    LOADZ,
+    MACC,
+    MAX,
+    MSKIP,
+    MUL,
+    NB,
+    NPROG,
+    NW,
+    RECIP,
+    SEQ,
+    SHR,
+    STORE,
+    SUB,
+    _engine,
+    mxu_program,
+    vpu_program,
+)
+
+# The array feeds two accumulators per output, so one fabric serves both the
+# plain matmuls (the second is a skipped bubble) and the residual adds (the
+# second is the skip connection).
+STEPS = 2 * SEQ
+OUTS = SEQ
+IDENT = NW - 1  # the weight tile holding the identity matrix
+PER_OUT = STEPS // OUTS  # accumulators the array feeds per output
+
+# Fixed-point scales, one per step rather than one for the block -- which is
+# what a quantised Transformer does, and it is not optional. A single shift for
+# everything collapsed the block to -1 and 0: a matmul of random signs grows by
+# about sqrt(D)*|w| while a shift of 4 divides by 16, so the magnitude halved at
+# every step and the feed-forward ReLU finished it off. Each shift below is
+# picked from the range its own step actually produces.
+QUANT_QKV = 4  # X.W with X ~ +/-64, W ~ +/-8
+QUANT_SCORE = 6  # K.Q' -- both operands are already full-range
+QUANT_OUT = 4  # the projection and the feed-forward layers
+EXP_SHIFT = 5  # how much of a score's range one exp step covers
+EXP_BASE = 8  # exp(0) is 1 << EXP_BASE
+PROB_BITS = 6  # fractional bits in an attention weight: 1.0 is 64
+RECIP_BITS = 14  # working precision of the reciprocal
+
+engine = _engine(STEPS, outs=OUTS)
+
+
+# -- the programs -----------------------------------------------------------
+
+
+def matmul_prog(tile):
+    """A plain matmul: use the tile on even steps, skip the odd ones."""
+    return mxu_program([(MACC, tile), (MSKIP,)] * OUTS)
+
+
+def residual_prog(tile):
+    """A matmul and an identity pass, interleaved; the lane sums the pair."""
+    return mxu_program([(MACC, tile), (MACC, IDENT)] * OUTS)
+
+
+def requant(shift):
+    """Sum the pair of accumulators and rescale."""
+    return vpu_program(
+        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (SHR, 0, 0, shift), (STORE, 0)],
+        reads=PER_OUT,
+    )
+
+
+def relu_requant(shift):
+    """The same, clamped at zero first."""
+    return vpu_program(
+        [
+            (LOADI, 0, 0, 0),
+            (ACCZ, 0),
+            (ACCZ, 0),
+            (LOADI, 1, 0, 0),
+            (MAX, 0, 1),
+            (SHR, 0, 0, shift),
+            (STORE, 0),
+        ],
+        reads=PER_OUT,
+    )
+
+
+# A running maximum over the pass. `reg` persists across steps, and r0 starts at
+# zero, so this is max(0, scores) -- which is still a legal softmax shift,
+# because subtracting any constant leaves softmax unchanged.
+ROW_MAX = vpu_program([(LOADZ, 1), (ACCZ, 1), (MAX, 0, 1), (STORE, 0)], reads=PER_OUT)
+
+# exp(s - max), as a shift. `1 << (EXP_BASE + (s - max) >> EXP_SHIFT)`, clamped
+# at both ends by EXP2 itself.
+_EXP = [
+    (LOADZ, 1),
+    (ACCZ, 1),  # r1 = this step's score (two accumulators, one skipped)
+    (LOADB, 2, 0),  # r2 = the row maximum
+    (SUB, 1, 2),
+    (SHR, 1, 0, EXP_SHIFT),
+    (LOADI, 2, 0, EXP_BASE),
+    (ADD, 1, 2),
+    (EXP2, 1),
+]
+ROW_SUM = vpu_program(_EXP + [(ADD, 0, 1), (STORE, 0)], reads=PER_OUT)
+NORMALISE = vpu_program(
+    _EXP
+    + [
+        (LOADB, 3, 1),  # r3 = the row sum
+        (RECIP, 3, 0, RECIP_BITS),  # r3 = 2^RECIP_BITS / sum
+        (MUL, 1, 3),
+        # Not all the way back: a weight lands in [0, 1<<PROB_BITS], because
+        # shifting the whole way would truncate every probability to zero.
+        (SHR, 1, 0, RECIP_BITS - PROB_BITS),
+        (STORE, 1),
+    ],
+    reads=PER_OUT,
+)
+
+
+# -- the host's side of the loop --------------------------------------------
+
+
+# What the build script must load to bring this engine up: a legal pair of
+# programs. Random small integers decode to opcodes that do not exist, and an
+# MXU program of those would feed the lane the wrong number of accumulators.
+engine.spmw_operands = {
+    "MProg": mxu_program([(MACC, 0), (MSKIP,)] * (SEQ)),
+    "VProg": vpu_program(
+        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (SHR, 0, 0, QUANT_QKV), (STORE, 0)],
+        reads=2,
+    ),
+}
+
+
+def _interleave(rows, other=None):
+    """Lay activations out for the array: one row per step.
+
+    A plain matmul pairs each row with a bubble the program skips; a residual
+    pairs it with the row the skip connection carries.
+    """
+    out = np.zeros((STEPS, D), dtype=np.int8)
+    out[0::2] = rows
+    if other is not None:
+        out[1::2] = other
+    return out
+
+
+def _weights(*mats):
+    """Pack up to NW-1 matrices into the cell weight file, identity last."""
+    w = np.zeros((D, D, NW), dtype=np.int8)
+    for tile, mat in enumerate(mats):
+        w[:, :, tile] = mat
+    w[:, :, IDENT] = np.eye(D, dtype=np.int8)
+    return w
+
+
+def _clip8(x):
+    """What the accumulator path does on the way back to an int8 activation."""
+    return np.clip(x, -128, 127).astype(np.int8)
+
+
+class Engine:
+    """One built fabric, invoked repeatedly. The only thing that changes is data.
+
+    Every invocation is recorded, because the interesting question about this
+    design is not whether one pass works -- it is whether the *same* netlist
+    computes all eleven. `scripts/spmw_transformer_rtl.py` replays the trace
+    against the exported IPs, one xsim run per step.
+    """
+
+    def __init__(self, target="ref", label=None):
+        self.run = spmw.build(engine, target=target)
+        self.trace = []
+        self.label = label or []
+
+    @property
+    def invocations(self):
+        return len(self.trace)
+
+    def __call__(self, acts, weights, vprog, mprog, bias=None, name=""):
+        bias = np.zeros((D, NB), dtype=np.int32) if bias is None else bias
+        out = np.zeros((OUTS, D), dtype=np.int32)
+        self.run(acts, weights, bias.astype(np.int32), mprog, vprog, out)
+        self.trace.append(
+            {
+                "name": name or f"step{len(self.trace) + 1}",
+                "A": acts.copy(),
+                "W": weights.copy(),
+                "Bias": bias.astype(np.int32).copy(),
+                "MProg": mprog.copy(),
+                "VProg": vprog.copy(),
+                "Y": out.copy(),
+            }
+        )
+        return out
+
+
+def transformer_block(x, wq, wk, wv, wo, w1, w2, target="ref"):
+    """One Transformer block, as a sequence of instruction-driven passes.
+
+    Returns the block's output and the engine, so a test can ask how many times
+    the same fabric was invoked.
+    """
+    eng = Engine(target=target)
+    qkv = _weights(wq, wk, wv)
+
+    # 1-3. Three projections, one weight load, three instructions.
+    q, k, v = (
+        _clip8(
+            eng(
+                _interleave(x),
+                qkv,
+                requant(QUANT_QKV),
+                matmul_prog(tile),
+                name=f"proj{tile}",
+            )
+        )
+        for tile in range(3)
+    )
+
+    # 4. S' = K . Q', so a lane holds one query's scores over every key and the
+    #    softmax that follows is a reduction *along* the lane rather than across.
+    scores = _clip8(
+        eng(
+            _interleave(k),
+            _weights(q.T),
+            requant(QUANT_SCORE),
+            matmul_prog(0),
+            name="scores",
+        )
+    )
+
+    ident = _weights()
+    # 5-7. Softmax, three passes over the same scores through the identity tile.
+    row_max = eng(
+        _interleave(scores), ident, ROW_MAX, matmul_prog(IDENT), name="row_max"
+    )[-1]
+    bias = np.zeros((D, NB), dtype=np.int32)
+    bias[:, 0] = row_max
+    row_sum = eng(
+        _interleave(scores), ident, ROW_SUM, matmul_prog(IDENT), bias, name="row_sum"
+    )[-1]
+    bias[:, 1] = row_sum
+    probs_t = eng(
+        _interleave(scores), ident, NORMALISE, matmul_prog(IDENT), bias, name="softmax"
+    )
+
+    # 8. O = P . V. The lane held S transposed, so the host hands back P.
+    probs = _clip8(probs_t.T)
+    attn = _clip8(
+        eng(
+            _interleave(probs),
+            _weights(v),
+            requant(PROB_BITS),
+            matmul_prog(0),
+            name="attn",
+        )
+    )
+
+    # 9. Y = O . Wo + X -- the residual is an extra MACC against the identity.
+    y = _clip8(
+        eng(
+            _interleave(attn, x),
+            _weights(wo),
+            requant(QUANT_OUT),
+            residual_prog(0),
+            name="proj_out",
+        )
+    )
+
+    # 10-11. The feed-forward network, and its residual.
+    h = _clip8(
+        eng(
+            _interleave(y),
+            _weights(w1),
+            relu_requant(QUANT_OUT),
+            matmul_prog(0),
+            name="ffn1",
+        )
+    )
+    out = eng(
+        _interleave(h, y),
+        _weights(w2),
+        requant(QUANT_OUT),
+        residual_prog(0),
+        name="ffn2",
+    )
+    return out, eng
+
+
+# -- a reference for the same arithmetic ------------------------------------
+
+
+def _ref_block(x, wq, wk, wv, wo, w1, w2):
+    """The same computation in numpy, step for step and shift for shift.
+
+    Not a float Transformer: this is what the *integer* block means, so a
+    mismatch is a hardware bug rather than a quantisation effect. How far this
+    sits from a float block is a separate question, and
+    `test_the_integer_softmax_is_a_softmax` is where it is asked.
+    """
+    i32 = np.int32
+
+    def mm(a, b, shift):
+        return (a.astype(i32) @ b.astype(i32)) >> shift
+
+    q, k, v = (_clip8(mm(x, w, QUANT_QKV)) for w in (wq, wk, wv))
+    scores = _clip8(mm(k, q.T, QUANT_SCORE))  # scores[key, query]
+    row_max = np.maximum(scores.max(axis=0), 0).astype(i32)
+    arg = np.clip(EXP_BASE + ((scores.astype(i32) - row_max) >> EXP_SHIFT), 0, 30)
+    exps = (np.int32(1) << arg).astype(i32)
+    row_sum = exps.sum(axis=0)
+    recip = np.where(
+        row_sum > 0, (np.int32(1) << RECIP_BITS) // np.maximum(row_sum, 1), 0
+    )
+    probs_t = (exps * recip) >> (RECIP_BITS - PROB_BITS)
+    probs = _clip8(probs_t.T)
+    attn = _clip8((probs.astype(i32) @ v.astype(i32)) >> PROB_BITS)
+    y = _clip8((attn.astype(i32) @ wo.astype(i32) + x.astype(i32)) >> QUANT_OUT)
+    h = _clip8(np.maximum(y.astype(i32) @ w1.astype(i32), 0) >> QUANT_OUT)
+    return (h.astype(i32) @ w2.astype(i32) + y.astype(i32)) >> QUANT_OUT
+
+
+def _params(seed=5):
+    """Activations near the full int8 range, weights small -- as quantised."""
+    rng = np.random.default_rng(seed)
+
+    def weight():
+        return rng.integers(-8, 8, (D, D)).astype(np.int8)
+
+    x = rng.integers(-64, 64, (SEQ, D)).astype(np.int8)
+    return x, weight(), weight(), weight(), weight(), weight(), weight()
+
+
+# -- tests ------------------------------------------------------------------
+
+
+def test_the_reference_is_not_degenerate():
+    """A block whose output is mostly zeros would not test much."""
+    out = _ref_block(*_params())
+    assert np.count_nonzero(out) >= out.size // 2, out
+    assert len(np.unique(out)) >= 6, np.unique(out)
+
+
+def test_the_integer_softmax_is_a_softmax():
+    """The shift-based exp is coarse, but it is still a distribution.
+
+    Every weight non-negative, every row summing to about one in the chosen
+    fixed point, and the largest score getting the largest weight. That last one
+    is the property attention actually depends on.
+    """
+    x, wq, wk, wv, *_ = _params()
+    i32 = np.int32
+    kk = _clip8((x.astype(i32) @ wk.astype(i32)) >> QUANT_QKV)
+    qq = _clip8((x.astype(i32) @ wq.astype(i32)) >> QUANT_QKV)
+    scores = _clip8((kk.astype(i32) @ qq.T.astype(i32)) >> QUANT_SCORE)
+    row_max = np.maximum(scores.max(axis=0), 0).astype(i32)
+    arg = np.clip(EXP_BASE + ((scores.astype(i32) - row_max) >> EXP_SHIFT), 0, 30)
+    exps = (np.int32(1) << arg).astype(i32)
+    probs_t = (exps * ((np.int32(1) << RECIP_BITS) // exps.sum(axis=0))) >> (
+        RECIP_BITS - PROB_BITS
+    )
+    one = 1 << PROB_BITS
+    assert (probs_t >= 0).all()
+    for lane in range(D):
+        total = probs_t[:, lane].sum()
+        assert 0.9 * one <= total <= 1.1 * one, (lane, total, one)
+        assert probs_t[scores[:, lane].argmax(), lane] == probs_t[:, lane].max()
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_the_block_runs_on_the_engine(target):
+    """The whole block, computed by invoking one fabric eleven times."""
+    params = _params()
+    out, eng = transformer_block(*params, target=target)
+    np.testing.assert_array_equal(out, _ref_block(*params))
+    assert eng.invocations == 11
+
+
+def test_it_is_one_fabric_throughout():
+    """Eleven steps, one design: nothing here builds a second engine."""
+    params = _params()
+    _out, eng = transformer_block(*params)
+    assert eng.invocations == 11
+    graph = spmw.elaborate(engine)
+    assert len(graph.placements) == 2  # the MXU and the VPU chain, and that is all
+
+
+def test_the_projections_share_one_weight_load():
+    """Q, K and V differ only by an instruction, which is the MXU ISA's point."""
+    x, wq, wk, wv, *_ = _params()
+    eng = Engine()
+    qkv = _weights(wq, wk, wv)
+    got = [
+        eng(_interleave(x), qkv, requant(QUANT_QKV), matmul_prog(t)) for t in range(3)
+    ]
+    for tile, weight in enumerate((wq, wk, wv)):
+        want = (x.astype(np.int32) @ weight.astype(np.int32)) >> QUANT_QKV
+        np.testing.assert_array_equal(got[tile], want)
+    assert not np.array_equal(got[0], got[1])
+
+
+def test_the_residual_is_an_extra_macc():
+    """`Y = O.Wo + X` with no adder outside the array."""
+    x, wq, *_ = _params()
+    eng = Engine()
+    o = _clip8(x)
+    got = eng(_interleave(o, x), _weights(wq), requant(QUANT_OUT), residual_prog(0))
+    want = (o.astype(np.int32) @ wq.astype(np.int32) + x.astype(np.int32)) >> QUANT_OUT
+    np.testing.assert_array_equal(got, want)
+
+
+def test_a_vpu_only_pass_selects_the_identity():
+    """Steps 5-7 do no matrix arithmetic; the array is a wire."""
+    x, *_ = _params()
+    eng = Engine()
+    passthrough = vpu_program(
+        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)], reads=PER_OUT
+    )
+    got = eng(_interleave(x), _weights(), passthrough, matmul_prog(IDENT))
+    np.testing.assert_array_equal(got, x.astype(np.int32))
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

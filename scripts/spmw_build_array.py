@@ -163,6 +163,12 @@ def design(name, size):
         from test_spmw_tpu_isa import ONE_PASS
 
         return ONE_PASS
+    if name == "transformer":
+        # The instruction-driven engine a Transformer block is written for.
+        # `scripts/spmw_transformer_rtl.py` replays the whole block on it.
+        from test_spmw_transformer import engine
+
+        return engine
     if name == "tputiled":
         # The same engine reducing deeper than the array: NTILE weight tiles
         # accumulated by the lane's own ACCZ instructions.
@@ -673,6 +679,7 @@ def main():
             "tpuvpu",
             "tputiled",
             "tpuisa",
+            "transformer",
             "fft",
             "attention",
             "tiled",

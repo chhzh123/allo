@@ -34,8 +34,9 @@ from allo.ir.types import int8, int32
 D = 4  # the array is D x D: reduction depth by output width
 SEQ = 4  # rows of activations per pass
 NW = 4  # weight matrices held per cell -- the cell's weight file
+NB = 2  # per-lane constants the VPU can be handed alongside its program
 REGS = 4
-NPROG = 12  # VPU instruction-buffer depth
+NPROG = 16  # VPU instruction-buffer depth
 
 # -- the MXU's instruction set ----------------------------------------------
 MACC = 1
@@ -53,6 +54,9 @@ MAX = 6
 SHR = 7
 STORE = 8
 ACCZ = 9
+SUB = 10  # r[dst] -= r[src]
+EXP2 = 11  # r[dst] = 1 << clamp(r[dst], 0, 30) -- a shift-based exponential
+RECIP = 12  # r[dst] = (1 << imm) / r[dst] -- fixed-point reciprocal, 0 if <= 0
 
 
 def mxu_word(opcode, tile=0):
@@ -76,10 +80,29 @@ def mxu_program(steps, rows=D):
     return np.repeat(words[:, None], rows, axis=1)
 
 
-def vpu_program(instructions, depth=NPROG):
+#: The instructions that consume an accumulator from the MXU column.
+READS_Z = (ACCZ, LOADZ)
+
+
+def vpu_program(instructions, depth=NPROG, reads=None):
+    """One lane's program, checked against what the array will feed it.
+
+    ``reads`` is how many accumulators the engine produces per output. Getting
+    it wrong does not compute a wrong answer -- the lane and the array disagree
+    about how many values are in flight, and one of them blocks forever. That is
+    worth catching in Python: an opcode with no handler in the unit silently
+    reads nothing, which is exactly how `LOADZ` deadlocked a whole Transformer.
+    """
     words = [vpu_word(*i) for i in instructions]
     if len(words) > depth:
         raise ValueError(f"{len(words)} instructions, buffer holds {depth}")
+    if reads is not None:
+        got = sum(1 for i in instructions if i[0] in READS_Z)
+        if got != reads:
+            raise ValueError(
+                f"the program consumes {got} accumulator(s) per output but the "
+                f"array feeds {reads}; the lane and the array would deadlock."
+            )
     return np.array(words + [vpu_word(NOP)] * (depth - len(words)), dtype=np.int32)
 
 
@@ -100,15 +123,21 @@ class VpuIO(spmw.Interface):
     op_out = spmw.Out(int32)
     z_in = spmw.In(int32)
     y_out = spmw.Out(int32)
-    b = spmw.MemIn(int32)
+    # Two constants per lane, not one: a softmax pass needs both the row's
+    # maximum and its sum, and `LOADB dst, src` picks between them.
+    b = spmw.MemIn(int32[NB])
 
 
-def _engine(steps, vprog_len=NPROG):
-    """The fabric, at a chosen number of MXU steps.
+def _engine(steps, outs=None, vprog_len=NPROG):
+    """The fabric, at a chosen number of MXU steps and VPU outputs.
 
-    The step count is structural -- it is how many instructions the array
-    executes -- so it is a parameter of the design rather than of a call.
+    Both counts are structural -- they are loop bounds in the two units -- so
+    they are parameters of the design rather than of a call. They differ when a
+    program folds several accumulators into one output: `outs` is how many
+    results a lane emits and `steps` is how many the array feeds it, so a
+    program with two ACCZ per output wants `steps = 2 * outs`.
     """
+    outs = steps if outs is None else outs
 
     mxu = spmw.Topology(
         MacIO,
@@ -153,8 +182,12 @@ def _engine(steps, vprog_len=NPROG):
             prog[pc] = word
             io.op_out.put(word)
 
-        for m in range(steps):
-            reg: int32[REGS]
+        # Declared *outside* the step loop, so a register survives from one
+        # accumulator to the next and a program can reduce across the pass --
+        # a running maximum, a running sum. A program that wants a fresh value
+        # each step says so with LOADI, which every one here does.
+        reg: int32[REGS]
+        for m in range(outs):
             for pc2 in range(vprog_len):
                 word2: int32 = prog[pc2]
                 opcode: int32 = (word2 >> 24) & 255
@@ -164,8 +197,11 @@ def _engine(steps, vprog_len=NPROG):
                 if opcode == ACCZ:
                     zz: int32 = io.z_in.get()
                     reg[dst] = reg[dst] + zz
+                elif opcode == LOADZ:
+                    z2: int32 = io.z_in.get()
+                    reg[dst] = z2
                 elif opcode == LOADB:
-                    reg[dst] = io.b
+                    reg[dst] = io.b[src]
                 elif opcode == LOADI:
                     reg[dst] = imm
                 elif opcode == ADD:
@@ -177,6 +213,23 @@ def _engine(steps, vprog_len=NPROG):
                         reg[dst] = reg[src]
                 elif opcode == SHR:
                     reg[dst] = reg[dst] >> imm
+                elif opcode == SUB:
+                    reg[dst] = reg[dst] - reg[src]
+                elif opcode == EXP2:
+                    # Clamped both ends: below 0 the true value is a fraction an
+                    # integer cannot hold, above 30 it leaves int32.
+                    e: int32 = reg[dst]
+                    if e < 0:
+                        e = 0
+                    if e > 30:
+                        e = 30
+                    reg[dst] = 1 << e
+                elif opcode == RECIP:
+                    d: int32 = reg[dst]
+                    if d > 0:
+                        reg[dst] = (1 << imm) // d
+                    else:
+                        reg[dst] = 0
                 elif opcode == STORE:
                     io.y_out.put(reg[dst])
 
@@ -184,10 +237,10 @@ def _engine(steps, vprog_len=NPROG):
     def engine(
         A: int8[steps, D],
         W: int8[D, D, NW],
-        Bias: int32[D],
+        Bias: int32[D, NB],
         MProg: int32[steps, D],
         VProg: int32[vprog_len],
-        Y: int32[steps, D],
+        Y: int32[outs, D],
     ):
         P = spmw.place(mac, on=mxu)
         V = spmw.place(vpu, on=chain)
@@ -201,7 +254,7 @@ def _engine(steps, vprog_len=NPROG):
         (lane,) = V.axes
         spmw.gather(Y, from_=V.y_out, index=(..., lane))
 
-    engine.spmw_parts = (mac, vpu, steps, vprog_len)
+    engine.spmw_parts = (mac, vpu, steps, outs, vprog_len)
     return engine
 
 
@@ -211,7 +264,9 @@ ONE_PASS = _engine(SEQ)
 
 # A VPU program that just moves the accumulator out, so the test sees the MXU's
 # arithmetic and nothing else.
-PASSTHROUGH = vpu_program([(ACCZ, 0), (STORE, 0)])
+# `LOADI r0, 0` first: registers persist across steps now, so a program that
+# wants this step's accumulator and nothing else has to say so.
+PASSTHROUGH = vpu_program([(LOADI, 0, 0, 0), (ACCZ, 0), (STORE, 0)])
 
 
 # What the build script must load: an instruction tensor of random small
@@ -255,7 +310,7 @@ def _operands(seed=1, steps=SEQ):
     rng = np.random.default_rng(seed)
     A = rng.integers(-16, 16, (steps, D)).astype(np.int8)
     W = rng.integers(-16, 16, (D, D, NW)).astype(np.int8)
-    Bias = np.zeros(D, dtype=np.int32)
+    Bias = np.zeros((D, NB), dtype=np.int32)
     return A, W, Bias
 
 
