@@ -50,6 +50,9 @@ DESIGNS = (
     # a program that arrives as data.
     "tpuvpu",
     "tputiled",
+    # Both units instruction-driven, and the engine a Transformer runs on.
+    "tpuisa",
+    "transformer",
     # The AutoSA comparison, and the two things learned from it.
     "autosa",
     "autosa-spec",

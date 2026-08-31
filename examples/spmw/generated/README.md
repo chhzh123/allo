@@ -5,15 +5,18 @@ Checked in so the stages can be read side by side. Everything here is generated
 `scripts/spmw_dump_generated.py`, so it can be diffed after a change to see what
 actually moved.
 
-Eleven designs, one directory each.
+Thirteen designs, one directory each.
 
 From the design doc, at 3×3: `gemm` (§3.1 systolic GEMM), `gemm8` (the same mesh
 in int8), `tiled` (§3.2), `fft` (§3.4), `tpu` (§3.5 mini-TPU), `attention`
 (§3.6 P·V).
 
 The programmable TPU: `tpuvpu` (a matrix unit, a vector unit with its own
-instruction set, and a program that arrives as data) and `tputiled` (the same,
-reducing deeper than the array by accumulating tiles under program control).
+instruction set, and a program that arrives as data), `tputiled` (the same,
+reducing deeper than the array by accumulating tiles under program control),
+`tpuisa` (the matrix unit taking instructions too — its opcode picks which of
+the cell's weight matrices to use) and `transformer` (that same engine, which
+`scripts/spmw_transformer_rtl.py` runs a whole Transformer block on).
 
 From the AutoSA comparison, at 4×4: `autosa` (chained A/B distribution, chained
 drain, int8 — structurally what AutoSA emits), `autosa-spec` (the same with the
@@ -96,6 +99,13 @@ own structure and then cross-checked against how the body uses each parameter.
 **Two placements.** `tpu/10_spmw_top.sv` instantiates `mac_r*` and `act_r*` and
 joins them with FIFOs — the `link` between the MXU and the activation row is
 internal to the fabric, not an edge port.
+
+**An instruction-driven matrix unit.** `tpuisa/06_unit_mac_r2.cpp` reads a word
+off the instruction chain before it touches an activation, pulls an opcode and a
+tile index out of it, and picks `w[tile]` from the cell's weight file. Compare
+`tpuvpu/06_unit_mac_r2.cpp`, whose cell has one weight and no choice. The tile
+field is why a Transformer's Q, K and V projections are one weight load and
+three instructions rather than three loads.
 
 **A pipeline stage against a processor.** Diff `tpu/06_unit_act_r*.cpp` against
 `tpuvpu/06_unit_vpu_r2.cpp`. The first is an expression: clamp, shift, write. The

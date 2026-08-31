@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module mac_r2 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  input  wire [31:0] w_dout,
+  input  wire w_empty_n,
+  output wire w_read,
+  input  wire [31:0] op_in_dout,
+  input  wire op_in_empty_n,
+  output wire op_in_read,
+  output wire [31:0] op_out_din,
+  input  wire op_out_full_n,
+  output wire op_out_write,
+  input  wire [7:0] a_in_dout,
+  input  wire a_in_empty_n,
+  output wire a_in_read,
+  output wire [7:0] a_out_din,
+  input  wire a_out_full_n,
+  output wire a_out_write,
+  output wire [31:0] p_out_din,
+  input  wire p_out_full_n,
+  output wire p_out_write
+);
+  mac_r2_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_dout(w_dout),
+      .v0_empty_n(w_empty_n),
+      .v0_read(w_read),
+      .v1_dout(op_in_dout),
+      .v1_empty_n(op_in_empty_n),
+      .v1_read(op_in_read),
+      .v2_din(op_out_din),
+      .v2_full_n(op_out_full_n),
+      .v2_write(op_out_write),
+      .v3_dout(a_in_dout),
+      .v3_empty_n(a_in_empty_n),
+      .v3_read(a_in_read),
+      .v4_din(a_out_din),
+      .v4_full_n(a_out_full_n),
+      .v4_write(a_out_write),
+      .v5_din(p_out_din),
+      .v5_full_n(p_out_full_n),
+      .v5_write(p_out_write));
+endmodule
