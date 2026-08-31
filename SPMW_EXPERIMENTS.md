@@ -965,3 +965,45 @@ the *same* 47 s at 4×4 — the role count does not change with the array.
 That is the argument this repository is about, measured on a real design at a
 real size. What the P&R numbers above add is the other half of it: the role path
 wins the front end by 54×, and then both paths hand Vivado the same problem.
+
+### The whole-array path does not implement at 16×16
+
+The deployment attempt went through `v++` on the whole-array kernel, and after
+**6 h 13 m** the link failed:
+
+```
+ERROR: [Constraints 18-1000] Routing results verification failed due to
+  partially-conflicted nets: level0_i/ulp/top_1/inst/buf0_179_U/
+  U_top_fifo_w8_d2_S_ShiftReg/... (and 9 more)
+ERROR: [Common 17-39] 'route_design' failed due to earlier errors.
+WNS = -2.294 ns   TNS = -8302.347 ns   (at the default 300 MHz)
+```
+
+The named nets are the kernel's own dataflow FIFOs. Two problems at once:
+timing missed by 2.3 ns on a 3.33 ns period, and the router could not resolve
+the congestion those thousands of FIFOs create.
+
+Set beside the role path on the identical computation:
+
+| 16×16 TPU | role path | whole-array path |
+|---|---|---|
+| to RTL | 49.0 s | 2635.6 s |
+| implementation | **1933.8 s, completed** | 22,418 s, **failed** |
+| LUT | 109,203 | 231,082 |
+| FF | 111,943 | 281,943 |
+| DSP | 288 | 288 |
+| BRAM | 0 | 45.5 |
+| result | routed, 255 MHz, 0 unrouted | `route_design` failed |
+
+The DSP counts agreeing at 288 is the check that both really are the same
+arithmetic. Everything else differs, and in the same direction: inlining 272
+instances into one HLS function costs **2.1× the LUTs and 2.5× the registers**,
+and then does not fit through the router.
+
+That is a stronger argument for the role decomposition than any compile-time
+number in this document, and it was not one this work set out to make. The
+whole-array path had been treated throughout as the slow-but-equivalent
+alternative. At 16×16 on a real part it is not equivalent — it is slower to
+compile, larger, and it does not close.
+
+*(The retry at a lower kernel clock is what the next section reports.)*
