@@ -101,20 +101,47 @@ EXP_BASE = 8  # exp(0) is 1 << EXP_BASE
 PROB_BITS = 6  # fractional bits in an attention weight: 1.0 is 64
 RECIP_BITS = 14  # working precision of the reciprocal
 
-engine = _engine(STEPS, outs=OUTS)
+
+class Shape:
+    """One size of the engine: the array's side and the sequence it processes.
+
+    Everything below takes a `Shape`, so the same block runs on a 4x4 array for
+    the tests and on a 16x16 one for the board. The programs do not change with
+    it -- an MXU program is broadcast across whatever rows exist, and a VPU
+    program is per-lane -- which is the point.
+    """
+
+    def __init__(self, dim, seq):
+        self.dim = dim
+        self.seq = seq
+        self.steps = 2 * seq
+        self.outs = seq
+        self.per_out = 2
+        self.engine = _engine(self.steps, outs=self.outs, dim=dim)
+
+
+#: The size the tests run at.
+SMALL = Shape(D, SEQ)
+#: The size taken to the board: a 16x16 matrix unit and a 16-lane vector unit,
+#: so a model dimension of 16 and a sequence of 16. Same roles, same programs,
+#: 272 instances instead of 20.
+BIG = Shape(16, 16)
+engine = SMALL.engine
 
 
 # -- the programs -----------------------------------------------------------
 
 
-def matmul_prog(tile):
+def matmul_prog(tile, shape=None):
     """A plain matmul: use the tile on even steps, skip the odd ones."""
-    return mxu_program([(MACC, tile), (MSKIP,)] * OUTS)
+    shape = shape or SMALL
+    return mxu_program([(MACC, tile), (MSKIP,)] * shape.outs, rows=shape.dim)
 
 
-def residual_prog(tile):
+def residual_prog(tile, shape=None):
     """A matmul and an identity pass, interleaved; the lane sums the pair."""
-    return mxu_program([(MACC, tile), (MACC, IDENT)] * OUTS)
+    shape = shape or SMALL
+    return mxu_program([(MACC, tile), (MACC, IDENT)] * shape.outs, rows=shape.dim)
 
 
 def requant(shift):
@@ -189,25 +216,27 @@ engine.spmw_operands = {
 }
 
 
-def _interleave(rows, other=None):
+def _interleave(rows, other=None, shape=None):
     """Lay activations out for the array: one row per step.
 
     A plain matmul pairs each row with a bubble the program skips; a residual
     pairs it with the row the skip connection carries.
     """
-    out = np.zeros((STEPS, D), dtype=np.int8)
+    shape = shape or SMALL
+    out = np.zeros((shape.steps, shape.dim), dtype=np.int8)
     out[0::2] = rows
     if other is not None:
         out[1::2] = other
     return out
 
 
-def _weights(*mats):
+def _weights(*mats, shape=None):
     """Pack up to NW-1 matrices into the cell weight file, identity last."""
-    w = np.zeros((D, D, NW), dtype=np.int8)
+    shape = shape or SMALL
+    w = np.zeros((shape.dim, shape.dim, NW), dtype=np.int8)
     for tile, mat in enumerate(mats):
         w[:, :, tile] = mat
-    w[:, :, IDENT] = np.eye(D, dtype=np.int8)
+    w[:, :, IDENT] = np.eye(shape.dim, dtype=np.int8)
     return w
 
 
@@ -225,8 +254,9 @@ class Engine:
     against the exported IPs, one xsim run per step.
     """
 
-    def __init__(self, target="ref", label=None):
-        self.run = spmw.build(engine, target=target)
+    def __init__(self, target="ref", label=None, shape=None):
+        self.shape = shape or SMALL
+        self.run = spmw.build(self.shape.engine, target=target)
         self.trace = []
         self.label = label or []
 
@@ -235,8 +265,9 @@ class Engine:
         return len(self.trace)
 
     def __call__(self, acts, weights, vprog, mprog, bias=None, name=""):
-        bias = np.zeros((D, NB), dtype=np.int32) if bias is None else bias
-        out = np.zeros((OUTS, D), dtype=np.int32)
+        dim, outs = self.shape.dim, self.shape.outs
+        bias = np.zeros((dim, NB), dtype=np.int32) if bias is None else bias
+        out = np.zeros((outs, dim), dtype=np.int32)
         self.run(acts, weights, bias.astype(np.int32), mprog, vprog, out)
         self.trace.append(
             {
@@ -252,96 +283,58 @@ class Engine:
         return out
 
 
-def transformer_block(x, wq, wk, wv, wo, w1, w2, target="ref"):
+def transformer_block(x, wq, wk, wv, wo, w1, w2, target="ref", shape=None):
     """One Transformer block, as a sequence of instruction-driven passes.
 
     Returns the block's output and the engine, so a test can ask how many times
     the same fabric was invoked.
     """
-    eng = Engine(target=target)
-    qkv = _weights(wq, wk, wv)
+    shape = shape or SMALL
+    eng = Engine(target=target, shape=shape)
+    ident = _weights(shape=shape)
+
+    def w_(*mats):
+        return _weights(*mats, shape=shape)
+
+    def lay(rows, other=None):
+        return _interleave(rows, other, shape=shape)
+
+    def mprog(tile):
+        return matmul_prog(tile, shape=shape)
+
+    def rprog(tile):
+        return residual_prog(tile, shape=shape)
+
+    qkv = w_(wq, wk, wv)
 
     # 1-3. Three projections, one weight load, three instructions.
     q, k, v = (
-        _clip8(
-            eng(
-                _interleave(x),
-                qkv,
-                requant(QUANT_QKV),
-                matmul_prog(tile),
-                name=f"proj{tile}",
-            )
-        )
+        _clip8(eng(lay(x), qkv, requant(QUANT_QKV), mprog(tile), name=f"proj{tile}"))
         for tile in range(3)
     )
 
     # 4. S' = K . Q', so a lane holds one query's scores over every key and the
     #    softmax that follows is a reduction *along* the lane rather than across.
-    scores = _clip8(
-        eng(
-            _interleave(k),
-            _weights(q.T),
-            requant(QUANT_SCORE),
-            matmul_prog(0),
-            name="scores",
-        )
-    )
+    scores = _clip8(eng(lay(k), w_(q.T), requant(QUANT_SCORE), mprog(0), name="scores"))
 
-    ident = _weights()
     # 5-7. Softmax, three passes over the same scores through the identity tile.
-    row_max = eng(
-        _interleave(scores), ident, ROW_MAX, matmul_prog(IDENT), name="row_max"
-    )[-1]
-    bias = np.zeros((D, NB), dtype=np.int32)
+    row_max = eng(lay(scores), ident, ROW_MAX, mprog(IDENT), name="row_max")[-1]
+    bias = np.zeros((shape.dim, NB), dtype=np.int32)
     bias[:, 0] = row_max
-    row_sum = eng(
-        _interleave(scores), ident, ROW_SUM, matmul_prog(IDENT), bias, name="row_sum"
-    )[-1]
+    row_sum = eng(lay(scores), ident, ROW_SUM, mprog(IDENT), bias, name="row_sum")[-1]
     bias[:, 1] = row_sum
-    probs_t = eng(
-        _interleave(scores), ident, NORMALISE, matmul_prog(IDENT), bias, name="softmax"
-    )
+    probs_t = eng(lay(scores), ident, NORMALISE, mprog(IDENT), bias, name="softmax")
 
     # 8. O = P . V. The lane held S transposed, so the host hands back P.
     probs = _clip8(probs_t.T)
-    attn = _clip8(
-        eng(
-            _interleave(probs),
-            _weights(v),
-            requant(PROB_BITS),
-            matmul_prog(0),
-            name="attn",
-        )
-    )
+    attn = _clip8(eng(lay(probs), w_(v), requant(PROB_BITS), mprog(0), name="attn"))
 
     # 9. Y = O . Wo + X -- the residual is an extra MACC against the identity.
-    y = _clip8(
-        eng(
-            _interleave(attn, x),
-            _weights(wo),
-            requant(QUANT_OUT),
-            residual_prog(0),
-            name="proj_out",
-        )
-    )
+    y = _clip8(eng(lay(attn, x), w_(wo), requant(QUANT_OUT), rprog(0), name="proj_out"))
 
     # 10-11. The feed-forward network, and its residual.
-    h = _clip8(
-        eng(
-            _interleave(y),
-            _weights(w1),
-            relu_requant(QUANT_OUT),
-            matmul_prog(0),
-            name="ffn1",
-        )
-    )
-    out = eng(
-        _interleave(h, y),
-        _weights(w2),
-        requant(QUANT_OUT),
-        residual_prog(0),
-        name="ffn2",
-    )
+    h = _clip8(eng(lay(y), w_(w1), relu_requant(QUANT_OUT), mprog(0), name="ffn1"))
+    out = eng(lay(h, y), w_(w2), requant(QUANT_OUT), rprog(0), name="ffn2")
     return out, eng
 
 
@@ -378,14 +371,15 @@ def _ref_block(x, wq, wk, wv, wo, w1, w2):
     return (h.astype(i32) @ w2.astype(i32) + y.astype(i32)) >> QUANT_OUT
 
 
-def _params(seed=5):
+def _params(seed=5, shape=None):
     """Activations near the full int8 range, weights small -- as quantised."""
+    shape = shape or SMALL
     rng = np.random.default_rng(seed)
 
     def weight():
-        return rng.integers(-8, 8, (D, D)).astype(np.int8)
+        return rng.integers(-8, 8, (shape.dim, shape.dim)).astype(np.int8)
 
-    x = rng.integers(-64, 64, (SEQ, D)).astype(np.int8)
+    x = rng.integers(-64, 64, (shape.seq, shape.dim)).astype(np.int8)
     return x, weight(), weight(), weight(), weight(), weight(), weight()
 
 
@@ -674,3 +668,28 @@ def test_what_a_rebuild_would_cost():
     # truncated onto hardware that cannot hold it.
     with pytest.raises(ValueError, match="buffer holds"):
         vpu_program([(NOP,)] * (NPROG + 1))
+
+
+def test_the_same_block_runs_on_a_16x16_array():
+    """Nothing about the block changes with the array's size.
+
+    The programs are identical -- an MXU program is broadcast across whatever
+    rows exist and a VPU program is per-lane -- so the only difference is the
+    shape of the tensors and the number of instances the fabric holds.
+    """
+    params = _params(shape=BIG)
+    out, eng = transformer_block(*params, shape=BIG)
+    np.testing.assert_array_equal(out, _ref_block(*params))
+    assert eng.invocations == 11
+    assert out.shape == (BIG.seq, BIG.dim)
+
+
+def test_the_bigger_array_has_the_same_roles():
+    """16x16 costs instances, not roles -- which is what fixes the compile time."""
+    from allo.spmw import rtl
+
+    small = rtl.cost(spmw.elaborate(SMALL.engine))
+    big = rtl.cost(spmw.elaborate(BIG.engine))
+    assert big["roles"] == small["roles"]
+    assert big["instances"] == 16 * 16 + 16 == 272
+    assert small["instances"] == 4 * 4 + 4 == 20

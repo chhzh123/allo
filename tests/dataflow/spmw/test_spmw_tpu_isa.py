@@ -128,20 +128,24 @@ class VpuIO(spmw.Interface):
     b = spmw.MemIn(int32[NB])
 
 
-def _engine(steps, outs=None, vprog_len=NPROG):
-    """The fabric, at a chosen number of MXU steps and VPU outputs.
+def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
+    """The fabric, at a chosen array size, number of MXU steps and VPU outputs.
 
-    Both counts are structural -- they are loop bounds in the two units -- so
-    they are parameters of the design rather than of a call. They differ when a
+    All three are structural -- a grid extent and two loop bounds -- so they are
+    parameters of the design rather than of a call. The two counts differ when a
     program folds several accumulators into one output: `outs` is how many
     results a lane emits and `steps` is how many the array feeds it, so a
     program with two ACCZ per output wants `steps = 2 * outs`.
+
+    ``dim`` is the array's side: a dim x dim matrix unit and a dim-lane vector
+    unit. Nothing in either body depends on it -- a cell is a cell -- so the
+    role count is the same at 4 as at 16 and only the instance count grows.
     """
     outs = steps if outs is None else outs
 
     mxu = spmw.Topology(
         MacIO,
-        grid=(D, D),
+        grid=(dim, dim),
         link=lambda i, j: {
             MacIO.a_out: spmw.to((i, j + 1), MacIO.a_in),
             MacIO.op_out: spmw.to((i, j + 1), MacIO.op_in),
@@ -150,7 +154,7 @@ def _engine(steps, outs=None, vprog_len=NPROG):
     )
     chain = spmw.Topology(
         VpuIO,
-        grid=(D,),
+        grid=(dim,),
         link=lambda i: {VpuIO.op_out: spmw.to((i + 1,), VpuIO.op_in)},
     )
 
@@ -235,12 +239,12 @@ def _engine(steps, outs=None, vprog_len=NPROG):
 
     @spmw.fabric
     def engine(
-        A: int8[steps, D],
-        W: int8[D, D, NW],
-        Bias: int32[D, NB],
-        MProg: int32[steps, D],
+        A: int8[steps, dim],
+        W: int8[dim, dim, NW],
+        Bias: int32[dim, NB],
+        MProg: int32[steps, dim],
         VProg: int32[vprog_len],
-        Y: int32[outs, D],
+        Y: int32[outs, dim],
     ):
         P = spmw.place(mac, on=mxu)
         V = spmw.place(vpu, on=chain)
@@ -254,7 +258,7 @@ def _engine(steps, outs=None, vprog_len=NPROG):
         (lane,) = V.axes
         spmw.gather(Y, from_=V.y_out, index=(..., lane))
 
-    engine.spmw_parts = (mac, vpu, steps, outs, vprog_len)
+    engine.spmw_parts = (mac, vpu, steps, outs, vprog_len, dim)
     return engine
 
 

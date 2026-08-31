@@ -108,6 +108,32 @@ ELABORATE = (
     'synth_design -top {top} -part {part} -rtl -name rtl_elab\nputs "ELABORATION OK"'
 )
 
+# Synthesis, then place and route. Each stage prints its own elapsed seconds,
+# because "the build took an hour" is not a measurement -- the question is which
+# stage grows with the array and which does not.
+IMPLEMENT = """add_files -fileset constrs_1 {root}/clock.xdc
+proc stage {{name body}} {{
+  set t0 [clock milliseconds]
+  uplevel 1 $body
+  puts "SPMW STAGE $name [expr {{([clock milliseconds] - $t0) / 1000.0}}]"
+}}
+stage synth  {{ synth_design -top {top} -part {part} }}
+report_utilization -file util_synth.rpt
+stage opt    {{ opt_design }}
+stage place  {{ place_design }}
+stage physopt {{ phys_opt_design }}
+stage route  {{ route_design }}
+report_utilization -file util.rpt
+report_timing_summary -file timing.rpt
+report_route_status -file route.rpt
+write_checkpoint -force routed.dcp
+set wns [get_property SLACK [get_timing_paths -delay_type max]]
+puts "ARRAY WNS $wns"
+set unrouted [llength [get_nets -quiet -filter {{ROUTE_STATUS != ROUTED && ROUTE_STATUS != INTRASITE}} -of [get_nets -quiet -hierarchical]]]
+puts "SPMW UNROUTED $unrouted"
+puts "IMPLEMENTATION OK"
+"""
+
 # Real synthesis of the whole fabric. The per-unit HLS estimate is not the
 # array's clock: the fabric adds the FIFOs, the fanout of a shared boundary
 # stream, and the routing between instances, none of which HLS ever saw.
@@ -169,6 +195,11 @@ def design(name, size):
         from test_spmw_transformer import engine
 
         return engine
+    if name == "transformer16":
+        # The same engine on a 16x16 array -- 272 instances, the same 12 roles.
+        from test_spmw_transformer import BIG
+
+        return BIG.engine
     if name == "tputiled":
         # The same engine reducing deeper than the array: NTILE weight tiles
         # accumulated by the lane's own ACCZ instructions.
@@ -516,7 +547,7 @@ def _synthesise_one(out, name):
     return name, seconds, done.returncode
 
 
-def assemble(out, part, names, top="spmw_top", frequency=None):
+def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False):
     """Vivado reads the exported IPs and builds the array.
 
     With ``frequency`` it runs real synthesis and reports the array's own clock
@@ -533,7 +564,7 @@ def assemble(out, part, names, top="spmw_top", frequency=None):
             os.path.join(out, "clock.xdc"),
             f"create_clock -period {period:.3f} -name ap_clk [get_ports ap_clk]\n",
         )
-        step = SYNTHESISE.format(top=top, part=part, root=out)
+        step = (IMPLEMENT if pnr else SYNTHESISE).format(top=top, part=part, root=out)
     else:
         step = ELABORATE.format(top=top, part=part)
     script = os.path.join(out, "assemble.tcl")
@@ -552,7 +583,12 @@ def assemble(out, part, names, top="spmw_top", frequency=None):
         check=False,
     )
     elapsed = round(time.time() - start, 1)
-    marker = "SYNTHESIS OK" if period else "ELABORATION OK"
+    if pnr:
+        marker = "IMPLEMENTATION OK"
+    elif period:
+        marker = "SYNTHESIS OK"
+    else:
+        marker = "ELABORATION OK"
     if marker not in done.stdout:
         tail = "\n".join(done.stdout.splitlines()[-25:])
         raise SystemExit(f"Vivado did not finish the array:\n{tail}")
@@ -563,6 +599,10 @@ def assemble(out, part, names, top="spmw_top", frequency=None):
                 wns = float(line.split()[-1])
             except ValueError:
                 wns = None
+        # Each implementation stage times itself, so the cost can be attributed
+        # rather than reported as one number.
+        elif line.startswith("SPMW STAGE ") or line.startswith("SPMW UNROUTED "):
+            print("  " + line.replace("SPMW ", "").lower())
     return elapsed, wns
 
 
@@ -680,6 +720,7 @@ def main():
             "tputiled",
             "tpuisa",
             "transformer",
+            "transformer16",
             "fft",
             "attention",
             "tiled",
@@ -702,6 +743,12 @@ def main():
         "--synth",
         action="store_true",
         help="synthesise the whole array, for its own clock and area",
+    )
+    parser.add_argument(
+        "--pnr",
+        action="store_true",
+        help="take the array all the way through place and route, timing each "
+        "stage; implies --synth",
     )
     parser.add_argument("--out", required=True)
     parser.add_argument("--part", default=PART)
@@ -787,9 +834,12 @@ def main():
         args.out,
         args.part,
         names + movers,
-        frequency=args.frequency if args.synth else None,
+        frequency=args.frequency if (args.synth or args.pnr) else None,
+        pnr=args.pnr,
     )
-    verb = "synthesised" if args.synth else "elaborated"
+    verb = (
+        "implemented" if args.pnr else ("synthesised" if args.synth else "elaborated")
+    )
     print(f"Vivado {verb} {cost['instances']} instances in {elapsed}s")
     if wns is not None:
         period = 1000.0 / args.frequency
