@@ -1251,3 +1251,69 @@ architecture still absent here.
 and ~0.62 ms is per-call host cost. One invocation removes the latter — about
 **1.9×**. Getting the divider out of the VPU's recurrence is worth **12×** and
 is a program change, not a hardware one. That is the order to do them in.
+
+### Getting the divider out of the recurrence
+
+The `RECIP` opcode is gone; `LOADR` replaces it. The divisor was always a
+*per-lane constant* — the row sum, fixed across a pass — so the divide never
+belonged inside a per-element loop. It now happens once in the lane's prologue
+and `LOADR` reads the result.
+
+Measured on the same unit, same build:
+
+| VPU lane | iteration latency | II | loop cycles | lane total |
+|---|---|---|---|---|
+| `RECIP` in the dispatch | 37 | **35** | 8,961 | 9,005 |
+| reciprocal in the prologue | 5 | **3** | 769 | **840** |
+
+**10.7× on the lane**, and the kernel was 98% lane. It is an ISA change, not a
+hardware one: nothing was added, one opcode moved from the loop to the prologue.
+
+The general lesson is the one from §3.1 for a third time — *the interval is set
+by the operator in the recurrence* — with the sharper corollary that **an
+operator only has to be reachable to cost you**. Not one program in the block
+executed `RECIP` more than once per output, and NOPs still paid 35 cycles for it.
+
+### Could this run BERT-base?
+
+**The mechanism, yes** — `test_the_array_computes_a_matmul_four_times_its_size`
+checks it: a 16×16 array computes a 64-deep, 64-wide matmul by holding four
+reduction tiles in the cell weight file, summing them with four `ACCZ`, and
+passing four times over the output columns. Tiling is a program.
+
+**Usefully, no.** With one BERT-base encoder block at n=512, d=768, f=3072 and
+the engine rebuilt with `steps=2048`, `outs=512`:
+
+| op | invocations | MACs |
+|---|---|---|
+| Q, K, V | 3 × 576 | 906 M |
+| QKᵀ, P·V | 384 + 384 | 403 M |
+| output projection | 576 | 302 M |
+| FFN1, FFN2 | 2 × 2304 | 2416 M |
+| **per block** | **7,680** | **4.03 G** |
+
+| | |
+|---|---|
+| per block | 1.26 s compute + 0.43 s host = **1.69 s** |
+| one sequence, 12 blocks | **~20 s** |
+| utilisation | 8.3% of the array's 38.4 GMAC/s |
+
+A GPU does the same forward pass in a few milliseconds, so this is roughly
+10⁴ times slower. Two reasons, and only one of them is interesting.
+
+**The array is small.** 256 cells against a TPUv1's 65,536. On this part the
+DSP ceiling is 9,024, so 96×96 = 9,216 cells is the largest square that fits —
+36× more, and 1.38 TMAC/s. The same arithmetic would be 35 ms per pass at peak,
+~0.44 s at the same 8%. *The role count does not change with the array*, so
+SPMW's front end is indifferent to this; place and route is not.
+
+**The vector unit starves the matrix unit, 12:1.** 16 instructions at II=3 is 48
+cycles per output while the MXU takes 4 steps. Shortening a plain requantise to
+seven instructions would take it to 5:1 and utilisation to ~19%.
+
+Three things are structural rather than programmable and would need a rebuild:
+`steps` and `outs` (loop bounds), `NW` (the weight file, which caps how much
+reduction depth one load covers), and the array's own size. None is a
+limitation of the instruction set — the ISA sequences all of it — and that is
+the honest summary: **this is a mechanism demonstrator, and the mechanism
+scales; the instance does not.**

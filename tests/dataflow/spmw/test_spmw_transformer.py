@@ -19,7 +19,7 @@ design.
       4   S' = K.Q'                         MACC tile 0            requantise
       5   row max of S'                     MACC identity          running MAX
       6   row sum of exp(S' - max)          MACC identity          EXP2, sum
-      7   P' = exp(S' - max) / sum          MACC identity          EXP2, RECIP
+      7   P' = exp(S' - max) / sum          MACC identity          EXP2, LOADR
       8   O = P.V                           MACC tile 0            requantise
       9   Y = O.Wo + X                      MACC 0 / MACC identity two ACCZ
      10   H = relu(Y.W1)                    MACC tile 0            MAX 0, shift
@@ -63,13 +63,14 @@ from test_spmw_tpu_isa import (
     MAX,
     MSKIP,
     MUL,
+    LOADR,
     MZERO,
     NOP,
     REGS,
     NB,
     NPROG,
     NW,
-    RECIP,
+    RCP_BITS,
     SEQ,
     SHR,
     STORE,
@@ -99,7 +100,7 @@ QUANT_OUT = 4  # the projection and the feed-forward layers
 EXP_SHIFT = 5  # how much of a score's range one exp step covers
 EXP_BASE = 8  # exp(0) is 1 << EXP_BASE
 PROB_BITS = 6  # fractional bits in an attention weight: 1.0 is 64
-RECIP_BITS = 14  # working precision of the reciprocal
+RECIP_BITS = RCP_BITS  # the lane's prologue divide, not an immediate
 
 
 class Shape:
@@ -189,8 +190,9 @@ ROW_SUM = vpu_program(_EXP + [(ADD, 0, 1), (STORE, 0)], reads=PER_OUT)
 NORMALISE = vpu_program(
     _EXP
     + [
-        (LOADB, 3, 1),  # r3 = the row sum
-        (RECIP, 3, 0, RECIP_BITS),  # r3 = 2^RECIP_BITS / sum
+        # The lane divided by the row sum once, before the pass; this just
+        # reads the result. The divide used to be here, and cost 17x.
+        (LOADR, 3),
         (MUL, 1, 3),
         # Not all the way back: a weight lands in [0, 1<<PROB_BITS], because
         # shifting the whole way would truncate every probability to zero.
@@ -526,10 +528,11 @@ def _mzero(acts, w):
     return np.outer(acts[0::2, last].astype(np.int64), w[last, :, 1].astype(np.int64))
 
 
-def _recip(acts, w):
+def _loadr(acts, w, bias1):
+    """LOADR yields the same per-lane constant at every element."""
     lo, hi = _pairs(acts, w, 0)
-    total = lo + hi
-    return np.where(total > 0, (np.int64(1) << 12) // np.maximum(total, 1), 0)
+    rcp = np.where(bias1 > 0, (np.int64(1) << RCP_BITS) // np.maximum(bias1, 1), 0)
+    return np.broadcast_to(rcp, lo.shape).copy()
 
 
 #: ``(name, MXU program, VPU program, what it should compute)``.
@@ -582,19 +585,13 @@ NOVEL_PROGRAMS = [
         _mzero,
     ),
     (
-        "reciprocal",
+        "loadr",  # the pass reciprocal, read as an operand
         mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
         vpu_program(
-            [
-                (LOADI, 0, 0, 0),
-                (ACCZ, 0),
-                (ACCZ, 0),
-                (RECIP, 0, 0, 12),
-                (STORE, 0),
-            ],
+            [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (LOADR, 0), (STORE, 0)],
             reads=PER_OUT,
         ),
-        _recip,
+        _loadr,
     ),
 ]
 
@@ -604,13 +601,18 @@ def novel_operands(name):
     acts, w = _novel_inputs()
     entry = next(e for e in NOVEL_PROGRAMS if e[0] == name)
     _n, mprog, vprog, expect = entry
+    bias = np.zeros((D, NB), dtype=np.int32)
+    # A lane's prologue divides by b[1], so a program that reads the result
+    # needs a divisor worth dividing by.
+    bias[:, 1] = np.arange(3, 3 + D, dtype=np.int32)
+    want = expect(acts, w, bias[:, 1]) if name == "loadr" else expect(acts, w)
     return {
         "A": acts,
         "W": w,
-        "Bias": np.zeros((D, NB), dtype=np.int32),
+        "Bias": bias,
         "MProg": mprog,
         "VProg": vprog,
-        "Y": expect(acts, w).astype(np.int32),
+        "Y": want.astype(np.int32),
     }
 
 

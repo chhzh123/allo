@@ -56,7 +56,12 @@ STORE = 8
 ACCZ = 9
 SUB = 10  # r[dst] -= r[src]
 EXP2 = 11  # r[dst] = 1 << clamp(r[dst], 0, 30) -- a shift-based exponential
-RECIP = 12  # r[dst] = (1 << imm) / r[dst] -- fixed-point reciprocal, 0 if <= 0
+LOADR = 12  # r[dst] = the pass reciprocal, (1 << RCP_BITS) / b[1]
+
+#: Fixed-point precision of the pass reciprocal. It is a *build* constant, not
+#: an immediate, because the divide happens once in the lane's prologue rather
+#: than inside the instruction loop -- see `vpu` for why that matters.
+RCP_BITS = 14
 
 
 def mxu_word(opcode, tile=0):
@@ -186,6 +191,23 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
             prog[pc] = word
             io.op_out.put(word)
 
+        # The pass reciprocal, computed once, here.
+        #
+        # This used to be a `RECIP` opcode inside the dispatch, and it cost
+        # almost everything. A 32-bit divide is a 36-cycle core; the register
+        # file is indexed at runtime, so HLS has to assume a loop-carried
+        # dependency through it; and the divider therefore sat in that
+        # recurrence. The interval of the *whole* instruction loop became 35 --
+        # a NOP cost 35 cycles because one arm of the dispatch could divide.
+        #
+        # The divisor is a per-lane constant, so the divide never belonged in a
+        # per-element loop. Out here it is paid once per pass instead of 256
+        # times, and the loop it left behind runs at II=2.
+        denom: int32 = io.b[1]
+        rcp: int32 = 0
+        if denom > 0:
+            rcp = (1 << RCP_BITS) // denom
+
         # Declared *outside* the step loop, so a register survives from one
         # accumulator to the next and a program can reduce across the pass --
         # a running maximum, a running sum. A program that wants a fresh value
@@ -228,12 +250,8 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
                     if e > 30:
                         e = 30
                     reg[dst] = 1 << e
-                elif opcode == RECIP:
-                    d: int32 = reg[dst]
-                    if d > 0:
-                        reg[dst] = (1 << imm) // d
-                    else:
-                        reg[dst] = 0
+                elif opcode == LOADR:
+                    reg[dst] = rcp
                 elif opcode == STORE:
                     io.y_out.put(reg[dst])
 
@@ -386,3 +404,47 @@ def test_the_reference_agrees_with_numpy_for_a_plain_matmul():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_the_array_computes_a_matmul_four_times_its_size():
+    """Tiling is a program, not a rebuild -- up to the engine's loop bounds.
+
+    A 16x16 array does a 64-deep, 64-wide matmul: four reduction tiles held at
+    once in the cell weight file and summed by four ACCZ, times four passes over
+    the output columns. This is the mechanism a larger Transformer would lean
+    on, so it is checked rather than assumed.
+    """
+    dim, seq, din, dout, shift = D, SEQ, 4 * D, 4 * D, 6
+    tiles, outtiles = din // dim, dout // dim
+    assert tiles == NW, "the reduction depth has to fit the cell weight file"
+    steps = tiles * seq
+    run = spmw.build(_engine(steps, outs=seq, dim=dim), target="ref")
+
+    rng = np.random.default_rng(0)
+    a = rng.integers(-8, 8, (seq, din)).astype(np.int8)
+    w = rng.integers(-8, 8, (din, dout)).astype(np.int8)
+
+    mprog = mxu_program(
+        [(MACC, t) for _m in range(seq) for t in range(tiles)], rows=dim
+    )
+    vprog = vpu_program(
+        [(LOADI, 0, 0, 0)] + [(ACCZ, 0)] * tiles + [(SHR, 0, 0, shift), (STORE, 0)],
+        reads=tiles,
+    )
+    acts = np.zeros((steps, dim), dtype=np.int8)
+    for m in range(seq):
+        for t in range(tiles):
+            acts[m * tiles + t] = a[m, t * dim : (t + 1) * dim]
+
+    got = np.zeros((seq, dout), dtype=np.int32)
+    for oc in range(outtiles):
+        tile = np.zeros((dim, dim, NW), dtype=np.int8)
+        for t in range(tiles):
+            tile[:, :, t] = w[t * dim : (t + 1) * dim, oc * dim : (oc + 1) * dim]
+        out = np.zeros((seq, dim), dtype=np.int32)
+        run(acts, tile, np.zeros((dim, NB), dtype=np.int32), mprog, vprog, out)
+        got[:, oc * dim : (oc + 1) * dim] = out
+
+    np.testing.assert_array_equal(
+        got, (a.astype(np.int32) @ w.astype(np.int32)) >> shift
+    )
