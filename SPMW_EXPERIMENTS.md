@@ -865,3 +865,81 @@ python3 scripts/spmw_dump_generated.py --out examples/spmw/generated            
 `--tune` sweeps the initiation interval; `--jobs 1` gives the serial baseline;
 `--synth` runs Vivado on the whole fabric rather than elaborating it.
 `SPMW_SUMMARY.md` carries the measurements and how each was taken.
+
+## E6. On the board: a 16×16 TPU through place and route ✅ measured
+
+Everything above this line is post-*synthesis*. That distinction turned out to
+matter more than it sounds, because the first attempt to place the 16×16 TPU
+failed outright — and not for any reason synthesis could have told us.
+
+### A fabric has no boundary a chip can present
+
+`place_design` stopped with 103 errors. The design is not too large; it has too
+many *pins*:
+
+| port | width × channels | pins |
+|---|---|---|
+| `mac_w_mem_dout` | 32b × 256 | 8192 |
+| `vpu_b_mem_dout` | 64b × 16 | 1024 |
+| `mac_op_in_bind_dout` | 32b × 16 | 512 |
+| `vpu_y_out_bind_din` | 32b × 16 | 512 |
+| … 20 declarations in all | | |
+| **total** | | **11,044** |
+
+against roughly 600 usable I/O on a U280. Synthesis never notices, because
+synthesis never places anything. **A fabric is not a deployable unit** — its
+interface is streams, and streams are an on-chip idea.
+
+So the fabric needs a wrapper. Two of them, for two different questions.
+
+`allo.spmw.shell.harness_sv` answers the smaller one — can the fabric itself
+implement, and what does each stage cost. Inputs come from an LFSR and outputs
+fold into one register, because tying inputs to constants lets synthesis delete
+the array and report a wonderful, meaningless result. The 288 DSPs in the result
+below are the check that it did not: 256 MXU cells plus the vector unit's
+multipliers, all present.
+
+### Implementation, 16×16 TPU on xcu280 at a 4.000 ns target
+
+| stage | seconds | share |
+|---|---|---|
+| HLS, 12 roles concurrently | 47.0 | — |
+| `synth_design` | 514.2 | 26.6% |
+| `opt_design` | 45.6 | 2.4% |
+| `place_design` | 709.7 | 36.7% |
+| `phys_opt_design` | 27.4 | 1.4% |
+| `route_design` | 636.9 | 32.9% |
+| **implementation total** | **1933.8** | **32.2 min** |
+
+| | |
+|---|---|
+| achieved clock | **3.915 ns (255.4 MHz)**, WNS +0.085 |
+| unrouted nets | **0** |
+| LUT | 109,203 (8.4%) |
+| FF | 111,943 (4.3%) |
+| DSP | 288 (3.2%) |
+| BRAM / URAM | 0 / 0 |
+| CARRY8 | 5,056 |
+
+Two things worth reading off that table. **Place and route is two thirds of the
+cost** — 1,346 s of 1,934 — and neither scales with the role count, so the flat
+HLS time the rest of this document is about buys less at the full-chip level
+than it does at the unit level. And **47 s of HLS against 1,934 s of Vivado**:
+once a design is real, the compile-time story is a Vivado story.
+
+### The deployable wrapper is a different object
+
+`shell.feeder_cpp` is the other wrapper: one HLS DMA per boundary *family*
+rather than per channel, which is what collapses the port count to something a
+board can carry.
+
+| | masters |
+|---|---|
+| one per channel (what a mover would give) | 321 |
+| one per family (what the shell gives) | **6** |
+
+Each feeder is an HLS function with an array of stream ports, so Vitis writes
+the AXI master; the 256-port case synthesises in 34 s. The host lays each
+family's tokens out in the order `rtl.boundary_plan` says its channels consume
+them, so the index arithmetic stays on the host and the hardware walks a flat
+buffer.
