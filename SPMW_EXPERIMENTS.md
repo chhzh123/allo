@@ -1497,3 +1497,53 @@ is **7.58 µs — 11%**. The other 89% is six buffer syncs, an enqueue and a PCI
 round trip. Speeding up the hardware further would now move a ninth of the
 number; the remaining work is all in how the host talks to it, which is what the
 unified buffer in the section above is for.
+
+### How long a BERT-base block would take
+
+Not measured end to end — that needs a rebuild with `steps=2048, outs=512` and a
+four-hour `v++` run. But the two dominant terms *are* measured, so this is one
+extrapolation rather than three.
+
+**Measured inputs.** The units at BERT tile shape (512 rows, four reduction
+tiles, an eight-instruction program):
+
+| | cycles | at 150 MHz |
+|---|---|---|
+| MXU cell, `steps=2048` | 2,061 | 13.7 µs |
+| VPU lane, `outs=512`, `vprog_len=8` | **12,344** | **82.3 µs** |
+
+VPU-bound by 6:1, as at the small size. And the host cost per invocation,
+measured on the board: **59.9 µs** fixed, plus 16 µs to move 193 KB.
+
+**The arithmetic.** One invocation covers 512 output rows × 16 output columns ×
+64 reduction depth = 524,288 MACs. A BERT-base encoder block is 4.03 G MACs, so
+**7,680 invocations**.
+
+| | |
+|---|---|
+| kernel | 82.3 µs |
+| host | 76.4 µs |
+| **per invocation** | **158.7 µs** |
+| **per block** | **1.22 s** |
+| **12 blocks, one 512-token sequence** | **~15 s** |
+
+Utilisation is 16.6% while the kernel runs and 8.6% overall — the difference
+being that the host is on the critical path for half of every invocation.
+
+**Against the floor.** 4.03 G MACs at 256 MACs/cycle and 150 MHz is **105 ms**
+per block if the array never idled; 1.26 s for twelve. So the gap to a perfect
+16×16 array is 11.6×, and the gap to a GPU (a few ms for the whole pass) is
+about 10⁴ — almost all of which is that 256 cells is a small array.
+
+What the two known fixes are worth, on the same arithmetic:
+
+| | per block | 12 blocks |
+|---|---|---|
+| as it stands | 1.22 s | 14.6 s |
+| II=1 (narrow `MUL` to 16×16) | 0.80 s | 9.6 s |
+| …and one invocation per matmul (unified buffer) | 0.29 s | 3.4 s |
+
+Neither closes the real gap, which is the array: 96×96 is the U280's DSP ceiling
+and would be 36× the cells. **The honest ceiling for this design on this part is
+around 0.1 s per sequence, and that needs both software fixes and a 36× bigger
+array.**
