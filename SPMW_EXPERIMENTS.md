@@ -1596,3 +1596,89 @@ overhead and a somewhat worse number.
 registers, its buffer holds sixteen instructions, and a cell holds four weights.
 A program that wants more of any of those needs a new netlist — as it would on
 any machine.
+
+## Floorplanning, and why it does not help this array
+
+AutoBridge [FPGA'21] and RapidStream [FPGA'22] argue that an HLS design misses
+its clock because the compiler cannot see how far a wire will go, and that the
+fix is to floorplan the dataflow graph **and** pipeline the connections that
+cross the floorplan's boundaries. Either half alone is worthless. An earlier
+floorplan here did only the first half and measured *worse* than no floorplan --
+0.085 ns of slack against 0.186 ns -- which is exactly the ablation those papers
+argue against. So this is the coupled experiment.
+
+### What a spatial program already knows
+
+Most of both tools' machinery recovers structure a spatial program never lost.
+AutoBridge builds a dataflow graph out of C++, estimates each function's area
+from HLS reports, and solves an ILP to partition it; then, because "each vertex
+is an FSM and the firing rate is not fixed and can have complex pattern", it
+adopts a conservative approach -- an SDC over cut-sets to rebalance reconvergent
+paths, and a refusal to pipeline anything on a dependency cycle. The paper names
+SDF and latency-insensitive theory as the models that would make the problem
+easy and says it cannot assume them.
+
+A `Topology` is that model, so the same questions are answered by reading the
+declaration:
+
+| the question | AutoBridge | here |
+|---|---|---|
+| what is the graph? | recovered from C++ | `Topology` is the graph |
+| how big is each vertex? | HLS area *estimates* | few roles, each synthesised once, exact |
+| where may latency be added? | SDC over cut-sets | a family *is* a cut-set |
+| which nets cross? | ILP, then per net | `offset` says the direction, the index says where |
+| is there a cycle? | conservative refusal | checked: the fabric is a DAG |
+
+`crossing_families` returns 48 of the 256 southward channels on the 16×16 engine
+-- those landing on rows 4, 8 and 12, the three band boundaries. Anchoring the
+whole family instead would have built 768 registers to do the work of 48.
+
+### The measurement
+
+16×16 TPU, `xcu280`, 3.333 ns target, LFSR harness, identical in every other
+respect:
+
+| configuration | achieved | WNS | frequency |
+|---|---|---|---|
+| no floorplan, no anchors | 3.071 ns | +0.262 ns | **325.6 MHz** |
+| 4 slots + anchors on the crossings | 3.134 ns | +0.199 ns | **319.1 MHz** |
+
+**The coupled version is 2% slower.** Not a wash in favour, a small loss.
+
+### Why, and it is not subtle
+
+The critical path is not a link between units. It is inside one:
+
+```
+base      dut/u_vpu_r0_12/u/grp_..._Pipeline_VITIS_LOOP_84_6_.../lshr_ln1_reg_1295_reg[1]
+       -> dut/u_vpu_r0_12/u/grp_..._Pipeline_VITIS_LOOP_84_6_.../reg_0_3_fu_126_reg[29]
+          2.825 ns: logic 0.691 (24%), route 2.134 (76%)
+```
+
+Source and destination are the same instance. It is the lane's shift-and-write
+back into a register file indexed at runtime -- the same `reg[dst]` that made the
+initiation interval 35 before it was cut to 3. Three quarters of the delay is
+route, *inside a unit*, because a runtime index is a mux over the whole file.
+
+Anchoring the southward links pipelines wires that had slack to spare. The
+floorplan then takes placement freedom away from the one module that needed it,
+and the path moves to `g_vpu_z_in_bind[15].u/count_reg -> u_vpu_r1_15` -- the
+accumulator FIFO into the last lane, still not a mesh link.
+
+**AutoBridge's premise does not hold here.** Its gains come from designs whose
+critical paths are long inter-module wires, especially ones crossing dies: 43
+configurations, 147 MHz to 297 MHz. This array is 272 instances, 8% of the
+device, and sits inside one SLR with every link joining physical neighbours. The
+placer was already doing the thing a floorplan would tell it to do.
+
+That is worth stating as a limit rather than filed as a failure. The mechanism
+is cheaper here than in either paper -- no ILP, no SDC, no area estimates, and
+the anchors are transparent by construction (the eleven-step block replay passes
+11/11 on the anchored netlist with cycle counts identical to the un-anchored
+one). It would pay on an array too large for one SLR, which at this cell size
+means roughly 96×96, the U280's DSP ceiling. It does not pay on this one, and
+the reason is legible in one timing path.
+
+**What would actually help** is the thing both critical paths point at: the
+runtime-indexed register file inside the lane. That is an ISA decision, not a
+placement one.

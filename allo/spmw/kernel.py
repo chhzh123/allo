@@ -1,0 +1,541 @@
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""The array as something XRT can load: an RTL kernel around the fabric.
+
+The role path -- one HLS project per role, a SystemVerilog fabric, Vivado
+assembling them -- produces the better array: at 16x16 it is half the LUTs of
+the whole-array route and closes at a clock the whole-array route could not
+reach.  What it could not do was run on a card, because a card does not load a
+netlist; it loads an `.xclbin`, and an `.xclbin` wants a kernel with a control
+register map and AXI masters.
+
+This module is that wrapper.  It puts three things beside the fabric:
+
+* **one AXI4-Lite slave** carrying the standard Vitis control map, so XRT can
+  set arguments and start the kernel;
+* **one HLS feeder per boundary family** -- six, not the 49 a per-binding mover
+  plan would need -- each an AXI master walking one family's tokens; and
+* **a FIFO per boundary channel**, because a feeder presents the write side of
+  a handshake and the fabric presents the read side.
+
+The register map is the ordinary one, so no host-side special pleading:
+
+    0x00  control     bit 0 start, 1 done, 2 idle, 3 ready, 7 auto-restart
+    0x04  GIER
+    0x08  IP_IER
+    0x0C  IP_ISR
+    0x10  first argument, one 8-byte slot each
+
+Arguments are the six DRAM pointers, then the six token counts.  The counts
+are arguments for the same reason the array reads its trip count out of the
+instruction stream: a shell that walked a compile-time number of tokens would
+put the shape back into the bitstream, and the shape is the thing a new model
+changes.
+"""
+
+from .abi import axi_signals
+from .rtl import StructuralEmitter, _volume, _width
+from .shell import _dma_name, families
+
+# The first argument sits above the four control words, and each argument gets
+# a 64-bit slot whatever it holds -- what `v++` expects of a kernel it did not
+# compile itself.
+ARG_BASE = 0x10
+ARG_STRIDE = 0x08
+
+
+class Argument:
+    """One entry of the control map: what it is called, how wide, and where."""
+
+    __slots__ = ("bits", "family", "name", "offset", "pointer")
+
+    def __init__(self, name, bits, offset, pointer, family):
+        self.name = name
+        self.bits = bits
+        self.offset = offset
+        self.pointer = pointer
+        self.family = family
+
+    def __repr__(self):
+        kind = "ptr" if self.pointer else "scalar"
+        return f"Argument({self.name}, {kind}, {self.bits}b, @{self.offset:#04x})"
+
+
+def arguments(graph):
+    """The kernel's arguments: a pointer per family, then a count per family.
+
+    Pointers first so that a host walking the list can bind buffers before it
+    knows any shape, which is the order `spmw_board_run.py` wants.
+    """
+    fams = families(graph)
+    args = []
+    for index, fam in enumerate(fams):
+        args.append(
+            Argument(
+                f"{_dma_name(fam)}_ptr",
+                64,
+                ARG_BASE + ARG_STRIDE * index,
+                True,
+                fam,
+            )
+        )
+    base = ARG_BASE + ARG_STRIDE * len(fams)
+    for index, fam in enumerate(fams):
+        args.append(
+            Argument(
+                f"{_dma_name(fam)}_steps",
+                32,
+                base + ARG_STRIDE * index,
+                False,
+                fam,
+            )
+        )
+    return args
+
+
+def _addr_width(args):
+    """Enough address bits to reach the last argument's high word."""
+    top = ARG_BASE + ARG_STRIDE * len(args) + 8
+    width = 1
+    while (1 << width) < top:
+        width += 1
+    return width
+
+
+def control_sv(args, name="spmw_control_s_axi"):
+    """The AXI4-Lite slave: the control word, and a register per argument.
+
+    Written out rather than borrowed from an HLS project because the arguments
+    are this design's, not one function's, and because the behaviour that
+    matters is small and worth being able to read: `ap_start` is set by a write
+    and cleared when the kernel takes it, `ap_done` latches until read, and
+    everything else is a register file.
+    """
+    aw = _addr_width(args)
+    decls, resets, writes, reads, outs = [], [], [], [], []
+    for arg in args:
+        words = 2 if arg.bits > 32 else 1
+        decls.append(f"  reg [{arg.bits - 1}:0] r_{arg.name};")
+        resets.append(f"      r_{arg.name} <= 0;")
+        outs.append(f"  assign {arg.name} = r_{arg.name};")
+        for word in range(words):
+            addr = arg.offset + 4 * word
+            lo, hi = 32 * word, min(32 * word + 31, arg.bits - 1)
+            span = f"[{hi}:{lo}]" if arg.bits > 32 else ""
+            writes.append(
+                f"        {aw}'h{addr:02x}: r_{arg.name}{span} <= "
+                f"w_data[{hi - lo}:0];"
+            )
+            reads.append(f"        {aw}'h{addr:02x}: rdata <= r_{arg.name}{span};")
+    ports = "".join(f"  output wire [{a.bits - 1}:0] {a.name},\n" for a in args)
+    return f"""`timescale 1ns/1ps
+// Generated by allo.spmw.kernel.control_sv -- do not edit.
+//
+// The Vitis control map. `ap_start` is a write-one that the kernel clears when
+// it accepts the job; `ap_done` latches so a host that polls slower than the
+// kernel runs still sees it, and clears on read.
+module {name} #(
+  parameter AW = {aw},
+  parameter DW = 32
+)(
+  input  wire          ACLK,
+  input  wire          ARESET,
+  input  wire [AW-1:0] AWADDR,
+  input  wire          AWVALID,
+  output wire          AWREADY,
+  input  wire [DW-1:0] WDATA,
+  input  wire [DW/8-1:0] WSTRB,
+  input  wire          WVALID,
+  output wire          WREADY,
+  output wire [1:0]    BRESP,
+  output wire          BVALID,
+  input  wire          BREADY,
+  input  wire [AW-1:0] ARADDR,
+  input  wire          ARVALID,
+  output wire          ARREADY,
+  output wire [DW-1:0] RDATA,
+  output wire [1:0]    RRESP,
+  output wire          RVALID,
+  input  wire          RREADY,
+  output wire          interrupt,
+{ports}  output wire          ap_start,
+  input  wire          ap_done,
+  input  wire          ap_idle,
+  input  wire          ap_ready
+);
+  localparam ADDR_CTRL = {aw}'h00, ADDR_GIER = {aw}'h04,
+             ADDR_IER  = {aw}'h08, ADDR_ISR  = {aw}'h0c;
+
+  reg        aw_hs, w_hs, ar_hs, r_valid, b_valid;
+  reg [AW-1:0] waddr;
+  reg [DW-1:0] rdata;
+  reg        r_start, r_done, r_auto;
+  reg        gier;
+  reg [1:0]  ier, isr;
+{chr(10).join(decls)}
+
+  wire [DW-1:0] w_data = WDATA;
+  wire          w_fire = AWVALID && WVALID && !aw_hs && !w_hs;
+
+  assign AWREADY = w_fire;
+  assign WREADY  = w_fire;
+  assign BRESP   = 2'b00;
+  assign BVALID  = b_valid;
+  assign ARREADY = ARVALID && !r_valid;
+  assign RDATA   = rdata;
+  assign RRESP   = 2'b00;
+  assign RVALID  = r_valid;
+  assign ap_start  = r_start;
+  assign interrupt = gier && |(isr & ier);
+{chr(10).join(outs)}
+
+  always @(posedge ACLK) begin
+    if (ARESET) begin
+      aw_hs <= 0; w_hs <= 0; b_valid <= 0; r_valid <= 0;
+      r_start <= 0; r_done <= 0; r_auto <= 0;
+      gier <= 0; ier <= 0; isr <= 0; waddr <= 0; rdata <= 0;
+{chr(10).join(resets)}
+    end else begin
+      // Write channel. Address and data are taken together, which is legal and
+      // is all a control map needs.
+      if (w_fire) begin
+        waddr   <= AWADDR;
+        b_valid <= 1;
+        case (AWADDR)
+          ADDR_CTRL: begin
+            if (w_data[0]) r_start <= 1;
+            r_auto <= w_data[7];
+          end
+          ADDR_GIER: gier <= w_data[0];
+          ADDR_IER:  ier  <= w_data[1:0];
+          ADDR_ISR:  isr  <= isr & ~w_data[1:0];
+{chr(10).join(writes)}
+          default: ;
+        endcase
+      end else if (b_valid && BREADY) begin
+        b_valid <= 0;
+      end
+
+      // The kernel took the job, so the request is spent unless the host asked
+      // for auto-restart.
+      if (ap_ready) r_start <= r_auto;
+      if (ap_done) begin
+        r_done <= 1;
+        isr[0] <= isr[0] | ier[0];
+      end
+
+      // Read channel.
+      if (ARVALID && !r_valid) begin
+        r_valid <= 1;
+        case (ARADDR)
+          ADDR_CTRL: begin
+            rdata <= {{24'd0, r_auto, 3'd0, ap_ready, ap_idle, r_done, r_start}};
+            r_done <= 0;   // clear on read, as the map says
+          end
+          ADDR_GIER: rdata <= {{31'd0, gier}};
+          ADDR_IER:  rdata <= {{30'd0, ier}};
+          ADDR_ISR:  rdata <= {{30'd0, isr}};
+{chr(10).join(reads)}
+          default:   rdata <= 0;
+        endcase
+      end else if (r_valid && RREADY) begin
+        r_valid <= 0;
+      end
+    end
+  end
+endmodule
+"""
+
+
+def feeder_tcl(fam, part, period):
+    """The HLS run for one family's DMA.
+
+    ``-offset direct`` puts the address on a port instead of in a register map
+    of its own: this feeder is not the kernel, it is one master inside it, and
+    the kernel's own slave supplies the pointer.
+    """
+    total = fam["channels"] * fam["steps"]
+    return f"""open_project prj
+set_top {_dma_name(fam)}
+add_files kernel.cpp
+open_solution sol
+set_part {part}
+create_clock -period {period:.3f} -name default
+config_interface -clock_enable=0 -m_axi_max_widen_bitwidth 512
+set_directive_interface -mode m_axi -offset direct -depth {total} \
+"{_dma_name(fam)}" {'src' if fam['reads'] else 'dst'}
+csynth_design
+export_design -format ip_catalog
+exit
+"""
+
+
+def kernel_sv(graph, args, widths, top="spmw_kernel", fabric="spmw_top"):
+    """The kernel: control slave, one feeder per family, and the fabric.
+
+    A feeder presents the write side of a handshake and the fabric the read
+    side (or the reverse, for the drain), so every boundary channel gets a FIFO
+    between them -- the same `spmw_fifo` the fabric uses internally, so there is
+    one handshake in the design rather than two that have to agree.
+    """
+    emitter = StructuralEmitter(graph)
+    _internal, boundary = emitter.families()
+    by_name = {fam.name: fam for fam in boundary}
+    fams = families(graph)
+
+    ports = [
+        "  input  wire ap_clk",
+        "  input  wire ap_rst_n",
+    ]
+    for index, fam in enumerate(fams):
+        for sig, kind, width in axi_signals(f"gmem{index}", _axi_width(widths, fam)):
+            span = f"[{width - 1}:0] " if width > 1 else ""
+            ports.append(
+                f"  {'input ' if kind == 'input' else 'output'} wire {span}{sig}"
+            )
+    aw = _addr_width(args)
+    ports += [
+        f"  input  wire [{aw - 1}:0] s_axi_control_AWADDR",
+        "  input  wire s_axi_control_AWVALID",
+        "  output wire s_axi_control_AWREADY",
+        "  input  wire [31:0] s_axi_control_WDATA",
+        "  input  wire [3:0] s_axi_control_WSTRB",
+        "  input  wire s_axi_control_WVALID",
+        "  output wire s_axi_control_WREADY",
+        "  output wire [1:0] s_axi_control_BRESP",
+        "  output wire s_axi_control_BVALID",
+        "  input  wire s_axi_control_BREADY",
+        f"  input  wire [{aw - 1}:0] s_axi_control_ARADDR",
+        "  input  wire s_axi_control_ARVALID",
+        "  output wire s_axi_control_ARREADY",
+        "  output wire [31:0] s_axi_control_RDATA",
+        "  output wire [1:0] s_axi_control_RRESP",
+        "  output wire s_axi_control_RVALID",
+        "  input  wire s_axi_control_RREADY",
+        "  output wire interrupt",
+    ]
+
+    body = ["  wire ap_start, ap_done, ap_idle, ap_ready;", "  wire rst = ~ap_rst_n;"]
+    for arg in args:
+        body.append(f"  wire [{arg.bits - 1}:0] {arg.name};")
+    body.append(f"  reg [{len(fams) - 1}:0] fin;")
+    body += _control_instance(args)
+
+    # One FIFO per boundary channel, and the wires either side of it.
+    for fam in fams:
+        body += _edge_wires(by_name[fam["name"]], fam)
+    body += _feeder_instances(fams, by_name, widths)
+    body += _fabric_instance(fabric, by_name, fams)
+    body += _completion(fams)
+
+    return (
+        "`timescale 1ns/1ps\n"
+        "// Generated by allo.spmw.kernel.kernel_sv -- do not edit.\n\n"
+        + f"module {top} (\n"
+        + ",\n".join(ports)
+        + "\n);\n"
+        + "\n".join(body)
+        + "\nendmodule\n"
+    )
+
+
+def _axi_width(widths, fam):
+    """The master's data width, as built.
+
+    Not as requested: `-m_axi_max_widen_bitwidth 512` is a ceiling, and a feeder
+    whose index is computed (`src[t * channels + c]`) does not burst, so Vitis
+    builds a 32-bit master however wide the ask.  Declaring the ceiling on the
+    kernel's ports would leave the top wider than the IP inside it.
+    """
+    return widths[_dma_name(fam)]
+
+
+def _control_instance(args):
+    binds = "".join(f"    .{a.name}({a.name}),\n" for a in args)
+    return [
+        "  spmw_control_s_axi u_control (",
+        "    .ACLK(ap_clk), .ARESET(rst),",
+        "    .AWADDR(s_axi_control_AWADDR), .AWVALID(s_axi_control_AWVALID),",
+        "    .AWREADY(s_axi_control_AWREADY),",
+        "    .WDATA(s_axi_control_WDATA), .WSTRB(s_axi_control_WSTRB),",
+        "    .WVALID(s_axi_control_WVALID), .WREADY(s_axi_control_WREADY),",
+        "    .BRESP(s_axi_control_BRESP), .BVALID(s_axi_control_BVALID),",
+        "    .BREADY(s_axi_control_BREADY),",
+        "    .ARADDR(s_axi_control_ARADDR), .ARVALID(s_axi_control_ARVALID),",
+        "    .ARREADY(s_axi_control_ARREADY),",
+        "    .RDATA(s_axi_control_RDATA), .RRESP(s_axi_control_RRESP),",
+        "    .RVALID(s_axi_control_RVALID), .RREADY(s_axi_control_RREADY),",
+        "    .interrupt(interrupt),",
+        binds.rstrip(",\n") + ",",
+        "    .ap_start(ap_start), .ap_done(ap_done),",
+        "    .ap_idle(ap_idle), .ap_ready(ap_ready));",
+        "",
+    ]
+
+
+def _edge_wires(fam, plan):
+    """The FIFO between one family's feeder and the fabric, per channel."""
+    count = _volume(fam.shape)
+    width = _width(fam)
+    span = f"[{width - 1}:0] "
+    name = fam.name
+    lines = [
+        f"  // {name}: {count} channel(s) of {width} bits between the "
+        f"{'feeder' if plan['reads'] else 'drain'} and the array"
+    ]
+    for sig in ("din", "dout"):
+        lines.append(f"  wire {span}{name}_e_{sig} [0:{count - 1}];")
+    for sig in ("full_n", "write", "empty_n", "read"):
+        lines.append(f"  wire {name}_e_{sig} [0:{count - 1}];")
+    lines += [
+        f"  genvar {name}_i;",
+        "  generate",
+        f"    for ({name}_i = 0; {name}_i < {count}; {name}_i = {name}_i + 1)"
+        f" begin : g_edge_{name}",
+        f"      spmw_fifo #(.DW({width}), .DEPTH(4)) u ("
+        ".clk(ap_clk), .rst_n(ap_rst_n)"
+        + "".join(
+            f", .{s}({name}_e_{s}[{name}_i])"
+            for s in ("din", "full_n", "write", "dout", "empty_n", "read")
+        )
+        + ");",
+        "    end",
+        "  endgenerate",
+    ]
+    return lines
+
+
+def _feeder_instances(fams, by_name, widths):
+    """One HLS DMA per family, started together and reporting done together."""
+    lines = []
+    for index, plan in enumerate(fams):
+        fam = by_name[plan["name"]]
+        name = _dma_name(plan)
+        count = _volume(fam.shape)
+        conns = [
+            ".ap_clk(ap_clk)",
+            ".ap_rst_n(ap_rst_n)",
+            f".ap_start(start_{index})",
+            f".ap_done(done_{index})",
+            f".ap_idle(idle_{index})",
+            f".ap_ready(ready_{index})",
+            f".{'src' if plan['reads'] else 'dst'}({name}_ptr)",
+            f".steps({name}_steps)",
+        ]
+        # The feeder owns the side of the edge FIFO the fabric does not: it
+        # writes what the array will read, and reads what the array wrote.
+        for channel in range(count):
+            # Vitis names a one-element array of streams `out_r`, not `out_0`:
+            # a single stream is not an array to it. Every other size counts
+            # from zero as written.
+            stem = "out" if plan["reads"] else "in"
+            port = f"{stem}_r" if count == 1 else f"{stem}_{channel}"
+            sides = (
+                ("din", "full_n", "write")
+                if plan["reads"]
+                else ("dout", "empty_n", "read")
+            )
+            conns += [f".{port}_{sig}({fam.name}_e_{sig}[{channel}])" for sig in sides]
+        for sig, _kind, _w in axi_signals(f"gmem{index}", _axi_width(widths, plan)):
+            conns.append(f".m_axi_gmem{sig[len(f'm_axi_gmem{index}'):]}({sig})")
+        lines += [
+            f"  wire done_{index}, idle_{index}, ready_{index};",
+            # An `ap_ctrl_hs` IP restarts the moment it finishes if `ap_start`
+            # is still high, and the kernel's start has to stay high until the
+            # slowest feeder is done. So each feeder's start falls when *it*
+            # finishes, not when the kernel does.
+            f"  wire start_{index} = ap_start & ~fin[{index}];",
+            f"  {name} u_{name} (\n      " + ",\n      ".join(conns) + ");",
+            "",
+        ]
+    return lines
+
+
+def _fabric_instance(fabric, by_name, fams):
+    """The array, taking whichever side of each edge FIFO the feeder left.
+
+    The fabric's boundary ports are whole unpacked arrays, one per family, so
+    they connect as arrays -- there is nothing per-channel to do here.
+    """
+    conns = [".ap_clk(ap_clk)", ".ap_rst_n(ap_rst_n)"]
+    for plan in fams:
+        fam = by_name[plan["name"]]
+        sides = (
+            ("dout", "empty_n", "read") if plan["reads"] else ("din", "write", "full_n")
+        )
+        conns += [f".{fam.name}_{sig}({fam.name}_e_{sig})" for sig in sides]
+    return [f"  {fabric} dut (\n      " + ",\n      ".join(conns) + ");", ""]
+
+
+def _completion(fams):
+    """The kernel is done when every feeder is, and idle when none has started.
+
+    Latched, because the feeders finish at different times and their `ap_done`
+    pulses never coincide -- ANDing them directly is a kernel that never
+    finishes, which is a thing this design has already been caught doing once.
+    """
+    n = len(fams)
+    lines = ["  always @(posedge ap_clk) begin"]
+    lines.append("    if (rst || ap_ready) fin <= 0;")
+    lines.append("    else begin")
+    for index in range(n):
+        lines.append(f"      if (done_{index}) fin[{index}] <= 1;")
+    lines += [
+        "    end",
+        "  end",
+        "  assign ap_done  = &fin;",
+        "  assign ap_ready = ap_done;",
+        "  assign ap_idle  = " + " & ".join(f"idle_{i}" for i in range(n)) + ";",
+    ]
+    return lines
+
+
+def kernel_xml(args, widths, name="spmw_kernel"):
+    """What `package_xo` needs in order to believe this is a kernel."""
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<root versionMajor="1" versionMinor="6">',
+        f'  <kernel name="{name}" language="ip_c" vlnv="allo:spmw:{name}:1.0"'
+        f' attributes="" preferredWorkGroupSizeMultiple="0" workGroupSize="1"'
+        f' interrupt="true">',
+        "    <ports>",
+        '      <port name="s_axi_control" mode="slave" range="0x1000"'
+        ' dataWidth="32" portType="addressable" base="0x0"/>',
+    ]
+    for index, arg in enumerate(a for a in args if a.pointer):
+        lines.append(
+            f'      <port name="m_axi_gmem{index}" mode="master"'
+            f' range="0xFFFFFFFFFFFFFFFF" dataWidth="{widths[arg.family and _dma_name(arg.family)]}"'
+            f' portType="addressable" base="0x0"/>'
+        )
+    lines += ["    </ports>", "    <args>"]
+    pointer_index = 0
+    for index, arg in enumerate(args):
+        if arg.pointer:
+            lines.append(
+                f'      <arg name="{arg.name}" addressQualifier="1" id="{index}"'
+                f' port="m_axi_gmem{pointer_index}" size="0x8"'
+                f' offset="{arg.offset:#06x}" type="int*" hostOffset="0x0"'
+                f' hostSize="0x8"/>'
+            )
+            pointer_index += 1
+        else:
+            lines.append(
+                f'      <arg name="{arg.name}" addressQualifier="0" id="{index}"'
+                f' port="s_axi_control" size="0x4" offset="{arg.offset:#06x}"'
+                f' type="int" hostOffset="0x0" hostSize="0x4"/>'
+            )
+    lines += ["    </args>", "  </kernel>", "</root>"]
+    return "\n".join(lines) + "\n"
+
+
+__all__ = [
+    "ARG_BASE",
+    "ARG_STRIDE",
+    "Argument",
+    "arguments",
+    "control_sv",
+    "feeder_tcl",
+    "kernel_sv",
+    "kernel_xml",
+]

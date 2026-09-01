@@ -81,9 +81,16 @@ def feeder_cpp(fam):
     The loop order is the array's: every channel takes its step-t token before
     any takes step t+1. Filling one channel at a time would stall on a FIFO two
     deep while the array waited for a neighbour.
+
+    ``steps`` is an argument, not a constant. The array reads its own trip count
+    out of the instruction stream, so a shell that walked a compile-time number
+    of tokens would be the one part of the machine that still had a shape built
+    into it -- and it is the part that decides whether a bigger model needs a
+    new bitstream. The channel *count* stays fixed: that is how many wires leave
+    the array, which is hardware.
     """
     name, ctype = fam["name"], fam["ctype"]
-    verb, port = ("in", "out") if fam["reads"] else ("out", "in")
+    port = "out" if fam["reads"] else "in"
     body = (
         f"      {port}[c].write(src[t * {fam['channels']} + c]);"
         if fam["reads"]
@@ -94,13 +101,16 @@ def feeder_cpp(fam):
     return f"""#include <hls_stream.h>
 #include <stdint.h>
 
-// {name}: {fam['channels']} channel(s) x {fam['steps']} token(s) of {fam['width']} bits,
+// {name}: {fam['channels']} channel(s) x `steps` token(s) of {fam['width']} bits,
 // from `{fam['tensor']}`, laid out by the host in the order the channels read.
+// {fam['steps']} is what this design was elaborated with and sizes the burst
+// depth; the loop itself runs as far as the host says.
 extern "C" {{
-void {_dma_name(fam)}({buf}, hls::stream<{ctype}> {port}[{fam['channels']}]) {{
+void {_dma_name(fam)}({buf}, int steps, hls::stream<{ctype}> {port}[{fam['channels']}]) {{
 #pragma HLS interface m_axi port={'src' if fam['reads'] else 'dst'} \
 offset=direct bundle=gmem depth={total}
-  for (int t = 0; t < {fam['steps']}; t++) {{
+#pragma HLS interface ap_none port=steps
+  for (int t = 0; t < steps; t++) {{
     for (int c = 0; c < {fam['channels']}; c++) {{
 #pragma HLS pipeline II=1
 {body}
