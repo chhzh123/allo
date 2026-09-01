@@ -133,12 +133,18 @@ engine = SMALL.engine
 # -- the programs -----------------------------------------------------------
 
 
-def matmul_prog(tile, shape=None):
-    """A plain matmul: use the tile on even steps, skip the odd ones."""
+def matmul_prog(tile, shape=None, outs=None):
+    """A plain matmul: use the tile on even steps, skip the odd ones.
+
+    ``outs`` is how many result rows this pass produces, which is the size of
+    the tile rather than a property of the array. It defaults to filling the
+    buffer, and a smaller value is a smaller tile on the same hardware -- the
+    stream simply says so, and the padding is instructions the array reads and
+    does not run.
+    """
     shape = shape or SMALL
-    return mxu_program(
-        [(MACC, tile), (MSKIP,)] * shape.outs, rows=shape.dim, pad=shape.steps
-    )
+    outs = shape.outs if outs is None else outs
+    return mxu_program([(MACC, tile), (MSKIP,)] * outs, rows=shape.dim, pad=shape.steps)
 
 
 def residual_prog(tile, shape=None):
