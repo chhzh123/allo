@@ -399,7 +399,7 @@ def crossing_families(graph, slots=4, axis=0):
     return out
 
 
-def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4):
+def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4, parent=None):
     """A floorplan for the array, written from the grid it was placed on.
 
     This is the one thing a regular design should not have to be *told*. The
@@ -467,8 +467,15 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4):
                 f"resize_pblock {pb} -add "
                 f"{{CLOCKREGION_X0Y{cr}:CLOCKREGION_X{geom['cols'] - 1}Y{cr}}}",
                 f"add_cells_to_pblock {pb} [get_cells -quiet {{{' '.join(cells)}}}]",
-                "",
             ]
+            if parent:
+                # Inside a Vitis platform the kernel lives in a reconfigurable
+                # partition, and any pblock within one is an *overlap* to
+                # HD.RECONFIGURABLE DRC unless it is declared a child of it.
+                lines.append(
+                    f"catch {{set_property PARENT {parent} [get_pblocks {pb}]}}"
+                )
+            lines.append("")
     return "\n".join(lines)
 
 

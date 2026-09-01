@@ -100,8 +100,10 @@ def main():
     pointers = [a for a in spec if a["pointer"]]
     scalars = [a for a in spec if not a["pointer"]]
 
+    # The host has a U250 as well as two U280s, so the index matters.
+    index = int(rest[rest.index("--device") + 1]) if "--device" in rest else 0
     t0 = time.time()
-    dev = pyxrt.device(0)
+    dev = pyxrt.device(index)
     uuid = dev.load_xclbin(pyxrt.xclbin(xclbin_path))
     krnl = pyxrt.kernel(dev, uuid, "spmw_kernel")
     load_s = time.time() - t0

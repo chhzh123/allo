@@ -196,6 +196,15 @@ def main():
     parser.add_argument("--platform", default=PLATFORM)
     parser.add_argument("--frequency", type=float, default=300.0)
     parser.add_argument("--slots", type=int, default=0)
+    parser.add_argument(
+        "--no-pblocks",
+        action="store_true",
+        help="anchor the crossing links but do not emit the floorplan. In a "
+        "Vitis flow the kernel sits inside a reconfigurable partition, and a "
+        "user pblock inside one trips HD.RECONFIGURABLE overlap DRC unless it "
+        "is reparented; measured standalone, the floorplan also costs 2% of "
+        "the clock, so this is the default worth taking.",
+    )
     parser.add_argument("--top", default="spmw_kernel")
     parser.add_argument("--jobs", type=int, default=0)
     parser.add_argument("--sim", action="store_true", help="stop before v++")
@@ -210,10 +219,18 @@ def main():
     floorplan = ""
     if args.slots:
         anchors = shell.crossing_families(graph, slots=args.slots)
-        floorplan = shell.floorplan_xdc(
-            graph, part=args.part, top="dut", slots=args.slots
+        if not args.no_pblocks:
+            floorplan = shell.floorplan_xdc(
+                graph,
+                part=args.part,
+                top="dut",
+                slots=args.slots,
+                parent="pblock_dynamic_region",
+            )
+        print(
+            f"{args.slots} slot(s); anchors on {sorted(anchors)}; "
+            f"pblocks {'off' if args.no_pblocks else 'on'}"
         )
-        print(f"floorplan: {args.slots} slot(s); anchors on {sorted(anchors)}")
 
     print("staging roles and feeders:")
     start = time.time()
@@ -324,6 +341,15 @@ def main():
         raise SystemExit(f"package_xo produced no .xo:\n{tail}")
     print(f"  SPMW STAGE package {time.time() - start:.1f}")
 
+    # One HBM bank per master. Left to itself the linker puts them all on
+    # HBM_MEM00, which makes six independent DMAs queue behind one channel --
+    # and the weight feeder alone moves a kilobyte per invocation.
+    banks = [a for a in kargs if a.pointer]
+    _write(
+        os.path.join(args.out, "link.cfg"),
+        "[connectivity]\n"
+        + "".join(f"sp={args.top}_1.{a.name}:HBM[{i}]\n" for i, a in enumerate(banks)),
+    )
     link = args.link_frequency or args.frequency
     print(f"linking for {args.platform} at {link:.0f} MHz (hours):")
     start = time.time()

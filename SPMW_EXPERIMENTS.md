@@ -1682,3 +1682,69 @@ the reason is legible in one timing path.
 **What would actually help** is the thing both critical paths point at: the
 runtime-indexed register file inside the lane. That is an ISA decision, not a
 placement one.
+
+### And the floorplan cannot go on the card at all
+
+Two independent reasons, and they point the same way.
+
+The array's clock is set inside a unit, so pblocks cannot help it — that is the
+measurement above. Separately, a Vitis platform puts the kernel inside a
+*reconfigurable partition*, and a user pblock inside one is an overlap as far as
+`HD.RECONFIGURABLE` DRC is concerned:
+
+```
+ERROR: [DRC HDPR-66] Reconfigurable Pblock must not overlap other pblocks.:
+  HD.RECONFIGURABLE Pblock 'pblock_dynamic_region' and Pblock
+  'level0_i_ulp_spmw_kernel_1_inst_pb_mac_slot0' overlap.
+```
+
+The fix is one line — `set_property PARENT pblock_dynamic_region` makes the
+pblock a child rather than an intruder, and `floorplan_xdc` now emits it when
+given a `parent` — but it buys a design that measured 2% slower standalone and
+whose critical path a floorplan cannot reach. So the deployed kernel keeps the
+**anchors** (verified transparent: 11/11 on the block replay with identical
+cycle counts) and drops the **pblocks**, which is `--no-pblocks`.
+
+That is the whole AutoBridge result for this design, stated plainly: the cheap
+half is free and does nothing here, the expensive half is both harmful and
+awkward, and the thing actually limiting the clock is an ISA decision inside the
+vector lane.
+
+## The role path on the card
+
+The role path had never been deployed. `SPMW_EXPERIMENTS.md` said why: "deploying
+it needs the AXI shell packaged as an RTL kernel, which is generated
+(`shell.feeder_cpp`) but not taken through `package_xo`". `allo/spmw/kernel.py`
+does that now.
+
+| | whole-array kernel (deployed before) | role-path kernel |
+|---|---|---|
+| LUT | 348,840 (26.8%) | **109,931 (8.4%)** |
+| FF | 433,189 (16.6%) | **113,988 (4.4%)** |
+| DSP | — | 304 (3.4%) |
+| kernel clock closed at | 150 MHz | targeted 250 MHz |
+
+**3.2× fewer LUTs for the same design**, which is the strongest form of the
+argument the role decomposition has been making all along: it is not merely
+faster to compile, it is a smaller and better netlist.
+
+### Five things that are not in any error message
+
+Each of these cost a build, so they are written down.
+
+* Vitis names a **one-element** array of streams `out_r`, not `out_0`. Every
+  other size counts from zero.
+* `-m_axi_max_widen_bitwidth 512` is a ceiling, not a promise. A feeder whose
+  index is computed (`src[t * channels + c]`) does not burst, so the master is
+  32 bits wide however wide the request; the kernel's ports have to say what was
+  built, so the width is read back from the netlist.
+* Every AXI interface must appear in the clock's `ASSOCIATED_BUSIF`. Without it
+  the system linker stops with `Invalid option value '' specified for 'objects'`,
+  which mentions neither clocks nor interfaces. The real message only appears
+  once a memory bank is named explicitly: *Could not identify a clock source pin*.
+* A scoped XDC added by a path outside the IP is referenced as
+  `../floorplan.xdc` and is simply **not shipped in the `.xo`**, surfacing four
+  steps later as "failed to deliver one or more file(s)".
+* `package_xo` refuses to overwrite an existing `.xo` and needs `-force`. Without
+  it the stale one links, and the symptom reads exactly like the packager
+  silently dropping metadata.
