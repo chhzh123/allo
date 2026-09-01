@@ -126,20 +126,39 @@ def _dma_name(fam):
 
 
 def host_buffer(fam, arrays):
-    """The family's tokens, in the order its channels consume them.
+    """The family's tokens as bytes, in the order its channels consume them.
 
     The same index map the reference simulator and the cosim testbench use, so
     the device is driven by the design's own account of what each channel wants
     rather than by a second guess at it.
+
+    A channel's token is not always a scalar. A weight cell holds ``NW`` of them
+    and a bias ``NB``, which the fabric carries as one wider word -- 32 bits of
+    four ``int8``, 64 bits of two ``int32`` -- so the token is the packed
+    vector. `tobytes` already lays a row out with element 0 in the low bytes,
+    which is where ``hls::vector`` reads it, so packing is the identity here
+    rather than a convention this has to invent.
+
+    Returns bytes, because the board host is numpy-free and every consumer
+    wants the buffer rather than its dtype.
     """
     import numpy as np  # pylint: disable=import-outside-toplevel
 
     array = arrays[fam["tensor"]]
-    out = np.zeros(fam["channels"] * fam["steps"], dtype=array.dtype)
+    word = fam["width"] // 8
+    out = bytearray(fam["channels"] * fam["steps"] * word)
     for channel, indices in enumerate(fam["plan"]):
         for step, index in enumerate(indices):
-            out[step * fam["channels"] + channel] = array[tuple(index)]
-    return out
+            raw = np.ascontiguousarray(array[tuple(index)]).tobytes()
+            if len(raw) != word:
+                raise ValueError(
+                    f"`{fam['name']}` carries {word}-byte tokens but "
+                    f"`{fam['tensor']}`{list(index)} is {len(raw)} bytes; the "
+                    f"family's width and the tensor's element disagree."
+                )
+            offset = (step * fam["channels"] + channel) * word
+            out[offset : offset + word] = raw
+    return bytes(out)
 
 
 def scatter(fam, flat, arrays):

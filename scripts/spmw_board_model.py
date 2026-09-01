@@ -120,12 +120,24 @@ def main():
             % (arg["name"], arg["channels"], arg["steps"], nbytes)
         )
 
-    # Fill every input once. The arithmetic is not what is being timed here --
-    # the array's answer is checked by the cosim replay, byte for byte. What is
-    # being timed is how fast the machine can be handed work.
+    # Real operands, laid out by `spmw_board_operands.py` using the design's
+    # own index map. Zeros would not do: a zero instruction stream says "run
+    # zero steps", so the array would emit nothing and the drain would wait
+    # for ever -- the kernel would simply never report done.
+    ops = os.path.join(os.path.dirname(args_path), "operands")
+    if len(sys.argv) > 3 and os.path.isdir(sys.argv[3]):
+        ops = sys.argv[3]
+    expected = None
     for index, arg in enumerate(pointers):
+        path = os.path.join(ops, arg["name"] + ".bin")
+        with open(path, "rb") as handle:
+            raw = handle.read()
         if arg["reads"]:
-            bos[index].write(bytes(sizes[index]), 0)
+            bos[index].write(raw, 0)
+            bos[index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
+        else:
+            expected = raw
+            bos[index].write(bytes(len(raw)), 0)
             bos[index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
 
     def invoke(counts):
@@ -143,6 +155,15 @@ def main():
 
     print("\nsteady-state invocation cost (counts %s):" % counts)
     invoke(counts)  # warm the path
+
+    drain_index = [i for i, a in enumerate(pointers) if not a["reads"]][0]
+    bos[drain_index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE)
+    got = bos[drain_index].read(len(expected), 0)
+    if bytes(got) == expected:
+        print("  answer matches the reference simulator, byte for byte")
+    else:
+        wrong = sum(1 for a, b in zip(bytes(got), expected) if a != b)
+        print("  MISMATCH: %d of %d bytes differ" % (wrong, len(expected)))
     per_invocation = timed(counts, 100)
     per_invocation = timed(counts, 1000)
     print("  %8.2f us per invocation" % (per_invocation * 1e6))
