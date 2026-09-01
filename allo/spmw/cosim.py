@@ -138,7 +138,14 @@ class Testbench:
         lines += [
             "  initial begin",
             "    repeat (4) @(posedge clk);",
-            "    rst_n = 1;",
+            # Off the edge, deliberately. Releasing reset *on* a posedge races
+            # every `always @(posedge clk)` in the design: whether a FIFO sees
+            # rst_n high at that edge depends on scheduling order, and one that
+            # does can pop an entry that was written on the same edge. That
+            # costs a free-running unit one phantom token, which shifts every
+            # instruction after it -- silently, and only for a design whose
+            # first write lands on cycle zero.
+            "    @(negedge clk) rst_n = 1;",
             # The cycle count is the point of running the whole array rather
             # than reading a unit's report: fill, drain and any FIFO stall are
             # in it, and none of them are visible to HLS, which only ever saw
