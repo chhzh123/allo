@@ -1386,3 +1386,58 @@ its own small LFSR, so each source sits beside its load, and the floorplan above
 constrains the array. What that combination reaches at a 3.333 ns target is the
 run this section will report; the honest statement until it lands is that
 **255 MHz was a harness number and the fabric's own paths were never measured.**
+
+### 300 MHz, and where the clock went instead
+
+Two changes — a source per channel in the harness, and the generated floorplan —
+taken to place and route at a **3.333 ns** target:
+
+| stage | 250 MHz, no floorplan | 300 MHz + floorplan |
+|---|---|---|
+| synth | 514.2 | 580.3 |
+| opt | 45.6 | 47.7 |
+| place | 709.7 | **937.1** |
+| phys_opt | 27.4 | 30.3 |
+| route | 636.9 | **1172.1** |
+| total | 1933.8 s (32.2 min) | 2767.5 s (**46.1 min**, +43%) |
+
+| | |
+|---|---|
+| achieved | **3.204 ns = 312 MHz**, WNS +0.129 |
+| unrouted | **0** |
+
+The constrained placement costs 43% more implementation time, which is the
+honest price of the floorplan.
+
+**And the critical path moved where it should be:**
+
+| | source → destination | logic / route |
+|---|---|---|
+| before | `lfsr_reg` → a MAC cell | 0.080 / **3.877 ns** |
+| after | `lshr_ln1_reg` → `reg_3_3` *inside a VPU lane* | — |
+
+It is now the vector unit's own ALU recurrence — a shift feeding the register
+file — which is the same dependency that sets the II. The array is no longer
+limited by anything outside itself, and the next clock improvement is the same
+work as the next II improvement: narrow what the dispatch can reach.
+
+**Attribution is still open.** Two things changed at once, and the old critical
+path *was* the shared LFSR, so the harness fix alone may account for all of it.
+A control with per-channel sources and no floorplan is running; until it lands,
+the honest claim is 312 MHz for the pair, not for the floorplan.
+
+### The reciprocal fix, end to end
+
+The whole-array kernel, rebuilt with the reciprocal in the prologue:
+
+| | cycles | at 150 MHz | block (11 invocations) |
+|---|---|---|---|
+| `RECIP` in the dispatch | 9,172 | 61.2 µs | 673 µs |
+| reciprocal hoisted | **1,137** | **7.58 µs** | **83.4 µs** |
+
+**8.07×** on the kernel, and the vector unit inside it went from 9,005 cycles to
+327. Arithmetic throughput goes from 48.7 to **393 MMAC/s**, 0.13% → **1.02%**
+of peak.
+
+At that point the per-invocation host cost (~56 µs measured) is seven times the
+kernel again, which is the argument for the unified buffer.
