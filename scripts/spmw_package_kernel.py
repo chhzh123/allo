@@ -96,7 +96,6 @@ set_property value ap_rst_n $p
 set rst [ipx::get_bus_interfaces ap_rst_n -of_objects $core]
 set p [ipx::add_bus_parameter POLARITY $rst]
 set_property value ACTIVE_LOW $p
-{floorplan}
 # Without these two, `package_xo` treats the IP as an ordinary one and
 # re-derives its metadata, which silently drops ASSOCIATED_BUSIF -- and then
 # the system linker cannot find a clock for the masters.
@@ -120,6 +119,11 @@ KERNEL_PATH = "level0_i/ulp/{top}_1/inst/dut"
 #: user pblock inside one must declare itself a child or DRC calls it an
 #: overlap.
 DYNAMIC_REGION = "pblock_dynamic_region"
+
+#: Clock-region columns the reconfigurable partition actually offers. The U280
+#: die has eight; `pblock_dynamic_region` on this platform covers X0..X5, and
+#: X7 is `pblock_blp`, the static shell. Read off the platform, not guessed.
+DYNAMIC_COLS = 6
 
 
 def _write(path, text):
@@ -225,6 +229,7 @@ def main():
                 top=KERNEL_PATH.format(top=args.top),
                 slots=args.slots,
                 parent=DYNAMIC_REGION,
+                cols=DYNAMIC_COLS,
             )
         print(
             f"{args.slots} slot(s); anchors on {sorted(anchors)}; "
