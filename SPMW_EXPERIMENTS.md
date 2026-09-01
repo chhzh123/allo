@@ -1317,3 +1317,72 @@ reduction depth one load covers), and the array's own size. None is a
 limitation of the instruction set — the ISA sequences all of it — and that is
 the honest summary: **this is a mechanism demonstrator, and the mechanism
 scales; the instance does not.**
+
+### Why the interval is 3 and not 1
+
+Vitis names the recurrence exactly:
+
+```
+[HLS 200-880] Unable to enforce a carried dependence constraint
+  (II = 1, distance = 1) between 'store' of variable 'reg[3]'
+  and 'load' on local variable 'reg_3_3'
+[HLS 200-1470] Final II = 3, Depth = 5
+```
+
+The register file is indexed at *runtime*, so iteration i+1's read may alias
+iteration i's write. That makes the whole ALU a distance-1 recurrence, and the
+interval is whatever the slowest operator in it takes. With `RECIP` gone the
+slowest is `MUL` — Vitis binds it to `mul_32s_32s_32_2_1`, a **two-cycle**
+multiplier, and the operand widening makes it a 64-bit product.
+
+Measured, by rebuilding the same unit with that one multiply replaced by an add:
+
+| VPU lane | II | loop cycles |
+|---|---|---|
+| with `MUL` | 3 | 769 |
+| multiply → add | **1** | **259** |
+
+So II=1 is reachable, and the price is stated: **every operator the dispatch can
+reach has to finish in one cycle.** The multiply does not need to be 32×32 — in
+the softmax normalise the operands are an exponential ≤ 2^8 and a reciprocal
+≤ 2^14 — so narrowing `MUL` to 16×16 would buy II=1 at the cost of a documented
+range limit on one opcode. That is a real ISA decision rather than a free win,
+which is why it is recorded here rather than taken.
+
+The general shape, now seen three times: **an operator only has to be reachable
+from the dispatch to set the interval for every instruction.** A divider cost 35,
+a multiplier costs 3, an adder would cost 1.
+
+### Floorplanning, and what the clock was actually limited by
+
+`shell.floorplan_xdc` writes the floorplan from the grid, which is the one thing
+a regular design should not have to be told: the emitter already knows the mesh
+is 16×16 and which instance is at which site. It makes two decisions —
+
+* keep the whole array inside **one SLR**, because every net in a systolic array
+  is neighbour-to-neighbour and an SLR crossing turns one of those into a trip
+  through Laguna;
+* give each mesh **row its own pblock**, stacked in logical order, so a partial
+  sum travelling south travels south on the die.
+
+16 pblocks, all 256 cells, generated.
+
+**But first, a correction to the 255 MHz.** The critical path of the routed
+16×16 array was:
+
+```
+Slack (MET) 0.085ns
+  Source:      lfsr_reg[19]_rep__0/C
+  Destination: dut/u_mac_r4_5_0/.../v0_read_reg[19]/D
+  Data Path Delay: 3.957ns  (logic 0.080ns 2.0%, route 3.877ns 98.0%)
+```
+
+The source is `lfsr_reg` — the **harness**, not the fabric. One shared LFSR fed
+every channel of every family, so it fanned out to hundreds of loads across the
+die and became the longest path in the design. 98% of it was route.
+
+That measurement was of the test harness. `harness_sv` now gives every channel
+its own small LFSR, so each source sits beside its load, and the floorplan above
+constrains the array. What that combination reaches at a 3.333 ns target is the
+run this section will report; the honest statement until it lands is that
+**255 MHz was a harness number and the fabric's own paths were never measured.**
