@@ -1468,3 +1468,32 @@ Both runs end with the critical path inside a VPU lane, `lshr…_reg` → `reg_�
 the vector unit's ALU recurrence, the same dependency that sets the II. Once the
 harness stopped being the longest path, the array became limited by its own
 arithmetic, which is where a design should be.
+
+### On the board with the reciprocal hoisted
+
+Rebuilt and measured, one process, device opened once. **11/11 steps match.**
+
+| step | ms | | step | ms |
+|---|---|---|---|---|
+| 1 proj0 | 0.173 | | 7 softmax | 0.066 |
+| 2 proj1 | 0.097 | | 8 attn | 0.071 |
+| 3 proj2 | 0.069 | | 9 proj_out | 0.068 |
+| 4 scores | 0.068 | | 10 ffn1 | 0.068 |
+| 5 row_max | 0.068 | | 11 ffn2 | 0.067 |
+| 6 row_sum | 0.067 | | **block** | **0.883** |
+
+| | block | steady/step | rate | of peak |
+|---|---|---|---|---|
+| a process per step, `RECIP` | 45 s | — | 0.73 KMAC/s | 0.000002% |
+| one process, `RECIP` | 2.200 ms | 0.117 ms | 14.9 MMAC/s | 0.039% |
+| one process, **reciprocal hoisted** | **0.883 ms** | **0.0675 ms** | **37.1 MMAC/s** | **0.097%** |
+
+**2.5× on the measured block**, on top of the 20,500× from removing the
+per-invocation process. Total, from where this started: **51,000×**, none of it
+from a faster array.
+
+And the composition has inverted. A steady step is 67.5 µs, of which the kernel
+is **7.58 µs — 11%**. The other 89% is six buffer syncs, an enqueue and a PCIe
+round trip. Speeding up the hardware further would now move a ninth of the
+number; the remaining work is all in how the host talks to it, which is what the
+unified buffer in the section above is for.
