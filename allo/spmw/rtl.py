@@ -127,6 +127,14 @@ class MoverPlan:
         return out
 
 
+def _fifo_ports(name, idx):
+    """A channel's own six ap_fifo connections, producer side then consumer."""
+    return ", ".join(
+        f".{sig}({name}_{sig}[{idx}])"
+        for sig in ("din", "full_n", "write", "dout", "empty_n", "read")
+    )
+
+
 class StructuralEmitter:
     """Emits the fabric: FIFOs for peer channels, one role instance per site."""
 
@@ -462,35 +470,90 @@ class StructuralEmitter:
         body = ",\n".join(head + _decl(signals))
         return f"`timescale 1ns/1ps\n\nmodule {name} (\n{body}\n);\nendmodule\n"
 
-    def _family_wires(self, fam, internal):
-        """Wire declarations for one family's channels."""
+    def _family_wires(self, fam, internal, crossing=None):
+        """Wire declarations for one family's channels.
+
+        With ``crossing`` the channels that leave a floorplan slot get an extra
+        FIFO stage, and the rest are untouched.  The stage exists only to give
+        the placer a register to put in the gap between two bands of the array;
+        it is transparent because the channel is a FIFO handshake, so the units
+        on either side see a longer pipe and nothing else.  See
+        `allo.spmw.shell.crossing_families` for which channels those are.
+        """
         count = _volume(fam.shape)
         width = _width(fam)
         span = f"[{width - 1}:0] "
+        note = "" if internal else " (boundary)"
+        if internal and crossing:
+            note = f", {crossing.channels(count)} of them anchored"
         lines = [
             f"  // family {fam.name}: {count} channel(s), {width}-bit, "
-            f"depth {fam.depth}{'' if internal else ' (boundary)'}"
+            f"depth {fam.depth}{note}"
         ]
         for sig in ("din", "dout"):
             lines.append(f"  wire {span}{fam.name}_{sig} [0:{count - 1}];")
         for sig in ("full_n", "write", "empty_n", "read"):
             lines.append(f"  wire {fam.name}_{sig} [0:{count - 1}];")
-        if internal:
+        if not internal:
+            return lines
+        idx = f"{fam.name}_i"
+        if crossing:
+            tag = f"{fam.name}_h"
+            # One bundle per channel, named for what a join carries rather than
+            # for either side's ports: the upstream FIFO's `dout/empty_n/read`
+            # and the downstream's `din/write/full_n` are the same three wires.
+            # Declaring two bundles instead is how the first version of this
+            # deadlocked -- every `din` dangled, which the language allows.
             lines += [
-                f"  genvar {fam.name}_i;",
-                "  generate",
-                f"    for ({fam.name}_i = 0; {fam.name}_i < {count}; "
-                f"{fam.name}_i = {fam.name}_i + 1) begin : g_{fam.name}",
-                f"      spmw_fifo #(.DW({width}), .DEPTH({fam.depth})) u ("
-                f".clk(ap_clk), .rst_n(ap_rst_n)"
-                + "".join(
-                    f", .{s}({fam.name}_{s}[{fam.name}_i])"
-                    for s in ("din", "full_n", "write", "dout", "empty_n", "read")
-                )
-                + ");",
-                "    end",
-                "  endgenerate",
+                f"  wire {span}{tag}_data [0:{count - 1}];",
+                f"  wire {tag}_valid [0:{count - 1}];",
+                f"  wire {tag}_ready [0:{count - 1}];",
             ]
+        lines += [
+            f"  genvar {idx};",
+            "  generate",
+            f"    for ({idx} = 0; {idx} < {count}; {idx} = {idx} + 1)"
+            f" begin : g_{fam.name}",
+        ]
+        own = _fifo_ports(fam.name, idx)
+        plain = (
+            f"      spmw_fifo #(.DW({width}), .DEPTH({fam.depth})) u ("
+            f".clk(ap_clk), .rst_n(ap_rst_n), {own});"
+        )
+        if not crossing:
+            lines += [plain, "    end", "  endgenerate"]
+            return lines
+        tag = f"{fam.name}_h"
+        cond = " || ".join(
+            f"(({idx} / {crossing.stride}) % {crossing.extent}) == {c}"
+            for c in crossing.cuts
+        )
+        lines += [
+            f"      if ({cond}) begin : anchored",
+            # The producer's write side into the anchor ...
+            f"        spmw_fifo #(.DW({width}), .DEPTH(2)) u_anchor ("
+            f".clk(ap_clk), .rst_n(ap_rst_n)"
+            f", .din({fam.name}_din[{idx}])"
+            f", .full_n({fam.name}_full_n[{idx}])"
+            f", .write({fam.name}_write[{idx}])"
+            f", .dout({tag}_data[{idx}])"
+            f", .empty_n({tag}_valid[{idx}])"
+            f", .read({tag}_ready[{idx}]));",
+            # ... and the anchor's into the channel the consumer reads.
+            f"        spmw_fifo #(.DW({width}), .DEPTH({fam.depth})) u ("
+            f".clk(ap_clk), .rst_n(ap_rst_n)"
+            f", .din({tag}_data[{idx}])"
+            f", .full_n({tag}_ready[{idx}])"
+            f", .write({tag}_valid[{idx}])"
+            f", .dout({fam.name}_dout[{idx}])"
+            f", .empty_n({fam.name}_empty_n[{idx}])"
+            f", .read({fam.name}_read[{idx}]));",
+            "      end else begin : direct",
+            "  " + plain.strip(),
+            "      end",
+            "    end",
+            "  endgenerate",
+        ]
         return lines
 
     def _connections(self, placement, site, order):
@@ -730,7 +793,7 @@ class StructuralEmitter:
                     )
         return ports
 
-    def fabric(self, top="spmw_top", memory=False, axi_widths=None):
+    def fabric(self, top="spmw_top", memory=False, axi_widths=None, anchors=None):
         """The structural top: boundary ports, internal FIFOs, role instances.
 
         With ``memory`` the array's edge streams are driven from inside instead:
@@ -757,9 +820,12 @@ class StructuralEmitter:
                     f"outside; a `MemOut` gathered per site is not a transfer "
                     f"the loader/drain path builds."
                 )
+        anchors = anchors or {}
         body = []
         for fam in internal:
-            body += self._family_wires(fam, internal=True)
+            body += self._family_wires(
+                fam, internal=True, crossing=anchors.get(fam.name)
+            )
         if memory:
             body += self._mover_signals()
         for placement in self.placements():
@@ -786,11 +852,13 @@ class StructuralEmitter:
         return out
 
 
-def emit_structural_verilog(graph, top="spmw_top"):
+def emit_structural_verilog(graph, top="spmw_top", anchors=None):
     """The whole fabric as one SystemVerilog source: FIFO, role stubs, top."""
     emitter = StructuralEmitter(graph)
     return "\n".join(
-        [fifo_module(), const_module()] + emitter.stubs() + [emitter.fabric(top)]
+        [fifo_module(), const_module()]
+        + emitter.stubs()
+        + [emitter.fabric(top, anchors=anchors)]
     )
 
 

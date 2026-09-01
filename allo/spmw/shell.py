@@ -278,7 +278,99 @@ def harness_sv(graph, top="spmw_top", name="spmw_harness"):
 _GEOMETRY = {"xcu280": {"cols": 8, "rows": 4, "slrs": 3}}
 
 
-def floorplan_xdc(graph, part="xcu280", slr=1, top="dut"):
+class Crossing:
+    """Which of a family's channels cross a slot boundary, and where.
+
+    A family says every channel makes the same *journey*; it does not say every
+    channel makes it in the same *place*.  The southward links of a 16-by-16
+    mesh all travel one row, but with the array cut into four bands only the 48
+    that land on rows 4, 8 and 12 actually leave a band.  Anchoring the family
+    wholesale would build 768 registers to do the work of 48.
+
+    The distinction is free to make here because `channel_index` subscripts an
+    affine family by its *destination* site, row-major, so the channel's index
+    already carries the coordinate the cut is defined on.
+    """
+
+    __slots__ = ("cuts", "extent", "stride")
+
+    def __init__(self, cuts, extent, stride):
+        self.cuts = tuple(cuts)
+        self.extent = int(extent)
+        self.stride = int(stride)
+
+    def __repr__(self):
+        return f"Crossing(cuts={list(self.cuts)}, extent={self.extent})"
+
+    def coordinate(self, index):
+        """The cut coordinate of channel ``index`` -- what the generate computes."""
+        return (index // self.stride) % self.extent
+
+    def crosses(self, index):
+        return self.coordinate(index) in self.cuts
+
+    def channels(self, count):
+        """How many of ``count`` channels this plan anchors."""
+        return sum(1 for i in range(count) if self.crosses(i))
+
+
+def crossing_families(graph, slots=4, axis=0):
+    """Which channels cross a slot boundary, so a register can be put on them.
+
+    This is the question AutoBridge answers with an ILP over a dataflow graph it
+    recovered from C++, and RapidStream answers per inter-island net.  A spatial
+    program does not have to ask it that way.  A ``link`` family has one
+    ``offset`` -- the displacement from writer to reader, which the elaborator
+    records only when every channel in the family agrees on it -- so the family
+    says which *way* its channels go, and the channel's own index says where.
+    Neither is a search.
+
+    Returns a map from family name to a `Crossing`, one anchor stage per
+    crossing channel.  A family travelling along an axis the floorplan does not
+    cut is absent; so is a TABLE, which has no single journey to cut.
+
+    Adding latency to the crossing channels is safe here for the reason cut-set
+    pipelining is safe generally -- they *are* a cut-set.  The channels landing
+    on one row all come from the row above, carry the same signal, and point the
+    same way, so delaying them delays one frontier of the array by one cycle and
+    re-balances nothing else.  AutoBridge has to solve an SDC to find such a
+    set; here it is the unit of declaration.
+
+    The one case this must refuse is a family on a dependency cycle, where added
+    latency would cost throughput rather than just latency.  A mesh whose links
+    all displace positively along an axis cannot close a cycle among themselves;
+    a cycle has to come back through a binding, and a binding is not a family
+    this returns.
+    """
+    emitter = StructuralEmitter(graph)
+    internal, _boundary = emitter.families()
+    cut = {}
+    for placement in emitter.placements():
+        grid = tuple(placement.grid)
+        if len(grid) != 2:
+            continue  # `floorplan_xdc` only cuts a mesh, so only a mesh crosses
+        rows = int(grid[axis])
+        # A band boundary sits where `floorplan_xdc` starts a new band; the
+        # array's own edge is not a boundary, so slot 0 does not contribute.
+        bounds = sorted({(s * rows) // slots for s in range(1, slots)})
+        for fam in emitter.peer_families(placement):
+            cut[id(fam)] = bounds
+    out = {}
+    for fam in internal:
+        bounds = cut.get(id(fam))
+        if not bounds:
+            continue
+        offset = getattr(fam, "offset", None)
+        if not offset or axis >= len(offset) or not offset[axis]:
+            continue  # a table, a fanout, or a journey the cut does not cross
+        stride = 1
+        for extent in fam.shape[axis + 1 :]:
+            stride *= int(extent)
+        out[fam.name] = Crossing(bounds, int(fam.shape[axis]), stride)
+    return out
+
+
+def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4):
     """A floorplan for the array, written from the grid it was placed on.
 
     This is the one thing a regular design should not have to be *told*. The
@@ -292,12 +384,19 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut"):
       neighbour-to-neighbour, and an SLR crossing turns one of those into a trip
       through Laguna. Constraining the whole fabric to a single SLR costs
       nothing here -- 272 instances is 8% of the device.
-    * **Give each mesh row its own pblock**, stacked in the same order the rows
-      are stacked logically, so a partial sum travelling south travels south on
-      the die too.
+    * **Give each band of mesh rows its own pblock**, stacked in the same order
+      the rows are stacked logically, so a partial sum travelling south travels
+      south on the die too.  Bands, not rows: the point of a floorplan is to
+      say which logic is far apart, and sixteen constraints that pin sixteen
+      rows into four clock regions say nothing four constraints do not.
 
     The result is advisory: `pblock` ranges are soft, so a design that does not
     fit degrades rather than failing.
+
+    A floorplan on its own is not expected to help, and measured on this design
+    it does not -- it takes options away from the placer without shortening
+    anything.  It pays only together with anchor registers on the links that
+    cross the slots it creates; `crossing_families` says which those are.
     """
     geom = _GEOMETRY.get(part.split("-")[0])
     if geom is None:
@@ -305,29 +404,35 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut"):
     emitter = StructuralEmitter(graph)
     lines = [
         "# Generated by allo.spmw.shell.floorplan_xdc -- do not edit.",
-        f"# One SLR, one pblock per mesh row, {part}.",
+        f"# One SLR, {slots} slot(s) of mesh rows, {part}.",
         "",
     ]
     base = slr * geom["rows"]
+    slots = min(slots, geom["rows"])
     for placement in emitter.placements():
         grid = tuple(int(g) for g in placement.grid)
         if len(grid) != 2:
             continue  # a chain places itself; only a mesh has rows to stack
         names = emitter.role_names(placement)
         rows = grid[0]
-        for row in range(rows):
-            # Rows share a clock-region row when there are more of them than
-            # the SLR has; the order is preserved either way.
-            cr = base + (row * geom["rows"]) // rows
+        for slot in range(slots):
+            # A slot is a band of mesh rows, stacked in logical order, so a
+            # partial sum travelling south travels south on the die too.  The
+            # band is the unit, not the row: pinning each of sixteen rows
+            # separately hands the placer a constraint per row while leaving
+            # the crossings it has to span exactly as long.
+            cr = base + slot
+            lo = (slot * rows) // slots
+            hi = ((slot + 1) * rows) // slots
             cells = []
             for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
                 for site in sites:
-                    if int(site[0]) == row:
+                    if lo <= int(site[0]) < hi:
                         tag = "_".join(str(int(c)) for c in site)
                         cells.append(f"{top}/u_{names[order]}_{tag}")
             if not cells:
                 continue
-            pb = f"pb_{placement.name}_row{row}"
+            pb = f"pb_{placement.name}_slot{slot}"
             lines += [
                 f"create_pblock {pb}",
                 f"resize_pblock {pb} -add "
@@ -341,6 +446,8 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut"):
 __all__ = [
     "families",
     "feeder_cpp",
+    "Crossing",
+    "crossing_families",
     "floorplan_xdc",
     "harness_sv",
     "host_buffer",

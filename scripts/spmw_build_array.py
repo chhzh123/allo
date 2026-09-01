@@ -43,7 +43,7 @@ sys.path.insert(
 )
 
 import allo.spmw as spmw  # pylint: disable=wrong-import-position
-from allo.spmw import rtl  # pylint: disable=wrong-import-position
+from allo.spmw import rtl, shell  # pylint: disable=wrong-import-position
 from allo.spmw.cosim import (  # pylint: disable=wrong-import-position
     render_testbench,
 )
@@ -288,7 +288,7 @@ _NUMPY = {
 }
 
 
-def stage(graph, out, part, frequency, ii=None):
+def stage(graph, out, part, frequency, ii=None, anchors=None):
     """Write one HLS project per role, plus the fabric that will hold them.
 
     Every placement, not just the first: a design can put more than one
@@ -318,7 +318,15 @@ def stage(graph, out, part, frequency, ii=None):
             names.append(name)
     _write(os.path.join(out, "spmw_fifo.sv"), rtl.fifo_module())
     _write(os.path.join(out, "spmw_const.sv"), rtl.const_module())
-    _write(os.path.join(out, "spmw_top.sv"), rtl.StructuralEmitter(graph).fabric())
+    _write(
+        os.path.join(out, "spmw_top.sv"),
+        rtl.StructuralEmitter(graph).fabric(anchors=anchors),
+    )
+    # Place and route needs a boundary a part actually has.  Exposing the
+    # array's edge as pins is 11,044 of them, which `place_design` refuses
+    # before it has placed a single cell; the harness drives each channel from
+    # its own LFSR instead.  See `allo.spmw.shell.harness_sv`.
+    _write(os.path.join(out, "spmw_harness.sv"), shell.harness_sv(graph))
     return names
 
 
@@ -547,7 +555,7 @@ def _synthesise_one(out, name):
     return name, seconds, done.returncode
 
 
-def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False):
+def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False, floorplan=""):
     """Vivado reads the exported IPs and builds the array.
 
     With ``frequency`` it runs real synthesis and reports the array's own clock
@@ -562,7 +570,8 @@ def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False):
         # means synthesis ran with no timing target at all.
         _write(
             os.path.join(out, "clock.xdc"),
-            f"create_clock -period {period:.3f} -name ap_clk [get_ports ap_clk]\n",
+            f"create_clock -period {period:.3f} -name ap_clk [get_ports ap_clk]\n"
+            + floorplan,
         )
         step = (IMPLEMENT if pnr else SYNTHESISE).format(top=top, part=part, root=out)
     else:
@@ -750,6 +759,21 @@ def main():
         help="take the array all the way through place and route, timing each "
         "stage; implies --synth",
     )
+    parser.add_argument(
+        "--slots",
+        type=int,
+        default=0,
+        help="floorplan the mesh into this many bands of rows, and put an "
+        "anchor register on every link that crosses one; 0 leaves the placer "
+        "alone.  This is the coupling AutoBridge argues for -- a floorplan on "
+        "its own measured worse than none at all.",
+    )
+    parser.add_argument(
+        "--floorplan-only",
+        action="store_true",
+        help="write the pblocks but not the anchors, which is the ablation "
+        "that shows the coupling is what matters",
+    )
     parser.add_argument("--out", required=True)
     parser.add_argument("--part", default=PART)
     parser.add_argument("--frequency", type=float, default=300.0)
@@ -787,7 +811,19 @@ def main():
         print("tuning the initiation interval:")
         ii, _table = tune(graph, args.out, args.part, args.frequency)
     start = time.time()
-    names = stage(graph, args.out, args.part, args.frequency, ii=ii)
+    anchors = {}
+    floorplan = ""
+    if args.slots:
+        floorplan = "\n" + shell.floorplan_xdc(
+            graph, part=args.part, top="dut", slots=args.slots
+        )
+        if not args.floorplan_only:
+            anchors = shell.crossing_families(graph, slots=args.slots)
+        print(
+            f"floorplan: {args.slots} slot(s); anchors on "
+            f"{sorted(anchors) or 'nothing (floorplan-only ablation)'}"
+        )
+    names = stage(graph, args.out, args.part, args.frequency, ii=ii, anchors=anchors)
     print(
         f"staged {len(names)} role project(s) in {time.time() - start:.1f}s "
         f"(frontend + per-role HLS codegen)"
@@ -836,6 +872,8 @@ def main():
         names + movers,
         frequency=args.frequency if (args.synth or args.pnr) else None,
         pnr=args.pnr,
+        floorplan=floorplan,
+        top="spmw_harness" if args.pnr else "spmw_top",
     )
     verb = (
         "implemented" if args.pnr else ("synthesised" if args.synth else "elaborated")
