@@ -166,8 +166,7 @@ module {name} #(
   localparam ADDR_CTRL = {aw}'h00, ADDR_GIER = {aw}'h04,
              ADDR_IER  = {aw}'h08, ADDR_ISR  = {aw}'h0c;
 
-  reg        aw_hs, w_hs, ar_hs, r_valid, b_valid;
-  reg [AW-1:0] waddr;
+  reg        r_valid, b_valid;
   reg [DW-1:0] rdata;
   reg        r_start, r_done, r_auto;
   reg        gier;
@@ -175,13 +174,19 @@ module {name} #(
 {chr(10).join(decls)}
 
   wire [DW-1:0] w_data = WDATA;
-  wire          w_fire = AWVALID && WVALID && !aw_hs && !w_hs;
+  // A write is taken only when the previous response has been collected;
+  // otherwise a back-to-back write overwrites BVALID and the host waits for a
+  // response that was already spent.
+  wire          w_fire = AWVALID && WVALID && !b_valid;
+  wire          r_fire = ARVALID && !r_valid;
+  wire          ctrl_read = r_fire && (ARADDR == ADDR_CTRL);
+  wire          ctrl_write = w_fire && (AWADDR == ADDR_CTRL);
 
   assign AWREADY = w_fire;
   assign WREADY  = w_fire;
   assign BRESP   = 2'b00;
   assign BVALID  = b_valid;
-  assign ARREADY = ARVALID && !r_valid;
+  assign ARREADY = r_fire;
   assign RDATA   = rdata;
   assign RRESP   = 2'b00;
   assign RVALID  = r_valid;
@@ -191,21 +196,17 @@ module {name} #(
 
   always @(posedge ACLK) begin
     if (ARESET) begin
-      aw_hs <= 0; w_hs <= 0; b_valid <= 0; r_valid <= 0;
+      b_valid <= 0; r_valid <= 0;
       r_start <= 0; r_done <= 0; r_auto <= 0;
-      gier <= 0; ier <= 0; isr <= 0; waddr <= 0; rdata <= 0;
+      gier <= 0; ier <= 0; isr <= 0; rdata <= 0;
 {chr(10).join(resets)}
     end else begin
-      // Write channel. Address and data are taken together, which is legal and
-      // is all a control map needs.
+      // -- write channel: address and data together, which is all a control
+      // map needs.
       if (w_fire) begin
-        waddr   <= AWADDR;
         b_valid <= 1;
         case (AWADDR)
-          ADDR_CTRL: begin
-            if (w_data[0]) r_start <= 1;
-            r_auto <= w_data[7];
-          end
+          ADDR_CTRL: r_auto <= w_data[7];
           ADDR_GIER: gier <= w_data[0];
           ADDR_IER:  ier  <= w_data[1:0];
           ADDR_ISR:  isr  <= isr & ~w_data[1:0];
@@ -216,22 +217,27 @@ module {name} #(
         b_valid <= 0;
       end
 
-      // The kernel took the job, so the request is spent unless the host asked
-      // for auto-restart.
-      if (ap_ready) r_start <= r_auto;
-      if (ap_done) begin
-        r_done <= 1;
-        isr[0] <= isr[0] | ier[0];
-      end
+      // -- start. Written by the host, spent when the kernel accepts it. The
+      // write wins a tie, or a start issued in the cycle the previous job was
+      // accepted would be dropped.
+      if (ctrl_write && w_data[0]) r_start <= 1'b1;
+      else if (ap_ready)           r_start <= r_auto;
 
-      // Read channel.
-      if (ARVALID && !r_valid) begin
+      // -- done. Latched, and *set wins over clear*: the kernel's `ap_done` is
+      // one cycle wide, and a host polling the control word will eventually
+      // read it in that very cycle. Clearing then would lose the completion
+      // for good, and the host would poll a finished kernel for ever.
+      if (ap_done)        r_done <= 1'b1;
+      else if (ctrl_read) r_done <= 1'b0;
+      if (ap_done) isr[0] <= isr[0] | ier[0];
+
+      // -- read channel.
+      if (r_fire) begin
         r_valid <= 1;
         case (ARADDR)
-          ADDR_CTRL: begin
-            rdata <= {{24'd0, r_auto, 3'd0, ap_ready, ap_idle, r_done, r_start}};
-            r_done <= 0;   // clear on read, as the map says
-          end
+          ADDR_CTRL:
+            rdata <= {{24'd0, r_auto, 3'd0, ap_ready,
+                      ap_idle, r_done | ap_done, r_start}};
           ADDR_GIER: rdata <= {{31'd0, gier}};
           ADDR_IER:  rdata <= {{30'd0, ier}};
           ADDR_ISR:  rdata <= {{30'd0, isr}};

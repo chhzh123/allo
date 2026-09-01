@@ -142,9 +142,20 @@ def main():
             bos[index].write(bytes(len(raw)), 0)
             bos[index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
 
-    def invoke(counts):
+    def invoke(counts, timeout_ms=0):
+        """One kernel invocation. A bounded wait, because a stall here is not
+        slow -- it is a drain waiting for a token the array will never send,
+        and an unbounded `wait()` turns that into a hung terminal."""
         run = krnl(*bos, *counts)
-        run.wait()
+        if timeout_ms:
+            state = run.wait(timeout_ms)
+            if state != pyxrt.ert_cmd_state.ERT_CMD_STATE_COMPLETED:
+                raise SystemExit(
+                    "kernel did not finish in %d ms (state %s); the counts and "
+                    "the instruction stream disagree somewhere." % (timeout_ms, state)
+                )
+        else:
+            run.wait()
 
     counts = [a["steps"] for a in scalars]
     drain = [i for i, a in enumerate(scalars) if not a["reads"]]
@@ -155,8 +166,24 @@ def main():
             invoke(counts)
         return (time.time() - t0) / n
 
+    # Three costs, because which one is "the" number depends on what stays on
+    # the card. HBM is 8 GB and BERT-base's weights are ~110 MB, so a real
+    # deployment keeps them resident and streams activations; the pessimistic
+    # case reloads a tile's weights every time.
+    act = [i for i, a in enumerate(pointers) if a["tensor"] == "A"][0]
+    wgt = [i for i, a in enumerate(pointers) if a["tensor"] == "W"][0]
+    raws = {}
+    for index in (act, wgt):
+        with open(os.path.join(ops, pointers[index]["name"] + ".bin"), "rb") as h:
+            raws[index] = h.read()
+
+    def move(indices):
+        for index in indices:
+            bos[index].write(raws[index], 0)
+            bos[index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
+
     print("\nsteady-state invocation cost (counts %s):" % counts)
-    invoke(counts)  # warm the path
+    invoke(counts, timeout_ms=10000)  # warm the path, bounded
 
     drain_index = [i for i, a in enumerate(pointers) if not a["reads"]][0]
     bos[drain_index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE)
@@ -166,9 +193,22 @@ def main():
     else:
         wrong = sum(1 for a, b in zip(bytes(got), expected) if a != b)
         print("  MISMATCH: %d of %d bytes differ" % (wrong, len(expected)))
-    per_invocation = timed(counts, 100)
-    per_invocation = timed(counts, 1000)
-    print("  %8.2f us per invocation" % (per_invocation * 1e6))
+
+    def timed_moving(counts, n, indices):
+        t0 = time.time()
+        for _ in range(n):
+            move(indices)
+            invoke(counts)
+        return (time.time() - t0) / n
+
+    timed(counts, 100)  # settle
+    resident = timed(counts, 1000)
+    streamed = timed_moving(counts, 1000, [act])
+    reloaded = timed_moving(counts, 1000, [act, wgt])
+    print("  everything resident on the card : %8.2f us" % (resident * 1e6))
+    print("  activations streamed per tile   : %8.2f us" % (streamed * 1e6))
+    print("  weights reloaded per tile too   : %8.2f us" % (reloaded * 1e6))
+    per_invocation = streamed
 
     # The claim under test: a different tile is a different *number*, not a
     # different netlist. Nothing is reprogrammed between these.
@@ -190,6 +230,10 @@ def main():
 
     layers = int(rest[rest.index("--layers") + 1]) if "--layers" in rest else 1
     ran = min(tiles * layers, budget)
+    print(
+        "  (the rate below is the streamed one: weights resident, "
+        "activations moved per tile)"
+    )
     print(
         "  running %s of them for real:"
         % ("all" if ran == tiles * layers else "{:,}".format(ran))
