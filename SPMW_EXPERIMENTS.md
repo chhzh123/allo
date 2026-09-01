@@ -1748,3 +1748,67 @@ Each of these cost a build, so they are written down.
 * `package_xo` refuses to overwrite an existing `.xo` and needs `-force`. Without
   it the stale one links, and the symptom reads exactly like the packager
   silently dropping metadata.
+
+### Two bugs the fabric's own cosim could not have found
+
+The kernel synthesised, linked, loaded and then hung. On a card that is the
+whole diagnosis: pyxrt exposes no way to read a kernel's control map, so
+"did not finish" is all there is. `allo.spmw.kernel.kernel_testbench` puts the
+same kernel against `dram.ram_module`'s behavioural AXI slaves, where a stall
+can be counted rather than guessed at.
+
+**Every feeder ran twice.** The kernel's `ap_start` has to stay high until the
+*slowest* feeder is done, and an `ap_ctrl_hs` IP takes the job again the moment
+it frees up. Gating on `ap_done` does not help -- the IP accepts on `ap_ready`
+and asserts both in the same cycle. The probe made it obvious:
+
+```
+mac_w_mem      written=2  read=1      (the family has one step)
+vpu_op_in_bind written=21 read=17
+```
+
+The array survived being over-fed for a while and then stalled somewhere
+downstream, with the extra tokens the only evidence. The start is a one-shot
+now: raised by a rising edge on `ap_start`, dropped when that feeder accepts.
+
+**The edge FIFOs were four deep, and a systolic array is skewed.** A feeder is
+one sequential loop -- every channel's step-*t* token before any channel's
+*t+1*. The last row of a 16x16 mesh is fifteen steps behind the first, because
+its partial sums have to come down through fourteen cells. So the last channel's
+FIFO filled, the feeder blocked on it, and the first row starved waiting for a
+token the feeder could not deliver until the last row moved, which it could not,
+because it was waiting on the first:
+
+```
+edge_a15  written=4  read=0     <- full, nobody reading
+edge_a0   written=5  read=5     <- consumed, wants more, feeder is stuck
+```
+
+Every other FIFO empty, the whole array halted, and nothing anywhere saying why.
+
+**Neither could have been caught by the cosim that passes 11/11.** That
+testbench gives every channel its own driver, so a lagging channel never blocks
+a leading one, and the fabric has no `ap_ctrl_hs` in it at all. The bugs live
+exactly in the part the cosim replaces with an idealisation. Sizing each edge
+FIFO to its family's own step count -- what the design was elaborated with --
+lets a feeder lay down a whole pass and the array take it in its own order.
+
+### The shape is data, checked three ways on one netlist
+
+With both fixed, the same kernel runs three tile sizes, each byte-exact against
+a reference computed by an engine *elaborated at that tile*:
+
+| tile | control-map polls to completion | result |
+|---|---|---|
+| `outs=16` | 734 | 0 of 1024 bytes wrong |
+| `outs=8` | 402 | 0 of 512 bytes wrong |
+| `outs=4` | 325 | 0 of 256 bytes wrong |
+
+The poll counts scale with the tile, which is the claim rather than a restatement
+of it: a smaller tile is genuinely less work on the same hardware.
+
+One accident along the way is worth keeping. An early version of the bench wrote
+the *elaborated* counts for every tile, so a `outs=8` run was fed 32 activations
+instead of 16 -- and the array still produced its eight correct results. The
+shape really does come from the instruction stream; only the feeders, told to
+move more than the array wanted, failed to finish.
