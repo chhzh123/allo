@@ -125,16 +125,24 @@ def main():
 
     # Buffers sized by what the array was elaborated with: the ceiling, not the
     # shape. A smaller tile writes a prefix and passes a smaller count.
-    bos = []
+    bos, sizes = [], []
     for index, arg in enumerate(pointers):
         nbytes = arg["channels"] * arg["steps"] * (arg["width"] // 8)
         bos.append(pyxrt.bo(dev, nbytes, pyxrt.bo.normal, krnl.group_id(index)))
+        sizes.append(nbytes)
         print(
             "  %-26s %4d ch x %3d step = %6d B"
             % (arg["name"], arg["channels"], arg["steps"], nbytes)
         )
 
     drain = [i for i, a in enumerate(pointers) if not a["reads"]][0]
+
+    def _family(arg):
+        """The family an argument belongs to: its name without the suffix."""
+        for suffix in ("_ptr", "_steps"):
+            if arg["name"].endswith(suffix):
+                return arg["name"][: -len(suffix)]
+        return arg["name"]
 
     def load(shape):
         """Write this tile's operands; return its counts and its answer.
@@ -143,11 +151,13 @@ def main():
         the comparison instead of passing on whatever the last one left.
         """
         for index, arg in enumerate(pointers):
-            raw = shape.data[arg["name"]]
+            raw = shape.data[_family(arg)]
             bos[index].write(raw if arg["reads"] else bytes(len(raw)), 0)
-            bos[index].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE)
+            bos[index].sync(
+                pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE, sizes[index], 0
+            )
         counts = [shape.manifest[a["name"][: -len("_steps")]]["steps"] for a in scalars]
-        return counts, shape.data[pointers[drain]["name"]]
+        return counts, shape.data[_family(pointers[drain])]
 
     def invoke(counts, timeout_ms=0):
         """One invocation. A bounded wait, because a stall here is not slow --
@@ -164,7 +174,9 @@ def main():
             run.wait()
 
     def check(expected):
-        bos[drain].sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE)
+        bos[drain].sync(
+            pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, sizes[drain], 0
+        )
         got = bytes(bos[drain].read(len(expected), 0))
         return got == expected
 

@@ -33,7 +33,7 @@ put the shape back into the bitstream, and the shape is the thing a new model
 changes.
 """
 
-from .abi import axi_signals
+from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals
 from .rtl import StructuralEmitter, _volume, _width
 from .shell import _dma_name, families
 
@@ -324,7 +324,7 @@ def kernel_sv(graph, args, widths, top="spmw_kernel", fabric="spmw_top"):
     body = ["  wire ap_start, ap_done, ap_idle, ap_ready;", "  wire rst = ~ap_rst_n;"]
     for arg in args:
         body.append(f"  wire [{arg.bits - 1}:0] {arg.name};")
-    body.append(f"  reg [{len(fams) - 1}:0] fin;")
+    body.append(f"  reg [{len(fams) - 1}:0] fin, pend;")
     body += _control_instance(args)
 
     # One FIFO per boundary channel, and the wires either side of it.
@@ -380,14 +380,37 @@ def _control_instance(args):
 
 
 def _edge_wires(fam, plan):
-    """The FIFO between one family's feeder and the fabric, per channel."""
+    """The FIFO between one family's feeder and the fabric, per channel.
+
+    Deep enough to hold the family's whole pass, which is not an optimisation
+    but the thing that makes the shell work at all.
+
+    A feeder is one sequential loop: it writes every channel's step-t token
+    before any channel's step t+1. A systolic array does not consume them that
+    way -- the last row of a 16x16 mesh is fifteen steps behind the first,
+    because its partial sums have to come down through fourteen cells first. So
+    the last channel's FIFO fills while the first channel is still being asked
+    for more, the feeder blocks on the full one, and the first row starves
+    waiting for a token the feeder cannot deliver until the last row moves --
+    which it cannot, because it is waiting on the first. The array deadlocks
+    with every FIFO empty and nothing to show for it.
+
+    A per-channel driver would also fix it, and that is what the cosim
+    testbench happens to be, which is why the fabric passed 11/11 and the
+    kernel hung. Sizing the buffer is the cheaper answer: the depth is the
+    family's own step count -- what the design was elaborated with -- so the
+    feeder can lay down a whole pass and let the array take it in its own
+    order.
+    """
     count = _volume(fam.shape)
     width = _width(fam)
     span = f"[{width - 1}:0] "
     name = fam.name
+    depth = max(2, plan["steps"])
     lines = [
         f"  // {name}: {count} channel(s) of {width} bits between the "
-        f"{'feeder' if plan['reads'] else 'drain'} and the array"
+        f"{'feeder' if plan['reads'] else 'drain'} and the array, "
+        f"{depth} deep -- one pass, so the feeder never blocks"
     ]
     for sig in ("din", "dout"):
         lines.append(f"  wire {span}{name}_e_{sig} [0:{count - 1}];")
@@ -398,7 +421,7 @@ def _edge_wires(fam, plan):
         "  generate",
         f"    for ({name}_i = 0; {name}_i < {count}; {name}_i = {name}_i + 1)"
         f" begin : g_edge_{name}",
-        f"      spmw_fifo #(.DW({width}), .DEPTH(4)) u ("
+        f"      spmw_fifo #(.DW({width}), .DEPTH({depth})) u ("
         ".clk(ap_clk), .rst_n(ap_rst_n)"
         + "".join(
             f", .{s}({name}_e_{s}[{name}_i])"
@@ -446,11 +469,7 @@ def _feeder_instances(fams, by_name, widths):
             conns.append(f".m_axi_gmem{sig[len(f'm_axi_gmem{index}'):]}({sig})")
         lines += [
             f"  wire done_{index}, idle_{index}, ready_{index};",
-            # An `ap_ctrl_hs` IP restarts the moment it finishes if `ap_start`
-            # is still high, and the kernel's start has to stay high until the
-            # slowest feeder is done. So each feeder's start falls when *it*
-            # finishes, not when the kernel does.
-            f"  wire start_{index} = ap_start & ~fin[{index}];",
+            f"  wire start_{index} = pend[{index}];",
             f"  {name} u_{name} (\n      " + ",\n      ".join(conns) + ");",
             "",
         ]
@@ -481,11 +500,31 @@ def _completion(fams):
     finishes, which is a thing this design has already been caught doing once.
     """
     n = len(fams)
-    lines = ["  always @(posedge ap_clk) begin"]
-    lines.append("    if (rst || ap_ready) fin <= 0;")
-    lines.append("    else begin")
+    lines = [
+        "  // Exactly one job per feeder per invocation.",
+        "  //",
+        "  // Holding `ap_start` high until the slowest feeder is done makes an",
+        "  // `ap_ctrl_hs` IP take the job again the moment it frees up, and",
+        "  // gating on `ap_done` does not help -- the IP accepts on `ap_ready`,",
+        "  // which it asserts in the same cycle. A feeder that runs twice",
+        "  // writes its family twice, and the array, fed tokens it never asked",
+        "  // for, stalls with nothing to say about why. So the start is a",
+        "  // one-shot: raised when the kernel is kicked, dropped the moment",
+        "  // that feeder accepts.",
+        "  reg ap_start_d;",
+        "  wire kick = ap_start & ~ap_start_d;",
+        "  always @(posedge ap_clk) ap_start_d <= ap_rst_n ? ap_start : 1'b0;",
+        "  always @(posedge ap_clk) begin",
+        "    if (rst) begin",
+        "      fin <= 0; pend <= 0;",
+        "    end else if (ap_ready) begin",
+        "      fin <= 0; pend <= 0;",
+        "    end else begin",
+    ]
     for index in range(n):
-        lines.append(f"      if (done_{index}) fin[{index}] <= 1;")
+        lines.append(f"      if (kick) pend[{index}] <= 1'b1;")
+        lines.append(f"      else if (ready_{index}) pend[{index}] <= 1'b0;")
+        lines.append(f"      if (done_{index}) fin[{index}] <= 1'b1;")
     lines += [
         "    end",
         "  end",
@@ -535,6 +574,197 @@ def kernel_xml(args, widths, name="spmw_kernel"):
     return "\n".join(lines) + "\n"
 
 
+def kernel_testbench(
+    graph, args, widths, operands, expected, counts=None, top="spmw_kernel"
+):
+    """The kernel against behavioural DRAM, so a stall can be seen.
+
+    A hang on the card is invisible: pyxrt exposes no way to read the control
+    map, so "the kernel did not finish" is the entire diagnosis available. Here
+    every master has its own `spmw_axi_ram`, the control map is driven by a
+    small AXI4-Lite writer, and when it stalls the waveform says which feeder
+    still has work left.
+
+    ``operands`` maps a family's DMA name to the bytes its master should hold;
+    ``expected`` is what the drain's memory must contain afterwards; ``counts``
+    gives each family's step count, defaulting to what the design was
+    elaborated with. It has to be settable: a smaller tile is a different set
+    of counts against the same netlist, and a bench that always wrote the
+    elaborated ones would over-supply -- which the array survives, because its
+    shape comes from the instruction stream, but the feeders then never finish.
+    """
+    counts = counts or {}
+    fams = families(graph)
+    aw = _addr_width(args)
+    lines = [
+        "`timescale 1ns/1ps",
+        "// Generated by allo.spmw.kernel.kernel_testbench -- do not edit.",
+        "",
+        "module tb;",
+        "  reg ap_clk = 0, ap_rst_n = 0;",
+        "  always #2 ap_clk = ~ap_clk;   // 250 MHz",
+        "",
+        f"  reg [{aw - 1}:0] awaddr; reg awvalid; wire awready;",
+        "  reg [31:0] wdata; reg wvalid; wire wready;",
+        "  wire bvalid; reg bready;",
+        f"  reg [{aw - 1}:0] araddr; reg arvalid; wire arready;",
+        "  wire [31:0] rdata; wire rvalid; reg rready;",
+        "  wire interrupt;",
+        "",
+    ]
+    for index, fam in enumerate(fams):
+        width = _axi_width(widths, fam)
+        nbytes = len(operands[_dma_name(fam)])
+        for sig, _kind, sig_width in axi_signals(f"gmem{index}", width):
+            span = f"[{sig_width - 1}:0] " if sig_width > 1 else ""
+            lines.append(f"  wire {span}{sig};")
+        lines += [
+            f"  spmw_axi_ram #(.DW({width}), .AW({AXI_ADDR}), "
+            f".BYTES({max(nbytes, 64)})) u_ram{index} (",
+            "    .ap_clk(ap_clk), .ap_rst_n(ap_rst_n),",
+            *[
+                f"    .{short}(m_axi_gmem{index}_{short}),"
+                for short in (
+                    "ARVALID",
+                    "ARREADY",
+                    "ARADDR",
+                    "ARLEN",
+                    "RVALID",
+                    "RREADY",
+                    "RDATA",
+                    "RLAST",
+                    "AWVALID",
+                    "AWREADY",
+                    "AWADDR",
+                    "AWLEN",
+                    "WVALID",
+                    "WREADY",
+                    "WDATA",
+                    "WSTRB",
+                    "WLAST",
+                    "BVALID",
+                )
+            ],
+            f"    .BREADY(m_axi_gmem{index}_BREADY));",
+            "",
+        ]
+    conns = [".ap_clk(ap_clk)", ".ap_rst_n(ap_rst_n)"]
+    for index, fam in enumerate(fams):
+        for sig, _kind, _w in axi_signals(f"gmem{index}", _axi_width(widths, fam)):
+            conns.append(f".{sig}({sig})")
+    conns += [
+        ".s_axi_control_AWADDR(awaddr)",
+        ".s_axi_control_AWVALID(awvalid)",
+        ".s_axi_control_AWREADY(awready)",
+        ".s_axi_control_WDATA(wdata)",
+        ".s_axi_control_WSTRB(4'hF)",
+        ".s_axi_control_WVALID(wvalid)",
+        ".s_axi_control_WREADY(wready)",
+        ".s_axi_control_BRESP()",
+        ".s_axi_control_BVALID(bvalid)",
+        ".s_axi_control_BREADY(bready)",
+        ".s_axi_control_ARADDR(araddr)",
+        ".s_axi_control_ARVALID(arvalid)",
+        ".s_axi_control_ARREADY(arready)",
+        ".s_axi_control_RDATA(rdata)",
+        ".s_axi_control_RRESP()",
+        ".s_axi_control_RVALID(rvalid)",
+        ".s_axi_control_RREADY(rready)",
+        ".interrupt(interrupt)",
+    ]
+    lines += [
+        f"  {top} dut (\n      " + ",\n      ".join(conns) + ");",
+        "",
+        "  integer i;",
+        "  reg [31:0] status;",
+        "",
+        "  task wr(input [31:0] a, input [31:0] d);",
+        "    begin",
+        f"      @(negedge ap_clk); awaddr <= a[{aw - 1}:0]; wdata <= d;",
+        "      awvalid <= 1; wvalid <= 1; bready <= 1;",
+        "      @(posedge ap_clk);",
+        "      while (!(awready && wready)) @(posedge ap_clk);",
+        "      @(negedge ap_clk); awvalid <= 0; wvalid <= 0;",
+        "      @(posedge ap_clk);",
+        "    end",
+        "  endtask",
+        "",
+        "  task rd(input [31:0] a, output [31:0] d);",
+        "    begin",
+        f"      @(negedge ap_clk); araddr <= a[{aw - 1}:0]; arvalid <= 1;"
+        f" rready <= 1;",
+        "      @(posedge ap_clk);",
+        "      while (!arready) @(posedge ap_clk);",
+        "      @(negedge ap_clk); arvalid <= 0;",
+        "      while (!rvalid) @(posedge ap_clk);",
+        "      d = rdata;",
+        "      @(posedge ap_clk);",
+        "    end",
+        "  endtask",
+        "",
+        "  initial begin",
+        "    awvalid = 0; wvalid = 0; bready = 0; arvalid = 0; rready = 0;",
+        "    awaddr = 0; wdata = 0; araddr = 0;",
+        "    repeat (8) @(posedge ap_clk);",
+        "    @(negedge ap_clk) ap_rst_n = 1;",
+        "    repeat (8) @(posedge ap_clk);",
+        "",
+    ]
+    # Preload every inbound master, and zero the drain's.
+    for index, fam in enumerate(fams):
+        raw = operands[_dma_name(fam)]
+        if not fam["reads"]:
+            continue
+        lines.append(f"    // {_dma_name(fam)}: {len(raw)} bytes")
+        for addr, byte in enumerate(raw):
+            lines.append(f"    u_ram{index}.mem[{addr}] = 8'd{byte};")
+    lines.append("")
+    for arg in args:
+        if arg.pointer:
+            lines += [
+                f"    wr(32'h{arg.offset:02x}, 32'd0);",
+                f"    wr(32'h{arg.offset + 4:02x}, 32'd0);",
+            ]
+        else:
+            fam = [f for f in fams if _dma_name(f) + "_steps" == arg.name][0]
+            steps = counts.get(_dma_name(fam), fam["steps"])
+            lines.append(f"    wr(32'h{arg.offset:02x}, 32'd{steps});")
+    lines += [
+        "",
+        '    $display("SPMW TB: starting");',
+        "    wr(32'h00, 32'd1);",
+        "    status = 0;",
+        "    for (i = 0; i < 200000 && !status[1]; i = i + 1) begin",
+        "      rd(32'h00, status);",
+        "    end",
+        "    if (!status[1]) begin",
+        '      $display("SPMW TB TIMEOUT after %0d polls, ctrl=%h", i, status);',
+    ]
+    drain_index = [i for i, f in enumerate(fams) if not f["reads"]][0]
+    lines += [
+        "      $finish;",
+        "    end",
+        '    $display("SPMW TB: done after %0d poll(s)", i);',
+        "    begin : compare",
+        "      integer bad;",
+        "      bad = 0;",
+    ]
+    for addr, byte in enumerate(expected):
+        lines.append(
+            f"      if (u_ram{drain_index}.mem[{addr}] !== 8'd{byte}) bad = bad + 1;"
+        )
+    lines += [
+        '      $display("SPMW TB RESULT %0d of %0d byte(s) wrong",'
+        f" bad, {len(expected)});",
+        "    end",
+        "    $finish;",
+        "  end",
+        "endmodule",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 __all__ = [
     "ARG_BASE",
     "ARG_STRIDE",
@@ -543,5 +773,6 @@ __all__ = [
     "control_sv",
     "feeder_tcl",
     "kernel_sv",
+    "kernel_testbench",
     "kernel_xml",
 ]
