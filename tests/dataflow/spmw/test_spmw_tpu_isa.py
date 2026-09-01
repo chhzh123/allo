@@ -74,22 +74,34 @@ def vpu_word(opcode, dst=0, src=0, imm=0):
     return (opcode << 24) | (dst << 20) | (src << 16) | (imm & 0xFFFF)
 
 
-def mxu_program(steps, rows=D):
+def mxu_program(steps, rows=D, pad=0):
     """An MXU program, broadcast to every row of the array.
 
     Every row runs the same instruction at the same step, so the tensor is one
     program repeated across its columns; the loader on column 0 and the
     west-to-east link do the rest.
+
+    The first word is the count. The array reads it, passes it on, and runs
+    exactly that many instructions -- which is what makes the *shape* of a pass
+    a property of the stream rather than of the hardware. ``pad`` fills the
+    tensor out to the buffer the fabric was built with; the extra words are
+    never read.
     """
-    words = np.array([mxu_word(*s) for s in steps], dtype=np.int32)
-    return np.repeat(words[:, None], rows, axis=1)
+    words = [len(steps)] + [mxu_word(*s) for s in steps]
+    words += [mxu_word(MSKIP)] * max(0, pad + 1 - len(words))
+    return np.repeat(np.array(words, dtype=np.int32)[:, None], rows, axis=1)
 
 
 #: The instructions that consume an accumulator from the MXU column.
 READS_Z = (ACCZ, LOADZ)
 
 
-def vpu_program(instructions, depth=NPROG, reads=None):
+def vpu_header(outs, plen):
+    """`[outputs:16 | program length:16]` -- the word a lane reads first."""
+    return (outs << 16) | (plen & 0xFFFF)
+
+
+def vpu_program(instructions, depth=NPROG, reads=None, outs=None):
     """One lane's program, checked against what the array will feed it.
 
     ``reads`` is how many accumulators the engine produces per output. Getting
@@ -108,7 +120,12 @@ def vpu_program(instructions, depth=NPROG, reads=None):
                 f"the program consumes {got} accumulator(s) per output but the "
                 f"array feeds {reads}; the lane and the array would deadlock."
             )
-    return np.array(words + [vpu_word(NOP)] * (depth - len(words)), dtype=np.int32)
+    body = words + [vpu_word(NOP)] * (depth - len(words))
+    if outs is None:
+        return np.array(body, dtype=np.int32)
+    # With a header the lane knows both how much of its buffer to load and how
+    # many results to emit, so neither is built into it.
+    return np.array([vpu_header(outs, len(words))] + body, dtype=np.int32)
 
 
 class MacIO(spmw.Interface):
@@ -165,7 +182,12 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
 
     @spmw.unit
     def mac(io: MacIO):
-        for step in range(steps):
+        # The instruction stream says how long it is. `steps` below is the
+        # *buffer* the host may fill, not the work a pass does -- a shorter
+        # program simply stops sooner, and the same netlist runs it.
+        count: int32 = io.op_in.get()
+        io.op_out.put(count)
+        for step in range(count):
             word: int32 = io.op_in.get()
             io.op_out.put(word)
             opcode: int32 = (word >> 24) & 255
@@ -185,11 +207,25 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
 
     @spmw.unit
     def vpu(io: VpuIO):
+        # `[outputs:16 | program length:16]`. The register file and the
+        # instruction buffer are physical and stay fixed; how much of the
+        # buffer a program uses, and how many results it produces, are told.
+        header: int32 = io.op_in.get()
+        io.op_out.put(header)
+        plen: int32 = header & 65535
+        nouts: int32 = (header >> 16) & 65535
+
         prog: int32[vprog_len]
-        for pc in range(vprog_len):
+        for pc in range(plen):
             word: int32 = io.op_in.get()
             prog[pc] = word
             io.op_out.put(word)
+        # The buffer is a fixed size and the host fills it; a shorter program
+        # leaves padding, which is read and discarded so the stream stays
+        # balanced. Paid once per pass, not once per instruction.
+        for _pad in range(vprog_len - plen):
+            spare: int32 = io.op_in.get()
+            io.op_out.put(spare)
 
         # The pass reciprocal, computed once, here.
         #
@@ -213,8 +249,8 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
         # a running maximum, a running sum. A program that wants a fresh value
         # each step says so with LOADI, which every one here does.
         reg: int32[REGS]
-        for m in range(outs):
-            for pc2 in range(vprog_len):
+        for m in range(nouts):
+            for pc2 in range(plen):
                 word2: int32 = prog[pc2]
                 opcode: int32 = (word2 >> 24) & 255
                 dst: int32 = (word2 >> 20) & 15
@@ -260,8 +296,8 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
         A: int8[steps, dim],
         W: int8[dim, dim, NW],
         Bias: int32[dim, NB],
-        MProg: int32[steps, dim],
-        VProg: int32[vprog_len],
+        MProg: int32[steps + 1, dim],
+        VProg: int32[vprog_len + 1],
         Y: int32[outs, dim],
     ):
         P = spmw.place(mac, on=mxu)
@@ -288,14 +324,14 @@ ONE_PASS = _engine(SEQ)
 # arithmetic and nothing else.
 # `LOADI r0, 0` first: registers persist across steps now, so a program that
 # wants this step's accumulator and nothing else has to say so.
-PASSTHROUGH = vpu_program([(LOADI, 0, 0, 0), (ACCZ, 0), (STORE, 0)])
+PASSTHROUGH = vpu_program([(LOADI, 0, 0, 0), (ACCZ, 0), (STORE, 0)], outs=SEQ)
 
 
 # What the build script must load: an instruction tensor of random small
 # integers is not a program. A plain matmul on tile 1, moved out unchanged, so a
 # cosim failure points at the hardware rather than at a clever epilogue.
 ONE_PASS.spmw_operands = {
-    "MProg": mxu_program([(MACC, 1)] * SEQ),
+    "MProg": mxu_program([(MACC, 1)] * SEQ, pad=SEQ),
     "VProg": PASSTHROUGH,
 }
 
@@ -310,7 +346,7 @@ def mxu_reference(A, W, mprog_col):
     steps = A.shape[0]
     out = np.zeros((steps, W.shape[1]), dtype=np.int64)
     for step in range(steps):
-        word = int(mprog_col[step])
+        word = int(mprog_col[step + 1])  # [0] is the count
         opcode = (word >> 24) & 0xFF
         tile = (word >> 16) & 0xFF
         for c in range(W.shape[1]):
@@ -352,7 +388,7 @@ def test_the_mxu_isa_round_trips():
 def test_macc_is_the_matmul_it_replaces(target):
     """With every step a MACC on tile 0, the engine is the plain matmul."""
     A, W, Bias = _operands()
-    mprog = mxu_program([(MACC, 0)] * SEQ)
+    mprog = mxu_program([(MACC, 0)] * SEQ, pad=SEQ)
     Y = _run(ONE_PASS, A, W, Bias, mprog, PASSTHROUGH, target=target)
     want = A.astype(np.int32) @ W[:, :, 0].astype(np.int32)
     np.testing.assert_array_equal(Y, want)
@@ -367,7 +403,7 @@ def test_the_instruction_selects_the_weight_matrix(target):
     """
     A, W, Bias = _operands()
     for tile in range(3):
-        mprog = mxu_program([(MACC, tile)] * SEQ)
+        mprog = mxu_program([(MACC, tile)] * SEQ, pad=SEQ)
         Y = _run(ONE_PASS, A, W, Bias, mprog, PASSTHROUGH, target=target)
         want = A.astype(np.int32) @ W[:, :, tile].astype(np.int32)
         np.testing.assert_array_equal(Y, want)
@@ -383,7 +419,7 @@ def test_mskip_masks_a_step(target):
     wrong answer.
     """
     A, W, Bias = _operands()
-    mprog = mxu_program([(MACC, 0), (MSKIP,), (MACC, 0), (MSKIP,)])
+    mprog = mxu_program([(MACC, 0), (MSKIP,), (MACC, 0), (MSKIP,)], pad=SEQ)
     Y = _run(ONE_PASS, A, W, Bias, mprog, PASSTHROUGH, target=target)
     want = A.astype(np.int32) @ W[:, :, 0].astype(np.int32)
     np.testing.assert_array_equal(Y[0], want[0])
@@ -395,7 +431,7 @@ def test_mskip_masks_a_step(target):
 def test_the_reference_agrees_with_numpy_for_a_plain_matmul():
     """The step-by-step model and the closed form must not disagree."""
     A, W, _ = _operands()
-    mprog = mxu_program([(MACC, 1)] * SEQ)
+    mprog = mxu_program([(MACC, 1)] * SEQ, pad=SEQ)
     np.testing.assert_array_equal(
         mxu_reference(A, W, mprog[:, 0]),
         A.astype(np.int64) @ W[:, :, 1].astype(np.int64),
@@ -425,11 +461,12 @@ def test_the_array_computes_a_matmul_four_times_its_size():
     w = rng.integers(-8, 8, (din, dout)).astype(np.int8)
 
     mprog = mxu_program(
-        [(MACC, t) for _m in range(seq) for t in range(tiles)], rows=dim
+        [(MACC, t) for _m in range(seq) for t in range(tiles)], rows=dim, pad=steps
     )
     vprog = vpu_program(
         [(LOADI, 0, 0, 0)] + [(ACCZ, 0)] * tiles + [(SHR, 0, 0, shift), (STORE, 0)],
         reads=tiles,
+        outs=seq,
     )
     acts = np.zeros((steps, dim), dtype=np.int8)
     for m in range(seq):

@@ -1547,3 +1547,52 @@ Neither closes the real gap, which is the array: 96×96 is the U280's DSP ceilin
 and would be 36× the cells. **The honest ceiling for this design on this part is
 around 0.1 s per sequence, and that needs both software fixes and a 36× bigger
 array.**
+
+### The shape belongs in the instruction stream, not the netlist
+
+A TPU is fixed silicon that takes shapes as instructions, and this design failed
+that test: `steps`, `outs` and the program length were loop bounds in the unit
+bodies, so a different shape meant a different netlist. Saying "BERT needs a
+rebuild with `steps=2048`" was describing a design flaw, not a property of the
+approach.
+
+The instruction stream is now self-describing. Its first word is a header — the
+MXU's says how many instructions follow, the VPU's carries
+`[outputs:16 | program length:16]` — and every shape-bearing loop is bounded by
+what was read rather than by what was compiled in. Read off the generated C++:
+
+| unit | loop | bound |
+|---|---|---|
+| MXU | unpack the weight vector | `4` (= `NW`) |
+| MXU | **the step loop** | **`v12`, runtime** |
+| VPU | zero the instruction buffer | `16` (= `NPROG`) |
+| VPU | zero the register file | `4` (= `REGS`) |
+| VPU | unpack the bias | `2` (= `NB`) |
+| VPU | **load the program** | **`v19`, runtime** |
+| VPU | **drain the buffer padding** | **`v28`, runtime** |
+| VPU | **the output loop** | **`v43`, runtime** |
+| VPU | **execute the program** | **`v46`, runtime** |
+
+Every remaining literal is the size of something physically there.
+`test_the_shape_is_data_and_the_buffers_are_hardware` asserts exactly that —
+the set of literal loop bounds equals `{NW, NB, NPROG, REGS}` and nothing else —
+so the split cannot quietly rot back.
+
+That is the same division a real machine makes: the systolic array's size, the
+register file, the instruction buffer and the weight file are hardware; the
+matmul's shape is an instruction field.
+
+**Correcting the BERT estimate.** The rebuild with `steps=2048, outs=512` was
+never necessary. The deployed engine can run a BERT-shaped block *today* by
+tiling it into more invocations, exactly as
+`test_the_array_computes_a_matmul_four_times_its_size` does at 4× the array. The
+bigger buffer is an **optimisation** — larger tiles mean fewer invocations and so
+less host overhead — not a precondition. What the ~1.2 s/block figure measures
+is that optimised configuration; the same block on the engine that is on the
+board now would take more invocations of the same total arithmetic, so more host
+overhead and a somewhat worse number.
+
+**What is still hardware, and honestly so:** the array is 16×16, a lane has four
+registers, its buffer holds sixteen instructions, and a cell holds four weights.
+A program that wants more of any of those needs a new netlist — as it would on
+any machine.

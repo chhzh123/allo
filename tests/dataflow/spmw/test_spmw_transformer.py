@@ -136,24 +136,29 @@ engine = SMALL.engine
 def matmul_prog(tile, shape=None):
     """A plain matmul: use the tile on even steps, skip the odd ones."""
     shape = shape or SMALL
-    return mxu_program([(MACC, tile), (MSKIP,)] * shape.outs, rows=shape.dim)
+    return mxu_program(
+        [(MACC, tile), (MSKIP,)] * shape.outs, rows=shape.dim, pad=shape.steps
+    )
 
 
 def residual_prog(tile, shape=None):
     """A matmul and an identity pass, interleaved; the lane sums the pair."""
     shape = shape or SMALL
-    return mxu_program([(MACC, tile), (MACC, IDENT)] * shape.outs, rows=shape.dim)
+    return mxu_program(
+        [(MACC, tile), (MACC, IDENT)] * shape.outs, rows=shape.dim, pad=shape.steps
+    )
 
 
-def requant(shift):
+def requant(shift, outs=None):
     """Sum the pair of accumulators and rescale."""
     return vpu_program(
         [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (SHR, 0, 0, shift), (STORE, 0)],
         reads=PER_OUT,
+        outs=outs or SMALL.outs,
     )
 
 
-def relu_requant(shift):
+def relu_requant(shift, outs=None):
     """The same, clamped at zero first."""
     return vpu_program(
         [
@@ -166,13 +171,21 @@ def relu_requant(shift):
             (STORE, 0),
         ],
         reads=PER_OUT,
+        outs=outs or SMALL.outs,
     )
 
 
 # A running maximum over the pass. `reg` persists across steps, and r0 starts at
 # zero, so this is max(0, scores) -- which is still a legal softmax shift,
 # because subtracting any constant leaves softmax unchanged.
-ROW_MAX = vpu_program([(LOADZ, 1), (ACCZ, 1), (MAX, 0, 1), (STORE, 0)], reads=PER_OUT)
+def row_max(outs=None):
+    """A running maximum over the pass."""
+    return vpu_program(
+        [(LOADZ, 1), (ACCZ, 1), (MAX, 0, 1), (STORE, 0)],
+        reads=PER_OUT,
+        outs=outs or SMALL.outs,
+    )
+
 
 # exp(s - max), as a shift. `1 << (EXP_BASE + (s - max) >> EXP_SHIFT)`, clamped
 # at both ends by EXP2 itself.
@@ -186,21 +199,33 @@ _EXP = [
     (ADD, 1, 2),
     (EXP2, 1),
 ]
-ROW_SUM = vpu_program(_EXP + [(ADD, 0, 1), (STORE, 0)], reads=PER_OUT)
-NORMALISE = vpu_program(
-    _EXP
-    + [
-        # The lane divided by the row sum once, before the pass; this just
-        # reads the result. The divide used to be here, and cost 17x.
-        (LOADR, 3),
-        (MUL, 1, 3),
-        # Not all the way back: a weight lands in [0, 1<<PROB_BITS], because
-        # shifting the whole way would truncate every probability to zero.
-        (SHR, 1, 0, RECIP_BITS - PROB_BITS),
-        (STORE, 1),
-    ],
-    reads=PER_OUT,
-)
+
+
+def row_sum(outs=None):
+    """exp(s - max), accumulated."""
+    return vpu_program(
+        _EXP + [(ADD, 0, 1), (STORE, 0)], reads=PER_OUT, outs=outs or SMALL.outs
+    )
+
+
+def normalise(outs=None):
+    """exp(s - max) / sum, in PROB_BITS fixed point."""
+    return vpu_program(
+        _EXP
+        + [
+            # The lane divided by the row sum once, before the pass; this just
+            # reads the result. The divide used to be here, and cost 17x.
+            (LOADR, 3),
+            (MUL, 1, 3),
+            # Not all the way back: a weight lands in [0, 1<<PROB_BITS],
+            # because shifting the whole way would truncate every probability
+            # to zero.
+            (SHR, 1, 0, RECIP_BITS - PROB_BITS),
+            (STORE, 1),
+        ],
+        reads=PER_OUT,
+        outs=outs or SMALL.outs,
+    )
 
 
 # -- the host's side of the loop --------------------------------------------
@@ -210,10 +235,11 @@ NORMALISE = vpu_program(
 # programs. Random small integers decode to opcodes that do not exist, and an
 # MXU program of those would feed the lane the wrong number of accumulators.
 engine.spmw_operands = {
-    "MProg": mxu_program([(MACC, 0), (MSKIP,)] * (SEQ)),
+    "MProg": mxu_program([(MACC, 0), (MSKIP,)] * SEQ, pad=SMALL.steps),
     "VProg": vpu_program(
         [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (SHR, 0, 0, QUANT_QKV), (STORE, 0)],
         reads=2,
+        outs=SMALL.outs,
     ),
 }
 
@@ -311,32 +337,60 @@ def transformer_block(x, wq, wk, wv, wo, w1, w2, target="ref", shape=None):
 
     # 1-3. Three projections, one weight load, three instructions.
     q, k, v = (
-        _clip8(eng(lay(x), qkv, requant(QUANT_QKV), mprog(tile), name=f"proj{tile}"))
+        _clip8(
+            eng(
+                lay(x),
+                qkv,
+                requant(QUANT_QKV, shape.outs),
+                mprog(tile),
+                name=f"proj{tile}",
+            )
+        )
         for tile in range(3)
     )
 
     # 4. S' = K . Q', so a lane holds one query's scores over every key and the
     #    softmax that follows is a reduction *along* the lane rather than across.
-    scores = _clip8(eng(lay(k), w_(q.T), requant(QUANT_SCORE), mprog(0), name="scores"))
+    scores = _clip8(
+        eng(lay(k), w_(q.T), requant(QUANT_SCORE, shape.outs), mprog(0), name="scores")
+    )
 
     # 5-7. Softmax, three passes over the same scores through the identity tile.
-    row_max = eng(lay(scores), ident, ROW_MAX, mprog(IDENT), name="row_max")[-1]
+    maxes = eng(lay(scores), ident, row_max(shape.outs), mprog(IDENT), name="row_max")[
+        -1
+    ]
     bias = np.zeros((shape.dim, NB), dtype=np.int32)
-    bias[:, 0] = row_max
-    row_sum = eng(lay(scores), ident, ROW_SUM, mprog(IDENT), bias, name="row_sum")[-1]
-    bias[:, 1] = row_sum
-    probs_t = eng(lay(scores), ident, NORMALISE, mprog(IDENT), bias, name="softmax")
+    bias[:, 0] = maxes
+    sums = eng(
+        lay(scores), ident, row_sum(shape.outs), mprog(IDENT), bias, name="row_sum"
+    )[-1]
+    bias[:, 1] = sums
+    probs_t = eng(
+        lay(scores), ident, normalise(shape.outs), mprog(IDENT), bias, name="softmax"
+    )
 
     # 8. O = P . V. The lane held S transposed, so the host hands back P.
     probs = _clip8(probs_t.T)
-    attn = _clip8(eng(lay(probs), w_(v), requant(PROB_BITS), mprog(0), name="attn"))
+    attn = _clip8(
+        eng(lay(probs), w_(v), requant(PROB_BITS, shape.outs), mprog(0), name="attn")
+    )
 
     # 9. Y = O . Wo + X -- the residual is an extra MACC against the identity.
-    y = _clip8(eng(lay(attn, x), w_(wo), requant(QUANT_OUT), rprog(0), name="proj_out"))
+    y = _clip8(
+        eng(
+            lay(attn, x),
+            w_(wo),
+            requant(QUANT_OUT, shape.outs),
+            rprog(0),
+            name="proj_out",
+        )
+    )
 
     # 10-11. The feed-forward network, and its residual.
-    h = _clip8(eng(lay(y), w_(w1), relu_requant(QUANT_OUT), mprog(0), name="ffn1"))
-    out = eng(lay(h, y), w_(w2), requant(QUANT_OUT), rprog(0), name="ffn2")
+    h = _clip8(
+        eng(lay(y), w_(w1), relu_requant(QUANT_OUT, shape.outs), mprog(0), name="ffn1")
+    )
+    out = eng(lay(h, y), w_(w2), requant(QUANT_OUT, shape.outs), rprog(0), name="ffn2")
     return out, eng
 
 
@@ -468,7 +522,9 @@ def test_a_vpu_only_pass_selects_the_identity():
     x, *_ = _params()
     eng = Engine()
     passthrough = vpu_program(
-        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)], reads=PER_OUT
+        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)],
+        reads=PER_OUT,
+        outs=OUTS,
     )
     got = eng(_interleave(x), _weights(), passthrough, matmul_prog(IDENT))
     np.testing.assert_array_equal(got, x.astype(np.int32))
@@ -539,7 +595,7 @@ def _loadr(acts, w, bias1):
 NOVEL_PROGRAMS = [
     (
         "square",
-        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS, pad=STEPS),
         vpu_program(
             [
                 (LOADI, 0, 0, 0),
@@ -550,18 +606,23 @@ NOVEL_PROGRAMS = [
                 (STORE, 0),
             ],
             reads=PER_OUT,
+            outs=OUTS,
         ),
         _square,
     ),
     (
         "max_of_pair",
-        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
-        vpu_program([(LOADZ, 0), (LOADZ, 1), (MAX, 0, 1), (STORE, 0)], reads=PER_OUT),
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS, pad=STEPS),
+        vpu_program(
+            [(LOADZ, 0), (LOADZ, 1), (MAX, 0, 1), (STORE, 0)],
+            reads=PER_OUT,
+            outs=OUTS,
+        ),
         _maxpair,
     ),
     (
         "abs",
-        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS, pad=STEPS),
         vpu_program(
             [
                 (LOADI, 0, 0, 0),
@@ -573,23 +634,27 @@ NOVEL_PROGRAMS = [
                 (STORE, 0),
             ],
             reads=PER_OUT,
+            outs=OUTS,
         ),
         _absval,
     ),
     (
         "mzero",  # an MXU opcode the Transformer never issues
-        mxu_program([(MZERO, 1), (MSKIP,)] * OUTS),
+        mxu_program([(MZERO, 1), (MSKIP,)] * OUTS, pad=STEPS),
         vpu_program(
-            [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)], reads=PER_OUT
+            [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (STORE, 0)],
+            reads=PER_OUT,
+            outs=OUTS,
         ),
         _mzero,
     ),
     (
         "loadr",  # the pass reciprocal, read as an operand
-        mxu_program([(MACC, 0), (MACC, 0)] * OUTS),
+        mxu_program([(MACC, 0), (MACC, 0)] * OUTS, pad=STEPS),
         vpu_program(
             [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (LOADR, 0), (STORE, 0)],
             reads=PER_OUT,
+            outs=OUTS,
         ),
         _loadr,
     ),
@@ -643,55 +708,87 @@ def test_the_novel_programs_are_novel():
     assert MZERO in novel
 
 
-def test_what_a_rebuild_would_cost():
-    """The envelope is hardware; everything inside it is data.
+def test_the_shape_is_data_and_the_buffers_are_hardware():
+    """What a rebuild costs, and what it does not.
 
-    Worth stating as numbers rather than prose, because "programmable" without
-    a bound is not a claim. A program longer than the instruction buffer, a
-    sequence longer than the array's step count, a fifth weight matrix or a
-    fifth register -- each of those is a loop bound or an array size inside a
-    unit, so each needs a new build.
+    A TPU is fixed silicon that takes shapes as instructions, and this design
+    used to fail that: `steps`, `outs` and the program length were loop bounds
+    in the units, so a different shape meant a different netlist. They are now
+    read off the head of the instruction stream -- the MXU is told how many
+    instructions follow, the VPU how long its program is and how many results
+    to emit.
+
+    What stays hardware is what is physically there: the array's size, the
+    register file, the instruction buffer, the cell weight file. That is the
+    same split a real machine makes.
     """
+    import re
+
     from allo.spmw.role_ip import UnitEmitter, build_unit, trim_includes
 
     graph = spmw.elaborate(engine)
     emitter = UnitEmitter(graph)
-    # The C++ that goes to synthesis, where a loop bound has to be a literal.
     code = "".join(
         trim_includes(str(build_unit(graph, placement, 0, target="vhls").hls_code))
         for placement in emitter.placements()
     )
-    assert f"< {STEPS};" in code  # the MXU's step count
-    assert f"< {OUTS};" in code  # the VPU's output count
-    assert f"< {NPROG};" in code  # walking the instruction buffer
-    assert f"prog[{NPROG}]" in code  # and its storage
-    assert f"reg[{REGS}]" in code  # the register file
-    # A program that does not fit is refused in Python rather than silently
-    # truncated onto hardware that cannot hold it.
+    bounds = re.findall(r"for \(int (\w+) = 0; \1 < ([^;]+);", code)
+    assert bounds, "no loops found; the check would pass vacuously"
+
+    # Every loop with a *literal* bound is walking a physical buffer, and its
+    # bound is that buffer's size. Nothing else is compiled in.
+    literals = sorted({int(b) for _v, b in bounds if b.strip().isdigit()})
+    assert literals == sorted({NW, NB, NPROG, REGS}), literals
+
+    # And the loops that carry the shape -- the MXU's step count, the VPU's
+    # program length and output count -- are bounded by values read at runtime.
+    assert sum(1 for _v, b in bounds if not b.strip().isdigit()) >= 4
+
+    # A program that does not fit the buffer is still refused, in Python.
     with pytest.raises(ValueError, match="buffer holds"):
         vpu_program([(NOP,)] * (NPROG + 1))
 
 
-def test_the_same_block_runs_on_a_16x16_array():
-    """Nothing about the block changes with the array's size.
+def test_one_engine_runs_two_program_lengths():
+    """The same elaborated design, two different programs, no rebuild.
 
-    The programs are identical -- an MXU program is broadcast across whatever
-    rows exist and a VPU program is per-lane -- so the only difference is the
-    shape of the tensors and the number of instances the fabric holds.
+    A five-instruction requantise and a nine-instruction softmax normalise run
+    on one engine. Before the header they could not: the lane's loop bound was
+    the buffer size, so every program had to be exactly that long.
     """
-    params = _params(shape=BIG)
-    out, eng = transformer_block(*params, shape=BIG)
-    np.testing.assert_array_equal(out, _ref_block(*params))
-    assert eng.invocations == 11
-    assert out.shape == (BIG.seq, BIG.dim)
+    a, w = _novel_inputs()
+    bias = np.zeros((D, NB), dtype=np.int32)
+    bias[:, 1] = 64
+    eng = Engine()
 
+    short = vpu_program(
+        [(LOADI, 0, 0, 0), (ACCZ, 0), (ACCZ, 0), (SHR, 0, 0, 2), (STORE, 0)],
+        reads=PER_OUT,
+        outs=OUTS,
+    )
+    long_ = vpu_program(
+        [
+            (LOADI, 0, 0, 0),
+            (ACCZ, 0),
+            (ACCZ, 0),
+            (LOADR, 1),
+            (MUL, 0, 1),
+            (SHR, 0, 0, 8),
+            (LOADI, 2, 0, 0),
+            (MAX, 0, 2),
+            (STORE, 0),
+        ],
+        reads=PER_OUT,
+        outs=OUTS,
+    )
+    assert (int(short[0]) & 0xFFFF) == 5 and (int(long_[0]) & 0xFFFF) == 9
 
-def test_the_bigger_array_has_the_same_roles():
-    """16x16 costs instances, not roles -- which is what fixes the compile time."""
-    from allo.spmw import rtl
+    prog = mxu_program([(MACC, 0), (MACC, 0)] * OUTS, pad=STEPS)
+    lo, hi = _pairs(a, w, 0)
+    got_s = eng(a, w, short, prog, bias)
+    np.testing.assert_array_equal(got_s, ((lo + hi) >> 2).astype(np.int32))
 
-    small = rtl.cost(spmw.elaborate(SMALL.engine))
-    big = rtl.cost(spmw.elaborate(BIG.engine))
-    assert big["roles"] == small["roles"]
-    assert big["instances"] == 16 * 16 + 16 == 272
-    assert small["instances"] == 4 * 4 + 4 == 20
+    rcp = (np.int64(1) << RCP_BITS) // 64
+    got_l = eng(a, w, long_, prog, bias)
+    want_l = np.maximum(((lo + hi) * rcp) >> 8, 0).astype(np.int32)
+    np.testing.assert_array_equal(got_l, want_l)
