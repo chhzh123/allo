@@ -96,6 +96,7 @@ set_property value ap_rst_n $p
 set rst [ipx::get_bus_interfaces ap_rst_n -of_objects $core]
 set p [ipx::add_bus_parameter POLARITY $rst]
 set_property value ACTIVE_LOW $p
+{floorplan}
 # Without these two, `package_xo` treats the IP as an ordinary one and
 # re-derives its metadata, which silently drops ASSOCIATED_BUSIF -- and then
 # the system linker cannot find a clock for the masters.
@@ -109,11 +110,21 @@ package_xo -force -xo_path {root}/{top}.xo -kernel_name {top} \\
 exit
 """
 
-# The kernel's hierarchy inside a Vitis platform. The floorplan has to name
-# cells by their full path because it is applied unscoped -- see below -- and
-# this prefix is what the implementation run sees. Confirmed against a routed
-# checkpoint: `level0_i/ulp/spmw_kernel_1/inst/dut/u_mac_r0_10_1`.
-KERNEL_PATH = "level0_i/ulp/{top}_1/inst/dut"
+# The floorplan travels as a *scoped* constraint inside the packaged IP, so
+# its cells are named relative to the kernel (`dut/u_mac_...`).
+#
+# Not as an implementation TCL hook, which was the obvious alternative and does
+# not work: `vpl` generates its own `_vivado_impl_props.tcl` that claims
+# STEPS.OPT_DESIGN.TCL.PRE (and INIT, PLACE, WRITE_BITSTREAM) for its own
+# scripts, overwriting anything `--vivado.prop` sets. A build done that way
+# reaches route with **zero** pblocks and looks like a success.
+SCOPED_XDC = """file copy -force {xdc} {root}/ip/floorplan.xdc
+set fg [ipx::add_file_group -type implementation {{}} $core]
+set f [ipx::add_file floorplan.xdc $fg]
+set_property type xdc $f
+set_property used_in {{implementation}} $f
+set_property SCOPED_TO_REF {top} $f
+"""
 
 #: The pblock a Vitis platform reserves for the reconfigurable partition. A
 #: user pblock inside one must declare itself a child or DRC calls it an
@@ -226,7 +237,7 @@ def main():
             floorplan = shell.floorplan_xdc(
                 graph,
                 part=args.part,
-                top=KERNEL_PATH.format(top=args.top),
+                top="dut",
                 slots=args.slots,
                 parent=DYNAMIC_REGION,
                 cols=DYNAMIC_COLS,
@@ -305,18 +316,22 @@ def main():
         return
 
     if floorplan:
-        # Applied as an implementation hook, not as a scoped XDC inside the IP.
-        # Scoped, Vivado renames the pblock after its instance, so the
-        # reparenting looks up a name that does not exist and silently does
-        # nothing -- and an hour later DRC reports the overlap the reparenting
-        # was there to prevent.
-        _write(os.path.join(args.out, "floorplan.tcl"), floorplan)
+        _write(os.path.join(args.out, "floorplan.xdc"), floorplan)
     _write(
         os.path.join(args.out, "package.tcl"),
         PACKAGE_TCL.format(
             part=args.part,
             root=args.out,
             top=args.top,
+            floorplan=(
+                SCOPED_XDC.format(
+                    xdc=os.path.join(args.out, "floorplan.xdc"),
+                    root=args.out,
+                    top=args.top,
+                )
+                if floorplan
+                else ""
+            ),
             busifs=" ".join(
                 [f"m_axi_gmem{i}" for i in range(sum(1 for a in kargs if a.pointer))]
                 + ["s_axi_control"]

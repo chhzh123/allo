@@ -493,7 +493,12 @@ def floorplan_xdc(
                 # by the name written here finds nothing, and the reparenting
                 # quietly does not happen. Measured on a routed checkpoint:
                 # unscoped, `set_property PARENT` succeeds.
-                lines.append(f"set_property PARENT {parent} [get_pblocks {pb}]")
+                # Matched by suffix, because a *scoped* XDC renames the
+                # pblock after the instance it is scoped to -- the DRC message
+                # that led here named `level0_i_ulp_spmw_kernel_1_inst_pb_mac_
+                # slot0`. A bare `[get_pblocks pb_mac_slot0]` finds nothing
+                # there and the reparenting silently does not happen.
+                lines.append(f"set_property PARENT {parent} [get_pblocks -quiet *{pb}]")
             lines.append("")
     return "\n".join(lines)
 
