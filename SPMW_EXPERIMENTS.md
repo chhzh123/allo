@@ -1812,3 +1812,98 @@ the *elaborated* counts for every tile, so a `outs=8` run was fed 32 activations
 instead of 16 -- and the array still produced its eight correct results. The
 shape really does come from the instruction stream; only the feeders, told to
 move more than the array wanted, failed to finish.
+
+## The role path on the card, measured
+
+`xilinx_u280_gen3x16_xdma_1_202211_1`, kernel clock 250 MHz, one CU.
+
+| stage | elapsed |
+|---|---|
+| HLS, 12 roles + 6 feeders, concurrent | 184 s |
+| `package_xo` | 26 s |
+| `v++ -l` (synth 26 m, place 50 m, route, bitstream) | **10,464 s = 2 h 54 m** |
+| xclbin | 52.4 MB |
+
+Timing closed: WNS **+0.016 ns**, TNS 0, WHS +0.006, THS 0.
+
+### Resources
+
+| | whole-array kernel (deployed previously) | **role-path kernel** |
+|---|---|---|
+| LUT | 348,840 (26.8%) | **109,931 (8.4%)** |
+| FF | 433,189 (16.6%) | **113,988 (4.4%)** |
+| DSP | — | 304 (3.4%) |
+| BRAM | — | 3.5 |
+| kernel clock closed | 150 MHz | **250 MHz** |
+
+**3.2× fewer LUTs and 1.67× the clock**, for the same design expressed the same
+way. That is the strongest form of the argument the role decomposition has been
+making: it is not only faster to compile, it is a better netlist.
+
+### The shape is data, on the card
+
+Three tile sizes, one `.xclbin`, nothing reprogrammed between them, each checked
+byte-for-byte against a reference computed by an engine elaborated at *that*
+tile:
+
+| tile | counts written to the control map | result | fresh call | queued | restarted |
+|---|---|---|---|---|---|
+| `outs=16` | 32,33,1,17,16,1 | **matches** | 59.7 µs | 44.8 µs | **17.3 µs** |
+| `outs=8` | 16,17,1,17,8,1 | **matches** | 58.6 µs | 44.5 µs | **17.1 µs** |
+| `outs=4` | 8,9,1,17,4,1 | **matches** | 59.2 µs | 45.6 µs | **17.5 µs** |
+
+A different tiling is six integers, not a new bitstream.
+
+### BERT-base, and why it is slow
+
+One layer is 931,135,488 MACs, which at 16×16×16 per invocation is **227,328
+invocations**. All of them were run:
+
+| | per layer | 12 layers | rate |
+|---|---|---|---|
+| **measured on the card** | **4.261 s** | **51.1 s** | 0.219 GMAC/s (0.34% of peak) |
+| the array alone, dispatch removed | 1.333 s | 16.0 s | 0.699 GMAC/s (1.1% of peak) |
+
+Two losses, and they are different in kind.
+
+**1. XRT dispatch — 2.9×.** The three tiles above cost the *same* wall time
+despite doing four times the arithmetic, which settles where the time goes
+before any profiling: it is not compute. Simulation gives the array's own cost:
+
+| tile | kernel cycles | at 250 MHz |
+|---|---|---|
+| `outs=16` | 1,466 | 5.86 µs |
+| `outs=8` | 802 | 3.21 µs |
+| `outs=4` | 649 | 2.60 µs |
+
+Against 17.3 µs measured, **11.4 µs per invocation is XRT** — command
+submission and completion. Reusing one `xrt::run` and rewriting only the two
+pointers that move takes a fresh call's 59.7 µs down to 17.3 µs; the rest needs
+the host out of the loop entirely, which means a kernel that walks a descriptor
+list rather than one tile per start.
+
+**2. The tile is too small — 90×.** Even with dispatch free, 1,466 cycles for
+4,096 MACs is 2.8 MACs per cycle out of 256. The invocation moves 3,844 bytes
+to do 4,096 multiply-accumulates: roughly **a byte per MAC**, which no array
+can hide. The largest single transfer is not the weights (1,024 B) but the
+*instruction stream* (2,112 B), because the MXU program is replicated across
+all sixteen rows in memory even though every row runs the same thing.
+
+Neither is a property of the spatial description; both are the shell around it.
+A broadcast loader for the program, and a descriptor list so one start covers
+many tiles, are the two changes the measurement asks for -- in that order.
+
+### LLaMA-7B on the same bitstream
+
+No rebuild, no reprogram: the shape is the counts and the instruction stream.
+
+| | per layer | 32 layers |
+|---|---|---|
+| 26,038,239,232 MAC/layer → 6,356,992 invocations | | |
+| measured (227,328 invocations sampled, 18.6 µs each) | 118.4 s | **63 min** |
+| the array alone | 37.3 s | 20 min |
+
+This is a 16×16 array of int8 MACs -- 64 GMAC/s of peak against an A100's
+~600 TOPS. The interesting claim was never that it is fast; it is that a 7B
+model's layer shape and BERT's run on the same netlist, differing only in what
+the host writes into six registers and one instruction stream.

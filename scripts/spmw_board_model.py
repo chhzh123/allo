@@ -173,11 +173,54 @@ def main():
         else:
             run.wait()
 
+    def pipelined(counts, n, depth=64):
+        """`n` invocations with up to `depth` in flight at once.
+
+        One `krnl(...); run.wait()` per tile measures XRT's command round trip,
+        not the array: the kernel itself is a few hundred cycles. Keeping a
+        queue of runs outstanding lets the compute unit take them back to back,
+        which is what any host driving this thing for real would do.
+        """
+        t0 = time.time()
+        queue = []
+        for _ in range(n):
+            queue.append(krnl(*bos, *counts))
+            if len(queue) == depth:
+                for run in queue:
+                    run.wait()
+                queue = []
+        for run in queue:
+            run.wait()
+        return (time.time() - t0) / n
+
+    def reused(counts, n, rebind=0):
+        """`n` invocations on one run object, restarted rather than rebuilt.
+
+        A fresh `krnl(...)` writes all twelve arguments over AXI-Lite, and each
+        of those is a PCIe round trip -- which is most of what a per-invocation
+        time measures. A host walking a model does not do that: the counts and
+        the weight base do not change from tile to tile, only a pointer or two.
+        `rebind` says how many arguments to rewrite per invocation, so the cost
+        of the array and the cost of talking to it can be told apart.
+        """
+        run = krnl(*bos, *counts)
+        run.wait()
+        t0 = time.time()
+        for _ in range(n):
+            for index in range(rebind):
+                run.set_arg(index, bos[index])
+            run.start()
+            run.wait()
+        return (time.time() - t0) / n
+
     def check(expected):
         bos[drain].sync(
             pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, sizes[drain], 0
         )
-        got = bytes(bos[drain].read(len(expected), 0))
+        # `bo.read` returns a numpy array, and this host runs under the system
+        # Python that pyxrt is built for, which has no numpy. `map` gives a
+        # plain memoryview of the same bytes.
+        got = bytes(bos[drain].map()[: len(expected)])
         return got == expected
 
     shapes = [
@@ -196,18 +239,23 @@ def main():
         invoke(counts, timeout_ms=10000)
         ok = check(expected)
         t0 = time.time()
-        for _ in range(2000):
+        for _ in range(1000):
             invoke(counts)
-        rate = (time.time() - t0) / 2000
+        serial = (time.time() - t0) / 1000
+        queued = pipelined(counts, 4000)
+        rate = reused(counts, 4000)
         rates[shape.outs] = rate
         print(
-            "  outs=%-3d counts=%-28s %8.2f us  %s"
+            "  outs=%-3d %-22s %s"
             % (
                 shape.outs,
                 ",".join(str(c) for c in counts),
-                rate * 1e6,
                 "matches the reference" if ok else "MISMATCH",
             )
+        )
+        print(
+            "           fresh call %6.2f us | queued %6.2f us | "
+            "restarted %6.2f us" % (serial * 1e6, queued * 1e6, rate * 1e6)
         )
         if not ok:
             raise SystemExit("the device disagrees with the reference simulator")
@@ -232,10 +280,11 @@ def main():
         )
         ran = min(tiles, budget)
         t0 = time.time()
-        for _ in range(ran):
-            invoke(counts)
+        # Two pointers move per tile in a real walk: the activations being
+        # consumed and the results being written. The weights, the programs and
+        # every count stay put.
+        measured = reused(counts, ran, rebind=2)
         wall = time.time() - t0
-        measured = wall / ran
         note = "the whole layer" if ran == tiles else "{:,} of them".format(ran)
         print("    ran %s in %.3f s -> %.2f us each" % (note, wall, measured * 1e6))
         print(
