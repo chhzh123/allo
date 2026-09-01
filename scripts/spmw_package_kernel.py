@@ -59,9 +59,8 @@ from spmw_build_array import (  # pylint: disable=wrong-import-position
 PLATFORM = "xilinx_u280_gen3x16_xdma_1_202211_1"
 
 # Packaging as a Vivado IP first, rather than handing `package_xo` loose files,
-# so the floorplan can ride along as a *scoped* constraint: the pblock names
-# cells relative to the kernel instance, which is the only way to write it
-# without knowing where in the shell's hierarchy the kernel will land.
+# so the clock associations can be set on the core before it is wrapped. The
+# floorplan does *not* ride along here -- see `KERNEL_PATH` below.
 PACKAGE_TCL = """create_project -in_memory -part {part}
 add_files -norecurse [glob {root}/*.sv]
 proc add_if_any {{pattern}} {{
@@ -111,16 +110,16 @@ package_xo -force -xo_path {root}/{top}.xo -kernel_name {top} \\
 exit
 """
 
-# A pblock has to name cells relative to the kernel instance, because where in
-# the shell's hierarchy `v++` puts the kernel is not knowable here. An IP's
-# implementation file group with SCOPED_TO_REF is how that is said.
-SCOPED_XDC = """file copy -force {xdc} {root}/ip/floorplan.xdc
-set fg [ipx::add_file_group -type implementation {{}} $core]
-set f [ipx::add_file floorplan.xdc $fg]
-set_property type xdc $f
-set_property used_in {{implementation}} $f
-set_property SCOPED_TO_REF {top} $f
-"""
+# The kernel's hierarchy inside a Vitis platform. The floorplan has to name
+# cells by their full path because it is applied unscoped -- see below -- and
+# this prefix is what the implementation run sees. Confirmed against a routed
+# checkpoint: `level0_i/ulp/spmw_kernel_1/inst/dut/u_mac_r0_10_1`.
+KERNEL_PATH = "level0_i/ulp/{top}_1/inst/dut"
+
+#: The pblock a Vitis platform reserves for the reconfigurable partition. A
+#: user pblock inside one must declare itself a child or DRC calls it an
+#: overlap.
+DYNAMIC_REGION = "pblock_dynamic_region"
 
 
 def _write(path, text):
@@ -223,9 +222,9 @@ def main():
             floorplan = shell.floorplan_xdc(
                 graph,
                 part=args.part,
-                top="dut",
+                top=KERNEL_PATH.format(top=args.top),
                 slots=args.slots,
-                parent="pblock_dynamic_region",
+                parent=DYNAMIC_REGION,
             )
         print(
             f"{args.slots} slot(s); anchors on {sorted(anchors)}; "
@@ -301,24 +300,18 @@ def main():
         return
 
     if floorplan:
-        _write(os.path.join(args.out, "floorplan.xdc"), floorplan)
-    # Inside the IP, not beside it: a file referenced as `../floorplan.xdc`
-    # resolves outside the packaged core and is simply not shipped in the .xo,
-    # which surfaces four steps later as "failed to deliver one or more files".
-    scoped = (
-        SCOPED_XDC.format(
-            xdc=os.path.join(args.out, "floorplan.xdc"), root=args.out, top=args.top
-        )
-        if floorplan
-        else ""
-    )
+        # Applied as an implementation hook, not as a scoped XDC inside the IP.
+        # Scoped, Vivado renames the pblock after its instance, so the
+        # reparenting looks up a name that does not exist and silently does
+        # nothing -- and an hour later DRC reports the overlap the reparenting
+        # was there to prevent.
+        _write(os.path.join(args.out, "floorplan.tcl"), floorplan)
     _write(
         os.path.join(args.out, "package.tcl"),
         PACKAGE_TCL.format(
             part=args.part,
             root=args.out,
             top=args.top,
-            floorplan=scoped,
             busifs=" ".join(
                 [f"m_axi_gmem{i}" for i in range(sum(1 for a in kargs if a.pointer))]
                 + ["s_axi_control"]

@@ -458,6 +458,11 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4, parent=None):
                 for site in sites:
                     if lo <= int(site[0]) < hi:
                         tag = "_".join(str(int(c)) for c in site)
+                        # Exact paths, not patterns. The instance name carries
+                        # the site as `u_mac_<role>_<row>_<col>`, and a glob
+                        # over it is ambiguous: `u_mac_*_0_*` matches row 10 as
+                        # readily as row 0, because the leading `*` will happily
+                        # eat `r0_1`.
                         cells.append(f"{top}/u_{names[order]}_{tag}")
             if not cells:
                 continue
@@ -472,9 +477,14 @@ def floorplan_xdc(graph, part="xcu280", slr=1, top="dut", slots=4, parent=None):
                 # Inside a Vitis platform the kernel lives in a reconfigurable
                 # partition, and any pblock within one is an *overlap* to
                 # HD.RECONFIGURABLE DRC unless it is declared a child of it.
-                lines.append(
-                    f"catch {{set_property PARENT {parent} [get_pblocks {pb}]}}"
-                )
+                #
+                # This has to run *unscoped*. A scoped XDC packaged into the IP
+                # renames the pblock after its instance -- the DRC error names
+                # `level0_i_ulp_spmw_kernel_1_inst_pb_mac_slot0` -- so a lookup
+                # by the name written here finds nothing, and the reparenting
+                # quietly does not happen. Measured on a routed checkpoint:
+                # unscoped, `set_property PARENT` succeeds.
+                lines.append(f"set_property PARENT {parent} [get_pblocks {pb}]")
             lines.append("")
     return "\n".join(lines)
 
