@@ -1441,3 +1441,30 @@ of peak.
 
 At that point the per-invocation host cost (~56 µs measured) is seven times the
 kernel again, which is the argument for the unified buffer.
+
+### The floorplan did not help — the harness fix did
+
+The control settles the attribution, and against the hypothesis:
+
+| | impl time | achieved | | route |
+|---|---|---|---|---|
+| shared LFSR, no floorplan | 1934 s | 3.915 ns | 255 MHz | 636.9 s |
+| per-channel sources **+ floorplan** | 2768 s | 3.204 ns | 312 MHz | 1172.1 s |
+| per-channel sources, **no floorplan** | **2314 s** | **3.147 ns** | **318 MHz** | **805.4 s** |
+
+The floorplan cost **20% more implementation time and 6 MHz**. All of the
+255 → 318 MHz came from giving each channel its own source; none of it came from
+placing the array by hand. Area is a wash (109,590 vs 109,832 LUT).
+
+Why, in hindsight: a systolic array's netlist *already* expresses the locality a
+floorplan would impose — every net is neighbour-to-neighbour, and Vivado's placer
+reads that directly. Row-per-clock-region pblocks then only take options away.
+The generated floorplan is kept (`shell.floorplan_xdc`) because it is the right
+tool for a design that *does* need pinning — one spanning SLRs, or sharing a die
+with a shell that has already taken the good regions — but on this design, on
+this part, at this size, it is a pessimisation.
+
+Both runs end with the critical path inside a VPU lane, `lshr…_reg` → `reg_…`:
+the vector unit's ALU recurrence, the same dependency that sets the II. Once the
+harness stopped being the longest path, the array became limited by its own
+arithmetic, which is where a design should be.
