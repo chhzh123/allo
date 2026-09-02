@@ -240,6 +240,12 @@ def design(name, size):
         from test_spmw_fft import fft_spatial
 
         return fft_spatial
+    if name == "fft256":
+        # The size the vectorised reference is written for: 8 stages of 128
+        # butterflies, 1,024 units, 3 roles.
+        from test_spmw_fft import fft_stream_of
+
+        return fft_stream_of(size, 8)
     if name == "fftstream":
         # The same butterfly network with a batch to pipeline over. The one-shot
         # form has no loop, so HLS reports interval 66 -- the float latencies are
@@ -748,6 +754,7 @@ def main():
             "transformerN",
             "fft",
             "fftstream",
+            "fft256",
             "attention",
             "tiled",
         ),

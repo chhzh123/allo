@@ -250,6 +250,77 @@ def test_hls_csim_matches_numpy_fft():
     np.testing.assert_allclose(got, np.fft.fft(x), atol=1e-4)
 
 
+def fft_stream_of(n, batch, name=None):
+    """The streaming butterfly network at any power-of-two size.
+
+    `FFT_N` above is 8 so the tests stay readable. The reference this is
+    measured against is N=256, which is 8 stages of 128 butterflies -- 1,024
+    units, the same order as the 32x32 matrix array.
+    """
+    stages = n.bit_length() - 1
+    half = n // 2
+    sample = float32[2]
+
+    def pair(s, b):
+        span = 1 << s
+        up = (b // span) * (2 * span) + (b % span)
+        return up, up + span
+
+    class IO(spmw.Interface):
+        up_in = spmw.In(sample)
+        lo_in = spmw.In(sample)
+        up_out = spmw.Out(sample)
+        lo_out = spmw.Out(sample)
+        tw = spmw.MemIn(float32[half, 2])
+
+    def links(s, b):
+        up, lo = pair(s, b)
+        return {
+            IO.up_in: spmw.key(s, up),
+            IO.lo_in: spmw.key(s, lo),
+            IO.up_out: spmw.key(s + 1, up),
+            IO.lo_out: spmw.key(s + 1, lo),
+        }
+
+    topology = spmw.Topology(IO, grid=(stages, half), link=links)
+
+    @spmw.unit
+    def butterfly(io: IO, site: spmw.Site):
+        s, b = site.rank
+        span = 1 << s
+        k = b % span * (half // span)
+        wr = io.tw[k, 0]
+        wi = io.tw[k, 1]
+        for _n in range(batch):
+            a = io.up_in.get()
+            c = io.lo_in.get()
+            tr = wr * c[0] - wi * c[1]
+            ti = wr * c[1] + wi * c[0]
+            u: sample
+            l: sample
+            u[0] = a[0] + tr
+            u[1] = a[1] + ti
+            l[0] = a[0] - tr
+            l[1] = a[1] - ti
+            io.up_out.put(u)
+            io.lo_out.put(l)
+
+    @spmw.fabric
+    def fabric(X: float32[batch, n, 2], Y: float32[batch, n, 2]):
+        P = spmw.place(butterfly, on=topology)
+        tw = spmw.mem(float32[half, 2], init=twiddles(n), layout=spmw.replicate)
+        spmw.stationary(tw, at=P.tw)
+        _stage, b = P.axes
+        spmw.stream_in(X, into=P.up_in, index=(..., 2 * b))
+        spmw.stream_in(X, into=P.lo_in, index=(..., 2 * b + 1))
+        spmw.gather(Y, from_=P.up_out, index=(..., b))
+        spmw.gather(Y, from_=P.lo_out, index=(..., b + half))
+
+    if name:
+        fabric.__name__ = name
+    return fabric
+
+
 def _stream_operands(seed=0):
     rng = np.random.default_rng(seed)
     x = rng.random((BATCH, FFT_N)) + 1j * rng.random((BATCH, FFT_N))

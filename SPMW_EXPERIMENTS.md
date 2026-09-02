@@ -2139,3 +2139,67 @@ the role decomposition: 12 roles synthesised concurrently, flat in the array's
 side — ~3 minutes of HLS at 16×16 and at 32×32 alike, while the whole-array route
 goes from 807 s to impractical. That result is already measured, large, and does
 not depend on placement constraints.
+
+## FFT-256: why the reference is vectorised, in numbers
+
+`fft_stream_of(256, 8)` is the butterfly network at the size the reference is
+written for: 8 stages of 128 butterflies, **1,024 units and 3 roles**, elaborated
+in 0.1 s and correct against `numpy.fft` to 9.3e-06 in float32.
+
+Each butterfly reaches **II=1** at N=256 exactly as it does at N=8 — same role,
+same depth 21, because the role is size-independent. Per butterfly, `csynth` at a
+3.333 ns target with BATCH=8:
+
+| | |
+|---|---|
+| latency / interval | 68 / 69 cycles |
+| pipelined loop | Target II = 1, **Final II = 1**, Depth = 21 |
+| DSP | 24 |
+| LUT | 2,490 |
+| FF | 3,742 |
+
+### The fully spatial form does not fit, by 2.7×
+
+| | per butterfly | × 1,024 | U280 | |
+|---|---|---|---|---|
+| DSP | 24 | 24,576 | 9,024 | **272%** |
+| LUT | 2,490 | 2,549,760 | 1,303,680 | **196%** |
+| FF | 3,742 | 3,831,808 | 2,607,360 | 147% |
+
+A float32 butterfly is four multiplies and six adds; at 24 DSPs each, a thousand
+of them is nearly three times the device. **This is the answer to why the
+reference folds.** Fold factor against a U280:
+
+| fold | butterflies | DSP | LUT |
+|---|---|---|---|
+| 1× | 1,024 | 272% | 196% |
+| 2× | 512 | 136% | 98% |
+| **4×** | **256** | **68%** | **49%** |
+| 8× | 128 | 34% | 24% |
+| 32× | 32 | 9% | 6% |
+
+The reference's WIDTH=32 lanes is a 32× fold, which is 9% of the DSPs — room for
+the buffers, the twiddle ROM and the shell.
+
+### And that is where XOR banking comes from
+
+A fully spatial FFT has **no bank conflicts to solve**: every butterfly owns its
+own links and there is no shared memory. Folding is what introduces one. With
+WIDTH lanes and N/WIDTH vectors, the stages where `STRIDE >= WIDTH` have both
+butterfly operands landing in the same bank, and the reference's F2 swizzle
+
+```
+bank(idx) = (idx & (WIDTH-1)) ^ (((idx >> s) & 1) << (LOG2_WIDTH-1))
+```
+
+is what separates them. So XOR banking is not an optimisation on top of the
+spatial design -- it is a *consequence* of folding, and folding is forced by the
+DSP budget above.
+
+**SPMW cannot express it today.** `spmw.xor_bank` is exported and documented as
+"the conflict-free layout for butterfly access sets", and it does nothing:
+`Brick.layout` is assigned in `bricks.py` and never read anywhere in the
+repository, and `bank_fn` and `stride_bit` appear only in `__slots__` and the
+constructor. The whole layout vocabulary -- `banked`, `xor_bank`, `replicate`,
+`shared` -- is declarative; the lowering ignores all of it. Making the folded FFT
+real means implementing that first.
