@@ -2080,3 +2080,62 @@ constraint from the one `floorplan_xdc` writes, which is about roles on a grid.
 of the clock**, with the placer left alone. The role path's compile time is also
 flat in the array's side: 12 roles at both sizes, ~3 minutes of HLS either way.
 Only Vivado grows, 46 min to 2 h 34 m.
+
+### The FIFO-aware floorplan is worse still
+
+The 32×32 diagnosis was that a *partial* floorplan is the problem: 1,024 mesh
+cells pinned, 3,039 FIFOs and 32 vector lanes left to fill the gaps. So the
+floorplan was extended to place every unit and every internal FIFO — the FIFO in
+the band of the site that reads it, the chain in the band of the mesh row it is
+linked from.
+
+**It is worse.** The hypothesis is refuted.
+
+| 32×32, 3.333 ns target | no floorplan | mesh only | every unit + FIFO |
+|---|---|---|---|
+| achieved | **3.333 ns / 300.0 MHz** | 5.109 ns / 195.7 MHz | **6.015 ns / 166.3 MHz** |
+| WNS | +0.000 | −1.776 | −2.682 |
+| P&R | 9,261 s | 9,945 s | 10,155 s |
+| LUT | 336,442 | 341,971 | 340,017 |
+
+The last build's reported path ends at `sig_reg`, which is the *harness's*
+signature register, so that number is contaminated. Asking the routed
+checkpoints for the worst path with both ends inside `dut` removes the harness
+and gives the array's own clock:
+
+| | array-internal slack | endpoint |
+|---|---|---|
+| no floorplan | **0.000** | `g_mac_p_out_p_in[525].u/mem_reg.../RAMA/WE` |
+| mesh only | −1.776 | `g_vpu_z_in_bind[15].u/count_reg[0]/D` |
+| every unit + FIFO | **−2.264** | `u_vpu_r0_4/u/.../reg_1_3_fu_130_reg[14]/CE` |
+
+Still worst, and the endpoint is the giveaway: it is the vector lane's
+register-file writeback — the same intra-unit path that limited the 16×16 array
+at 2.825 ns, back again.
+
+### Why constraining more made it worse
+
+A band is one clock-region row by six-to-eight columns: very wide and very thin.
+A vector lane is ~2,882 cells and wants to be compact. Packing 1,900 cells into a
+1×6 strip smears every unit across the die's width, so the *intra-unit* routing —
+which is what the critical path is made of — gets longer, not shorter.
+
+The floorplan is shaped like the mesh's logic (rows of a 2-D grid, flattened to
+1-D stripes) rather than like the silicon (a 2-D plane). Constraining by mesh
+geometry actively harms units whose critical paths are internal.
+
+**Four measurements, all negative:** −2% at 16×16 standalone, no change at 16×16
+on the card, −35% at 32×32 with the mesh floorplanned, −40% with everything
+floorplanned. Compile time is worse each time too (9,261 → 9,945 → 10,155 s), so
+there is no placement-time win either.
+
+**The one hypothesis left with a mechanism behind it** is that the bands are the
+wrong *shape*: 2-D tiles, each holding a square block of the mesh, would keep a
+unit's own cells compact instead of smearing them. That is a different floorplan
+from the one written here, and it is the last version worth a build.
+
+**And the compile-time win SPMW does have is not floorplanning at all.** It is
+the role decomposition: 12 roles synthesised concurrently, flat in the array's
+side — ~3 minutes of HLS at 16×16 and at 32×32 alike, while the whole-array route
+goes from 807 s to impractical. That result is already measured, large, and does
+not depend on placement constraints.
