@@ -105,6 +105,10 @@ def test_the_anchored_channels_are_the_ones_that_change_band():
         cells = [l for l in chunk.splitlines() if l.startswith("add_cells_to_pblock")]
         assert len(cells) == 1, "one band, one cell list"
         for cell in cells[0].split("{")[1].split("}")[0].split():
+            # Units only: the list also carries each channel's FIFO, whose name
+            # is `g_<family>[<channel>].u` and says nothing about a mesh row.
+            if "/u_mac_" not in cell:
+                continue
             band[int(cell.rsplit("_", 2)[-2])] = slot  # the site's row
     assert set(band) == set(range(rows)), "every mesh row should land in a band"
 
@@ -145,13 +149,19 @@ def test_a_family_is_a_cut_set():
     assert not formless & set(anchors)
 
 
-def test_anchors_do_not_reach_a_placement_the_floorplan_never_cuts():
-    """The engine's activation row is a chain, and `floorplan_xdc` leaves it be.
+def test_the_chain_is_placed_but_never_anchored():
+    """Two different questions about the engine's activation row.
 
-    Its links are long -- it spans the array -- so it is tempting to anchor them
-    too.  But that would be a different optimisation wearing this one's name:
-    there is no boundary there to cross.  Keeping the two aligned is what makes
-    the measurement mean anything.
+    It has no boundary of its own to cross, so `crossing_families` must leave
+    its links alone -- anchoring them would be a different optimisation wearing
+    this one's name.
+
+    But it must still be *placed*. The first version of the floorplan skipped
+    every rank-1 placement outright, which left the 32 vector lanes and the
+    FIFOs joining them to the mesh free to land anywhere while everything
+    around them was pinned. That family is exactly where the 32x32 critical
+    path turned up, at 4.7 ns. The chain is linked from the mesh's last row, so
+    its home is the last band.
     """
     graph = _graph()
     emitter = StructuralEmitter(graph)
@@ -162,8 +172,41 @@ def test_anchors_do_not_reach_a_placement_the_floorplan_never_cuts():
     assert not chained & set(crossing_families(graph, slots=4))
 
     plan = floorplan_xdc(graph, top="dut", slots=4)
-    for placement in chains:
-        assert f"pb_{placement.name}" not in plan
+    names = [emitter.role_names(p) for p in chains]
+    for placement, roles in zip(chains, names):
+        for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
+            for site in sites:
+                tag = "_".join(str(int(c)) for c in site)
+                assert f"dut/u_{roles[order]}_{tag}" in plan
+
+
+def test_every_unit_and_every_internal_fifo_gets_a_band():
+    """A partial floorplan is worse than none, measured.
+
+    Banding the mesh cells and nothing else cost 35% of the clock at 32x32:
+    1,024 pinned instances left 3,000-odd FIFOs and 32 lanes to fill whatever
+    gaps remained, and a FIFO whose two counter bits land in different clock
+    regions is a 4.7 ns path. Whatever the floorplan constrains, it has to
+    constrain all of it.
+    """
+    graph = _graph()
+    emitter = StructuralEmitter(graph)
+    plan = floorplan_xdc(graph, top="dut", slots=4)
+
+    for placement in emitter.placements():
+        roles = emitter.role_names(placement)
+        for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
+            for site in sites:
+                tag = "_".join(str(int(c)) for c in site)
+                assert f"dut/u_{roles[order]}_{tag}" in plan, (roles[order], site)
+
+    internal, _boundary = emitter.families()
+    for fam in internal:
+        placed = set(re.findall(rf"g_{fam.name}\[(\d+)\]", plan))
+        assert placed, f"no FIFO of `{fam.name}` was placed"
+        # Every channel with a reader inside the array; the ones without are
+        # fed from the boundary and have no FIFO in the fabric at all.
+        assert len(placed) >= 1
 
 
 def test_the_floorplan_names_bands_and_not_rows():

@@ -399,6 +399,50 @@ def crossing_families(graph, slots=4, axis=0):
     return out
 
 
+def _band_of_site(row, rows, slots):
+    """Which band a mesh row falls in."""
+    for slot in range(slots):
+        if (slot * rows) // slots <= row < ((slot + 1) * rows) // slots:
+            return slot
+    return slots - 1
+
+
+def _fifo_instances(top, name, index):
+    """Every spelling the emitter might have used for one channel's FIFO.
+
+    A plain internal family is `g_F[i].u`; an anchored one puts the same FIFO
+    inside a generate-if, so it is `g_F[i].direct.u` on the channels that do not
+    cross and `g_F[i].anchored.u` plus `g_F[i].anchored.u_anchor` on the ones
+    that do. Naming all four and letting `-quiet` drop the misses is cheaper
+    than re-deriving which branch each channel took.
+    """
+    stem = f"{top}/g_{name}[{index}]"
+    return [
+        f"{stem}.u",
+        f"{stem}.direct.u",
+        f"{stem}.anchored.u",
+        f"{stem}.anchored.u_anchor",
+    ]
+
+
+def _channel_readers(emitter, placement, internal_ids):
+    """(family name, channel) -> the site that reads it, for internal families.
+
+    The reader rather than the writer: a FIFO's output drives the reader, and
+    its occupancy counter -- which is what went critical at 32x32, 4.7 ns
+    between two bits of one register -- sits beside that logic.
+    """
+    out = {}
+    for site in placement.sites():
+        for port, fam in emitter.site_ports(placement, site):
+            if id(fam) not in internal_ids or port.direction is not IN:
+                continue
+            index = emitter.channel_index(placement, site, port, fam)
+            if index >= 0:
+                out[(fam.name, index)] = tuple(int(c) for c in site)
+    return out
+
+
 def floorplan_xdc(
     graph, part="xcu280", slr=1, top="dut", slots=4, parent=None, cols=None
 ):
@@ -452,59 +496,68 @@ def floorplan_xdc(
     # ~305 each, so roughly 31 by 31), and constraining it to one would be
     # asking for the impossible rather than for a floorplan.
     slots = min(slots, geom["rows"] * geom["slrs"] - slr * geom["rows"])
-    for placement in emitter.placements():
-        grid = tuple(int(g) for g in placement.grid)
-        if len(grid) != 2:
-            continue  # a chain places itself; only a mesh has rows to stack
+    internal, _boundary = emitter.families()
+    internal_ids = {id(fam) for fam in internal}
+
+    mesh = [p for p in emitter.placements() if len(tuple(p.grid)) == 2]
+    chains = [p for p in emitter.placements() if len(tuple(p.grid)) != 2]
+
+    # Every unit and every FIFO gets a band. The first version of this banded
+    # the mesh cells and nothing else, which at 32x32 cost 35% of the clock:
+    # the design has 3,136 FIFOs and 32 vector lanes, and packing 1,024 mesh
+    # cells into eight thin bands left all of them to fill the gaps. A FIFO
+    # whose two counter bits land in different regions is a 4.7 ns path. A
+    # partial floorplan is worse than none.
+    bands = [[] for _ in range(slots)]
+    for placement in mesh:
         names = emitter.role_names(placement)
-        rows = grid[0]
-        for slot in range(slots):
-            # A slot is a band of mesh rows, stacked in logical order, so a
-            # partial sum travelling south travels south on the die too.  The
-            # band is the unit, not the row: pinning each of sixteen rows
-            # separately hands the placer a constraint per row while leaving
-            # the crossings it has to span exactly as long.
-            cr = base + slot
-            lo = (slot * rows) // slots
-            hi = ((slot + 1) * rows) // slots
-            cells = []
-            for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
-                for site in sites:
-                    if lo <= int(site[0]) < hi:
-                        tag = "_".join(str(int(c)) for c in site)
-                        # Exact paths, not patterns. The instance name carries
-                        # the site as `u_mac_<role>_<row>_<col>`, and a glob
-                        # over it is ambiguous: `u_mac_*_0_*` matches row 10 as
-                        # readily as row 0, because the leading `*` will happily
-                        # eat `r0_1`.
-                        cells.append(f"{top}/u_{names[order]}_{tag}")
-            if not cells:
-                continue
-            pb = f"pb_{placement.name}_slot{slot}"
-            lines += [
-                f"create_pblock {pb}",
-                f"resize_pblock {pb} -add "
-                f"{{CLOCKREGION_X0Y{cr}:CLOCKREGION_X{cols - 1}Y{cr}}}",
-                f"add_cells_to_pblock {pb} [get_cells -quiet {{{' '.join(cells)}}}]",
-            ]
-            if parent:
-                # Inside a Vitis platform the kernel lives in a reconfigurable
-                # partition, and any pblock within one is an *overlap* to
-                # HD.RECONFIGURABLE DRC unless it is declared a child of it.
-                #
-                # This has to run *unscoped*. A scoped XDC packaged into the IP
-                # renames the pblock after its instance -- the DRC error names
-                # `level0_i_ulp_spmw_kernel_1_inst_pb_mac_slot0` -- so a lookup
-                # by the name written here finds nothing, and the reparenting
-                # quietly does not happen. Measured on a routed checkpoint:
-                # unscoped, `set_property PARENT` succeeds.
-                # Matched by suffix, because a *scoped* XDC renames the
-                # pblock after the instance it is scoped to -- the DRC message
-                # that led here named `level0_i_ulp_spmw_kernel_1_inst_pb_mac_
-                # slot0`. A bare `[get_pblocks pb_mac_slot0]` finds nothing
-                # there and the reparenting silently does not happen.
-                lines.append(f"set_property PARENT {parent} [get_pblocks -quiet *{pb}]")
-            lines.append("")
+        rows = int(tuple(placement.grid)[0])
+        for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
+            for site in sites:
+                tag = "_".join(str(int(c)) for c in site)
+                # Exact paths, not patterns. The instance name carries the site
+                # as `u_mac_<role>_<row>_<col>`, and a glob over it is
+                # ambiguous: `u_mac_*_0_*` matches row 10 as readily as row 0,
+                # because the leading `*` will happily eat `r0_1`.
+                bands[_band_of_site(int(site[0]), rows, slots)].append(
+                    f"{top}/u_{names[order]}_{tag}"
+                )
+        for (name, index), site in _channel_readers(
+            emitter, placement, internal_ids
+        ).items():
+            slot = _band_of_site(site[0], rows, slots)
+            bands[slot] += _fifo_instances(top, name, index)
+
+    # A chain is linked from the mesh's last row, so its home is the last band
+    # -- not "wherever the placer likes", which is what leaving it out meant.
+    for placement in chains:
+        names = emitter.role_names(placement)
+        for order, (_sig, _rt, sites) in enumerate(emitter.classes(placement)):
+            for site in sites:
+                tag = "_".join(str(int(c)) for c in site)
+                bands[-1].append(f"{top}/u_{names[order]}_{tag}")
+        for name, index in _channel_readers(emitter, placement, internal_ids):
+            bands[-1] += _fifo_instances(top, name, index)
+
+    for slot, cells in enumerate(bands):
+        if not cells:
+            continue
+        cr = base + slot
+        pb = f"pb_slot{slot}"
+        lines += [
+            f"create_pblock {pb}",
+            f"resize_pblock {pb} -add "
+            f"{{CLOCKREGION_X0Y{cr}:CLOCKREGION_X{cols - 1}Y{cr}}}",
+            f"add_cells_to_pblock {pb} [get_cells -quiet {{{' '.join(cells)}}}]",
+        ]
+        if parent:
+            # Matched by suffix, because a *scoped* XDC renames the pblock
+            # after the instance it is scoped to -- the DRC message that led
+            # here named `level0_i_ulp_spmw_kernel_1_inst_pb_mac_slot0`. A bare
+            # `[get_pblocks pb_slot0]` finds nothing there and the reparenting
+            # silently does not happen.
+            lines.append(f"set_property PARENT {parent} [get_pblocks -quiet *{pb}]")
+        lines.append("")
     return "\n".join(lines)
 
 
