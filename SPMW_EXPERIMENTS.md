@@ -1907,3 +1907,56 @@ This is a 16×16 array of int8 MACs -- 64 GMAC/s of peak against an A100's
 ~600 TOPS. The interesting claim was never that it is fast; it is that a 7B
 model's layer shape and BERT's run on the same netlist, differing only in what
 the host writes into six registers and one instruction stream.
+
+### Getting a pblock to stick inside a Vitis reconfigurable partition
+
+Four builds, and the third is the one worth remembering.
+
+| attempt | mechanism | outcome |
+|---|---|---|
+| 1 | scoped XDC in the packaged IP | pblocks spanned X0..X7 into `pblock_blp`, the static shell -- DRC overlap |
+| 2 | the same, plus `PARENT` in a `catch` | the scoped rename broke the lookup; `catch` hid it |
+| 3 | `--vivado.prop ...OPT_DESIGN.TCL.PRE` | **built a perfect xclbin containing zero pblocks** |
+| 4 | inject into the platform's `preopt.tcl` | 4 pblocks, 64 cells each, correct parent |
+
+**The third failure is the dangerous one.** `vpl` generates its own
+`_vivado_impl_props.tcl` claiming every implementation hook it uses -- INIT,
+OPT, PLACE and WRITE_BITSTREAM, pre and post -- and overwrites anything
+`--vivado.prop` sets. The build ran three hours, closed timing, passed every
+DRC, and was indistinguishable from success. The only thing that caught it was
+asking the placed checkpoint directly:
+
+```
+open_checkpoint level0_wrapper_placed.dcp
+get_pblocks pb_mac_slot*    ->  0
+```
+
+A floorplan that silently does not apply produces a *working design*. Nothing
+errors, because nothing was asked for.
+
+**Two things had to be true at once.** The pblocks must be six clock-region
+columns wide, not eight -- `pblock_dynamic_region` is `X0Y4:X5Y10` and column
+X7 belongs to the static shell, which is what the overlap DRC was really
+objecting to; parenting was a red herring. And the constraint has to run at the
+top level, where the full hierarchy and the platform's own pblocks are visible.
+
+The answer was in the platform's own hook file, which carries a commented-out
+workaround for CR-1038346 noting that the XSA "cannot register the parent
+PBLOCKS in the EARLY XDC processing stage", and demonstrating the pattern that
+does work: `add_cells_to_pblock` with full paths like `level0_i/ulp/SLR1`.
+
+`preopt.tcl` is copied fresh from the platform every time `v++` sets up, so the
+injection cannot be prepared in advance -- it has to land after setup and
+before `opt_design`, a window synthesis leaves open for about half an hour.
+`scripts/build_floorplanned.sh` waits for the file and injects into it.
+
+**Verified in the placed design, not inferred from the build succeeding:**
+
+```
+pb_mac_slot0  CLOCKREGION_X0Y4:X5Y4  parent=pblock_dynamic_region  cells=64
+pb_mac_slot1  CLOCKREGION_X0Y5:X5Y5  parent=pblock_dynamic_region  cells=64
+pb_mac_slot2  CLOCKREGION_X0Y6:X5Y6  parent=pblock_dynamic_region  cells=64
+pb_mac_slot3  CLOCKREGION_X0Y7:X5Y7  parent=pblock_dynamic_region  cells=64
+```
+
+256 mesh cells, four bands, one SLR.
