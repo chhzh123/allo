@@ -446,7 +446,12 @@ def floorplan_xdc(
         "",
     ]
     base = slr * geom["rows"]
-    slots = min(slots, geom["rows"])
+    # Bands are laid on consecutive clock-region rows starting at `slr`, so the
+    # ceiling is how many rows remain above it -- not one SLR's worth. A 32 by
+    # 32 array does not fit in a single SLR (about 300k LUTs holds ~950 cells at
+    # ~305 each, so roughly 31 by 31), and constraining it to one would be
+    # asking for the impossible rather than for a floorplan.
+    slots = min(slots, geom["rows"] * geom["slrs"] - slr * geom["rows"])
     for placement in emitter.placements():
         grid = tuple(int(g) for g in placement.grid)
         if len(grid) != 2:

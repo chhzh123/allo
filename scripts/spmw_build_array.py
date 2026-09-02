@@ -195,6 +195,14 @@ def design(name, size):
         from test_spmw_transformer import engine
 
         return engine
+    if name == "transformerN":
+        # The same engine at whatever size is asked for: a `size` by `size`
+        # matrix unit and `size` vector lanes. 32 is the largest power of two
+        # that fits a U280 -- the cell is ~305 LUTs because it decodes its own
+        # instructions, so the design is LUT-bound long before it is DSP-bound.
+        from test_spmw_transformer import Shape
+
+        return Shape(size, size).engine
     if name == "transformer16":
         # The same engine on a 16x16 array -- 272 instances, the same 12 roles.
         from test_spmw_transformer import BIG
@@ -730,6 +738,7 @@ def main():
             "tpuisa",
             "transformer",
             "transformer16",
+            "transformerN",
             "fft",
             "attention",
             "tiled",
