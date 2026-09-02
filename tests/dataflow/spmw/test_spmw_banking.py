@@ -13,9 +13,11 @@ The formula is the one the vectorised FFT-256 reference uses::
     bank(i) = (i & (W - 1)) ^ (((i >> s) & 1) << (log2(W) - 1))
 """
 
+import numpy as np
 import pytest
 
 import allo.spmw as spmw
+from allo.ir.types import float32
 from allo.spmw.bricks import Layout
 from allo.spmw.errors import SPMWMemoryError
 
@@ -127,3 +129,111 @@ def test_at_stride_specialises_without_mutating():
     assert base.stride_bit is None, "at_stride should not mutate the original"
     assert isinstance(fifth, Layout)
     assert fifth.banks == base.banks and fifth.bank_fn == base.bank_fn
+
+
+# -- the layout as the lowering sees it --------------------------------------
+
+BANKS, ROWS = 8, 4
+SIZE = BANKS * ROWS
+
+
+class _ProbeIO(spmw.Interface):
+    x_in = spmw.In(float32)
+    y_out = spmw.Out(float32)
+    tab = spmw.MemIn(float32[SIZE])
+
+
+@spmw.unit
+def _probe(io: _ProbeIO, site: spmw.Site):
+    (k,) = site.rank
+    v = io.x_in.get()
+    io.y_out.put(v + io.tab[k])
+
+
+def _fabric_with(layout):
+    grid = spmw.Grid((SIZE,))
+
+    @spmw.fabric
+    def fab(X: float32[SIZE], Y: float32[SIZE]):
+        P = spmw.place(_probe, on=grid)
+        t = spmw.mem(
+            float32[SIZE], init=np.arange(SIZE, dtype=np.float32), layout=layout
+        )
+        spmw.stationary(t, at=P.tab)
+        (lane,) = P.axes
+        spmw.stream_in(X, into=P.x_in, index=(lane,))
+        spmw.gather(Y, from_=P.y_out, index=(lane,))
+
+    return fab
+
+
+def test_banking_is_invisible_to_the_answer():
+    """A layout moves data; it does not change what the data is.
+
+    The swizzle is a bijection, so a banked brick and a plain one must give the
+    same result for every input. If they ever differ, the permutation and the
+    emitted subscript have drifted apart -- which is the failure this layout is
+    most likely to have and the hardest to see in a waveform.
+    """
+    X = np.arange(SIZE, dtype=np.float32) * 10
+    out = {}
+    for name, layout in (
+        ("plain", spmw.replicate),
+        ("banked", spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2)),
+    ):
+        Y = np.zeros(SIZE, dtype=np.float32)
+        spmw.build(_fabric_with(layout), target="ref")(X, Y)
+        out[name] = Y.copy()
+    np.testing.assert_array_equal(out["plain"], out["banked"])
+    # And it did compute something, so equality is not two zero arrays.
+    assert out["plain"].any()
+
+
+def test_the_swizzle_reaches_the_emitted_design():
+    """Banking that changes no code is the bug this whole file exists for.
+
+    `xor_bank` was exported and documented for months while `Brick.layout` was
+    never read. Equal answers alone would not catch that -- doing nothing also
+    gives equal answers.
+    """
+    plain = spmw.source(_fabric_with(spmw.replicate))
+    banked = spmw.source(_fabric_with(spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2)))
+    assert "^" not in plain
+    assert "^" in banked and ">>" in banked
+
+
+def test_a_multidimensional_brick_cannot_be_banked_silently():
+    """Banking splits one linear address space; two axes is a different ask."""
+    grid = spmw.Grid((SIZE,))
+
+    class TwoD(spmw.Interface):
+        x_in = spmw.In(float32)
+        y_out = spmw.Out(float32)
+        tab = spmw.MemIn(float32[BANKS, ROWS])
+
+    @spmw.unit
+    def unit(io: TwoD, site: spmw.Site):
+        (k,) = site.rank
+        io.y_out.put(io.x_in.get() + io.tab[0, 0])
+
+    @spmw.fabric
+    def fab(X: float32[SIZE], Y: float32[SIZE]):
+        P = spmw.place(unit, on=grid)
+        t = spmw.mem(
+            float32[BANKS, ROWS],
+            init=np.zeros((BANKS, ROWS), dtype=np.float32),
+            layout=spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2),
+        )
+        spmw.stationary(t, at=P.tab)
+        (lane,) = P.axes
+        spmw.stream_in(X, into=P.x_in, index=(lane,))
+        spmw.gather(Y, from_=P.y_out, index=(lane,))
+
+    with pytest.raises(SPMWMemoryError, match="one-dimensional"):
+        spmw.source(fab)
+
+
+def test_banking_without_a_stride_is_refused():
+    """There is no conflict-free layout without an access pattern to be free of."""
+    with pytest.raises(SPMWMemoryError, match="no stride bit"):
+        spmw.source(_fabric_with(spmw.xor_bank(BANKS)))

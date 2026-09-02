@@ -26,7 +26,7 @@ import types
 from . import channels as ch
 from .bricks import Brick, Tensor
 from .component import _io_param_name, captured_env
-from .errors import SPMWBindingError
+from .errors import SPMWBindingError, SPMWMemoryError
 from .index import IndexMap, SliceMap, TIME, to_source
 from .placement import Bundle, MemGrid
 from .ports import OUT, STREAM
@@ -57,6 +57,73 @@ class Mover:
         self.extent = extent
         self.name = name
         self.role = role  # "load" or "drain"
+
+
+def _banked_layout(brick):
+    """The brick's XOR-swizzled layout, or None if it is stored plainly."""
+    layout = getattr(brick, "layout", None)
+    if layout is None or getattr(layout, "bank_fn", None) != "xor":
+        return None
+    if len(brick.shape) != 1:
+        raise SPMWMemoryError(
+            f"`{brick.name}` is {len(brick.shape)}-dimensional and asks for "
+            f"xor_bank. Banking splits *one* linear address space across banks, "
+            f"so the brick has to be one-dimensional; reshape it, or bank the "
+            f"axis you mean by declaring it that way."
+        )
+    if layout.stride_bit is None:
+        raise SPMWMemoryError(
+            f"`{brick.name}` asks for xor_bank with no stride bit, so there is "
+            f"no access pattern to be conflict-free *for*. Give the stride the "
+            f"stage reads at, with `xor_bank(banks, stride_bit=s)`."
+        )
+    size = int(brick.shape[0])
+    if size % layout.banks:
+        raise SPMWMemoryError(
+            f"`{brick.name}` holds {size} elements across {layout.banks} banks, "
+            f"which does not divide. A ragged bank is not a layout."
+        )
+    return layout
+
+
+def _bank_subscript(index, layout):
+    """`(bank, row)` as AST, the swizzle written out.
+
+    `bank = (i & (banks-1)) ^ (((i >> s) & 1) << (bits-1))`, `row = i >> bits`
+    -- the same arithmetic `Layout.bank_of` does in Python, so the emitted
+    design and the elaboration-time permutation cannot drift apart.
+    """
+    bits = layout.bank_bits
+
+    def const(value):
+        return ast.Constant(value=value)
+
+    def op(left, operator, right):
+        return ast.BinOp(left=left, op=operator, right=right)
+
+    low = op(index, ast.BitAnd(), const(layout.banks - 1))
+    picked = op(
+        op(index, ast.RShift(), const(layout.stride_bit)), ast.BitAnd(), const(1)
+    )
+    bank = op(low, ast.BitXor(), op(picked, ast.LShift(), const(bits - 1)))
+    row = op(index, ast.RShift(), const(bits))
+    return bank, row
+
+
+def _bank_init(data, layout):
+    """The brick's contents rearranged into `[banks][rows]`.
+
+    The swizzle is a bijection -- `test_spmw_banking.py` holds it to that -- so
+    this is a permutation and nothing is lost or duplicated.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    flat = np.asarray(data).reshape(-1)
+    rows = len(flat) // layout.banks
+    out = np.zeros((layout.banks, rows), dtype=flat.dtype)
+    for index, value in enumerate(flat):
+        out[layout.bank_of(index), layout.row_of(index)] = value
+    return out
 
 
 class Lowering:
@@ -731,11 +798,14 @@ class Lowering:
                     f"there is nothing to make resident. Give it init=, or fill it "
                     f"with a copy from a tensor."
                 )
-            rom = self._inject(f"ROM_{_ident(brick.name)}_", brick.init)
+            layout = _banked_layout(brick)
+            contents = brick.init if layout is None else _bank_init(brick.init, layout)
+            shape = brick.shape if layout is None else contents.shape
+            rom = self._inject(f"ROM_{_ident(brick.name)}_", contents)
             decls.append(
                 ast.AnnAssign(
                     target=ast.Name(id=self._station_name(port), ctx=ast.Store()),
-                    annotation=self.type_ann(brick.dtype, brick.shape),
+                    annotation=self.type_ann(brick.dtype, shape),
                     value=ast.Name(id=rom, ctx=ast.Load()),
                     simple=1,
                 )
@@ -754,6 +824,19 @@ class Lowering:
                 f"to read."
             )
         node = ast.Name(id=self._station_name(port), ctx=ast.Load())
+        layout = _banked_layout(brick)
+        if layout is not None:
+            if len(extra) != 1:
+                raise SPMWMemoryError(
+                    f"`{brick.name}` is banked, so it takes one linear index; "
+                    f"`{port.name if port else '?'}` gave {len(extra)}."
+                )
+            bank, row = _bank_subscript(extra[0], layout)
+            return ast.Subscript(
+                value=node,
+                slice=ast.Tuple(elts=[bank, row], ctx=ast.Load()),
+                ctx=ast.Load(),
+            )
         if extra:
             idx = (
                 ast.Tuple(elts=list(extra), ctx=ast.Load())
