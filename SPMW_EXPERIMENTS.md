@@ -1960,3 +1960,59 @@ pb_mac_slot3  CLOCKREGION_X0Y7:X5Y7  parent=pblock_dynamic_region  cells=64
 ```
 
 256 mesh cells, four bands, one SLR.
+
+## The floorplanned array on the card
+
+It builds, it closes, it runs, and it changes nothing.
+
+| | unfloorplanned | **floorplanned** |
+|---|---|---|
+| pblocks in the placed design | 0 | **4, 64 cells each** |
+| `v++ -l` | 10,464 s | 10,383 s |
+| xclbin | 52.4 MB | 56.4 MB |
+| WNS at 250 MHz | +0.016 ns | **+0.016 ns** |
+| TNS | 0 | 0 |
+| LUT / FF / DSP | 109,931 / 113,988 / 304 | *identical* -- same netlist |
+
+The resources are identical by construction: a floorplan is an implementation
+constraint, not a change to the design. Only placement differs.
+
+**On the board, three tile sizes byte-exact on each bitstream**, and the same
+speed:
+
+| invocation cost, three runs of 60,000 | | | |
+|---|---|---|---|
+| unfloorplanned | 17.44 µs | 17.05 µs | 17.09 µs |
+| floorplanned | 17.05 µs | 17.19 µs | 22.79 µs |
+
+A single full-layer run gave 3.829 s floorplanned against 4.261 s
+unfloorplanned, which looks like an 11% win and is not one -- the repeat above
+shows the spread covers it. The measurement is dispatch-bound at ~17 µs against
+the array's own 5.86 µs, so it could not resolve a clock difference even if
+there were one, and there is not: both close at exactly +0.016 ns.
+
+BERT-base is therefore **~3.9 s/layer, ~46 s for twelve** either way, and
+LLaMA-7B **~108 s/layer** on the same bitstream with nothing reprogrammed.
+
+### What the whole floorplanning exercise showed
+
+Three measurements, and they agree.
+
+1. **Standalone, behind the harness**: 325.6 MHz without, 319.1 MHz with -- a
+   2% loss.
+2. **The critical path**: inside a VPU lane, `lshr_ln1_reg -> reg_0_3_fu_126`,
+   0.691 ns of logic and 2.134 ns of route within one instance. Not a link
+   between units, so no floorplan can reach it.
+3. **On the card**: no difference at all, because the kernel clock is set by
+   the platform and both designs meet it with the same slack.
+
+The mechanism is sound and cheaper than the papers' -- no ILP, no area
+estimates, no SDC, and the anchors are transparent (11/11 on the block replay
+with identical cycle counts). It is the *design* that does not need it: 272
+instances, 8% of the device, one SLR, every link joining physical neighbours.
+The placer was already doing what the floorplan would have told it.
+
+AutoBridge's own numbers are for designs that must span dies. This one fits in
+a third of one. The honest conclusion is not that the technique fails but that
+this array is too small to need it -- and the array that would need it, at the
+U280's DSP ceiling of roughly 96x96, is a different experiment.
