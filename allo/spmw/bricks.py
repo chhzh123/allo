@@ -31,7 +31,65 @@ class Layout:
 
     def __repr__(self):
         extra = f"(on={self.on!r})" if self.on is not None else ""
+        if self.bank_fn:
+            extra = f"({self.bank_fn}, banks={self.banks}, s={self.stride_bit})"
         return f"{self.kind}{extra}"
+
+    @property
+    def bank_bits(self):
+        """log2 of the bank count."""
+        return (self.banks - 1).bit_length() if self.banks else 0
+
+    def at_stride(self, stride_bit):
+        """The same layout specialised to one stage's stride.
+
+        A stride below the bank count is refused rather than swizzled. There is
+        nothing to fix there -- the two operands already differ in their low
+        bits -- and the swizzle would XOR a bank bit against itself, pinning it
+        to zero and folding two indices onto one slot. Separating operands is
+        easy if you may lose data; this is where that is ruled out.
+        """
+        if (
+            self.bank_fn == "xor"
+            and stride_bit is not None
+            and stride_bit < self.bank_bits
+        ):
+            raise SPMWMemoryError(
+                f"xor_bank at stride bit {stride_bit} with {self.banks} banks: "
+                f"the stride is inside the bank index, where the two operands "
+                f"already land in different banks and the swizzle would map two "
+                f"indices onto one slot. Swizzle only from bit "
+                f"{self.bank_bits} up."
+            )
+        return Layout(
+            self.kind,
+            on=self.on,
+            banks=self.banks,
+            bank_fn=self.bank_fn,
+            stride_bit=stride_bit,
+        )
+
+    def bank_of(self, index):
+        """Which bank a linear index lives in.
+
+        Cyclic banking is the low bits alone. The XOR form additionally folds
+        the stride's bit into the top of the bank index, which is what keeps a
+        butterfly's two operands apart once the stride reaches the bank count.
+        """
+        if not self.banks:
+            return 0
+        low = index & (self.banks - 1)
+        if self.bank_fn != "xor" or self.stride_bit is None:
+            return low
+        return low ^ (((index >> self.stride_bit) & 1) << (self.bank_bits - 1))
+
+    def row_of(self, index):
+        """Which row within its bank a linear index lives in."""
+        return index >> self.bank_bits if self.banks else index
+
+    def place(self, index):
+        """(bank, row) for a linear index."""
+        return self.bank_of(index), self.row_of(index)
 
 
 def banked(on=None, banks=None, bank="cyclic", stride_bit=None):
@@ -44,8 +102,30 @@ def banked(on=None, banks=None, bank="cyclic", stride_bit=None):
 
 
 def xor_bank(banks, stride_bit=None):
-    """XOR-swizzled banking, the conflict-free layout for butterfly access sets."""
-    return Layout("banked", banks=banks, bank_fn="xor", stride_bit=stride_bit)
+    """XOR-swizzled banking, the conflict-free layout for butterfly access sets.
+
+    A butterfly at stage ``s`` reads ``i`` and ``i + (1 << s)``. Once the stride
+    reaches the bank count those two share their low bits, so plain
+    (``cyclic``) banking puts them in the same bank and the pair serialises.
+    The swizzle folds the stride's own bit into the top of the bank index::
+
+        bank(i) = (i & (banks - 1)) ^ (((i >> s) & 1) << (log2(banks) - 1))
+
+    which differs between the two operands precisely because bit ``s`` does.
+    `Layout.bank_of` computes it and
+    `test_spmw_banking.py` checks the conflict-freedom it claims, rather than
+    leaving it as a remark in a docstring.
+
+    ``stride_bit`` is the ``s`` above. Leaving it ``None`` means the layout is
+    not yet specialised to a stage; `Layout.at_stride` returns one that is.
+    """
+    if banks & (banks - 1):
+        raise SPMWMemoryError(
+            f"xor_bank needs a power-of-two bank count, not {banks}: the swizzle "
+            f"is defined on the low log2(banks) bits of the index."
+        )
+    layout = Layout("banked", banks=banks, bank_fn="xor")
+    return layout if stride_bit is None else layout.at_stride(stride_bit)
 
 
 #: One brick per site (or group), all write-linked to a single broadcast loader.
