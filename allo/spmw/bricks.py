@@ -69,6 +69,26 @@ class Layout:
             stride_bit=stride_bit,
         )
 
+    def solved(self, size):
+        """The swizzle the F2 solver derives for a buffer of `size` elements.
+
+        `bank_of` below is the closed form for a single stride, which is all the
+        FFT needs and is cheap enough to evaluate per element at elaboration
+        time. This is the general answer: `F2LayoutSolver` builds the conflict
+        subspace over GF(2) and solves for a bank-selection matrix S with
+        `S·v != 0` for every non-zero conflict vector v, which covers access
+        patterns that no single XOR describes.
+
+        `test_spmw_banking.py` holds the two to agreeing, so the closed form is
+        justified rather than assumed.
+        """
+        # pylint: disable=import-outside-toplevel
+        from ..transform.f2_layout import F2LayoutSolver
+
+        return F2LayoutSolver(
+            n_bits=(size - 1).bit_length(), bank_bits=self.bank_bits
+        ).solve(stride_bits=[self.stride_bit])
+
     def bank_of(self, index):
         """Which bank a linear index lives in.
 

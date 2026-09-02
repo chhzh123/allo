@@ -237,3 +237,42 @@ def test_banking_without_a_stride_is_refused():
     """There is no conflict-free layout without an access pattern to be free of."""
     with pytest.raises(SPMWMemoryError, match="no stride bit"):
         spmw.source(_fabric_with(spmw.xor_bank(BANKS)))
+
+
+# -- the closed form against the solver ---------------------------------------
+
+
+@pytest.mark.parametrize("stage", [LOG2_W, LOG2_W + 1, LOG2_W + 2])
+def test_the_closed_form_agrees_with_the_f2_solver(stage):
+    """Two independent derivations of the same swizzle.
+
+    `Layout.bank_of` is the closed form -- low bits XOR the stride's bit -- and
+    is what the lowering emits. `F2LayoutSolver` builds the conflict subspace
+    over GF(2) and solves for a bank-selection matrix. They should agree
+    everywhere for a single stride; if they ever stop, the closed form is a
+    special case that has quietly become wrong.
+    """
+    layout = spmw.xor_bank(WIDTH, stride_bit=stage)
+    helper = layout.solved(N)
+    for index in range(N):
+        assert layout.bank_of(index) == helper.swizzle_bank(index), index
+        assert layout.row_of(index) == helper.bank_offset(index), index
+
+
+def test_the_solver_and_the_layout_agree_on_shape():
+    """`dims()` is (banks, rows), which is what the brick is reshaped to."""
+    layout = spmw.xor_bank(WIDTH, stride_bit=LOG2_W)
+    assert layout.solved(N).dims() == (WIDTH, N // WIDTH)
+
+
+def test_the_solver_refuses_a_stride_inside_the_bank_bits_too():
+    """The constraint is not something SPMW invented locally.
+
+    `fft_swizzle` asserts `stride_bit >= bank_bits` for the same reason
+    `Layout.at_stride` raises: below that there is no conflict to fix and the
+    swizzle would fold two indices onto one slot.
+    """
+    from allo.transform.f2_layout import fft_swizzle
+
+    with pytest.raises(AssertionError, match="must be >="):
+        fft_swizzle(N, WIDTH, LOG2_W - 1)
