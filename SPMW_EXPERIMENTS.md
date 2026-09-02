@@ -2016,3 +2016,67 @@ AutoBridge's own numbers are for designs that must span dies. This one fits in
 a third of one. The honest conclusion is not that the technique fails but that
 this array is too small to need it -- and the array that would need it, at the
 U280's DSP ceiling of roughly 96x96, is a different experiment.
+
+## 32×32: the floorplan costs a third of the clock
+
+The 16×16 measurements found floorplanning worth −2%, and the explanation was
+that the critical path sat *inside* a vector lane where no floorplan could reach
+it, in an array that fitted in one SLR with every link joining a neighbour. The
+prediction was that a bigger array would change this: at 32×32 the mesh must
+cross from SLR1 into SLR2, an unregistered Laguna hop costs 1–2 ns, and the
+critical path should move onto a southward link — where anchors would help.
+
+**That prediction was wrong.** Both halves of it.
+
+| 32×32, 3.333 ns target | no floorplan | 8 bands + 224 anchors |
+|---|---|---|
+| P&R | 9,261 s | 9,945 s |
+| achieved | **3.333 ns = 300.0 MHz** | **5.109 ns = 195.7 MHz** |
+| WNS | +0.000 (met) | **−1.776 (violated)** |
+| LUT | 336,442 (25.8%) | 341,971 (26.2%) |
+| router congestion reports | 5 | 1 |
+
+The floorplan costs **35% of the clock** — not 2%, and not in the direction the
+congestion numbers suggest. It congests *less* and runs much slower.
+
+### Neither critical path is a link
+
+```
+no floorplan   g_mac_p_out_p_in[525].u/count_reg[0]  ->  .../mem_reg_0_1_28_31/RAMA/WE
+               3.042 ns   logic 0.217 (7%)   route 2.825 (93%)
+
+floorplan      g_vpu_z_in_bind[15].u/count_reg[1]    ->  g_vpu_z_in_bind[15].u/count_reg[0]/D
+               5.087 ns   logic 0.344 (7%)   route 4.743 (93%)
+```
+
+Source and destination are **the same FIFO instance** in both. The second is a
+FIFO's own occupancy counter — `count_reg[1]` to `count_reg[0]`, two bits of one
+small register — taking 4.7 ns of route. That only happens if the FIFO's own
+cells were placed far apart.
+
+### A partial floorplan is worse than none
+
+The floorplan constrains the 1,024 mesh cells and nothing else. The design has
+**3,136 FIFOs** and 32 vector lanes, all unconstrained. Packing the mesh into
+eight thin bands leaves everything else to fill the gaps, and a FIFO whose two
+counter bits land in different regions is a 4.7 ns path. Left alone, the placer
+keeps each FIFO's cells together; the floorplan takes that freedom away without
+replacing it.
+
+So the mechanism is not the one AutoBridge describes at all. Its cost model is
+slot-crossings weighted by channel width — it assumes the things that matter are
+the declared inter-module channels. Here the channels are fine and the *FIFOs
+implementing them* are the critical resource, and they are invisible to a
+floorplan written over the placement grid.
+
+**What a floorplan for this design would have to do:** constrain the FIFO
+belonging to a link into the same band as the units it joins. That is expressible
+— the emitter knows which sites a channel connects — but it is a different
+constraint from the one `floorplan_xdc` writes, which is about roles on a grid.
+
+### The array scales well without any of it
+
+16×16 reached 325.6 MHz and 32×32 reaches 300.0 MHz — **4× the instances for 8%
+of the clock**, with the placer left alone. The role path's compile time is also
+flat in the array's side: 12 roles at both sizes, ~3 minutes of HLS either way.
+Only Vivado grows, 46 min to 2 h 34 m.
