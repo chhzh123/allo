@@ -100,6 +100,87 @@ def fft_spatial(X: float32[FFT_N, 2], Y: float32[FFT_N, 2]):
     spmw.gather(Y, from_=P.lo_out, index=lambda s, b: bfly_pair(S - 1, b)[1])
 
 
+# -- the streaming form ------------------------------------------------------
+#
+# The design above computes one transform per pass: every butterfly reads one
+# sample pair, does its arithmetic and stops. HLS reports latency 65, interval
+# 66 -- there is no loop, so there is nothing to pipeline, and the float
+# latencies are paid in full on every transform.
+#
+# A butterfly is feed-forward: iteration i does not depend on i-1. So a batch
+# turns those latencies into pipeline depth. `BATCH` transforms stream through
+# the same array back to back, and the interval that matters becomes the one
+# per sample pair rather than per transform.
+
+BATCH = 64
+
+
+class StreamIO(spmw.Interface):
+    up_in = spmw.In(csample)
+    lo_in = spmw.In(csample)
+    up_out = spmw.Out(csample)
+    lo_out = spmw.Out(csample)
+    tw = spmw.MemIn(float32[HALF, 2])
+
+
+def stream_links(s, b):
+    up, lo = bfly_pair(s, b)
+    return {
+        StreamIO.up_in: spmw.key(s, up),
+        StreamIO.lo_in: spmw.key(s, lo),
+        StreamIO.up_out: spmw.key(s + 1, up),
+        StreamIO.lo_out: spmw.key(s + 1, lo),
+    }
+
+
+stream_topo = spmw.Topology(StreamIO, grid=(S, HALF), link=stream_links)
+
+
+@spmw.unit
+def bfly_stream(io: StreamIO, site: spmw.Site):
+    s, b = site.rank
+    span = 1 << s
+    k = b % span * (HALF // span)
+    wr = io.tw[k, 0]
+    wi = io.tw[k, 1]
+    for _n in range(BATCH):
+        a = io.up_in.get()
+        c = io.lo_in.get()
+        tr = wr * c[0] - wi * c[1]
+        ti = wr * c[1] + wi * c[0]
+        u: csample
+        l: csample
+        u[0] = a[0] + tr
+        u[1] = a[1] + ti
+        l[0] = a[0] - tr
+        l[1] = a[1] - ti
+        io.up_out.put(u)
+        io.lo_out.put(l)
+
+
+@spmw.fabric
+def fft_stream(X: float32[BATCH, FFT_N, 2], Y: float32[BATCH, FFT_N, 2]):
+    P = spmw.place(bfly_stream, on=stream_topo)
+    tw = spmw.mem(float32[HALF, 2], init=twiddles(FFT_N), layout=spmw.replicate)
+    spmw.stationary(tw, at=P.tw)
+    # Affine, where the one-shot design needed a lambda. At stage 0 butterfly b
+    # touches lanes 2b and 2b+1; at the last stage it produces lanes b and
+    # b+HALF. The only part that was not affine is the bit-reversal, and that
+    # is a permutation of the *input*, not of the network -- so the host hands
+    # X over in bit-reversed order, which is where FFT hardware puts it anyway.
+    # `...` is the batch axis: one transform per step.
+    _stage, b = P.axes
+    spmw.stream_in(X, into=P.up_in, index=(..., 2 * b))
+    spmw.stream_in(X, into=P.lo_in, index=(..., 2 * b + 1))
+    spmw.gather(Y, from_=P.up_out, index=(..., b))
+    spmw.gather(Y, from_=P.lo_out, index=(..., b + HALF))
+
+
+def bitrev_perm(n, bits):
+    """The order the streaming form wants its input in."""
+    return [bitrev(i, bits) for i in range(n)]
+
+
 def _operands(seed=0):
     rng = np.random.default_rng(seed)
     x = rng.random(FFT_N).astype(np.float32) + 1j * rng.random(FFT_N).astype(np.float32)
@@ -167,6 +248,68 @@ def test_hls_csim_matches_numpy_fft():
         spmw.build(fft_spatial, target="vitis_hls", mode="csim", project=tmpdir)(X, Y)
     got = Y[:, 0] + 1j * Y[:, 1]
     np.testing.assert_allclose(got, np.fft.fft(x), atol=1e-4)
+
+
+def _stream_operands(seed=0):
+    rng = np.random.default_rng(seed)
+    x = rng.random((BATCH, FFT_N)) + 1j * rng.random((BATCH, FFT_N))
+    xb = x[:, bitrev_perm(FFT_N, S)]
+    # Contiguous: the permutation above makes a strided view, and the LLVM
+    # path takes memrefs by pointer.
+    X = np.ascontiguousarray(np.stack([xb.real, xb.imag], axis=-1).astype(np.float32))
+    return x, X
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_streaming_fft_matches_numpy(target):
+    """A batch of transforms through the same butterfly network."""
+    x, X = _stream_operands()
+    Y = np.zeros((BATCH, FFT_N, 2), dtype=np.float32)
+    spmw.build(fft_stream, target=target)(X, Y)
+    got = Y[..., 0] + 1j * Y[..., 1]
+    np.testing.assert_allclose(got, np.fft.fft(x, axis=-1), atol=1e-4)
+
+
+def test_the_streaming_butterfly_has_a_loop_to_pipeline():
+    """The whole point of the batch, asserted on the emitted body.
+
+    The one-shot butterfly reads one sample pair and stops, so HLS has nothing
+    to pipeline and charges the float latencies per transform -- measured at
+    latency 65, interval 66. The streaming one wraps the same arithmetic in a
+    loop over the batch, which is what lets the latencies become depth instead
+    of throughput. Without the loop there is no II to speak of.
+    """
+    one_shot = spmw.source(fft_spatial)
+    streaming = spmw.source(fft_stream)
+    # The arithmetic is the same in both.
+    assert "wr * c[0] - wi * c[1]" in one_shot
+    assert "wr * c[0] - wi * c[1]" in streaming
+    # Only the streaming form loops over a batch.
+    assert f"range({BATCH})" in streaming
+    assert f"range({BATCH})" not in one_shot
+
+
+def test_the_streaming_index_is_affine():
+    """No lambda in the streaming bindings, which is why `...` can be used.
+
+    Bit-reversal is the one non-affine part of an FFT's wiring, and it is a
+    permutation of the input rather than of the network -- so it moves to the
+    host and every remaining index is an axis expression. `bitrev_perm` is that
+    permutation, and the tests above feed it.
+    """
+    graph = spmw.elaborate(fft_stream)
+    streamed = [b for b in graph.bindings if b.kind in ("stream_in", "gather")]
+    assert len(streamed) == 4
+    for binding in streamed:
+        assert not binding.imap.is_lambda, binding.kind
+        assert binding.imap.has_time, "the batch axis should be the streamed one"
+
+
+def test_bit_reversal_is_a_permutation():
+    """It has to be, or the host would be dropping samples."""
+    perm = bitrev_perm(FFT_N, S)
+    assert sorted(perm) == list(range(FFT_N))
+    assert perm != list(range(FFT_N)), "a trivial permutation would test nothing"
 
 
 def test_body_is_written_once():

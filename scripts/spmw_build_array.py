@@ -240,6 +240,13 @@ def design(name, size):
         from test_spmw_fft import fft_spatial
 
         return fft_spatial
+    if name == "fftstream":
+        # The same butterfly network with a batch to pipeline over. The one-shot
+        # form has no loop, so HLS reports interval 66 -- the float latencies are
+        # paid per transform. A batch turns them into pipeline depth.
+        from test_spmw_fft import fft_stream
+
+        return fft_stream
     if name == "attention":
         from test_spmw_attention import attention_pv
 
@@ -740,6 +747,7 @@ def main():
             "transformer16",
             "transformerN",
             "fft",
+            "fftstream",
             "attention",
             "tiled",
         ),
