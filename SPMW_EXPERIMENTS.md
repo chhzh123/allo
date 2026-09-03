@@ -2261,3 +2261,57 @@ specialisation is *for*: the twiddle is a function of the site, known at
 elaboration. A butterfly whose twiddle is (1,0) should specialise into a role
 with no multiplier, and 37% of the array should cost nothing to multiply with.
 It does not today because the twiddle is a memory read rather than a constant.
+
+## HP-FFT rerun on our part: the device was most of the story
+
+The comparison above used HP-FFT's *published* numbers, taken on an AMD Versal
+VPK180. That leaves the device as a confound, so HP-FFT was cloned and rerun
+here: their sources, their `common.tcl`, their `-unsafe_math_optimizations`, the
+same 250 MHz and the same 256-point FP32 configuration. The only change is
+`TARGET_PART_NUM`, from `xcvp1802-lsvc4072-3HP-e-S` to `xcu280-fsvh2892-2L-e`.
+Vitis 2023.2 here against their 2024.2.
+
+| config | II (U280) | II (VPK180) | DSP (U280) | DSP (VPK180) | LUT (U280) | LUT (VPK180) |
+|---|---|---|---|---|---|---|
+| no SP | 3045 | 2085 | 48 | 8 | 3,808 | 551 |
+| UF1 | 145 | 128 | 72 | 24 | 23,513 | 18,937 |
+| UF2 | 82 | 64 | 144 | 44 | 48,960 | 40,551 |
+| UF4 | 424 | 32 | 258 | 82 | 94,182 | 86,909 |
+| UF8 | 65 | 16 | 423 | 158 | 177,466 | 166,047 |
+| UF16 | 57 | 8 | 789 | 310 | 342,060 | 328,225 |
+| **UF32** | **53** | **4** | **1,515** | **618** | 672,598 | 655,458 |
+
+**The logic ports; the arithmetic does not.** LUTs and registers land within 3%
+of the published Versal numbers — 672,598 against 655,458 at UF=32 — so the
+generator's structure is device-independent. DSPs are 2.5× higher, and the
+initiation interval is **thirteen times** worse.
+
+**And the parallelism stops paying past UF=8**: II goes 65 → 57 → 53 while DSPs
+go 423 → 789 → 1,515. Four times the arithmetic for a 1.2× improvement. Vitis
+names the reason:
+
+```
+o R_Pair_loop_R_Group_loop  |  II  |  Iteration Latency 24  |  Interval 9
+```
+
+A butterfly loop that reaches II=1 on Versal reaches II=9 here. Versal's DSP58
+has hardened FP32; the U280's DSP48E2 has none, so every float multiply is
+integer DSPs plus logic and the recurrence will not close at rate. The published
+II=4 is a property of the part, not of the generator.
+
+### Which reverses the earlier comparison
+
+| on xcu280, 250 MHz | II | points/cycle | DSP | points/cycle/DSP |
+|---|---|---|---|---|
+| HP-FFT UF=32 | 53 | 4.83 | 1,515 | 0.00319 |
+| SPMW spatial | 1 | 256 | 24,576 | **0.01042** |
+
+**3.3× better per DSP on the same part** — where the published-number comparison
+made SPMW look 10× worse. The whole of that 33× swing was the device.
+
+Two honest qualifications. The spatial design does not *fit*: 2.55M LUTs against
+the U280's 1.30M, where HP-FFT's UF=32 fits in 51.6%. And SPMW's II=1 is
+structural — every butterfly's loop is measured at II=1, and one transform per
+cycle follows from each stage consuming a transform's worth per cycle — while
+HP-FFT's is a measured whole-design interval. A rolled SPMW design that fits is
+the like-for-like, and is the next thing to build.
