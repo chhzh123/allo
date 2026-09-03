@@ -2359,3 +2359,59 @@ The first is the buildable one and is the remaining step for a like-for-like
 UF=32 comparison. The second is the honest gap: SPMW can now *describe* a
 conflict-free banked layout and lower it for a per-site brick, and still cannot
 express the shared buffer that makes banking worth having.
+
+### Correcting the device claim: the II gap is banking, not DSP58
+
+The section above attributed HP-FFT's II=53-on-U280 against II=4-on-Versal to the
+device. That was too quick. There is no Vitis 2024.2 on this machine — only
+2023.2 — so their toolchain cannot be reproduced, and two tool-shaped effects
+had to be ruled out first.
+
+**Pragmas are being dropped in 2023.2, and it was worth checking.**
+
+```
+WARNING: [HLS 207-5573] Unroll pragma is ignored, because 'factor' is not
+                        positive integer  (./FFT.cpp:225:27)
+```
+
+The pragma is `#pragma HLS unroll factor=UF>>(stage-1)` inside
+`template<int stage> void FFT_stage_spatial_unroll(...)`. `stage` is a template
+parameter, so the factor *is* a compile-time constant; 2023.2's pragma parser
+will not evaluate the expression. Three `performance` pragmas are dropped too,
+for not being in a loop. So the hypothesis was right that pragmas are lost.
+
+**But it is not what limits the design.** Per-stage intervals at UF=32:
+
+| stage | 1 | 2 | 3 | 4 | 5 | 6 | **7** |
+|---|---|---|---|---|---|---|---|
+| interval | 11 | 11 | 19 | 19 | 19 | 19 | **52** |
+
+The loops carrying the ignored unroll all reach II=1 regardless. One loop sets
+the whole design's II=53: stage 7's inner loop, at **interval 9**, the one whose
+`performance target_ti=4` Vitis reports as failed.
+
+**And it is a bank conflict that no HLS pragma can express.** `data_ld` and
+`data_st` are plain `complex<float>[256]` with no partitioning, so adding some
+looked like the obvious fix. It changes nothing — II stays 53, stage 7 stays at
+interval 9 — and the arithmetic says why:
+
+```
+stage 7: i1 - i0 = bflyStep = 128,  cyclic banks = 32,  128 mod 32 = 0
+```
+
+Both butterfly operands land in the **same** cyclic bank, for every butterfly,
+at any factor. That is exactly `test_cyclic_banking_collides_on_every_pair` in
+`test_spmw_banking.py`, and exactly what the XOR swizzle exists to fix:
+`(i & 31) ^ (((i >> 7) & 1) << 4)` separates them because bit 7 is what differs.
+
+So the corrected reading:
+
+* the **2.5× DSP** gap is a device effect — DSP58 has hardened FP32, DSP48E2 does not;
+* the **13× II** gap is a **banking** effect, and HP-FFT's HLS C++ has no swizzle
+  in it. Their *Allo* version does, through `s.f2_layout` — the module ported
+  here. Whether 2024.2 infers a better layout unprompted is untestable on this
+  machine, and is the one open question.
+
+The comparison numbers stand as measured. What changes is the attribution, and
+it lands on the mechanism this branch has been building: a conflict-free layout
+is the thing that makes the last stage of a folded FFT keep rate.
