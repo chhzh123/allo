@@ -2782,3 +2782,36 @@ The cycle column is **modelled, not measured** -- passes × (steps + rows + cols
 -- so it is exactly 2× per doubling by construction. The measured figure comes
 from RTL cosimulation and is reported separately; the draft's 1.94× model
 prediction should be checked against that, not against this column.
+
+### Table 3, hierarchical GEMM: hierarchy multiplies roles
+
+A `tiles × tiles` grid of `pe × pe` engines, measured the same way as the mesh.
+
+| configuration | instances | roles | LUT | DSP | cycles (modelled) | elaborate |
+|---------------|----------:|------:|----:|----:|------------------:|----------:|
+| 2×2 of 2 |    16 |  16 |   3,200 |   16 | 1,572,864 |  1.78 s |
+| 2×2 of 4 |    64 |  36 |  13,376 |   64 |   524,288 |  4.22 s |
+| 2×2 of 8 |   256 |  36 |  54,656 |  256 |   196,608 |  4.56 s |
+| 4×4 of 2 |    64 |  64 |  12,800 |   64 |   524,288 |  7.87 s |
+| 4×4 of 4 |   256 | 144 |  53,504 |  256 |   196,608 | 17.88 s |
+| 4×4 of 8 | 1,024 | 144 | 218,624 | 1024 |    81,920 | 23.47 s |
+
+**Points 6, area span 68.3×, on the frontier 4.**
+
+The result that matters here is the one that cuts against the reuse claim
+elsewhere. **Hierarchy multiplies roles.** A 4×4 grid of 8×8 engines has 1,024
+instances and **144 roles**; the flat 32×32 mesh has the same 1,024 instances
+and **9**. Elaboration follows: 23.5 s against 1.8 s.
+
+The reason is that a tile's own boundary interacts with the grid's, so a PE's
+wiring class is the product of where it sits inside its engine and where its
+engine sits in the grid, instead of the sum. Nesting a fabric is free in the
+source, but it is not free in the number of distinct kernels the backend has to
+compile, and §7.3's flat-mesh numbers should not be read as covering the
+hierarchical case.
+
+One limitation of this row: the cycle column is modelled from the array's outer
+side length, so it cannot distinguish `2×2 of 4` from `4×4 of 2` -- both have a
+side of 8 and both come out at 524,288. The draft's claim of a latency
+difference between designs with the same PE count needs a model that captures
+the staging between levels, which this one does not.

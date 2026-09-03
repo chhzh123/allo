@@ -4,15 +4,16 @@
 // Hand-written Vitis HLS baseline: grouped attention-PV.
 //
 // The P.V GEMM on a DIMxDIM weight-stationary array cut into GROUPS column
-// slabs. Activations move east inside a slab only; partial sums move south
-// down a column and then serpentine into the top of the next slab, so the psum
-// chain is the reduction network.
+// slabs. Activations move east inside a slab and stop at its edge; partial sums
+// move south down a column and then cross into the top of the next slab, so the
+// psum chain is the reduction network.
 //
-// GROUPS is a compile-time constant here because the wiring depends on it: the
-// activation forwarding condition, the psum destination, the number of seeded
-// north inputs, the number of drained south outputs, and the width of the
-// activation unit all change with it. That is the point of the comparison in
-// Table 3 -- in the SPMW description the same change is one argument.
+// GROUPS decides five separate things in this file: which PEs forward
+// activations, where each bottom-row PE sends its partial sum, how many west
+// columns the loader feeds, how many north inputs are seeded, and how wide the
+// drain is. They are written out separately because none of them can be
+// inferred from the others -- which is the comparison Table 3 is making, since
+// in the SPMW description the same change is one argument.
 
 #include <ap_int.h>
 #include <hls_stream.h>
@@ -27,68 +28,76 @@
 typedef ap_int<8> data_t;
 typedef ap_int<32> acc_t;
 
-// One PE. The weight is stationary; activations walk east within a slab.
-static void pe(hls::stream<data_t> &a_in, hls::stream<data_t> &a_out,
-               hls::stream<acc_t> &p_in, hls::stream<acc_t> &p_out, data_t w,
-               int steps, bool forward_a) {
-pe_loop:
+// Interior of a slab: the activation is forwarded east.
+static void pe_forward(hls::stream<data_t> &a_in, hls::stream<data_t> &a_out,
+                       hls::stream<acc_t> &p_in, hls::stream<acc_t> &p_out,
+                       data_t w, int steps) {
+pe_forward_loop:
   for (int m = 0; m < steps; m++) {
 #pragma HLS PIPELINE II = 1
     data_t a = a_in.read();
     acc_t p = p_in.read();
     p_out.write(p + (acc_t)a * (acc_t)w);
-    if (forward_a)
-      a_out.write(a);
+    a_out.write(a);
   }
 }
 
-// The west edge of every slab is fed, so there are GROUPS * DIM feeds, not DIM.
-static void feed_a(const data_t *Pr, hls::stream<data_t> a[GROUPS * DIM],
+// Slab edge: the activation stops here.
+static void pe_edge(hls::stream<data_t> &a_in, hls::stream<acc_t> &p_in,
+                    hls::stream<acc_t> &p_out, data_t w, int steps) {
+pe_edge_loop:
+  for (int m = 0; m < steps; m++) {
+#pragma HLS PIPELINE II = 1
+    data_t a = a_in.read();
+    acc_t p = p_in.read();
+    p_out.write(p + (acc_t)a * (acc_t)w);
+  }
+}
+
+// Every slab has its own west column, so there are GROUPS * DIM of them.
+static void feed_a(const data_t *Pr, hls::stream<data_t> a[DIM][DIM],
                    int steps) {
 feed_a_loop:
   for (int m = 0; m < steps; m++) {
 #pragma HLS PIPELINE II = 1
-  feed_a_lane:
-    for (int i = 0; i < GROUPS * DIM; i++) {
+  feed_a_slab:
+    for (int g = 0; g < GROUPS; g++) {
 #pragma HLS UNROLL
-      a[i].write(Pr[m * GROUPS * DIM + i]);
+    feed_a_row:
+      for (int r = 0; r < DIM; r++) {
+#pragma HLS UNROLL
+        a[g * SLAB][r].write(Pr[m * GROUPS * DIM + g * DIM + r]);
+      }
     }
   }
 }
 
-// Only slab 0's top row is seeded; the others receive the previous slab's sum.
-static void seed_p(hls::stream<acc_t> p[SLAB], int steps) {
+// Only slab 0's top row is seeded; every other slab's top receives the previous
+// slab's partial sum.
+static void seed_p(hls::stream<acc_t> p[DIM][DIM], int steps) {
 seed_p_loop:
   for (int m = 0; m < steps; m++) {
 #pragma HLS PIPELINE II = 1
   seed_p_lane:
     for (int c = 0; c < SLAB; c++) {
 #pragma HLS UNROLL
-      p[c].write(0);
+      p[0][c].write(0);
     }
   }
 }
 
-// Only the last slab's bottom row drains, so the activation unit is SLAB wide.
-static void drain(hls::stream<acc_t> p[SLAB], data_t *Y, int steps) {
+// Only the last slab's bottom row drains, through a SLAB-wide activation unit.
+static void drain(hls::stream<acc_t> d[SLAB], data_t *Y, int steps) {
 drain_loop:
   for (int m = 0; m < steps; m++) {
 #pragma HLS PIPELINE II = 1
   drain_lane:
     for (int c = 0; c < SLAB; c++) {
 #pragma HLS UNROLL
-      acc_t z = p[c].read();
+      acc_t z = d[c].read();
       acc_t r = z > 0 ? z : (acc_t)0;
       Y[m * SLAB + c] = (data_t)(r >> SHIFT);
     }
-  }
-}
-
-static void sink_a(hls::stream<data_t> &in, int steps) {
-sink_a_loop:
-  for (int m = 0; m < steps; m++) {
-#pragma HLS PIPELINE II = 1
-    in.read();
   }
 }
 
@@ -116,13 +125,19 @@ load_w:
 
   {
 #pragma HLS DATAFLOW
-    hls::stream<data_t> a[DIM + 1][DIM];
+    // a[c][r] enters column c of row r; a slab's west column is fed, the rest
+    // come from the PE to the west.
+    hls::stream<data_t> a[DIM][DIM];
 #pragma HLS ARRAY_PARTITION variable = a complete dim = 0
-    hls::stream<acc_t> p[DIM + 1][DIM];
+    // p[r][c] enters row r of column c; row 0 of slab 0 is seeded, row 0 of
+    // every other slab is the previous slab's bottom.
+    hls::stream<acc_t> p[DIM][DIM];
 #pragma HLS ARRAY_PARTITION variable = p complete dim = 0
+    hls::stream<acc_t> d[SLAB];
+#pragma HLS ARRAY_PARTITION variable = d complete dim = 0
 
-    feed_a(Pr, a[0], steps);
-    seed_p(p[0], steps);
+    feed_a(Pr, a, steps);
+    seed_p(p, steps);
 
   array_rows:
     for (int r = 0; r < DIM; r++) {
@@ -130,14 +145,19 @@ load_w:
     array_cols:
       for (int c = 0; c < DIM; c++) {
 #pragma HLS UNROLL
-        // Activations stop at a slab edge; partial sums cross to the next slab.
-        bool last_in_slab = ((c + 1) % SLAB) == 0;
-        pe(a[c][r], a[c + 1][r], p[r][c], p[r + 1][c], w[r][c], steps,
-           !last_in_slab);
+        // Down a column, across to the next slab's top, or out to the drain.
+        hls::stream<acc_t> &pdst =
+            (r + 1 < DIM)
+                ? p[r + 1][c]
+                : ((c + SLAB < DIM) ? p[0][c + SLAB] : d[c - (DIM - SLAB)]);
+        if (((c + 1) % SLAB) == 0)
+          pe_edge(a[c][r], p[r][c], pdst, w[r][c], steps);
+        else
+          pe_forward(a[c][r], a[c + 1][r], p[r][c], pdst, w[r][c], steps);
       }
     }
 
-    drain(p[DIM], Y, steps);
+    drain(d, Y, steps);
   }
 }
 

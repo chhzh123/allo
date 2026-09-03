@@ -259,6 +259,17 @@ def design(name, size):
         from test_spmw_attention import attention_pv
 
         return attention_pv(size)
+    if name == "attnfair":
+        # Fig. 12's comparison needs the head dimension held FIXED while the
+        # grouping changes, and `attention_pv(G)` cannot express that on its own
+        # because it derives d = cols // G. Holding d = 2, the ungrouped design
+        # is a 4x2 array and the grouped one a 4x4 array cut into two slabs: the
+        # same output width, twice the columns, twice the reduction per pass.
+        from spmw_sweep_table3 import attention_pv as attention_general
+
+        if size == 1:
+            return attention_general(4, 2, 1, 6)  # d=2, span=4, 8 PEs
+        return attention_general(4, 4, 2, 6)  # d=2, span=8, 16 PEs
     if name == "tiled":
         from test_spmw_tiled import tiled_gemm
 
@@ -758,6 +769,7 @@ def main():
             "fftstream",
             "fft256",
             "attention",
+            "attnfair",
             "tiled",
         ),
         help="which worked example to build",
