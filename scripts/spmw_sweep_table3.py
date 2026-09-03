@@ -65,6 +65,148 @@ def gemm_mesh(rows, cols, depth):
     return fab
 
 
+
+def gemm_tiled(tiles, pe, depth):
+    """A tiles x tiles grid of pe x pe engines: the hierarchical GEMM."""
+    side = tiles * pe
+
+    class MacIO(spmw.Interface):
+        west = spmw.In(int8)
+        north = spmw.In(int8)
+        east = spmw.Out(int8)
+        south = spmw.Out(int8)
+        c = spmw.MemOut(int32)
+
+    @spmw.unit
+    def cell(io: MacIO):
+        acc: int32 = 0
+        for _k in range(depth):
+            a = io.west.get()
+            b = io.north.get()
+            acc += a * b
+            io.east.put(a)
+            io.south.put(b)
+        io.c = acc
+
+    class TileIO(spmw.Interface):
+        a = spmw.MemIn(int8[pe, depth])
+        b = spmw.MemIn(int8[depth, pe])
+        c = spmw.MemOut(int32[pe, pe])
+
+    @spmw.fabric(io=TileIO)
+    def engine(io: TileIO):
+        P = spmw.place(cell, on=spmw.mesh(MacIO, (pe, pe)))
+        spmw.stream_in(io.a, into=P.west, index=(P.rows, ...))
+        spmw.stream_in(io.b, into=P.north, index=(..., P.cols))
+        spmw.gather(io.c, from_=P.c)
+
+    @spmw.fabric
+    def fab(A: int8[side, depth], B: int8[depth, side], C: int32[side, side]):
+        T = spmw.place(engine, on=spmw.Grid((tiles, tiles)))
+        spmw.shard(A, into=T.a, dim=0)
+        spmw.shard(B, into=T.b, dim=1)
+        spmw.shard(C, from_=T.c)
+
+    return fab
+
+
+def attention_pv(rows, cols, groups, seq):
+    """The grouped attention-PV array: G column slabs, chained psums."""
+
+    class WsIO(spmw.Interface):
+        a_in = spmw.In(int8)
+        a_out = spmw.Out(int8)
+        p_in = spmw.In(int32)
+        p_out = spmw.Out(int32)
+        w = spmw.MemIn(int8)
+
+    class ActIO(spmw.Interface):
+        z_in = spmw.In(int32)
+        y_out = spmw.Out(int8)
+
+    @spmw.unit
+    def mac(io: WsIO):
+        for _m in range(seq):
+            a = io.a_in.get()
+            p = io.p_in.get()
+            io.p_out.put(p + a * io.w)
+            io.a_out.put(a)
+
+    @spmw.unit
+    def act(io: ActIO):
+        for _m in range(seq):
+            z = io.z_in.get()
+            if z < 0:
+                z = 0
+            y: int8 = z >> 2
+            io.y_out.put(y)
+
+    d = cols // groups
+    span = groups * rows
+
+    def link(i, j):
+        links = {}
+        if (j + 1) % d != 0:
+            links[WsIO.a_out] = spmw.to((i, j + 1), WsIO.a_in)
+        if i + 1 < rows:
+            links[WsIO.p_out] = spmw.to((i + 1, j), WsIO.p_in)
+        elif j + d < cols:
+            links[WsIO.p_out] = spmw.to((0, j + d), WsIO.p_in)
+        return links
+
+    topo = spmw.Topology(WsIO, (rows, cols), link=link, name=f"grouped(G={groups})")
+
+    @spmw.fabric
+    def fab(Pr: int8[seq, span], V: int8[span, d], Y: int8[seq, d]):
+        P = spmw.place(mac, on=topo)
+        Pa = spmw.place(act, on=spmw.Grid((d,)))
+        k = P.rows
+        g, e = spmw.split(P.cols, factor=groups)
+        spmw.shard(V, into=P.w, index=(g * rows + k, e))
+        spmw.stream_in(Pr, into=P.a_in, index=(..., g * rows + k))
+        spmw.stream_in(0, into=P.p_in)
+        spmw.link(P.p_out, to=Pa.z_in)
+        (lane,) = Pa.axes
+        spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    return fab
+
+
+def points_for(family, dims, depth):
+    """(tag, fabric, cycles) for every configuration of one family."""
+    out = []
+    if family == "mesh":
+        for rows in dims:
+            for cols in dims:
+                out.append(
+                    (f"mesh_{rows}x{cols}", gemm_mesh(rows, cols, depth),
+                     cycles_for(rows, cols, depth))
+                )
+    elif family == "tiled":
+        for tiles in (2, 4):
+            for pe in (2, 4, 8):
+                side = tiles * pe
+                out.append(
+                    (f"tiled_{tiles}x{tiles}of{pe}", gemm_tiled(tiles, pe, depth),
+                     cycles_for(side, side, depth))
+                )
+    elif family == "attention":
+        rows = cols = 16
+        for groups in (1, 2, 4, 8, 16):
+            if cols % groups:
+                continue
+            # One pass covers groups*rows of the reduction, so the pass count
+            # falls as G rises; the array itself is the same size throughout.
+            passes = -(-PROBLEM // (groups * rows))
+            out.append(
+                (f"attn_G{groups}", attention_pv(rows, cols, groups, 64),
+                 passes * (64 + rows + cols))
+            )
+    else:
+        raise SystemExit(f"unknown family {family!r}")
+    return out
+
+
 # The per-role report's summary table ends in a Total row whose columns are
 # BRAM_18K, DSP, FF, LUT, URAM. Parsing anything else silently yields zeros,
 # which is worse than failing: the sweep would report an area span of 0.0x and
@@ -149,6 +291,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=24)
     ap.add_argument("--depth", type=int, default=16)
     ap.add_argument("--shapes", default="4,8,16,32")
+    ap.add_argument("--family", default="mesh", choices=("mesh", "tiled", "attention"))
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
@@ -157,13 +300,12 @@ def main():
     dims = [int(x) for x in args.shapes.split(",")]
 
     points = []
-    for rows in dims:
-        for cols in dims:
-            tag = f"mesh_{rows}x{cols}"
+    for tag, fabric, cycles in points_for(args.family, dims, args.depth):
+        if True:
             out = os.path.join(root, tag)
             os.makedirs(out, exist_ok=True)
             start = time.time()
-            graph = spmw.elaborate(gemm_mesh(rows, cols, args.depth))
+            graph = spmw.elaborate(fabric)
             names = stage(graph, out, args.part, args.frequency)
             elaborate_s = round(time.time() - start, 2)
             counts = sites_per_role(graph)
@@ -179,12 +321,10 @@ def main():
                     total[key] += area[key] * sites
             point = {
                 "tag": tag,
-                "rows": rows,
-                "cols": cols,
                 "roles": len(names),
                 "instances": sum(counts.values()),
                 "elaborate_s": elaborate_s,
-                "cycles": cycles_for(rows, cols, args.depth),
+                "cycles": cycles,
                 "missing_reports": missing,
                 **total,
             }
@@ -200,8 +340,8 @@ def main():
     luts = [p["LUT"] for p in points if p["LUT"] > 0]
     span = (max(luts) / min(luts)) if luts else 0.0
 
-    print("\n=== Table 3: GEMM mesh ===")
-    print(f"  structural knob : rows x columns")
+    print(f"\n=== Table 3: {args.family} ===")
+    print(f"  structural knob : {args.family}")
     print(f"  points          : {len(points)}")
     print(f"  area span (LUT) : {span:.1f}x")
     print(f"  on the frontier : {len(front)}")

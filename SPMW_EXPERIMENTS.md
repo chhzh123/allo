@@ -2743,3 +2743,42 @@ unverified programs. The HLS column is verified: every file synthesises for
 a shift is the mini-TPU MXU, not the plain systolic GEMM; they were conflated in
 a first pass, which inflated the MXU's SPMW count from 40 to 143 and made the
 row read as a *negative* reduction.
+
+### Fig. 11 complete: the no-reuse ablation through 32×32
+
+| array | instances | roles | reuse wall | reuse CPU | no-reuse wall | no-reuse CPU | wall | CPU |
+|-------|----------:|------:|-----------:|----------:|--------------:|-------------:|-----:|----:|
+| 4×4   |    16 | 9 | 43.4 s | 389 s |    45.8 s |     723 s |  1.1× |   1.9× |
+| 8×8   |    64 | 9 | 42.7 s | 383 s |   142.2 s |   3,050 s |  3.3× |   8.0× |
+| 16×16 |   256 | 9 | 43.5 s | 388 s |   563.8 s |  13,104 s | 13.0× |  33.8× |
+| 32×32 | 1,024 | 9 | 47.7 s | 422 s | 2,195.2 s |  52,170 s | 46.0× | 123.8× |
+
+At 32×32 reuse is worth **123.8× of CPU and 46.0× of wall clock**: 9 HLS
+projects instead of 1,024, for the same RTL architecture under the same worker
+limit. The reuse column stays at 43–48 s across the whole range.
+
+### Table 3, attention-PV: the group count, and a design space with one winner
+
+| G | roles | instances | LUT | DSP | cycles (modelled) | elaborate |
+|---|------:|----------:|----:|----:|------------------:|----------:|
+| 1  | 10 | 272 | 53,008 | 240 | 1,536 | 1.75 s |
+| 2  | 10 | 264 | 51,640 | 248 |   768 | 1.84 s |
+| 4  | 10 | 260 | 49,708 | 252 |   384 | 1.31 s |
+| 8  |  7 | 258 | 46,246 | 254 |   192 | 1.02 s |
+| 16 |  4 | 257 | 39,523 | 255 |    96 | 0.60 s |
+
+**Points 5, area span 1.3×, on the frontier 1.**
+
+This sweep behaves unlike the mesh one, and the difference is the interesting
+part. Raising G makes the design **both faster and smaller**, so every point
+except G=16 is dominated and the frontier has a single member. Smaller because
+the periphery shrinks with G: the head dimension d = 16/G sets the width of the
+activation unit and the number of seeded and drained edges, so more grouping
+means fewer boundary units and more of the work done by the psum chain that
+already exists. The role count falls with it, 10 → 4, because at large G the
+distinct boundary cases collapse.
+
+The cycle column is **modelled, not measured** -- passes × (steps + rows + cols)
+-- so it is exactly 2× per doubling by construction. The measured figure comes
+from RTL cosimulation and is reported separately; the draft's 1.94× model
+prediction should be checked against that, not against this column.

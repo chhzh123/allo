@@ -254,9 +254,11 @@ def design(name, size):
 
         return fft_stream
     if name == "attention":
+        # `size` is the group count here: G is what this design's sweep varies,
+        # and it has to divide the array's width.
         from test_spmw_attention import attention_pv
 
-        return attention_pv(2)
+        return attention_pv(size)
     if name == "tiled":
         from test_spmw_tiled import tiled_gemm
 
