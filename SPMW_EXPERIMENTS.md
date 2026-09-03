@@ -2315,3 +2315,47 @@ structural — every butterfly's loop is measured at II=1, and one transform per
 cycle follows from each stage consuming a transform's worth per cycle — while
 HP-FFT's is a measured whole-design interval. A rolled SPMW design that fits is
 the like-for-like, and is the next thing to build.
+
+## Rolling the FFT: where a buffer becomes unavoidable
+
+To compare with HP-FFT at UF=32 the design has to be *rolled*: 8 stages of 32
+units, each unit handling 128/32 = 4 butterflies per transform, 256 units rather
+than 1,024. The question is whether the inter-stage wiring stays static, because
+if it does the rolled design needs no memory at all -- SPMW's key-form links
+carry it.
+
+Folding is a choice of which bits of the butterfly index become the unit and
+which become the sub-step. Searching all of them:
+
+* **Every producing unit sends its 8 output lanes to at most 2 destination
+  ports**, at every stage. So two output ports always suffice.
+* With `unit = b >> 2`, stages 3–7 are static and stages 1–2 are not. With the
+  fold the per-stage search prefers, stages 6–7 are not. **No consistent chain
+  of bit-selection folds makes all eight stages static.**
+* The obstruction is precise: for 64 of 224 producing units, the two output
+  ports want *different* sub-step orders, and one sequential loop cannot emit
+  both. Stages 2–6 want the identity; the failures are entirely at the
+  boundaries where the stride and the fold width interact.
+
+**Which is the reference's architecture, derived rather than copied.** HP-FFT
+splits N=256, WIDTH=32 into "intra stages 0–4, no conflicts" and "inter stages
+5–7, 2-D buffers with F2 XOR-swizzle banking". Their fold puts the sub-step in
+the *high* bits, so the awkward stages are 5–7; the fold above puts it in the
+low bits, so they are 1–2. **The number of stages needing a reorder is
+invariant; only which ones moves.** That is what the swizzle is for, and it is
+why a rolled FFT cannot be all wires.
+
+Two ways to carry those two boundaries:
+
+* **Extra ports** -- give the unit two inputs per side and select on the
+  sub-step. Expressible in SPMW today; costs FIFOs, no memory.
+* **A banked buffer** -- what the reference does, and what `xor_bank` now
+  describes. Needs a *shared* brick with several readers, which SPMW's memory
+  model does not have: `shard` gives one brick per site, and a butterfly's two
+  operands are in different banks by construction, so no unit can read both
+  from its own.
+
+The first is the buildable one and is the remaining step for a like-for-like
+UF=32 comparison. The second is the honest gap: SPMW can now *describe* a
+conflict-free banked layout and lower it for a per-site brick, and still cannot
+express the shared buffer that makes banking worth having.
