@@ -2203,3 +2203,61 @@ repository, and `bank_fn` and `stride_bit` appear only in `__slots__` and the
 constructor. The whole layout vocabulary -- `banked`, `xor_bank`, `replicate`,
 `shared` -- is declarative; the lowering ignores all of it. Making the folded FFT
 real means implementing that first.
+
+## Against HP-FFT, 256-point FP32 at 250 MHz
+
+HP-FFT (Wang, Zhang, Wu, Cong — UCLA) generates FFT architectures from HLS and
+reports a 256-point radix-2 DIT RN FFT in FP32 at 250 MHz on an AMD Versal
+VPK180, Vitis/Vivado 24.2. Its unrolling factor `UF` sweeps the parallelism.
+
+| design | II | latency | DSP | LUT | FF |
+|---|---|---|---|---|---|
+| HP-FFT, no SP | 2085 | 2084 | 8 | 551 | 844 |
+| HP-FFT, SP, UF=1 | 128 | 1239 | 24 | 18,937 | 13,421 |
+| HP-FFT, SP, UF=8 | 16 | 240 | 158 | 166,047 | 119,219 |
+| **HP-FFT, SP, UF=32** | **4** | **126** | **618** | **655,458** | **401,229** |
+| **SPMW, fully spatial** | **1** | ~184 | **24,576** | **2,549,760** | **3,831,808** |
+
+Per butterfly, measured at their clock: latency 68, interval 69, II=1 on the
+pipelined loop, depth 21, **24 DSP**, 2,490 LUT, 3,742 FF, 0 BRAM.
+
+**Four times the throughput for forty times the DSPs.** As efficiency:
+
+| | points/cycle | DSP | points/cycle/DSP |
+|---|---|---|---|
+| HP-FFT UF=32 | 64 | 618 | **0.1036** |
+| SPMW spatial | 256 | 24,576 | **0.0104** |
+
+**Ten times worse per DSP.** Three causes, and only the last is SPMW's to fix.
+
+**The device is not the same.** VPK180 is Versal: its DSP58 has hardened FP32,
+so a float multiply is one DSP. The U280 is UltraScale+, whose DSP48E2 has no
+float support at all — every FP32 multiply is built from integer DSPs and logic.
+"Same setting" holds for N, data type and clock, and does not hold for the part.
+This is most of the 2.41-vs-24 DSP-per-butterfly gap and it is not an
+architectural result.
+
+**Fully spatial is past the knee.** HP-FFT's own sweep shows the shape: UF=1 to
+UF=32 buys 32× the II for 26× the DSPs, roughly linear. The spatial design is
+UF=128 with every stage resident — 1,024 butterflies against UF=32's 256 — and
+it buys 4× for 40×. The last doubling of a parallelism sweep is always the worst
+one, and this is two doublings past where HP-FFT stopped.
+
+**37% of the multipliers are multiplying by one.** At N=256 the twiddle for
+stage `s`, butterfly `b` is `k = (b mod 2^s) · (128 / 2^s)`, and
+
+| stage | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| trivial twiddles | 128 | 128 | 64 | 32 | 16 | 8 | 4 | 2 |
+
+**382 of 1,024 butterflies** have a twiddle of (1,0) or (0,−1) — a multiply by
+one or by −i, needing no multiplier at all. Stages 0 and 1 are *entirely*
+trivial. The reference snaps near-zero twiddles to exact zero precisely so HLS
+constant-folds them away; this design reads its twiddle from a replicated ROM at
+run time, so all 24 DSPs are spent whatever the value.
+
+That last one is the interesting gap, because it is what SPMW's role
+specialisation is *for*: the twiddle is a function of the site, known at
+elaboration. A butterfly whose twiddle is (1,0) should specialise into a role
+with no multiplier, and 37% of the array should cost nothing to multiply with.
+It does not today because the twiddle is a memory read rather than a constant.
