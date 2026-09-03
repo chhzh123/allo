@@ -101,6 +101,48 @@ drain_loop:
   }
 }
 
+// The array itself. This has to be its own function: a DATAFLOW pragma applies
+// only to a loop or a function body, and inside a bare block it is silently
+// ignored -- which synthesises the whole array sequentially and still returns
+// success.
+static void array_pass(const data_t *Pr, const data_t w[DIM][DIM], data_t *Y,
+                       int steps) {
+#pragma HLS DATAFLOW
+  // a[c][r] enters column c of row r; a slab's west column is fed, the rest
+  // come from the PE to the west.
+  hls::stream<data_t> a[DIM][DIM];
+#pragma HLS ARRAY_PARTITION variable = a complete dim = 0
+  // p[r][c] enters row r of column c; row 0 of slab 0 is seeded, row 0 of
+  // every other slab is the previous slab's bottom.
+  hls::stream<acc_t> p[DIM][DIM];
+#pragma HLS ARRAY_PARTITION variable = p complete dim = 0
+  hls::stream<acc_t> d[SLAB];
+#pragma HLS ARRAY_PARTITION variable = d complete dim = 0
+
+  feed_a(Pr, a, steps);
+  seed_p(p, steps);
+
+array_rows:
+  for (int r = 0; r < DIM; r++) {
+#pragma HLS UNROLL
+  array_cols:
+    for (int c = 0; c < DIM; c++) {
+#pragma HLS UNROLL
+      // Down a column, across to the next slab's top, or out to the drain.
+      hls::stream<acc_t> &pdst =
+          (r + 1 < DIM)
+              ? p[r + 1][c]
+              : ((c + SLAB < DIM) ? p[0][c + SLAB] : d[c - (DIM - SLAB)]);
+      if (((c + 1) % SLAB) == 0)
+        pe_edge(a[c][r], p[r][c], pdst, w[r][c], steps);
+      else
+        pe_forward(a[c][r], a[c + 1][r], p[r][c], pdst, w[r][c], steps);
+    }
+  }
+
+  drain(d, Y, steps);
+}
+
 extern "C" {
 
 void attention_pv(const data_t *Pr, const data_t *V, data_t *Y, int steps) {
@@ -123,42 +165,7 @@ load_w:
     w[k][c] = V[((c / SLAB) * DIM + k) * SLAB + (c % SLAB)];
   }
 
-  {
-#pragma HLS DATAFLOW
-    // a[c][r] enters column c of row r; a slab's west column is fed, the rest
-    // come from the PE to the west.
-    hls::stream<data_t> a[DIM][DIM];
-#pragma HLS ARRAY_PARTITION variable = a complete dim = 0
-    // p[r][c] enters row r of column c; row 0 of slab 0 is seeded, row 0 of
-    // every other slab is the previous slab's bottom.
-    hls::stream<acc_t> p[DIM][DIM];
-#pragma HLS ARRAY_PARTITION variable = p complete dim = 0
-    hls::stream<acc_t> d[SLAB];
-#pragma HLS ARRAY_PARTITION variable = d complete dim = 0
-
-    feed_a(Pr, a, steps);
-    seed_p(p, steps);
-
-  array_rows:
-    for (int r = 0; r < DIM; r++) {
-#pragma HLS UNROLL
-    array_cols:
-      for (int c = 0; c < DIM; c++) {
-#pragma HLS UNROLL
-        // Down a column, across to the next slab's top, or out to the drain.
-        hls::stream<acc_t> &pdst =
-            (r + 1 < DIM)
-                ? p[r + 1][c]
-                : ((c + SLAB < DIM) ? p[0][c + SLAB] : d[c - (DIM - SLAB)]);
-        if (((c + 1) % SLAB) == 0)
-          pe_edge(a[c][r], p[r][c], pdst, w[r][c], steps);
-        else
-          pe_forward(a[c][r], a[c + 1][r], p[r][c], pdst, w[r][c], steps);
-      }
-    }
-
-    drain(d, Y, steps);
-  }
+  array_pass(Pr, w, Y, steps);
 }
 
 } // extern "C"

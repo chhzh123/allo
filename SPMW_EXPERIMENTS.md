@@ -2815,3 +2815,32 @@ side length, so it cannot distinguish `2×2 of 4` from `4×4 of 2` -- both have 
 side of 8 and both come out at 524,288. The draft's claim of a latency
 difference between designs with the same PE count needs a model that captures
 the staging between levels, which this one does not.
+
+### Fig. 12, measured: grouping is worth 1.99× at M=4096
+
+The draft's comparison cannot be expressed by varying `G` alone. In the fabric
+the head dimension is *derived* -- `d = cols // groups` -- so raising G shrinks
+the output width instead of filling idle columns, and the naive sweep measures a
+different problem at every point. Run that way, cycles go **up** with G (37, 45,
+73 for G = 1, 2, 4) because the serpentine chain lengthens while the array stays
+the same size and the work stays constant at 96 MACs.
+
+The comparison the draft intends holds the head dimension fixed and changes how
+many columns the array has. With d = 2 throughout: the ungrouped design is a 4×2
+array covering 4 rows of the reduction per pass, and the grouped one a 4×4 array
+in two slabs covering 8. Both were cosimulated and both agree with the reference
+bit for bit.
+
+| M (sequence) | ungrouped, span 4 | grouped G=2, span 8 | speedup |
+|--------------|------------------:|--------------------:|--------:|
+| 6    |    29 cycles |    45 cycles | 1.29× |
+| 64   |   107 cycles |   123 cycles | 1.74× |
+| 4096 | 5,483 cycles | 5,499 cycles | **1.994×** |
+
+The speedup is `2 × C_ungrouped / C_grouped`, since the grouped design needs
+half the passes. Both configurations have the same slope -- 1.345 cycles per
+sequence step -- and differ only in fill: about 21 cycles against 37. That is
+the whole story of the figure. At short sequences the deeper serpentine
+dominates and grouping is worth only 1.29×; by M=4096 the fill has amortised and
+the measured **1.994×** sits within 2.9% of the draft's 1.94× model, slightly
+*better* than the model predicts rather than worse.

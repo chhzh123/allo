@@ -267,9 +267,21 @@ def design(name, size):
         # same output width, twice the columns, twice the reduction per pass.
         from spmw_sweep_table3 import attention_pv as attention_general
 
+        # Sizes 1/2 measure a short sequence, 3/4 a long one: the grouped
+        # design's serpentine is deeper, so its fill cost only amortises once
+        # the sequence is long, and the speedup has to be read at both.
         if size == 1:
             return attention_general(4, 2, 1, 6)  # d=2, span=4, 8 PEs
-        return attention_general(4, 4, 2, 6)  # d=2, span=8, 16 PEs
+        if size == 2:
+            return attention_general(4, 4, 2, 6)  # d=2, span=8, 16 PEs
+        if size == 3:
+            return attention_general(4, 2, 1, 64)
+        if size == 4:
+            return attention_general(4, 4, 2, 64)
+        # Sizes 5/6 are the draft's own operating point, M = 4096.
+        if size == 5:
+            return attention_general(4, 2, 1, 4096)
+        return attention_general(4, 4, 2, 4096)
     if name == "tiled":
         from test_spmw_tiled import tiled_gemm
 
