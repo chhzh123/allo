@@ -2705,3 +2705,41 @@ And **the role count is 9 at every shape**, not just at every size. A 4×4 and a
 32×32 mesh have the same nine wiring classes -- interior, four edges, four
 corners -- so the HLS cost of exploring this entire 66× span is sixteen runs of
 nine roles, and elaboration never exceeds 1.8 s.
+
+### Table 5, complete: lines of code per design
+
+`scripts/spmw_loc.py`. `cloc` is not installed on the machine, so the script
+applies cloc's rule directly -- a line counts when it is neither blank nor
+wholly a comment -- and only the design is counted, not test harnesses or
+reference implementations. The reduction is against the larger of the two
+baselines.
+
+| Design | Vitis HLS | SYCL/oneAPI | SPMW | Reduction |
+|--------|----------:|------------:|-----:|----------:|
+| Systolic GEMM (16×16) | 99 | 119 | 32 | 4.0× |
+| Multi-cache GEMM | 117 | 146 | 57 | 2.6× |
+| Tiled GEMM (2-level) | 113 | 132 | 33 | 4.0× |
+| FFT-1024 (spatial + folded) | 407 | 130 | 127 | 3.2× |
+| Mini-TPU MXU | 117 | 132 | 40 | 3.3× |
+| Attention-PV (G ∈ {1,2,4}) | 107 | 133 | 55 | 2.4× |
+
+Reductions run **2.4×–4.0×**, which is a good deal smaller than a headline
+number picked from the best row would suggest. Three caveats belong with the
+table rather than under it.
+
+**The FFT row is not symmetric.** Its Vitis HLS figure is HP-FFT-HLS
+`n1024/UF32`, a published, expert-tuned implementation, while its SYCL figure is
+a compact folded implementation written here. That is why SYCL (130) and SPMW
+(127) come out nearly equal on that row while HLS is 407: the HLS baseline
+expands its stages explicitly and the other two do not. Comparing 407 against
+127 compares two different amounts of hand-expansion, not two languages.
+
+**The SYCL column cannot be compiled.** oneAPI 2026.1 removed `-fintelfpga` and
+ships no FPGA extension headers, so these are complete and idiomatic but
+unverified programs. The HLS column is verified: every file synthesises for
+`xcu280`.
+
+**The mapping needed a correction.** The weight-stationary kernel with ReLU and
+a shift is the mini-TPU MXU, not the plain systolic GEMM; they were conflated in
+a first pass, which inflated the MXU's SPMW count from 40 to 143 and made the
+row read as a *negative* reduction.

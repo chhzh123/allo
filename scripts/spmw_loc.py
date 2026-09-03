@@ -129,6 +129,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--json", default=None)
+    ap.add_argument(
+        "--hpfft",
+        default=None,
+        help="directory of a hand-written HLS FFT (HP-FFT-HLS n1024/UF32), "
+        "used as the FFT row's Vitis HLS baseline instead of writing one",
+    )
     args = ap.parse_args()
 
     def path(*parts):
@@ -150,9 +156,12 @@ def main():
         }),
         ("Tiled GEMM (2-level)", {
             "SPMW": (path(*tests, "test_spmw_tiled.py"), "class MacIO", "def _operands"),
+            "Vitis HLS": (path(*bl, "hls", "gemm_tiled.cpp"), None, None),
+            "SYCL/oneAPI": (path(*bl, "sycl", "gemm_tiled.cpp"), None, None),
         }),
         ("FFT (spatial + folded)", {
             "SPMW": (path(*tests, "test_spmw_fft.py"), "def bfly_pair", "def _operands"),
+            "SYCL/oneAPI": (path(*bl, "sycl", "fft.cpp"), None, None),
         }),
         ("Mini-TPU MXU", {
             "SPMW": (path(*tests, "test_spmw_tpu.py"), "class WsIO", "def _reference"),
@@ -161,8 +170,22 @@ def main():
         }),
         ("Attention-PV (G in {1,2,4})", {
             "SPMW": (path(*tests, "test_spmw_attention.py"), "class WsIO", "def _reference"),
+            "Vitis HLS": (path(*bl, "hls", "attention_pv.cpp"), None, None),
+            "SYCL/oneAPI": (path(*bl, "sycl", "attention_pv.cpp"), None, None),
         }),
     ]
+
+    if args.hpfft:
+        files = [
+            os.path.join(args.hpfft, name)
+            for name in ("FFT.cpp", "FFT.h")
+            if os.path.exists(os.path.join(args.hpfft, name))
+        ]
+        if files:
+            total = sum(loc(f) for f in files)
+            for name, sources in designs:
+                if name.startswith("FFT"):
+                    sources["Vitis HLS"] = ("__external__", total, None)
 
     columns = ["Vitis HLS", "SYCL/oneAPI", "SPMW"]
     print(f"{'Design':30s} " + " ".join(f"{c:>12s}" for c in columns) + "   Reduction")
@@ -175,6 +198,9 @@ def main():
                 row[column] = None
                 continue
             file_path, start, end = spec
+            if file_path == "__external__":
+                row[column] = start  # already counted
+                continue
             if not os.path.exists(file_path):
                 row[column] = None
                 continue
