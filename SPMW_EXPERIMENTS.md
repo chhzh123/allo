@@ -2490,3 +2490,63 @@ value: stage `s` has 2^s of them, and the design goes from **3 roles to 255**.
 The saving and the compile-time reuse pull against each other — 25% of the DSPs
 for 85× the HLS invocations. Neither number is free, and the design has a real
 choice to make rather than a strictly better option.
+
+## §7.3 Synthesis scalability: the 4²–32² sweep
+
+Systolic GEMM on `xcu280`, 300 MHz target (3.333 ns), role path, measured on
+brg-zhang-xcel with Vitis 2023.2. Each row is one full run from Python source to
+a placed-and-routed array; the stage timings are separated so the flat part and
+the growing part can be told apart.
+
+| array | units | FIFOs | roles | elaborate | HLS wall | HLS CPU | Vivado | total | achieved |
+|-------|------:|------:|------:|----------:|---------:|--------:|-------:|------:|---------:|
+| 4×4   |    16 |    32 |     9 |     1.0 s |   82.5 s | 383.6 s | 130.3 s |  215.7 s | 1.584 ns |
+| 8×8   |    64 |   128 |     9 |     1.0 s |   81.5 s | 375.6 s | 148.7 s |  232.5 s | 1.589 ns |
+| 16×16 |   256 |   512 |     9 |     1.2 s |   82.5 s | 380.5 s | 249.7 s |  334.8 s | 1.595 ns |
+| 32×32 | 1,024 | 2,048 |     9 |     1.7 s |   82.4 s | 383.3 s | 955.3 s | 1,040.7 s | 1.671 ns |
+| ratio |   64× |   64× |  1.00× |     1.7× |   1.00× |   1.00× |   7.3× |    4.8× |   +5.5% |
+
+Three readings.
+
+**HLS time is exactly flat.** 82.5 s at 16 instances and 82.4 s at 1,024 — the
+0.1 s spread across a 64× range is noise. The same 9 role projects are compiled
+regardless of array size, and the CPU figures (383.6 → 383.3 s) confirm it is
+the same work, not the same wall clock hiding more parallelism.
+
+**Elaboration is not a bottleneck at any size.** 1.0 → 1.7 s for 64× the
+instances. The structural front end walks every instance, so this does grow, but
+from a base small enough not to matter.
+
+**Vivado is the whole cost at scale.** 130.3 → 955.3 s, a 7.3× rise for 64× the
+units — sublinear, but it moves from 60% to **92% of total wall time**. Any
+future compile-time work has to aim there; there is nothing left to win in HLS.
+
+Timing degrades gently and never fails: 1.584 → 1.671 ns achieved against the
+3.333 ns target, so even 32×32 closes with +1.662 ns of slack.
+
+The FFT shows the same shape more sharply — 1,024 butterflies compile as 3
+roles, elaborated in 0.1 s.
+
+Not run: the no-reuse ablation (one HLS project per instance), which would give
+the speedup denominator, and the per-PE / factored-HLS comparison against prior
+tools.
+
+## HP-FFT attribution, re-verified
+
+Every cell re-read from the `csynth.rpt` files rather than from notes, because
+this comparison had been mis-attributed twice (first to the device, then to
+banking). N=256, 250 MHz target.
+
+| tool | part | UF8 lat / II | UF32 lat / II | UF32 DSP |
+|------|------|-------------:|--------------:|---------:|
+| 2024.2 | Versal VP1802 (`xcvp1802-lsvc4072-3`) | 240 / 16 | 126 / 4 | 618 |
+| 2024.2 | UltraScale+ U55C (`xcu55c-fsvh2892-2`) | 276 / 16 | 152 / 4 | 1,854 |
+| 2023.2 | UltraScale+ U280 | 307 / 65 | 183 / 53 | 1,515 |
+
+Row 1 reproduces the published table exactly. Holding the tool at 2024.2 and
+changing only the device, **II is identical** and latency rises 15–20%. Holding
+the device family and dropping to 2023.2, II collapses 13×. So the interval is a
+tool effect; the 3× DSP gap is the genuine device effect (DSP58 hardened FP32).
+
+The 2023.2 UF32 point also **missed timing** (slack −0.19 ns), so it was never a
+valid design point to quote.
