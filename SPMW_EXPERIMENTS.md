@@ -2666,3 +2666,42 @@ cannot be built on the evaluation machine, and not for a fixable reason:
 Intel has discontinued the SYCL FPGA flow, and it targeted Intel devices rather
 than an AMD Alveo in any case. The SYCL column of Table 5 can be filled with
 line counts; the SYCL series of Fig. 10 cannot be measured on this hardware.
+
+### Table 3, GEMM mesh sweep: 16 shapes, one source design
+
+`scripts/spmw_sweep_table3.py`. Rows and columns vary independently; K is held
+at 16 and every point is measured on the same fixed 256³ problem. Area is the
+sum over roles of that role's HLS estimate times the sites it covers, which is
+what the split backend instantiates -- an HLS estimate, not a post-route number.
+
+| shape | instances | roles | cycles | LUT | FF | DSP | elaborate |
+|-------|----------:|------:|-------:|----:|---:|----:|----------:|
+| 4×4   |    16 | 9 | 1,572,864 |   3,344 |   1,648 |   16 | 1.34 s |
+| 4×8   |    32 | 9 |   917,504 |   6,760 |   3,296 |   32 | 1.19 s |
+| 4×16  |    64 | 9 |   589,824 |  13,592 |   6,592 |   64 | 1.00 s |
+| 4×32  |   128 | 9 |   425,984 |  27,256 |  13,184 |  128 | 1.05 s |
+| 8×4   |    32 | 9 |   917,504 |   6,760 |   3,296 |   32 | 0.94 s |
+| 8×8   |    64 | 9 |   524,288 |  13,664 |   6,592 |   64 | 0.95 s |
+| 8×16  |   128 | 9 |   327,680 |  27,472 |  13,184 |  128 | 1.03 s |
+| 8×32  |   256 | 9 |   229,376 |  55,088 |  26,368 |  256 | 1.10 s |
+| 16×4  |    64 | 9 |   589,824 |  13,592 |   6,592 |   64 | 0.97 s |
+| 16×8  |   128 | 9 |   327,680 |  27,472 |  13,184 |  128 | 1.11 s |
+| 16×16 |   256 | 9 |   196,608 |  55,232 |  26,368 |  256 | 1.11 s |
+| 16×32 |   512 | 9 |   131,072 | 110,752 |  52,736 |  512 | 1.36 s |
+| 32×4  |   128 | 9 |   425,984 |  27,256 |  13,184 |  128 | 1.16 s |
+| 32×8  |   256 | 9 |   229,376 |  55,088 |  26,368 |  256 | 1.15 s |
+| 32×16 |   512 | 9 |   131,072 | 110,752 |  52,736 |  512 | 1.41 s |
+| 32×32 | 1,024 | 9 |    81,920 | 222,080 | 105,472 | 1024 | 1.79 s |
+
+**Points 16, area span 66.4×, on the frontier 16.**
+
+Two things are worth pulling out. **Every one of the sixteen shapes is
+Pareto-optimal** -- no configuration is dominated, because rows and columns
+trade latency against area monotonically and the two rectangular orientations
+of a shape cost exactly the same. The knob spans a real design space rather
+than a handful of useful points and a tail of bad ones.
+
+And **the role count is 9 at every shape**, not just at every size. A 4×4 and a
+32×32 mesh have the same nine wiring classes -- interior, four edges, four
+corners -- so the HLS cost of exploring this entire 66× span is sixteen runs of
+nine roles, and elaboration never exceeds 1.8 s.
