@@ -2550,3 +2550,119 @@ tool effect; the 3× DSP gap is the genuine device effect (DSP58 hardened FP32).
 
 The 2023.2 UF32 point also **missed timing** (slack −0.19 ns), so it was never a
 valid design point to quote.
+
+## §7.2–7.5, run against the draft's figure and table specifications
+
+### Fig. 10, SPMW series: square GEMM on the deployed array
+
+The 16×16 int8 MXU bitstream at 250 MHz, U280, one invocation per 16×16×16
+tile. Every size was checked byte-exact against the reference simulator before
+being timed.
+
+| GEMM | invocations | µs/invocation | GMAC/s | GOP/s | % of the array's peak |
+|------|------------:|--------------:|-------:|------:|----------------------:|
+| 64³   |          64 | 17.55 | 0.233 | 0.467 | 0.36% |
+| 128³  |         512 | 17.18 | 0.238 | 0.477 | 0.37% |
+| 256³  |       4,096 | 17.15 | 0.239 | 0.478 | 0.37% |
+| 512³  |      32,768 | 17.28 | 0.237 | 0.474 | 0.37% |
+| 1024³ |     262,144 | 19.09 | 0.215 | 0.429 | 0.34% |
+
+Throughput is flat in problem size and sits at **0.34–0.37% of the 64 GMAC/s
+the array could do**. The reason is visible in the same table: 17 µs per
+invocation against 16 cycles -- 64 ns -- of actual array work. The design is
+bound by the host round trip, not by the architecture, because the fabric has
+no DRAM interface of its own and each tile is a separate kernel invocation over
+PCIe. That is the `A_IO_L3`/AXI-master gap E14 already names.
+
+This matters for how Fig. 10 can be read. As deployed, the number measures
+Xilinx XRT's command latency; it is not evidence about the quality of the
+generated architecture, and quoting it as "% of theoretical peak" would say
+almost nothing about SPMW. The architecture-level comparison below is the
+apples-to-apples one.
+
+### Fig. 10, hand-written Vitis HLS baseline: the architecture comparison
+
+`examples/spmw/baselines/hls/gemm_systolic.cpp`, the same int8 weight-stationary
+16×16 array, synthesised at 300 MHz for `xcu280`:
+
+| | hand-written HLS | SPMW role path |
+|---|---:|---:|
+| LUT | 114,401 | 109,931 |
+| FF | 94,742 | 113,988 |
+| DSP | 262 | 304 |
+| HLS wall time | 867 s | 82 s |
+
+The areas agree within 4% on LUT, which is the fidelity claim §7.2 wants. The
+compile times do not agree at all, and that is the §7.3 claim: one monolithic
+HLS run over the whole array costs **10.6× the wall time** of nine role
+projects compiled concurrently.
+
+### Fig. 11, no-reuse ablation
+
+Same RTL architecture, same worker limit; the only change is one HLS project per
+site instead of one per role.
+
+| array | instances | roles | reuse wall | reuse CPU | no-reuse wall | no-reuse CPU | wall | CPU |
+|-------|----------:|------:|-----------:|----------:|--------------:|-------------:|-----:|----:|
+| 4×4   |    16 | 9 | 43.4 s |   389 s |    45.8 s |     723 s |  1.1× |  1.9× |
+| 8×8   |    64 | 9 | 42.7 s |   383 s |   142.2 s |   3,050 s |  3.3× |  8.0× |
+| 16×16 |   256 | 9 | 43.5 s |   388 s |   563.8 s |  13,104 s | 13.0× | 33.8× |
+
+Reuse is worth little at 4×4, where there are 16 instances against 9 roles, and
+grows with the array: at 16×16 it saves **33.8× of CPU and 13.0× of wall time**.
+The reuse column is flat at ~43 s throughout, which is the same fact §7.3
+reports from the other direction.
+
+### Table 4, seeded defects: 43%, not the near-100% a pilot suggested
+
+Fourteen single-line mutations across six bug classes, each design elaborated
+unmutated first as a control (all five controls pass).
+
+| Bug class | Seeded | Caught statically |
+|---|---:|---:|
+| Mismatched channel endpoints | 4 | 1 |
+| Off-by-one link arithmetic | 3 | 1 |
+| Missing boundary variant | 1 | 0 |
+| Type mismatch across a channel | 1 | 1 |
+| Unsynchronized shared memory | 2 | 2 |
+| Port-capacity violation | 3 | 1 |
+| **Total** | **14** | **6 (43%)** |
+
+An earlier 12-mutation pilot scored 12/12, and that was misleading: it only
+seeded defects in the classes SPMW checks. The broader set exposes where the
+representation is genuinely blind, and the reason is structural rather than an
+oversight:
+
+**Dangling channels are silently dropped.** `_resolve_coordinate` and
+`_resolve_keyed` both skip any channel with no writer or no readers. They have
+to -- at a mesh edge `spmw.key(r, c + 1)` names a key nobody reads, and that is
+how an array terminates. The consequence is that **a typo'd link is
+indistinguishable from an intentional boundary**, so most endpoint and boundary
+mutations pass elaboration. This is not fixable by adding a check; it needs the
+boundary to be declared rather than inferred.
+
+**`stationary()` skips its shape check when `index=None`.** `bind_check` is
+called only inside `if index is not None`, so binding a D×D tensor to a
+D-element port is accepted silently. This one *is* a bug, and it is the same
+shape as the recurring one: a check that exists but cannot fire.
+
+**Nothing rejects two bindings of the same memory port.** There is no
+duplicate-client check, so a second `shard` onto a bound port is accepted.
+
+What SPMW does catch, it catches well: both unsynchronised-shared-memory
+mutations are rejected by `_check_phase_writers`, the type mismatch by the port
+checker, and an out-of-range gather by `bind_check`.
+
+### Table 5, SYCL/oneAPI column: the flow no longer exists
+
+`examples/spmw/baselines/sycl/gemm_systolic.cpp` is a complete, idiomatic
+oneAPI FPGA implementation -- one kernel per PE, connected by pipes -- but it
+cannot be built on the evaluation machine, and not for a fixable reason:
+
+- `icpx -fintelfpga` in oneAPI 2026.1: *"option '-fintelfpga' is not supported
+  and has been removed from the compiler"*.
+- `sycl/ext/intel/fpga_extensions.hpp` is not present in the install at all.
+
+Intel has discontinued the SYCL FPGA flow, and it targeted Intel devices rather
+than an AMD Alveo in any case. The SYCL column of Table 5 can be filled with
+line counts; the SYCL series of Fig. 10 cannot be measured on this hardware.
