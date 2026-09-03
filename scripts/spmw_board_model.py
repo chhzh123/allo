@@ -76,6 +76,17 @@ def _ceil(value, unit):
     return (value + unit - 1) // unit
 
 
+class Gemm(Model):
+    """One square GEMM, so Fig. 10's sizes go through the same path as a model."""
+
+    def __init__(self, size):
+        super().__init__("GEMM %d^3" % size, size, size, size, 1)
+        self.size = size
+
+    def matmuls(self):
+        return [("gemm", self.size, self.size, self.size)]
+
+
 MODELS = {
     "bert-base": Model("BERT-base", 128, 768, 3072, 12),
     "bert-large": Model("BERT-large", 128, 1024, 4096, 24),
@@ -265,8 +276,19 @@ def main():
     rate = rates[big.outs]
 
     print()
-    for key in (want, "llama-7b" if not want.startswith("llama") else "bert-base"):
-        model = MODELS[key]
+
+    def resolve(key):
+        """`gemm512` is a square GEMM; anything else names a model."""
+        if key.startswith("gemm"):
+            return Gemm(int(key[len("gemm") :]))
+        return MODELS[key]
+
+    if "," in want:
+        keys = want.split(",")
+    else:
+        keys = [want, "llama-7b" if not want.startswith("llama") else "bert-base"]
+    for key in keys:
+        model = resolve(key)
         tiles = model.tiles(big.outs)
         macs = model.macs()
         print(
@@ -292,9 +314,10 @@ def main():
             % (tiles * measured, tiles * measured * model.layers, model.layers)
         )
         print(
-            "  => %.3f GMAC/s, %.2f%% of the array's %.1f GMAC/s peak"
+            "  => %.3f GMAC/s (%.3f GOP/s), %.2f%% of the array's %.1f GMAC/s peak"
             % (
                 macs / (tiles * measured) / 1e9,
+                2.0 * macs / (tiles * measured) / 1e9,
                 100.0 * macs / (tiles * measured) / (DIM * DIM * CLOCK_HZ),
                 DIM * DIM * CLOCK_HZ / 1e9,
             )
