@@ -2415,3 +2415,36 @@ So the corrected reading:
 The comparison numbers stand as measured. What changes is the attribution, and
 it lands on the mechanism this branch has been building: a conflict-free layout
 is the thing that makes the last stage of a folded FFT keep rate.
+
+### Settled: the II gap is the tool, the DSP gap is the device
+
+zhang26 has Vitis 2024.2, so HP-FFT could be run in its own toolchain. Three
+points, 256-point FP32 at 250 MHz:
+
+| tool | part | UF8 II | UF32 II | UF32 latency | UF32 DSP |
+|---|---|---|---|---|---|
+| **2024.2** | Versal VP1802 | **16** | **4** | 126 | 618 |
+| **2024.2** | UltraScale+ U55C | **16** | **4** | 152 | ~1854 |
+| 2023.2 | UltraScale+ U280 | 65 | 53 | 183 | 1515 |
+
+The first row reproduces the published table exactly — II 16 and 4, latency 240
+and 126 — so the setup is sound and the paper's numbers replicate.
+
+**The initiation interval is entirely a tool effect.** On UltraScale+ with the
+right compiler HP-FFT reaches II=4, the same as on Versal. The 53 measured
+earlier is Vitis 2023.2 failing to schedule what 2024.2 schedules; both of the
+explanations offered before -- DSP58's hardened FP32, then bank conflicts -- were
+wrong. The pragma evidence was real (`unroll factor=UF>>(stage-1)` is dropped in
+2023.2) but was not the mechanism either, since that loop reaches II=1 anyway.
+
+**The DSP count is a device effect**, and only that: ~1854 on UltraScale+ against
+618 on Versal for the same design and tool, about 3×, which is what a float
+multiply costs without DSP58's hardened FP32. Latency moves a little too (152
+against 126).
+
+The lesson worth keeping is procedural. Three explanations were offered for one
+number, two of them confidently, before the obvious experiment -- run their code
+in their toolchain -- was possible. The tool version was in `env.sh` all along.
+
+*(U55C rather than U280: the U280's device files are not in that install. Same
+family, same `fsvh2892` package, same `2L` speed grade, same DSP48E2.)*
