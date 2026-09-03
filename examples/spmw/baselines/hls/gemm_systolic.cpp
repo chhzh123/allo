@@ -52,16 +52,18 @@ feed_a_loop:
   }
 }
 
-// Zero the north edge: partial sums start at 0 and accumulate downward.
-static void seed_p(hls::stream<acc_t> p_out[DIM], int steps) {
-seed_p_loop:
+// The top row starts the accumulation at zero rather than reading a seed
+// stream. A process that only writes is free-running and auto-rewinds, which
+// Vitis warns can deadlock inside a dataflow region (HLS 200-656); folding the
+// seed into row 0 removes that process instead of trying to constrain it.
+static void pe_top(hls::stream<data_t> &a_in, hls::stream<data_t> &a_out,
+                   hls::stream<acc_t> &p_out, data_t w, int steps) {
+pe_top_loop:
   for (int k = 0; k < steps; k++) {
 #pragma HLS PIPELINE II = 1
-  seed_p_lane:
-    for (int c = 0; c < DIM; c++) {
-#pragma HLS UNROLL
-      p_out[c].write(0);
-    }
+    data_t a = a_in.read();
+    p_out.write((acc_t)a * (acc_t)w);
+    a_out.write(a);
   }
 }
 
@@ -97,33 +99,41 @@ drain_loop:
 
 // One tile: load the stationary weights, then stream the tile through.
 //
-// `a` is indexed [column][row] so that the east edge is a[DIM], one contiguous
-// array of DIM streams; `p` is [row][column] so the south edge is p[DIM].
+// `a` is indexed [column][row] so the east edge is a[DIM], one contiguous array
+// of DIM streams; `p[r][c]` is row r's output in column c, so the drain reads
+// p[DIM-1]. Stream depths are DIM-deep rather than 4: an operand reaching PE
+// (r, c) travels c hops east while its partial sum travels r hops south, and a
+// buffer shallower than that skew deadlocks the array.
 static void tile_pass(const bus_t *A, const data_t w[DIM][DIM], bus_t *Y,
                       int steps, int tile) {
 #pragma HLS DATAFLOW
   hls::stream<data_t> a[DIM + 1][DIM];
 #pragma HLS ARRAY_PARTITION variable = a complete dim = 0
-#pragma HLS STREAM variable = a depth = 4
-  hls::stream<acc_t> p[DIM + 1][DIM];
+#pragma HLS STREAM variable = a depth = 32
+  hls::stream<acc_t> p[DIM][DIM];
 #pragma HLS ARRAY_PARTITION variable = p complete dim = 0
-#pragma HLS STREAM variable = p depth = 4
+#pragma HLS STREAM variable = p depth = 32
 
   feed_a(A, a[0], steps, tile);
-  seed_p(p[0], steps);
+
+array_cols_top:
+  for (int c = 0; c < DIM; c++) {
+#pragma HLS UNROLL
+    pe_top(a[c][0], a[c + 1][0], p[0][c], w[0][c], steps);
+  }
 
 array_rows:
-  for (int r = 0; r < DIM; r++) {
+  for (int r = 1; r < DIM; r++) {
 #pragma HLS UNROLL
   array_cols:
     for (int c = 0; c < DIM; c++) {
 #pragma HLS UNROLL
-      pe(a[c][r], a[c + 1][r], p[r][c], p[r + 1][c], w[r][c], steps);
+      pe(a[c][r], a[c + 1][r], p[r - 1][c], p[r][c], w[r][c], steps);
     }
   }
 
   sink_a(a[DIM], steps);
-  drain(p[DIM], Y, steps, tile);
+  drain(p[DIM - 1], Y, steps, tile);
 }
 
 extern "C" {

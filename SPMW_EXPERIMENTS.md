@@ -2897,3 +2897,45 @@ function gives the 260 dataflow processes the design wants. A green return code
 was not evidence the baseline was the intended design, and neither the line
 count nor the reduction in Table 5 would have been wrong -- only the claim that
 the baseline had been verified.
+
+### The HLS baseline deadlocked on hardware, and why
+
+The hand-written baseline synthesised cleanly, closed timing, and built a
+bitstream in 10,116 s -- and then hung on the card: `ERT_CMD_STATE_TIMEOUT` on
+a two-tile invocation. Synthesis success was not evidence the design ran.
+
+Cosimulation named the cause directly:
+
+    WARNING: [HLS 200-656] Deadlocks can occur since process seed_p is
+    instantiated in a dataflow region with ap_ctrl_none or without start
+    propagation and contains an auto-rewind pipeline.
+
+`seed_p` only *wrote* -- it pushed a zero into the north edge of every column
+and read nothing. A process with no input is free-running, Vitis auto-rewinds
+its pipeline, and inside a dataflow region that can deadlock. Cosim also asked
+for depth 8 on the partial-sum FIFOs feeding the drain, against the 4 they had.
+
+Both are the same underlying mistake: an operand reaching PE (r, c) travels c
+hops east while its partial sum travels r hops south, so the array needs
+buffering on the order of its own side length, and a process that participates
+in that pipeline cannot be free-running.
+
+The fix removes `seed_p` rather than constraining it: row 0 gets its own PE
+variant that starts the accumulation at zero, so there is no write-only process
+at all, and the stream depths go to 32. Re-synthesis is clean with **zero**
+`200-656` warnings.
+
+Correcting the design changes the Figure 10 comparison, so the earlier numbers
+are superseded:
+
+| implementation | LUT | FF | DSP |
+|---|---:|---:|---:|
+| SPMW role path | 109,931 | 113,988 | 304 |
+| hand-written HLS (deadlocking version) | 114,401 | 94,742 | 262 |
+| **hand-written HLS (corrected)** | **121,563** | **94,515** | **246** |
+| AutoSA | 168,680 | 110,895 | 256 |
+
+Against the version that actually runs, SPMW is **9.6% smaller on LUT**, not the
+4% the broken one suggested. The direction of the claim is unchanged and the
+margin is larger; the point is that the first number was measured on a design
+that could not execute.
