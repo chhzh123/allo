@@ -2448,3 +2448,45 @@ in their toolchain -- was possible. The tool version was in `env.sh` all along.
 
 *(U55C rather than U280: the U280's device files are not in that install. Same
 family, same `fsvh2892` package, same `2L` speed grade, same DSP48E2.)*
+
+## §7.2 — the FFT twiddle experiment
+
+The draft asks what constant-folding per-site twiddle indices buys. A butterfly
+is four real multiplies and six adds; when the twiddle is (1,0) or (0,−1) the
+multiplies vanish, but only if the value is a compile-time constant. The spatial
+FFT reads it from a replicated ROM, so it pays for them whatever the value.
+
+Measured per butterfly, `xcu280` at 250 MHz, FP32, batch 64, II=1:
+
+| twiddle | DSP | FF | LUT |
+|---|---|---|---|
+| from a ROM (what the design does) | **24** | 3,296 | 1,775 |
+| constant (1,0) — multiply by one | **8** | 1,554 | 939 |
+| constant (0,−1) — multiply by −i | **8** | 1,554 | 939 |
+| constant, general | 24 | 3,104 | 1,711 |
+
+Folding a *general* constant saves nothing — the multiplies are still there. The
+saving is entirely in the trivial cases, and the eight that remain are the float
+adds, which also land on DSPs without hardened FP32.
+
+At N=256 the twiddle for stage `s`, butterfly `b` is `k = (b mod 2^s)(128/2^s)`,
+so the trivial ones are:
+
+| stage | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| trivial | 128 | 128 | 64 | 32 | 16 | 8 | 4 | 2 |
+
+**382 of 1,024, or 37%** — stages 0 and 1 entirely. So for the spatial FFT-256:
+
+| | DSP |
+|---|---|
+| twiddle selection dynamic | **24,576** |
+| per-site twiddle constant-folded | **18,464** |
+| | **25% fewer** |
+
+**And it costs compile time, which is the interesting part.** Constant-folding
+requires the twiddle to differ per role, so roles split by distinct twiddle
+value: stage `s` has 2^s of them, and the design goes from **3 roles to 255**.
+The saving and the compile-time reuse pull against each other — 25% of the DSPs
+for 85× the HLS invocations. Neither number is free, and the design has a real
+choice to make rather than a strictly better option.
