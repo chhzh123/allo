@@ -2844,3 +2844,56 @@ the whole story of the figure. At short sequences the deeper serpentine
 dominates and grouping is worth only 1.29×; by M=4096 the fill has amortised and
 the measured **1.994×** sits within 2.9% of the draft's 1.94× model, slightly
 *better* than the model predicts rather than worse.
+
+### Table 3, FFT row, and the completed table
+
+The knob the draft names is "spatial/fold factor". Only the spatial half is
+buildable: the folded form needs a brick several butterflies share, which
+`shard` cannot express. This sweeps the spatial size instead, which changes area
+and throughput without touching the butterfly body.
+
+| N | instances | roles | LUT | DSP | elaborate |
+|---|----------:|------:|----:|----:|----------:|
+|  8 |  12 | 3 |  28,392 |   288 | 0.48 s |
+| 16 |  32 | 3 |  76,704 |   768 | 0.42 s |
+| 32 |  80 | 3 | 192,320 | 1,920 | 0.45 s |
+| 64 | 192 | 3 | 462,720 | 4,608 | 0.48 s |
+
+**Three roles at every size**, and elaboration flat at ~0.45 s while instances
+grow 16×.
+
+#### Table 3 as the draft asks for it
+
+| Design | Structural knob | Points | Area span | Pareto |
+|--------|-----------------|-------:|----------:|-------:|
+| GEMM mesh | rows × columns | 16 | 66.4× | 16 |
+| Hierarchical GEMM | tile and stage size | 6 | 68.3× | 4 |
+| FFT | spatial size | 4 | 16.3× | 1 |
+| Attention-PV | group count G | 5 | 1.3× | 1 |
+| **Total** | | **31** | | **22** |
+
+Area is an HLS estimate summed over roles times sites, and the cycle axis of the
+frontier is modelled rather than measured except for attention-PV, which was
+cosimulated. Both are labelled that way deliberately: 31 post-route runs would
+be the honest version of this table and were not done.
+
+### Baseline verification
+
+All five hand-written HLS baselines synthesise for `xcu280` at 300 MHz:
+
+| baseline | rc | csynth | DSP | LUT |
+|----------|---:|-------:|----:|----:|
+| systolic GEMM (output-stationary) | 0 | 1,495 s | — | — |
+| multi-cache GEMM | 0 | 1,177 s | — | — |
+| tiled GEMM | 0 | 1,557 s | — | — |
+| mini-TPU MXU | 0 | 867 s | 262 | 114,401 |
+| attention-PV | 0 | 1,028 s | 256 | 112,924 |
+
+The attention baseline is worth a note because it first passed in **49 s with 9
+DSPs**, which is not a 16×16 array. Its `DATAFLOW` pragma sat inside a bare
+block, where Vitis emits `HLS 207-5571` and synthesises the region sequentially
+-- a success return for the wrong architecture. Moving the region into its own
+function gives the 260 dataflow processes the design wants. A green return code
+was not evidence the baseline was the intended design, and neither the line
+count nor the reduction in Table 5 would have been wrong -- only the claim that
+the baseline had been verified.

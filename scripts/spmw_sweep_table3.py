@@ -202,6 +202,20 @@ def points_for(family, dims, depth):
                 (f"attn_G{groups}", attention_pv(rows, cols, groups, 64),
                  passes * (64 + rows + cols))
             )
+    elif family == "fft":
+        # The knob the draft names is "spatial/fold factor". Only the spatial
+        # half is buildable today -- the folded form needs a brick several
+        # butterflies share, which `shard` cannot express -- so this sweeps the
+        # spatial size, which changes area and throughput without touching the
+        # butterfly body.
+        from test_spmw_fft import fft_stream_of  # pylint: disable=import-outside-toplevel
+
+        for n in (8, 16, 32, 64):
+            stages = n.bit_length() - 1
+            batch = 8
+            # Batch-pipelined: one transform per cycle once the stage pipeline
+            # has filled, and a butterfly's float add costs about 4 cycles.
+            out.append((f"fft_n{n}", fft_stream_of(n, batch), batch + stages * 4))
     else:
         raise SystemExit(f"unknown family {family!r}")
     return out
@@ -291,7 +305,7 @@ def main():
     ap.add_argument("--jobs", type=int, default=24)
     ap.add_argument("--depth", type=int, default=16)
     ap.add_argument("--shapes", default="4,8,16,32")
-    ap.add_argument("--family", default="mesh", choices=("mesh", "tiled", "attention"))
+    ap.add_argument("--family", default="mesh", choices=("mesh", "tiled", "attention", "fft"))
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
