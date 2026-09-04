@@ -2978,3 +2978,55 @@ implementation currently expresses the reuse.
 The honest summary for Fig. 10 is that **the throughput axis measures memory
 and launch structure, not the generated array**, on both sides. The area and
 timing comparison is what carries the fidelity claim.
+
+### Fig. 10, the AutoSA comparison done properly: all three placed and routed
+
+Same part, same 3.333 ns (300 MHz) target, same Vivado flow through
+`route_design`.
+
+| design | arithmetic | LUT | FF | DSP | achieved | WNS | 300 MHz |
+|--------|-----------|----:|---:|----:|---------:|----:|:-------:|
+| SPMW daisy chain | int16 | 140,515 | 147,353 | 256 | 2.942 ns (340 MHz) | +0.391 ns | yes |
+| SPMW AutoSA-matched | int8→int32 | **39,471** | **24,112** | 256 | 2.846 ns (351 MHz) | +0.487 ns | yes |
+| AutoSA `mm16i8` | int8→int32 | 53,253 | 96,913 | 256 | 2.790 ns (358 MHz) | +0.543 ns | yes |
+
+**The daisy chain closes 300 MHz** with 0.391 ns of margin, which was the
+question. At matched arithmetic SPMW uses **26% fewer LUTs and 75% fewer
+registers** than AutoSA, with all three at exactly 256 DSPs -- one per PE -- so
+nothing is being traded between LUTs and DSPs.
+
+Two corrections to what this file said earlier, both from comparing an HLS
+estimate against a post-route number:
+
+**AutoSA does not miss timing.** The −0.25 ns slack quoted before is Vitis HLS's
+*estimate* at the 300 MHz target. Placed and routed it makes **+0.543 ns** --
+more margin than either SPMW design. Any claim that SPMW closes timing where
+AutoSA does not is wrong.
+
+**AutoSA is not 168,680 LUTs.** That is the HLS estimate; post-route it is
+**53,253**, 3.2× lower. The earlier "SPMW is 35% smaller than AutoSA" compared a
+post-route SPMW number against an HLS-estimated AutoSA one and is not a valid
+comparison. The honest figure is the 26% above, measured the same way on both
+sides.
+
+Two asymmetries remain, and they pull in opposite directions, so the 26% is a
+range rather than a point:
+
+- **AutoSA carries a DRAM interface and SPMW does not.** `A_IO_L3_in` and the
+  AXI masters are inside AutoSA's 53,253; the SPMW array ends at its edge
+  streams. This inflates AutoSA.
+- **SPMW carries a harness and AutoSA does not.** AutoSA's `kernel0` exposes
+  1,289 I/O ports -- more than the part has pins -- so `place_design` refused it
+  outright (`IO Placement failed due to overutilization`) and it had to be run
+  out-of-context, which inserts no I/O buffers and adds no driver logic. The
+  SPMW numbers include their per-channel LFSR drivers. This inflates SPMW.
+
+The second was chosen deliberately in AutoSA's favour: if SPMW still comes out
+smaller with its own overhead counted and AutoSA's excluded, the direction is
+safe even though the magnitude is not exact.
+
+The int16 daisy row is not comparable to AutoSA -- it is the arithmetic of the
+Allo reference (`tests/dataflow/test_daisy_chain_gemm.py`), and its 140,515 LUTs
+are mostly int16 multipliers and the 256-bit packed column its drain chain
+carries. It is here because it answers the frequency question for that design,
+not because it belongs in the same row as an int8 array.
