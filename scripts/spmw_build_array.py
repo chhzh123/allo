@@ -216,6 +216,15 @@ def design(name, size):
         from test_spmw_gpt_stage import gpt_stage_of
 
         return gpt_stage_of(size)
+    if name == "gptstage16k64":
+        # The 16x16 stage engine with a 64-tile file: K=1024 in one sweep, one
+        # 16-column slab per launch, 8,192 steps; FFN2 is four passes chained
+        # through the bias. A quarter of the 256-tile file's registers, which
+        # is the difference between a link that finishes and one that spends
+        # hours legalising 2,048-bit FIFOs.
+        from test_spmw_gpt_stage import gpt_stage_of
+
+        return gpt_stage_of(size, kfile=64, rows=128, sweep=64, slabs=1)
     if name == "gptstage32":
         # The same stage engine on a 32x32 array with a 64-tile file: K=1024 in
         # one 32-tile sweep, two 32-column slabs per launch, 8,192 steps. The
@@ -800,6 +809,7 @@ def main():
             "transformer16",
             "gptstage",
             "gptstage32",
+            "gptstage16k64",
             "transformerN",
             "fft",
             "fftstream",

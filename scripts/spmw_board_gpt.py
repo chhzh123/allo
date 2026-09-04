@@ -33,19 +33,23 @@ CLOCK_HZ = 250e6
 SEQ, HID, FFN, HEADS, HEAD = 128, 1024, 4096, 16, 64
 LAYERS = 24
 
-#: stage -> (shape, launches per layer, MACs per layer)
+#: stage -> (shape, output features, reduction length, MACs per layer).
+#: Launches per layer come from the operand manifests: a launch covers
+#: `N` output features and `K` of the reduction, so a stage needs
+#: (features / N) * (reduction / K) of them -- which is how the same walk
+#: measures a 256-tile file (FFN2 in one pass) and a 64-tile one (four).
 STAGES = [
-    ("Q projection", "proj", HID // 64, SEQ * HID * HID),
-    ("K projection", "proj", HID // 64, SEQ * HID * HID),
-    ("V projection", "proj", HID // 64, SEQ * HID * HID),
-    ("scores K.Q^T", "score", HEADS * (SEQ // 64), HEADS * SEQ * HEAD * SEQ),
-    ("softmax: row max", "smax", HEADS * (SEQ // DIM), 0),
-    ("softmax: exp + sum", "ssum", HEADS * (SEQ // DIM), 0),
-    ("softmax: normalise", "snorm", HEADS * (SEQ // DIM), 0),
-    ("context P.V", "ctx", HEADS * (HEAD // 64), HEADS * SEQ * SEQ * HEAD),
-    ("output projection", "proj", HID // 64, SEQ * HID * HID),
-    ("FFN1", "proj", FFN // 64, SEQ * HID * FFN),
-    ("FFN2", "ffn2", HID // 16, SEQ * FFN * HID),
+    ("Q projection", "proj", HID, HID, SEQ * HID * HID),
+    ("K projection", "proj", HID, HID, SEQ * HID * HID),
+    ("V projection", "proj", HID, HID, SEQ * HID * HID),
+    ("scores K.Q^T", "score", SEQ * HEADS, HEAD, HEADS * SEQ * HEAD * SEQ),
+    ("softmax: row max", "smax", HEADS * SEQ, 0, 0),
+    ("softmax: exp + sum", "ssum", HEADS * SEQ, 0, 0),
+    ("softmax: normalise", "snorm", HEADS * SEQ, 0, 0),
+    ("context P.V", "ctx", HEAD * HEADS, SEQ, HEADS * SEQ * SEQ * HEAD),
+    ("output projection", "proj", HID, HID, SEQ * HID * HID),
+    ("FFN1", "proj", FFN, HID, SEQ * HID * FFN),
+    ("FFN2", "ffn2", HID, FFN, SEQ * FFN * HID),
 ]
 HOST_SIDE = ["LayerNorm x2", "GELU"]
 
@@ -56,6 +60,8 @@ class Shape:
             meta = json.load(handle)
         self.name = meta["shape"]
         self.outs = meta["outs"]
+        self.n = meta.get("N", DIM)  # output features one launch covers
+        self.k = meta.get("K", 0)  # reduction length one launch covers
         self.fams = {f["name"]: f for f in meta["families"]}
         self.data = {}
         for name, fam in self.fams.items():
@@ -179,10 +185,15 @@ def main():
     )
     total = 0.0
     total_macs = 0
-    for label, shape, launches, macs in STAGES:
+    for label, shape, features, reduction, macs in STAGES:
         if shape not in per_launch:
             print("  %-20s %-6s %8s %12s" % (label, shape, "-", "no operands"))
             continue
+        sh = shapes[shape]
+        if shape in ("smax", "ssum", "snorm"):
+            launches = features // DIM  # one query-group of DIM lanes per launch
+        else:
+            launches = (features // sh.n) * max(1, reduction // max(sh.k, 1))
         secs = launches * per_launch[shape]
         total += secs
         total_macs += macs
