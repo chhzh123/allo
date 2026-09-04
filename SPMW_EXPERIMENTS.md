@@ -3378,3 +3378,12 @@ two passes chained through the bias and a layer is about 200 big launches of
 8,192 steps: the array time per layer is a quarter of the 16×16's and the
 launch overhead is about the same, so the layer would be roughly 12–15 ms
 before softmax. It is not linked; the two 16×16 netlists are.
+
+### A process-hygiene note, because it cost hours
+
+Stopping the first (scalar-feeder) link six minutes in killed the driver and
+the `v++` wrappers and not the `vivado` underneath: it was reparented and ran
+four and a half hours of place-and-route for a build nobody wanted, alongside
+the three real links. Found by listing every `vivado` process's
+`/proc/<pid>/cwd` and killing the ones under the abandoned directory. The
+stage-engine and reference links were all in placement at the time.
