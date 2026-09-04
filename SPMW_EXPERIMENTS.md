@@ -3494,3 +3494,26 @@ LUTRAM, and is the change this run argues for most strongly.
 
 The 64-tile hedge, a quarter of the LUTRAM, is the design to expect on the
 board first.
+
+### Why the 256-tile link takes hours in post-placement: the cell's FSM fans out
+
+The softmax netlist's placement log names it. Post-placement optimisation
+found **225 candidate high-fanout nets**, inserted 48 BUFGs, replicated 33
+drivers and skipped 176 for placement conflicts -- and the drivers it names
+are the cells' own HLS state registers:
+
+    INFO: [Place 46-45] Replicated bufg driver .../u_mac_r0_6_8/u/ap_CS_fsm_reg[0]_replica
+
+A cell's FSM state drives the write-enables of its weight file: with a
+256-entry LUTRAM that is a 256-way fan-out per cell, times 256 cells, and the
+"Replication" sub-phase that followed has run for more than five hours,
+single-threaded, on those nets. The 64-tile hedge has a quarter of the fan-out
+per cell and cleared the same sub-phase in minutes; it is through placement
+and routing as this is written.
+
+So the 256-tile file is expensive three ways that are all the same fact: the
+2,048-bit token is 2,048 flip-flops per cell, the 256-entry array is LUTRAM
+the placer could not always legalise, and its write-enables are a fan-out the
+post-placement optimiser drowns in. An element stream into a brick the fabric
+places as block RAM -- one write port, one enable -- removes all three, and is
+the design change these two links argue for.
