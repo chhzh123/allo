@@ -210,6 +210,12 @@ def design(name, size):
         from test_spmw_transformer import Shape
 
         return Shape(size, size).engine
+    if name == "gptstage":
+        # One GEMM stage of GPT-2 per launch: a 256-deep weight file per cell,
+        # MSWEEP over K=1024, four 16-column output slabs of 128 rows each.
+        from test_spmw_gpt_stage import gpt_stage_of
+
+        return gpt_stage_of(size)
     if name == "transformer16":
         # The same engine on a 16x16 array -- 272 instances, the same 12 roles.
         from test_spmw_transformer import BIG
@@ -784,6 +790,7 @@ def main():
             "tpuisa",
             "transformer",
             "transformer16",
+            "gptstage",
             "transformerN",
             "fft",
             "fftstream",
