@@ -3354,3 +3354,27 @@ running the reference's float softmax as integer passes on a matrix engine's
 lane, and a fair thing to say next to the number.
 
 Both netlists are linking: v1 (GEMMs only) and v2 (GEMMs and softmax).
+
+### The 32×32 stage engine, synthesised
+
+`--design gptstage32 --size 32 --synth` at 250 MHz: the same source with two
+numbers changed -- a 32-wide array and a 64-tile weight file, so a launch is
+one 32-tile sweep of K=1024 over two 32-column slabs, 8,192 steps.
+
+| | | of the U280 |
+|---|---:|---:|
+| instances / roles | 1,056 / 12 | |
+| CLB LUTs | 363,600 | 27.9% |
+| CLB registers | 717,724 | 27.5% |
+| DSP | 1,024 | 11.3% |
+| achieved clock | 2.017 ns (496 MHz) | |
+| Vivado | 11,930 s | |
+
+Four times the 16×16's MACs per cycle -- 1,024 against the reference's ~1,500
+-- on 1,024 DSPs against its 1,776, and it closes 250 MHz with 1.98 ns to
+spare. The register count is the weight-file transport again: 512-bit tokens
+this time, so 1,056 × 512 ≈ 540k of the 718k. With the 64-tile file, FFN2 is
+two passes chained through the bias and a layer is about 200 big launches of
+8,192 steps: the array time per layer is a quarter of the 16×16's and the
+launch overhead is about the same, so the layer would be roughly 12–15 ms
+before softmax. It is not linked; the two 16×16 netlists are.
