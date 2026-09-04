@@ -145,27 +145,45 @@ def feeder_cpp(fam):
     cap = max(1024, 1 << (max(width, BEAT) - 1).bit_length())
     depth = beats_of(fam)
     if token_beats == 1:
-        # Narrow tokens: one flat loop over tokens, a beat fetched (or flushed)
-        # every `per_beat` of them, at II=1 with the load predicated.
+        # Narrow tokens: `tpc` of them per cycle -- as many as fit a beat, and
+        # never more than there are channels, so the tokens handled in one
+        # cycle land in distinct FIFOs. A step of sixteen int8 activations
+        # therefore leaves in one cycle, which is the rate the array takes it;
+        # one token per cycle was sixteen cycles a step, and the array idled
+        # fifteen of them.
+        tpc = min(channels, per_beat)
+        if per_beat % tpc or channels % tpc:
+            raise ValueError(
+                f"`{name}`: {channels} channel(s) of {width} bits do not tile a "
+                f"{BEAT}-bit beat evenly."
+            )
         if reads:
             body = (
                 f"    if (n % {per_beat} == 0)\n"
                 f"      beat = src[n / {per_beat}];\n"
-                f"    {port}[n % {channels}].write(\n"
-                f"        beat.range((n % {per_beat}) * {width} + {width - 1}, "
-                f"(n % {per_beat}) * {width}));"
+                f"    for (int k = 0; k < {tpc}; k++) {{\n"
+                f"#pragma HLS unroll\n"
+                f"      int m = n + k;\n"
+                f"      {port}[m % {channels}].write(\n"
+                f"          beat.range((m % {per_beat}) * {width} + {width - 1}, "
+                f"(m % {per_beat}) * {width}));\n"
+                f"    }}"
             )
         else:
             body = (
-                f"    beat.range((n % {per_beat}) * {width} + {width - 1}, "
-                f"(n % {per_beat}) * {width}) = {port}[n % {channels}].read();\n"
-                f"    if (n % {per_beat} == {per_beat - 1} || n == total - 1)\n"
+                f"    for (int k = 0; k < {tpc}; k++) {{\n"
+                f"#pragma HLS unroll\n"
+                f"      int m = n + k;\n"
+                f"      beat.range((m % {per_beat}) * {width} + {width - 1}, "
+                f"(m % {per_beat}) * {width}) = {port}[m % {channels}].read();\n"
+                f"    }}\n"
+                f"    if ((n + {tpc}) % {per_beat} == 0 || n + {tpc} >= total)\n"
                 f"      dst[n / {per_beat}] = beat;"
             )
         loop = (
             f"  const int total = steps * {channels};\n"
             f"  ap_uint<{BEAT}> beat = 0;\n"
-            f"  for (int n = 0; n < total; n++) {{\n"
+            f"  for (int n = 0; n < total; n += {tpc}) {{\n"
             f"#pragma HLS pipeline II=1\n"
             f"{body}\n"
             f"  }}"

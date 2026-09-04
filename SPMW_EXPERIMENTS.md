@@ -3231,3 +3231,39 @@ is per DSP -- or a 32×32 stage engine, which is one number in the source.
 against 4.000 ns (WNS +1.564 ns)** -- the array would close at 400 MHz. The
 256-entry weight file per cell is a LUTRAM, not the block RAM the cell count
 might suggest; utilization is recorded with the board result.
+
+### Sixteen cycles a step, and the register count: two costs of the transport
+
+With the dense-stream feeder both launches pass bit-exact, and the testbench's
+timestamps give the cost directly: 524,406 cycles for the 32,768-step
+projection launch and 32,886 for the 2,048-step score launch -- **16.0 cycles
+per activation step**, the array's width exactly. The feeder dealt one token
+per cycle across sixteen channels; the array takes a step per cycle. It now
+deals a whole step per cycle -- as many tokens as fit a beat and never more
+than there are channels, so one cycle's tokens land in distinct FIFOs.
+
+Reference region 1 came back too: 528,389 cycles, so the reference layer is
+max(528k, 602k, 2,109k) = **2.11M cycles, 8.4 ms** at 250 MHz, as estimated by
+the same HLS.
+
+The 16×16 stage engine synthesised at 250 MHz:
+
+| | | of the U280 |
+|---|---:|---:|
+| CLB LUTs | 210,992 | 16.2% |
+| CLB registers | 578,284 | 22.2% |
+| LUT as memory | 21,004 | 3.5% |
+| BRAM | 0 | 0% |
+| DSP | 256 | 2.8% |
+| achieved clock | 2.436 ns (410 MHz) | |
+
+The registers are the weight file's transport. A cell receives its 256-tile
+file as one `hls::vector<int8_t, 256>` token -- 2,048 bits -- and every
+wide-token stage is 2,048 flip-flops; 256 cells × 2,048 is 524k of the 578k.
+Per cell the csynth report says it plainly: 2,145 registers, against a
+"Memory" row of 8. Delivered as a stream of 256 int8 elements into a local
+RAM the same file would be ~32 LUTs of LUTRAM per cell. That is the transport
+a brick should use above a few words, it is what would make a 32×32 stage
+engine fit (four times 22% does not), and it is the next design change. At
+16×16 the design fits with room, so the board result goes ahead on this
+transport.
