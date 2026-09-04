@@ -28,14 +28,23 @@ import allo.spmw as spmw
 from allo.ir.types import int8, int32
 
 from test_spmw_tpu_isa import (
+    ACCZ,
+    ADD,
+    EXP2,
     LOADB,
     LOADI,
+    LOADR,
+    LOADZ,
+    MAX,
+    MUL,
     NB,
     NOP,
     NPROG,
+    RCP_BITS,
     REGS,
     SHR,
     STORE,
+    SUB,
     VpuIO,
     vpu_header,
     vpu_word,
@@ -160,6 +169,16 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
             spare: int32 = io.op_in.get()
             io.op_out.put(spare)
 
+        # The pass reciprocal, once per launch -- see test_spmw_tpu_isa for why
+        # it does not belong inside the dispatch.
+        denom: int32 = io.b[1]
+        rcp: int32 = 0
+        if denom > 0:
+            rcp = (1 << RCP_BITS) // denom
+
+        # The register file survives from one row to the next, so a program can
+        # reduce down a lane's rows -- a running maximum, a running sum -- which
+        # is how softmax runs on the same netlist as the GEMMs.
         reg: int32[REGS]
         for _m in range(nouts):
             for pc2 in range(plen):
@@ -178,12 +197,36 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                         zz: int32 = io.z_in.get()
                         acc = acc + zz
                     reg[dst] = acc
+                elif opcode == ACCZ:
+                    z1: int32 = io.z_in.get()
+                    reg[dst] = reg[dst] + z1
+                elif opcode == LOADZ:
+                    z2: int32 = io.z_in.get()
+                    reg[dst] = z2
                 elif opcode == LOADB:
                     reg[dst] = io.b[src]
                 elif opcode == LOADI:
                     reg[dst] = imm
+                elif opcode == ADD:
+                    reg[dst] = reg[dst] + reg[src]
+                elif opcode == SUB:
+                    reg[dst] = reg[dst] - reg[src]
+                elif opcode == MUL:
+                    reg[dst] = reg[dst] * reg[src]
+                elif opcode == MAX:
+                    if reg[src] > reg[dst]:
+                        reg[dst] = reg[src]
                 elif opcode == SHR:
                     reg[dst] = reg[dst] >> imm
+                elif opcode == EXP2:
+                    e: int32 = reg[dst]
+                    if e < 0:
+                        e = 0
+                    if e > 30:
+                        e = 30
+                    reg[dst] = 1 << e
+                elif opcode == LOADR:
+                    reg[dst] = rcp
                 elif opcode == STORE:
                     io.y_out.put(reg[dst])
 
@@ -300,6 +343,31 @@ def test_a_launch_may_be_smaller_than_the_buffer():
     assert proj[3].shape[0] - 1 == 512 and ffn2[3].shape[0] - 1 == 128  # words
     header_rows = lambda v: int(v[0]) >> 16  # noqa: E731
     assert header_rows(proj[4]) == 512 and header_rows(ffn2[4]) == 128
+
+
+def running_max_vprog(sweep, outs, depth=NPROG):
+    """Per row: fold the sweep into r1, keep the running max in r0, emit r0."""
+    prog = [(LOADI, 1, 0, 0), (ACCN, 1, 0, sweep), (MAX, 0, 1, 0), (STORE, 0, 0, 0)]
+    words = [vpu_word(*p) for p in prog]
+    body = words + [vpu_word(NOP)] * (depth - len(words))
+    return np.array([vpu_header(outs, len(words))] + body, dtype=np.int32)
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_a_reduction_down_the_rows(target):
+    """A softmax needs a running maximum over a lane's rows; the register file
+    carries it, so the same netlist that sweeps a GEMM does the reduction."""
+    dim, K, N, R, kfile = 4, 16, 4, 6, 16
+    X, Wm = _case(dim, K, N, R, kfile, seed=9)
+    A, W, bias, mprog, _v, full = stage_operands(X, Wm, dim, kfile, shift=0)
+    vprog = running_max_vprog(K // dim, R)
+    eng = stage_engine(dim, kfile, outs=R, sweep=K // dim)
+    Y = np.zeros((R, dim), dtype=np.int32)
+    spmw.build(eng, target=target)(A, W, bias, mprog, vprog, Y)
+    # r0 starts wherever the register file did, so compare from the second
+    # row: a prefix maximum of the true dot products, per lane.
+    want = np.maximum.accumulate(full, axis=0)
+    np.testing.assert_array_equal(Y[1:], np.maximum(want[1:], Y[0]))
 
 
 def test_roles_do_not_grow_with_the_file():
