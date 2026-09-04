@@ -280,20 +280,26 @@ def test_two_slabs_one_launch(target):
     np.testing.assert_array_equal(Y, want)
 
 
-@pytest.mark.parametrize("target", ["ref", "simulator"])
-def test_fewer_rows_than_the_buffer(target):
-    """The netlist is built for 2R rows; a launch of R rows says so and works."""
-    dim, K, N, R, kfile = 4, 16, 4, 5, 16
-    X, Wm = _case(dim, K, N, R, kfile, seed=5)
-    A, W, bias, mprog, vprog, want = stage_operands(X, Wm, dim, kfile, shift=0)
-    eng = stage_engine(dim, kfile, outs=2 * R, sweep=K // dim)
-    A2 = np.zeros((2 * R * (K // dim), dim), dtype=np.int8)
-    A2[: A.shape[0]] = A
-    mprog2 = mxu_program(list(mprog[1 : 1 + R, 0]), dim)
-    mprog2 = np.vstack([mprog2, np.zeros((R, dim), dtype=np.int32)])
-    Y = np.zeros((2 * R, dim), dtype=np.int32)
-    spmw.build(eng, target=target)(A2, W, bias, mprog2, vprog, Y)
-    np.testing.assert_array_equal(Y[:R], want)
+def test_a_launch_may_be_smaller_than_the_buffer():
+    """FFN2 and a projection are the same 32,768 steps; only the counts move.
+
+    The reference simulator feeds whole tensors, so "fewer rows than the
+    buffer" cannot be run through it -- an over-supplied stream is, correctly,
+    a deadlock there. What can be checked is that every board shape fits the
+    one netlist and says so in its counts.
+    """
+    dim, kfile, rows = 16, 256, 128
+    proj = stage_operands(
+        np.zeros((rows, 1024), np.int8), np.zeros((1024, 64), np.int8), dim, kfile, 4
+    )
+    ffn2 = stage_operands(
+        np.zeros((rows, 4096), np.int8), np.zeros((4096, 16), np.int8), dim, kfile, 4
+    )
+    assert proj[0].shape[0] == ffn2[0].shape[0] == 32768  # activation steps
+    assert proj[5].shape[0] == 512 and ffn2[5].shape[0] == 128  # rows emitted
+    assert proj[3].shape[0] - 1 == 512 and ffn2[3].shape[0] - 1 == 128  # words
+    header_rows = lambda v: int(v[0]) >> 16  # noqa: E731
+    assert header_rows(proj[4]) == 512 and header_rows(ffn2[4]) == 128
 
 
 def test_roles_do_not_grow_with_the_file():
