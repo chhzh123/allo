@@ -3267,3 +3267,23 @@ a brick should use above a few words, it is what would make a 32×32 stage
 engine fit (four times 22% does not), and it is the next design change. At
 16×16 the design fits with room, so the board result goes ahead on this
 transport.
+
+### The stage kernel at speed, in simulation
+
+Whole-step feeder, packaged kernel against behavioural AXI RAM, both launches
+bit-exact:
+
+| launch | activation steps | result rows | cycles | cycles / step |
+|---|---:|---:|---:|---:|
+| score (per head, K=64) | 2,048 | 512 | 11,120 | 5.43 |
+| projection (K=1024, four slabs) | 32,768 | 512 | 41,840 | **1.28** |
+
+The ~9,000-cycle floor is the launch's fixed cost -- the 256-channel weight
+file (1,024 beats), the program, the array's fill and drain -- and the
+projection launch amortises it to 28% over the array's own 32,768 cycles. At
+250 MHz that is 167 µs of kernel time per projection launch; with the ~20 µs
+PCIe launch measured earlier, a layer's 128 projection-shaped launches, 64
+FFN2 launches and 48 attention launches project to about **39 ms** on the
+board, against 8,287 ms tiled on the same array.
+
+The link for the U280 is running.
