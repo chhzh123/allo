@@ -3517,3 +3517,28 @@ the placer could not always legalise, and its write-enables are a fan-out the
 post-placement optimiser drowns in. An element stream into a brick the fabric
 places as block RAM -- one write port, one enable -- removes all three, and is
 the design change these two links argue for.
+
+### The second 256-tile link failed too, the other way round
+
+`gptkern_v2` (256-tile file, full lane opcodes) failed after 12 h 39 m, in
+`phys_opt_design` after placement had finally finished:
+
+    ERROR: [Place 30-838] The following clock nets need to use the same clock
+    routing resource, as their clock buffer sources are locked to sites that
+    use the same routing track.
+    ERROR: [Place 30-678] Failed to do clock region partitioning: failed to
+    resolve clock partition contention for locked clock sources.
+
+The chain is the one the placement log already showed. Post-placement
+optimisation found 225 high-fanout nets -- the cells' FSM state registers
+driving 256-entry weight files -- and put **48 of them on BUFGs**, global
+clock-routing resources. Those then had to share clock tracks with the
+platform's own locked clock buffers, and could not.
+
+So the 256-tile transport killed both links from the same cause by two
+routes: the LUTRAM the placer could not legalise (v1, 8 h 45 m), and the
+fan-out the optimiser tried to fix with global buffers (v2, 12 h 39 m). The
+64-tile file has a quarter of both and is in its last routing iterations. The
+board result for the stage engine is that netlist -- 16×16, 64 tiles, GEMMs
+and softmax -- and it is the right one to report: the 256-tile design was
+correct in simulation and wrong for the silicon, and the reason is recorded.
