@@ -588,7 +588,14 @@ def kernel_xml(args, widths, name="spmw_kernel"):
 
 
 def kernel_testbench(
-    graph, args, widths, operands, expected, counts=None, top="spmw_kernel"
+    graph,
+    args,
+    widths,
+    operands,
+    expected,
+    counts=None,
+    top="spmw_kernel",
+    preload="inline",
 ):
     """The kernel against behavioural DRAM, so a stall can be seen.
 
@@ -605,6 +612,12 @@ def kernel_testbench(
     of counts against the same netlist, and a bench that always wrote the
     elaborated ones would over-supply -- which the array survives, because its
     shape comes from the instruction stream, but the feeders then never finish.
+
+    ``preload`` is how the memories get their bytes. ``"inline"`` writes one
+    assignment per byte, which reads well for a 16-step pass and is a
+    650,000-line file for a stage launch; ``"hex"`` emits ``$readmemh`` of
+    ``<dma name>.hex`` beside the bench (one byte per line) and compares the
+    drain against ``expected.hex`` the same way. The caller writes the files.
     """
     counts = counts or {}
     fams = families(graph)
@@ -729,6 +742,9 @@ def kernel_testbench(
         if not fam["reads"]:
             continue
         lines.append(f"    // {_dma_name(fam)}: {len(raw)} bytes")
+        if preload == "hex":
+            lines.append(f'    $readmemh("{_dma_name(fam)}.hex", u_ram{index}.mem);')
+            continue
         for addr, byte in enumerate(raw):
             lines.append(f"    u_ram{index}.mem[{addr}] = 8'd{byte};")
     lines.append("")
@@ -762,10 +778,21 @@ def kernel_testbench(
         "      integer bad;",
         "      bad = 0;",
     ]
-    for addr, byte in enumerate(expected):
-        lines.append(
-            f"      if (u_ram{drain_index}.mem[{addr}] !== 8'd{byte}) bad = bad + 1;"
-        )
+    if preload == "hex":
+        lines += [
+            f"      begin : expected_block",
+            f"        reg [7:0] exp [0:{max(len(expected), 1) - 1}];",
+            "        integer k;",
+            '        $readmemh("expected.hex", exp);',
+            f"        for (k = 0; k < {len(expected)}; k = k + 1)",
+            f"          if (u_ram{drain_index}.mem[k] !== exp[k]) bad = bad + 1;",
+            "      end",
+        ]
+    else:
+        for addr, byte in enumerate(expected):
+            lines.append(
+                f"      if (u_ram{drain_index}.mem[{addr}] !== 8'd{byte}) bad = bad + 1;"
+            )
     lines += [
         '      $display("SPMW TB RESULT %0d of %0d byte(s) wrong",'
         f" bad, {len(expected)});",
