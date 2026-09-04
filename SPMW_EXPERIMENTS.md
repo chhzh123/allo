@@ -3452,3 +3452,20 @@ so it runs the softmax passes too. Packaged and simulated in twenty minutes:
 Its link is running beside the other two. Whichever lands first goes to the
 board; the walker now takes a launch's coverage from the operand manifest, so
 one script measures all of them.
+
+### Where things stood when the network dropped (2026-09-04 ~13:55 ET)
+
+The path to both Cornell hosts stopped answering -- ping and SSH time out,
+DNS resolves -- with everything below running detached on brg-zhang-xcel:
+
+- `gptkern2` (16×16, 256-tile file, GEMMs only): v++ link, Vivado placement
+  Phase 3.2, ~6.5 h in; watcher `board_v1.sh` armed for 24 h.
+- `gptkern_v2` (same, full lane opcodes): v++ link, Phase 3.2, ~6 h in;
+  watcher `board_v2.sh` armed.
+- `gptkern_k64` (16×16, 64-tile file, full opcodes): v++ link launched 13:41,
+  in logic synthesis; watcher `board_k64.sh` armed.
+- The reference has already run: 11.59 ms one layer, 288.3 ms for 24.
+
+Each watcher writes `/scratch/hc676/board_*.log` and ends it with a DONE
+marker, so whatever lands while the link is dark is recorded and can be read
+back afterwards.
