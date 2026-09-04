@@ -61,6 +61,10 @@ class Argument:
         return f"Argument({self.name}, {kind}, {self.bits}b, @{self.offset:#04x})"
 
 
+#: The most tokens an edge FIFO buffers between a feeder and the array.
+EDGE_DEPTH = 1024
+
+
 def arguments(graph):
     """The kernel's arguments: a pointer per family, then a count per family.
 
@@ -406,7 +410,15 @@ def _edge_wires(fam, plan):
     width = _width(fam)
     span = f"[{width - 1}:0] "
     name = fam.name
-    depth = max(2, plan["steps"])
+    # "One whole pass" was the right size when a pass was 32 steps. A stage
+    # engine's pass is 32,768, and a 32,768-deep FIFO on each of sixteen
+    # activation channels is half a megabyte of block RAM for a buffer that
+    # only ever needs to cover the array's skew -- the last row is sixteen
+    # steps behind the first, not thirty thousand. So the depth is the pass or
+    # EDGE_DEPTH, whichever is smaller; a feeder that outruns it blocks on a
+    # full FIFO and resumes, which is a stall rather than the deadlock, because
+    # every row's FIFO is now deep enough for every other row to catch up.
+    depth = min(max(2, plan["steps"]), EDGE_DEPTH)
     lines = [
         f"  // {name}: {count} channel(s) of {width} bits between the "
         f"{'feeder' if plan['reads'] else 'drain'} and the array, "
