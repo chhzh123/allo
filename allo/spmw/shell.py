@@ -92,37 +92,73 @@ def feeder_cpp(fam):
     into it -- and it is the part that decides whether a bigger model needs a
     new bitstream. The channel *count* stays fixed: that is how many wires leave
     the array, which is hardware.
+
+    A token wider than any scalar -- a cell's 256-tile weight file is 2,048
+    bits -- is moved as ``ceil(width / 512)`` beats of the widest AXI word and
+    reassembled on the way into the stream. The host lays every token out as
+    contiguous little-endian bytes, so beat k is bits ``[512k, 512k+512)`` and
+    nothing has to agree on an order that is not already the byte order.
     """
     name, ctype = fam["name"], fam["ctype"]
-    if ctype is None:
-        raise ValueError(
-            f"`{name}` carries {fam['width']}-bit tokens, which have no scalar C "
-            f"type, so this family cannot be moved by a generated DMA feeder. "
-            f"Split it into lanes, or drive it from the harness instead."
-        )
-    port = "out" if fam["reads"] else "in"
-    body = (
-        f"      {port}[c].write(src[t * {fam['channels']} + c]);"
-        if fam["reads"]
-        else f"      dst[t * {fam['channels']} + c] = {port}[c].read();"
-    )
-    buf = "const %s *src" % ctype if fam["reads"] else "%s *dst" % ctype
+    width = fam["width"]
+    channels = fam["channels"]
+    reads = fam["reads"]
+    port = "out" if reads else "in"
     total = fam["channels"] * fam["steps"]
-    return f"""#include <hls_stream.h>
-#include <stdint.h>
+    if ctype is not None:
+        elem = ctype
+        beats = 1
+        depth = total
+        includes = "#include <hls_stream.h>\n#include <stdint.h>"
+        body = (
+            f"      {port}[c].write(src[t * {channels} + c]);"
+            if reads
+            else f"      dst[t * {channels} + c] = {port}[c].read();"
+        )
+        buf = f"const {elem} *src" if reads else f"{elem} *dst"
+    else:
+        elem = f"ap_uint<{width}>"
+        beats = -(-width // 512)
+        depth = total * beats
+        cap = max(1024, 1 << (width - 1).bit_length())
+        includes = (
+            f"#define AP_INT_MAX_W {cap}\n#include <ap_int.h>\n"
+            "#include <hls_stream.h>\n#include <stdint.h>"
+        )
+        if reads:
+            body = (
+                f"      {elem} tok;\n"
+                f"      for (int b = 0; b < {beats}; b++) {{\n"
+                f"#pragma HLS unroll\n"
+                f"        tok.range(b * 512 + 511, b * 512) = "
+                f"src[(t * {channels} + c) * {beats} + b];\n"
+                f"      }}\n"
+                f"      {port}[c].write(tok);"
+            )
+        else:
+            body = (
+                f"      {elem} tok = {port}[c].read();\n"
+                f"      for (int b = 0; b < {beats}; b++) {{\n"
+                f"#pragma HLS unroll\n"
+                f"        dst[(t * {channels} + c) * {beats} + b] = "
+                f"tok.range(b * 512 + 511, b * 512);\n"
+                f"      }}"
+            )
+        buf = "const ap_uint<512> *src" if reads else "ap_uint<512> *dst"
+    return f"""{includes}
 
-// {name}: {fam['channels']} channel(s) x `steps` token(s) of {fam['width']} bits,
+// {name}: {channels} channel(s) x `steps` token(s) of {width} bits,
 // from `{fam['tensor']}`, laid out by the host in the order the channels read.
 // {fam['steps']} is what this design was elaborated with and sizes the burst
 // depth; the loop itself runs as far as the host says.
 extern "C" {{
-void {_dma_name(fam)}({buf}, int steps, hls::stream<{ctype}> {port}[{fam['channels']}]) {{
-#pragma HLS interface m_axi port={'src' if fam['reads'] else 'dst'} \
-offset=direct bundle=gmem depth={total}
+void {_dma_name(fam)}({buf}, int steps, hls::stream<{elem}> {port}[{channels}]) {{
+#pragma HLS interface m_axi port={'src' if reads else 'dst'} \
+offset=direct bundle=gmem depth={depth}
 #pragma HLS interface ap_none port=steps
   for (int t = 0; t < steps; t++) {{
-    for (int c = 0; c < {fam['channels']}; c++) {{
-#pragma HLS pipeline II=1
+    for (int c = 0; c < {channels}; c++) {{
+#pragma HLS pipeline II={beats}
 {body}
     }}
   }}

@@ -264,7 +264,8 @@ def feeder_tcl(fam, part, period):
     of its own: this feeder is not the kernel, it is one master inside it, and
     the kernel's own slave supplies the pointer.
     """
-    total = fam["channels"] * fam["steps"]
+    beats = 1 if fam["ctype"] is not None else -(-fam["width"] // 512)
+    total = fam["channels"] * fam["steps"] * beats
     return f"""open_project prj
 set_top {_dma_name(fam)}
 add_files kernel.cpp
