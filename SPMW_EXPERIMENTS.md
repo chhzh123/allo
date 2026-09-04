@@ -3387,3 +3387,26 @@ four and a half hours of place-and-route for a build nobody wanted, alongside
 the three real links. Found by listing every `vivado` process's
 `/proc/<pid>/cwd` and killing the ones under the abandoned directory. The
 stage-engine and reference links were all in placement at the time.
+
+### The reference, on the board
+
+The artifact's three GPT kernels, compiled and linked the way its makefile
+links the BERT ones -- 250 MHz, `-O3`, `kernel.cfg` for the SLR placement, HBM
+banks and inter-kernel streams -- with the sixteen stand-in constant headers.
+Compiles took 25, 26 and 52 minutes; the link took **22,027 s (6.1 h)**. The
+artifact's own host program, built against XRT 2.15, on the same U280 (device
+0):
+
+| | wall clock, OpenCL event on the last kernel |
+|---|---:|
+| one layer | **11.59 ms** |
+| 24 layers | **288.3 ms** (12.01 ms/layer) |
+
+`TEST PASSED` is the host's own verdict; it checks that the pipeline completes,
+not the numbers, since with stand-in scales there is nothing to check against.
+
+Against the HLS estimate of 8.44 ms/layer at 250 MHz this is 1.37× slower.
+The difference is what an estimate leaves out: HBM latency on the weight
+loaders, the AXI-stream handoffs between three kernels on three SLRs, and
+whichever clock the link actually closed (recorded below). It is the number
+the SPMW design has to be measured against, on the same board, the same day.
