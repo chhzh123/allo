@@ -3106,3 +3106,49 @@ a slow array: a pass can only use the one 16×16 weight tile resident in the
 cells, so a K=1024 reduction is 64 separate launches per 16×16 output tile,
 each carrying 16 cycles of work behind ~20 µs of PCIe. The array is idle 99.7%
 of the time waiting for the host.
+
+### The design: a stage engine, and why it is the efficient one
+
+The reference reaches M = 256 MACs/cycle by spreading six 8×16 arrays (two
+MACs per DSP by bit-packing) over three SLRs so that every stage of a layer
+runs concurrently. Nothing about the arithmetic needs six arrays; it needs one
+array of 256 MACs that never waits. The deployed SPMW engine is that array. What
+it lacked was a way to keep it fed: a pass could only use the one weight tile
+resident in the cells, so K=1024 was 64 launches per output tile and the array
+idled 99.7% of the time behind PCIe.
+
+`tests/dataflow/spmw/test_spmw_gpt_stage.py` is the same MXU and VPU with two
+changes that are *instructions*, not structure:
+
+- the cell's weight file is 256 tiles deep -- K=4096 in one file, or four
+  16-column output slabs of K=1024 -- and `MSWEEP base count` makes a cell run
+  `count` steps selecting tiles `base..base+count-1` in turn, so one program
+  word is a whole reduction;
+- the lane's `ACCN n` folds `n` partial sums in a tight loop at one per cycle.
+  Dispatching one `ACCZ` per psum ran the lane at II=2 and would have made the
+  vector unit the bottleneck of a matrix engine.
+
+A launch is therefore 32,768 activation steps producing 512 rows (four slabs of
+a K=1024 projection) or 128 rows (one slab of the K=4096 FFN2), on one netlist,
+told apart by two numbers in the stream. GPT-2 medium's layer becomes 192 such
+launches plus 48 small attention ones, against 401,408 before.
+
+**HLS, 16×16 (Vitis 2023.2, 250 MHz):** 12 roles, 272 instances, 18 units with
+the six DMA feeders. The cell's sweep loop is **II=1** over 0–65,535 trips; the
+lane's `ACCN` loop is **II=1**; the weight-file load is 256 trips at II=1. The
+cells cost 55 s of HLS each and the lanes 45 s, concurrently: 158 s for the
+whole kernel's HLS.
+
+Two things the packaging path had to learn on the way. A cell's weight file is
+a 2,048-bit token, wider than any scalar the generated DMA feeder knew, so it
+is now moved as four 512-bit AXI beats and reassembled -- the host already lays
+tokens out as contiguous little-endian bytes, so there is no order to agree on.
+And "one whole pass" is no longer a sane edge-FIFO depth: at 32,768 steps it was
+half a megabyte of block RAM to cover a sixteen-step skew, so the depth is
+capped at 1,024.
+
+Not on the device in this version, and reported as such rather than folded in:
+the softmax between the score and context GEMMs, GELU, and the two LayerNorms.
+The reference runs those in float on the FPGA. Here the accelerator's number
+covers the eight GEMMs, which are 99% of the layer's MACs; the omission is
+named in the host's output beside the stages it does run.
