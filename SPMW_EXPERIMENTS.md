@@ -3152,3 +3152,22 @@ the softmax between the score and context GEMMs, GELU, and the two LayerNorms.
 The reference runs those in float on the FPGA. Here the accelerator's number
 covers the eight GEMMs, which are 99% of the layer's MACs; the omission is
 named in the host's output beside the stages it does run.
+
+### The packaged stage kernel, simulated before it is linked
+
+`spmw_kernel_sim.py` on the `--sim` output, with the per-head score launch --
+2,048 activation steps, 512 result rows, a full 256-tile weight file moved as
+512-bit beats, and counts smaller than every buffer:
+
+    SPMW TB: done after 16443 poll(s)
+    SPMW TB RESULT 0 of 32768 byte(s) wrong
+
+Bit-exact against the reference simulator, in 31 s of xsim over 124 source
+files (the kernel, twelve role wrappers, their exported netlists and six
+feeders). Two things this checks that no unit test could: the 2,048-bit weight
+token survives the beat split and reassembly on both sides of the AXI, and a
+feeder that outruns the 1,024-deep edge FIFO -- this launch is 2,048 steps --
+stalls and resumes rather than deadlocking, which was the whole argument for
+capping the depth.
+
+That is the gate for the link. `v++ -l` at 250 MHz is running.
