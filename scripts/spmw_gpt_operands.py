@@ -69,7 +69,19 @@ def shapes_for(dim, kfile, slabs_max):
 
 def main():
     # pylint: disable=import-outside-toplevel
-    from test_spmw_gpt_stage import gpt_stage_of, stage_operands
+    from test_spmw_gpt_stage import (
+        EXP_BASE,
+        EXP_SHIFT,
+        PROB_BITS,
+        RCP_BITS,
+        NB,
+        gpt_stage_of,
+        normalise_vprog,
+        pass_operands,
+        row_max_vprog,
+        row_sum_vprog,
+        stage_operands,
+    )
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
@@ -177,6 +189,88 @@ def main():
         print(
             f"  {name:6s} K={K:<5d} N/launch={N:<3d} rows={rows} -> outs={outs} "
             f"steps={A.shape[0]} words={mprog.shape[0] - 1}"
+        )
+    # The three softmax passes: one query-group of `DIM` lanes, `ROWS` keys
+    # down the rows, through the identity tile. Self-consistent from one
+    # random group of scores, exactly as attention_head_ref computes them.
+    scores = rng.integers(-128, 128, size=(ROWS, DIM)).astype(np.int8)
+    i32 = np.int32
+    maxes = np.maximum(scores.max(axis=0), 0).astype(i32)
+    arg = np.clip(EXP_BASE + ((scores.astype(i32) - maxes) >> EXP_SHIFT), 0, 30)
+    exps = (np.int32(1) << arg).astype(i32)
+    sums = exps.sum(axis=0)
+    recip = np.where(sums > 0, (np.int32(1) << RCP_BITS) // np.maximum(sums, 1), 0)
+    probs_t = (exps * recip) >> (RCP_BITS - PROB_BITS)
+    running_max = np.maximum.accumulate(np.maximum(scores.astype(i32), 0), axis=0)
+    running_sum = np.cumsum(exps, axis=0)
+    passes = {
+        "smax": (row_max_vprog(ROWS), np.zeros((DIM, NB), i32), running_max),
+        "ssum": (
+            row_sum_vprog(ROWS),
+            np.stack([maxes, np.zeros(DIM, i32)], 1),
+            running_sum,
+        ),
+        "snorm": (normalise_vprog(ROWS), np.stack([maxes, sums], 1), probs_t),
+    }
+    for name, (vprog, bias, expected) in passes.items():
+        out_dir = os.path.join(args.out, name)
+        os.makedirs(out_dir, exist_ok=True)
+        A, W, b, mprog, vprog = pass_operands(scores, DIM, KFILE, vprog, bias)
+        a_full = np.zeros((STEPS, DIM), dtype=np.int8)
+        a_full[: A.shape[0]] = A
+        mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
+        mprog_full[: mprog.shape[0]] = mprog
+        y_full = np.zeros((words_max, DIM), dtype=np.int32)
+        y_full[: expected.shape[0]] = expected
+        arrays = {
+            "A": a_full,
+            "W": W,
+            "Bias": b,
+            "MProg": mprog_full,
+            "VProg": vprog,
+            "Y": y_full,
+        }
+        manifest = []
+        for fam in fams:
+            buf = host_buffer(fam, arrays)
+            dma = _dma_name(fam)
+            with open(os.path.join(out_dir, dma + ".bin"), "wb") as handle:
+                handle.write(buf)
+            tensor = fam["tensor"]
+            steps = fam["steps"]
+            if tensor == "MProg":
+                steps = mprog.shape[0]
+            elif tensor == "Y":
+                steps = expected.shape[0]
+            elif tensor == "A":
+                steps = A.shape[0]
+            manifest.append(
+                {
+                    "name": dma,
+                    "file": dma + ".bin",
+                    "bytes": len(buf),
+                    "reads": fam["reads"],
+                    "channels": fam["channels"],
+                    "steps": steps,
+                    "buffer_steps": fam["steps"],
+                    "tensor": tensor,
+                }
+            )
+        with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as h:
+            json.dump(
+                {
+                    "shape": name,
+                    "K": 0,
+                    "N": DIM,
+                    "rows": ROWS,
+                    "outs": int(expected.shape[0]),
+                    "families": manifest,
+                },
+                h,
+                indent=2,
+            )
+        print(
+            f"  {name:6s} softmax pass: {A.shape[0]} steps -> {expected.shape[0]} rows"
         )
     print("wrote", args.out)
 

@@ -9,11 +9,10 @@ reference simulator computed. Per-stage time is launches x the measured time
 of that shape's launch, with the weights re-fetched from HBM inside every
 launch exactly as a real walk would.
 
-What is *not* on the device in this version, and is reported as such: the
-softmax between the score and context GEMMs, GELU, and the two LayerNorms. The
-reference runs those in float on the FPGA; here the accelerator's time covers
-the GEMMs, which are 99% of the layer's MACs, and the rest is named as missing
-rather than folded in.
+Softmax runs on the device as three passes per query-group of sixteen
+lanes, through the identity tile. What is *not* on the device, and is reported
+as such: GELU and the two LayerNorms. The reference runs those in float on the
+FPGA; here they are named as missing rather than folded in.
 
 Deliberately numpy-free: pyxrt is built against the system Python.
 
@@ -38,13 +37,16 @@ STAGES = [
     ("Q projection", "proj", HID // 64, SEQ * HID * HID),
     ("K projection", "proj", HID // 64, SEQ * HID * HID),
     ("V projection", "proj", HID // 64, SEQ * HID * HID),
-    ("scores Q.K^T", "score", HEADS * (SEQ // 64), HEADS * SEQ * HEAD * SEQ),
+    ("scores K.Q^T", "score", HEADS * (SEQ // 64), HEADS * SEQ * HEAD * SEQ),
+    ("softmax: row max", "smax", HEADS * (SEQ // DIM), 0),
+    ("softmax: exp + sum", "ssum", HEADS * (SEQ // DIM), 0),
+    ("softmax: normalise", "snorm", HEADS * (SEQ // DIM), 0),
     ("context P.V", "ctx", HEADS * (HEAD // 64), HEADS * SEQ * SEQ * HEAD),
     ("output projection", "proj", HID // 64, SEQ * HID * HID),
     ("FFN1", "proj", FFN // 64, SEQ * HID * FFN),
     ("FFN2", "ffn2", HID // 16, SEQ * FFN * HID),
 ]
-HOST_SIDE = ["softmax (16 heads)", "LayerNorm x2", "GELU"]
+HOST_SIDE = ["LayerNorm x2", "GELU"]
 
 
 class Shape:
@@ -136,7 +138,7 @@ def main():
         return (time.time() - t) / n
 
     shapes = {}
-    for name in ("proj", "ffn2", "score", "ctx"):
+    for name in ("proj", "ffn2", "score", "ctx", "smax", "ssum", "snorm"):
         d = os.path.join(ops_root, name)
         if os.path.isdir(d):
             shapes[name] = Shape(d)
@@ -173,12 +175,22 @@ def main():
     total = 0.0
     total_macs = 0
     for label, shape, launches, macs in STAGES:
+        if shape not in per_launch:
+            print("  %-20s %-6s %8s %12s" % (label, shape, "-", "no operands"))
+            continue
         secs = launches * per_launch[shape]
         total += secs
         total_macs += macs
         print(
-            "  %-20s %-6s %8d %12.3f %12.1f %10.2f"
-            % (label, shape, launches, secs * 1e3, macs / 1e6, macs / secs / 1e9)
+            "  %-20s %-6s %8d %12.3f %12s %10s"
+            % (
+                label,
+                shape,
+                launches,
+                secs * 1e3,
+                "%.1f" % (macs / 1e6) if macs else "-",
+                "%.2f" % (macs / secs / 1e9) if macs else "-",
+            )
         )
     print(
         "  %-20s %-6s %8s %12.3f %12.1f %10.2f"
