@@ -595,6 +595,7 @@ def kernel_testbench(
     counts=None,
     top="spmw_kernel",
     preload="inline",
+    polls=200000,
 ):
     """The kernel against behavioural DRAM, so a stall can be seen.
 
@@ -611,6 +612,10 @@ def kernel_testbench(
     of counts against the same netlist, and a bench that always wrote the
     elaborated ones would over-supply -- which the array survives, because its
     shape comes from the instruction stream, but the feeders then never finish.
+
+    ``polls`` bounds the wait for ``ap_done``; a launch that needs more control
+    reads than that is reported as a timeout with the time it reached, which
+    is not the same thing as a hang and is printed so the two can be told apart.
 
     ``preload`` is how the memories get their bytes. ``"inline"`` writes one
     assignment per byte, which reads well for a 16-step pass and is a
@@ -759,20 +764,21 @@ def kernel_testbench(
             lines.append(f"    wr(32'h{arg.offset:02x}, 32'd{steps});")
     lines += [
         "",
-        '    $display("SPMW TB: starting");',
+        '    $display("SPMW TB: starting at %0t", $time);',
         "    wr(32'h00, 32'd1);",
         "    status = 0;",
-        "    for (i = 0; i < 200000 && !status[1]; i = i + 1) begin",
+        f"    for (i = 0; i < {polls} && !status[1]; i = i + 1) begin",
         "      rd(32'h00, status);",
         "    end",
         "    if (!status[1]) begin",
-        '      $display("SPMW TB TIMEOUT after %0d polls, ctrl=%h", i, status);',
+        '      $display("SPMW TB TIMEOUT after %0d polls at %0t, ctrl=%h",'
+        " i, $time, status);",
     ]
     drain_index = [i for i, f in enumerate(fams) if not f["reads"]][0]
     lines += [
         "      $finish;",
         "    end",
-        '    $display("SPMW TB: done after %0d poll(s)", i);',
+        '    $display("SPMW TB: done after %0d poll(s) at %0t", i, $time);',
         "    begin : compare",
         "      integer bad;",
         "      bad = 0;",

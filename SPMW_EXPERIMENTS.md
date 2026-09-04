@@ -3190,3 +3190,44 @@ four consecutive beats. Every feeder's master is 512 bits, the activation
 stream needs 32,768 beats for 32,768 steps, and the feeder is exactly as fast
 as the array it feeds. The first link, started on the old feeder, was stopped
 six minutes in.
+
+### The reference, synthesised on the same tool: what a layer costs it
+
+The artifact ships no GPT numbers, so its three region kernels were put
+through Vitis HLS 2023.2 at 250 MHz on `xcu280`, with size-correct stand-ins
+for the sixteen `const/buf*.h` headers it does not include (per-row scales and
+LayerNorm gamma/beta; values do not change latency or area). csynth estimates,
+cycles per layer:
+
+| region | process | cycles | ms @ 250 MHz |
+|---|---|---:|---:|
+| 2 | `Linear_layer_ds0` (output projection, 8×16 array) | 528,309 | 2.11 |
+| 2 | `Attention_layer` (16 heads, 8×8) | 293,201 | 1.17 |
+| 2 | `Context_layer` (16 heads, 8×8) | 281,937 | 1.13 |
+| 2 | `Softmax_layer` (float) | 141,569 | 0.57 |
+| 2 | **region total** (dataflow) | **602,205** | **2.41** |
+| 3 | `Linear_layer_ds1` (FFN1, 8×16) | 2,108,853 | 8.44 |
+| 3 | `Linear_layer_ds2` (FFN2, 8×16) | 2,104,261 | 8.42 |
+| 3 | `Gelu_layer` | 68,116 | 0.27 |
+| 3 | `Layer_norm1` | 67,772 | 0.27 |
+| 3 | **region total** (dataflow) | **2,108,920** | **8.44** |
+
+The regions stream into one another, so a layer's throughput is set by the
+slowest: **region 3, 8.4 ms per layer**, with regions 1 and 2 hidden behind it.
+HLS also reports negative slack on regions 2 and 3 (−0.87 and −0.25 ns) at
+250 MHz, which is consistent with the paper closing at 245.
+
+This corrects the framing used above. "M = 256 MACs/cycle" is *per array*: an
+8×16 array at two int8 MACs per DSP is 256 MACs/cycle, and the design has six
+of them for the linear layers plus the attention arrays, roughly **1,500
+MACs/cycle across 1,776 DSPs**. One 16×16 SPMW array is 256 MACs/cycle on 256
+DSPs. So at equal frequency the reference should be about six times faster per
+layer than a single 16×16 stage engine, and the comparison that means anything
+is per DSP -- or a 32×32 stage engine, which is one number in the source.
+
+### Stage engine, 16×16, synthesised
+
+`--design gptstage --size 16 --synth` at a 250 MHz target: **2.436 ns achieved
+against 4.000 ns (WNS +1.564 ns)** -- the array would close at 400 MHz. The
+256-entry weight file per cell is a LUTRAM, not the block RAM the cell count
+might suggest; utilization is recorded with the board result.

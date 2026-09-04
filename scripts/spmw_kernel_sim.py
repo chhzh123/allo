@@ -53,6 +53,7 @@ def main():
     parser.add_argument("--design", default="gptstage")
     parser.add_argument("--size", type=int, default=16)
     parser.add_argument("--top", default="spmw_kernel")
+    parser.add_argument("--polls", type=int, default=200000)
     args = parser.parse_args()
 
     graph = spmw.elaborate(design(args.design, args.size))
@@ -99,6 +100,7 @@ def main():
             counts=counts,
             top=args.top,
             preload="hex",
+            polls=args.polls,
         ),
     )
     _write(os.path.join(sim, "spmw_axi_ram.sv"), ram_module())
