@@ -3030,3 +3030,30 @@ Allo reference (`tests/dataflow/test_daisy_chain_gemm.py`), and its 140,515 LUTs
 are mostly int16 multipliers and the 256-bit packed column its drain chain
 carries. It is here because it answers the frequency question for that design,
 not because it belongs in the same row as an int8 array.
+
+### The daisy chain in AutoSA's arithmetic: one variable moved, and it cost 6.5×
+
+`--design daisy8` is `daisy_of(16, operand=int8, accum=int32)`: the same chained
+packed-column drain as the int16 daisy, the same int8→int32 as AutoSA and the
+AutoSA-matched design. Placed and routed at the same 3.333 ns target:
+
+| design | arithmetic | drain | LUT | FF | DSP | achieved | WNS |
+|--------|-----------|-------|----:|---:|----:|---------:|----:|
+| SPMW daisy (int8→int32) | int8→int32 | packed column, `int32[16]` = 512 b/token | **257,904** | 277,321 | 256 | 3.327 ns | **+0.006 ns** |
+| SPMW AutoSA-matched | int8→int32 | scalars forwarded, reverse row order | 39,471 | 24,112 | 256 | 2.846 ns | +0.487 ns |
+| AutoSA `mm16i8` (OOC) | int8→int32 | scalars (`C_drain_IO_L1_out`) | 53,253 | 96,913 | 256 | 2.790 ns | +0.543 ns |
+
+With arithmetic held fixed, the only thing that moved between the first two
+rows is how results leave the array, and it moved the LUT count by **6.5×** and
+ate all of the timing margin: 300 MHz closes by 6 ps, after a congestion
+iteration (`iter_3_CongestedCLBsAndNets.txt`), and Vivado took 4,417 s against
+1,053 s. The cost is structural: every one of the 256 PEs carries a 512-bit
+token through its drain FIFO, and there are 768 FIFOs. The int16 daisy's 256-bit
+token was already the widest thing in the design; doubling the accumulator
+doubled it again.
+
+So the answer to "can the daisy chain reach 300 MHz" is yes, barely, and the
+answer to "is it a fair AutoSA comparison" is that it is the *wrong structure*
+for one: AutoSA does not pass packed columns, and neither should a design that
+wants to be compared with it. The AutoSA-matched row is the like-for-like
+comparison, and it stands at 26% fewer LUTs and 75% fewer registers.
