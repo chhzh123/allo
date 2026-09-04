@@ -3427,3 +3427,28 @@ So the comparison is anchored: **12.0 ms per layer on 1,783 DSPs at 251 MHz**,
 against whatever the 16×16 stage engine does on 256 DSPs at 250 MHz. Per DSP,
 the reference spends 21.4 DSP·ms on a layer; a 16×16 SPMW layer at 44 ms would
 be 11.3, and the 32×32 at ~13 ms would be 13.3.
+
+### The links stalled in legalisation, and a hedge
+
+Both 256-tile-file links reached Vivado's "Commit Most Macros & LUTRAMs"
+placement phase and stayed there: four and a half hours and counting,
+single-threaded, alive. Phase 3.1 before it had taken 1.5 h elapsed. The
+harness build of the same engine (`--synth`) never went through placement, so
+this is the first time the 256 FIFOs of 2,048-bit tokens and 256 LUTRAM
+weight files met the placer, and it does not like them. The 16×16 ISA engine
+with 32-bit weight tokens placed and routed in 46 minutes.
+
+The hedge is the same engine with a 64-tile file: 512-bit tokens, a quarter
+of the registers, K=1024 in one sweep, one 16-column slab per launch (8,192
+steps), FFN2 as four passes through the bias. It has the full lane opcode set,
+so it runs the softmax passes too. Packaged and simulated in twenty minutes:
+
+| launch | steps | rows | cycles | result |
+|---|---:|---:|---:|---|
+| score | 512 | 128 | see log | bit-exact |
+| projection, K=1024, one slab | 8,192 | 128 | see log | bit-exact |
+| normalise pass | 128 | 128 | ~5,600 | bit-exact |
+
+Its link is running beside the other two. Whichever lands first goes to the
+board; the walker now takes a launch's coverage from the operand manifest, so
+one script measures all of them.
