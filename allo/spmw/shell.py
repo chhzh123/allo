@@ -58,14 +58,18 @@ def families(graph):
                 f"tokens; a feeder walks them in lockstep, so they must agree."
             )
         width = _width(fam)
-        if width not in _CTYPE:
-            raise ValueError(f"`{fam.name}` is {width} bits, which has no C type")
+        # A C type is only needed by `feeder_cpp`, which builds real DMA. The
+        # place-and-route harness needs the width alone, and a design whose
+        # boundary carries a packed vector -- the daisy chain drains a whole
+        # int16[16] column, 256 bits -- has no scalar C type and does not need
+        # one to be implemented. So this records what it can and lets the
+        # feeder refuse, rather than refusing here for every caller.
         out.append(
             {
                 "name": fam.name,
                 "reads": emitter.boundary_direction(fam) == IN,
                 "width": width,
-                "ctype": _CTYPE[width],
+                "ctype": _CTYPE.get(width),
                 "channels": len(channels),
                 "steps": steps,
                 "tensor": entry["tensor"],
@@ -90,6 +94,12 @@ def feeder_cpp(fam):
     the array, which is hardware.
     """
     name, ctype = fam["name"], fam["ctype"]
+    if ctype is None:
+        raise ValueError(
+            f"`{name}` carries {fam['width']}-bit tokens, which have no scalar C "
+            f"type, so this family cannot be moved by a generated DMA feeder. "
+            f"Split it into lanes, or drive it from the harness instead."
+        )
     port = "out" if fam["reads"] else "in"
     body = (
         f"      {port}[c].write(src[t * {fam['channels']} + c]);"
