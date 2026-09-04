@@ -35,7 +35,7 @@ changes.
 
 from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals
 from .rtl import StructuralEmitter, _volume, _width
-from .shell import _dma_name, families
+from .shell import _dma_name, beats_of, families
 
 # The first argument sits above the four control words, and each argument gets
 # a 64-bit slot whatever it holds -- what `v++` expects of a kernel it did not
@@ -264,12 +264,7 @@ def feeder_tcl(fam, part, period):
     of its own: this feeder is not the kernel, it is one master inside it, and
     the kernel's own slave supplies the pointer.
     """
-    width = fam["width"]
-    if width <= 512:
-        beats = -(-fam["channels"] // (512 // width))  # beats per step
-    else:
-        beats = fam["channels"] * (width // 512)
-    total = fam["steps"] * beats
+    total = beats_of(fam)
     return f"""open_project prj
 set_top {_dma_name(fam)}
 add_files kernel.cpp

@@ -82,6 +82,20 @@ def families(graph):
 BEAT = 512  # the widest AXI word Vitis will build
 
 
+def beats_of(fam):
+    """How many 512-bit beats one launch of this family occupies.
+
+    The family is a dense stream of ``steps * channels`` tokens, step-major
+    and channel-minor, exactly as `host_buffer` writes it; a beat holds
+    ``512 / width`` of them, or a token wider than a beat spans ``width / 512``.
+    """
+    width = fam["width"]
+    tokens = fam["steps"] * fam["channels"]
+    if width <= BEAT:
+        return -(-tokens // (BEAT // width))
+    return tokens * (width // BEAT)
+
+
 def feeder_cpp(fam):
     """One family's DMA, as HLS C++.
 
@@ -96,14 +110,15 @@ def feeder_cpp(fam):
     new bitstream. The channel *count* stays fixed: that is how many wires leave
     the array, which is hardware.
 
-    Every AXI transfer is a 512-bit beat, whatever the token. The host lays a
-    family out step-major and channel-minor as contiguous little-endian bytes,
-    so one step's tokens are consecutive and a beat holds ``512 / width`` of
-    them; a token wider than a beat spans ``width / 512`` consecutive beats.
-    Reading one int8 per transaction -- which is what a scalar pointer indexed
-    by ``t * channels + c`` synthesises to -- cost about four cycles a token and
-    made a 32,768-step launch DMA-bound by fifty times; reading a step's
-    sixteen tokens as one beat makes the feeder as fast as the array it feeds.
+    The AXI side is the family's dense token stream, read a 512-bit beat at a
+    time. `host_buffer` lays tokens out step-major and channel-minor as
+    contiguous little-endian bytes, so token ``n = t * channels + c`` is bits
+    ``[n * width, (n + 1) * width)`` of the stream: a beat holds ``512 / width``
+    tokens, a token wider than a beat spans ``width / 512`` of them, and the
+    layout is the same one the scalar feeder read one token at a time -- which
+    cost about four cycles a token and made a 32,768-step launch DMA-bound by
+    fifty times. Reading a beat and dealing out its tokens keeps the feeder as
+    fast as the array.
     """
     name = fam["name"]
     width = fam["width"]
@@ -116,8 +131,7 @@ def feeder_cpp(fam):
                 f"`{name}` carries {width}-bit tokens, which do not pack a "
                 f"{BEAT}-bit beat evenly."
             )
-        per_beat = BEAT // width  # tokens in one beat
-        beats = -(-channels // per_beat)  # beats in one step
+        per_beat = BEAT // width
         token_beats = 1
     else:
         if width % BEAT:
@@ -126,75 +140,78 @@ def feeder_cpp(fam):
                 f"number of {BEAT}-bit beats."
             )
         per_beat = 1
-        token_beats = width // BEAT  # beats in one token
-        beats = channels * token_beats
+        token_beats = width // BEAT
     elem = f"ap_uint<{width}>"
     cap = max(1024, 1 << (max(width, BEAT) - 1).bit_length())
-    total = fam["steps"] * beats
-    if reads:
-        if token_beats == 1:
+    depth = beats_of(fam)
+    if token_beats == 1:
+        # Narrow tokens: one flat loop over tokens, a beat fetched (or flushed)
+        # every `per_beat` of them, at II=1 with the load predicated.
+        if reads:
             body = (
-                f"      ap_uint<{BEAT}> beat = src[t * {beats} + b];\n"
-                f"      for (int k = 0; k < {per_beat}; k++) {{\n"
-                f"#pragma HLS unroll\n"
-                f"        int c = b * {per_beat} + k;\n"
-                f"        if (c < {channels})\n"
-                f"          {port}[c].write(beat.range(k * {width} + {width - 1}, k * {width}));\n"
-                f"      }}"
+                f"    if (n % {per_beat} == 0)\n"
+                f"      beat = src[n / {per_beat}];\n"
+                f"    {port}[n % {channels}].write(\n"
+                f"        beat.range((n % {per_beat}) * {width} + {width - 1}, "
+                f"(n % {per_beat}) * {width}));"
             )
         else:
             body = (
-                f"      ap_uint<{BEAT}> beat = src[t * {beats} + b];\n"
-                f"      int c = b / {token_beats};\n"
-                f"      int k = b % {token_beats};\n"
-                f"      tok.range(k * {BEAT} + {BEAT - 1}, k * {BEAT}) = beat;\n"
-                f"      if (k == {token_beats - 1})\n"
-                f"        {port}[c].write(tok);"
+                f"    beat.range((n % {per_beat}) * {width} + {width - 1}, "
+                f"(n % {per_beat}) * {width}) = {port}[n % {channels}].read();\n"
+                f"    if (n % {per_beat} == {per_beat - 1} || n == total - 1)\n"
+                f"      dst[n / {per_beat}] = beat;"
             )
-        buf = f"const ap_uint<{BEAT}> *src"
+        loop = (
+            f"  const int total = steps * {channels};\n"
+            f"  ap_uint<{BEAT}> beat = 0;\n"
+            f"  for (int n = 0; n < total; n++) {{\n"
+            f"#pragma HLS pipeline II=1\n"
+            f"{body}\n"
+            f"  }}"
+        )
     else:
-        if token_beats == 1:
+        # Wide tokens: each is `token_beats` consecutive beats.
+        if reads:
             body = (
-                f"      ap_uint<{BEAT}> beat = 0;\n"
-                f"      for (int k = 0; k < {per_beat}; k++) {{\n"
-                f"#pragma HLS unroll\n"
-                f"        int c = b * {per_beat} + k;\n"
-                f"        if (c < {channels})\n"
-                f"          beat.range(k * {width} + {width - 1}, k * {width}) = {port}[c].read();\n"
-                f"      }}\n"
-                f"      dst[t * {beats} + b] = beat;"
+                f"    tok.range(k * {BEAT} + {BEAT - 1}, k * {BEAT}) = "
+                f"src[n * {token_beats} + k];\n"
+                f"    if (k == {token_beats - 1})\n"
+                f"      {port}[n % {channels}].write(tok);"
             )
         else:
             body = (
-                f"      int c = b / {token_beats};\n"
-                f"      int k = b % {token_beats};\n"
-                f"      if (k == 0)\n"
-                f"        tok = {port}[c].read();\n"
-                f"      dst[t * {beats} + b] = tok.range(k * {BEAT} + {BEAT - 1}, k * {BEAT});"
+                f"    if (k == 0)\n"
+                f"      tok = {port}[n % {channels}].read();\n"
+                f"    dst[n * {token_beats} + k] = "
+                f"tok.range(k * {BEAT} + {BEAT - 1}, k * {BEAT});"
             )
-        buf = f"ap_uint<{BEAT}> *dst"
-    hold = f"  {elem} tok;\n" if token_beats > 1 else ""
+        loop = (
+            f"  const int total = steps * {channels};\n"
+            f"  {elem} tok;\n"
+            f"  for (int n = 0; n < total; n++) {{\n"
+            f"    for (int k = 0; k < {token_beats}; k++) {{\n"
+            f"#pragma HLS pipeline II=1\n"
+            f"{body}\n"
+            f"    }}\n"
+            f"  }}"
+        )
+    buf = f"const ap_uint<{BEAT}> *src" if reads else f"ap_uint<{BEAT}> *dst"
     return f"""#define AP_INT_MAX_W {cap}
 #include <ap_int.h>
 #include <hls_stream.h>
 #include <stdint.h>
 
 // {name}: {channels} channel(s) x `steps` token(s) of {width} bits, from
-// `{fam['tensor']}`, laid out by the host step-major and channel-minor. One
-// step is {beats} beat(s) of {BEAT} bits; {fam['steps']} steps is what this
-// design was elaborated with and sizes the burst depth, and the loop itself
-// runs as far as the host says.
+// `{fam['tensor']}`, a dense step-major channel-minor stream read {BEAT} bits
+// at a time. {fam['steps']} steps is what this design was elaborated with and
+// sizes the burst depth; the loop itself runs as far as the host says.
 extern "C" {{
 void {_dma_name(fam)}({buf}, int steps, hls::stream<{elem}> {port}[{channels}]) {{
 #pragma HLS interface m_axi port={'src' if reads else 'dst'} \
-offset=direct bundle=gmem depth={total}
+offset=direct bundle=gmem depth={depth}
 #pragma HLS interface ap_none port=steps
-{hold}  for (int t = 0; t < steps; t++) {{
-    for (int b = 0; b < {beats}; b++) {{
-#pragma HLS pipeline II=1
-{body}
-    }}
-  }}
+{loop}
 }}
 }}
 """
