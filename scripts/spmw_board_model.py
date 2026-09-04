@@ -88,6 +88,10 @@ class Gemm(Model):
 
 
 MODELS = {
+    # The Allo paper's GPT-2 (arXiv 2312.15159, FCCM'24): 355M, 24 layers, 16
+    # heads of 64, hidden 1024, FFN 4096, sequence 128, W8A8. Its matmuls are
+    # the same eight per layer as BERT's; only the numbers differ.
+    "gpt2-medium": Model("GPT-2 medium", 128, 1024, 4096, 24),
     "bert-base": Model("BERT-base", 128, 768, 3072, 12),
     "bert-large": Model("BERT-large", 128, 1024, 4096, 24),
     # LLaMA's feed-forward is gated, so three matrices rather than two. The

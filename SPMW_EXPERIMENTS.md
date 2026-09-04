@@ -3057,3 +3057,52 @@ answer to "is it a fair AutoSA comparison" is that it is the *wrong structure*
 for one: AutoSA does not pass packed columns, and neither should a design that
 wants to be compared with it. The AutoSA-matched row is the like-for-like
 comparison, and it stands at 26% fewer LUTs and 75% fewer registers.
+
+## GPT-2 medium (arXiv 2312.15159) on SPMW
+
+### The target, and what the reference actually is
+
+The Allo paper's LLM is GPT-2 355M: 24 layers, 16 heads of 64, hidden 1024,
+FFN 4096, sequence 128, W8A8, on a U280 at 245 MHz. Its accelerator is three
+Vitis kernels, one per SLR, joined by AXI streams: region 1 holds three 8×16
+int8 systolic arrays for Q, K and V (two MACs per DSP by packing the weight
+into 17 bits); region 2 holds K and V in URAM, an 8×8 attention array and an 8×8
+context array per head, float softmax, an 8×16 array for the output projection,
+the residual and a float LayerNorm; region 3 holds two more 8×16 arrays for the
+FFN with a piecewise-linear GELU between them, the residual and the second
+LayerNorm. Its host times a whole layer with OpenCL profiling on the last
+kernel's event, single-layer and 24-layer; there is no per-stage timing.
+
+Two facts about the artifact worth knowing before reproducing it. The `llm/`
+Makefile builds `Bert_layer_dataflow_region_*` from `bert_region_*.cpp` -- the
+GPT kernels are in the directory but nothing builds them -- and `llm/reports/`
+is BERT's implementation (437k LUT, 1,776 DSP, 47 URAM across three SLRs), not
+GPT's. The GPT numbers in the paper are relative to DFX and an A100; no absolute
+latency is tabulated.
+
+Per layer the model is 12·128·1024² + 2·128²·1024 = **1,644,167,168 MACs**. At
+the paper's M = 256 MACs/cycle and 245 MHz the ideal is 6.4M cycles, about
+26 ms/layer. That MAC rate is exactly one 16×16 array -- the same array the
+deployed SPMW engine already is. The reference reaches it by spreading six
+smaller arrays over three SLRs so every stage runs concurrently; nothing about
+the arithmetic needs more than one array running all the time.
+
+### Baseline: GPT-2 medium tiled on the deployed engine, as it stands
+
+`spmw_board_model.py --model gpt2-medium`, the existing 16×16 MXU + VPU
+bitstream at 250 MHz, every tile byte-exact against the reference simulator:
+
+| | |
+|---|---:|
+| MACs per layer | 1,644,167,168 |
+| launches per layer | 401,408 of 16×16×16 |
+| per launch | 20.64 µs |
+| **per layer** | **8.287 s** |
+| **24 layers** | **198.9 s** |
+| of the array's 64 GMAC/s | 0.31% |
+
+This is the number to beat, and the reason it is bad is structural rather than
+a slow array: a pass can only use the one 16×16 weight tile resident in the
+cells, so a K=1024 reduction is 64 separate launches per 16×16 output tile,
+each carrying 16 cycles of work behind ~20 µs of PCIe. The array is idle 99.7%
+of the time waiting for the host.
