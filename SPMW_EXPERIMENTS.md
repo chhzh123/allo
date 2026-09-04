@@ -3410,3 +3410,20 @@ The difference is what an estimate leaves out: HBM latency on the weight
 loaders, the AXI-stream handoffs between three kernels on three SLRs, and
 whichever clock the link actually closed (recorded below). It is the number
 the SPMW design has to be measured against, on the same board, the same day.
+
+The reference link's own numbers, from its routed reports:
+
+| | | of the U280 |
+|---|---:|---:|
+| kernel clock (auto-scaled, routed WNS +0.016 ns) | **251.1 MHz** | |
+| CLB LUTs, three kernels | 449,847 | 38.4% |
+| CLB registers | 418,442 | 17.4% |
+| BRAM / URAM | 133 / 47 | 7.3% / 4.9% |
+| DSP | **1,783** | 19.8% |
+| per region, DSP | 482 / 597 / 704 | |
+| per SLR, LUTs | 41.5% / 48.4% / 44.2% | |
+
+So the comparison is anchored: **12.0 ms per layer on 1,783 DSPs at 251 MHz**,
+against whatever the 16×16 stage engine does on 256 DSPs at 250 MHz. Per DSP,
+the reference spends 21.4 DSP·ms on a layer; a 16×16 SPMW layer at 44 ms would
+be 11.3, and the 32×32 at ~13 ms would be 13.3.
