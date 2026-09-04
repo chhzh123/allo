@@ -180,6 +180,8 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         # reduce down a lane's rows -- a running maximum, a running sum -- which
         # is how softmax runs on the same netlist as the GEMMs.
         reg: int32[REGS]
+        for r0 in range(REGS):
+            reg[r0] = 0
         for _m in range(nouts):
             for pc2 in range(plen):
                 word2: int32 = prog[pc2]
@@ -375,6 +377,183 @@ def test_roles_do_not_grow_with_the_file():
     small = spmw.elaborate(stage_engine(4, 8, outs=4, sweep=2))
     deep = spmw.elaborate(stage_engine(4, 256, outs=4, sweep=2))
     assert len(small.bindings) == len(deep.bindings)
+
+
+# -- attention on the same netlist -------------------------------------------
+#
+# The transformer block's integer softmax, unchanged: scores in QUANT_SCORE
+# fixed point, exp as a shift, a per-row reciprocal. Scores are computed
+# *transposed* -- K as the activations, Q^T as the weights -- so a lane holds
+# one query and its keys come down the rows, and the three softmax passes are
+# reductions down a lane through the identity tile.
+
+QUANT_SCORE = 6
+EXP_SHIFT = 5
+EXP_BASE = 8
+PROB_BITS = 6
+
+_EXP = [
+    (LOADZ, 1, 0, 0),  # r1 = this row's score
+    (LOADB, 2, 0, 0),  # r2 = the lane's maximum
+    (SUB, 1, 2, 0),
+    (SHR, 1, 0, EXP_SHIFT),
+    (LOADI, 2, 0, EXP_BASE),
+    (ADD, 1, 2, 0),
+    (EXP2, 1, 0, 0),
+]
+
+
+def _vprog(prog, outs, depth=NPROG):
+    words = [vpu_word(*p) for p in prog]
+    body = words + [vpu_word(NOP)] * (depth - len(words))
+    return np.array([vpu_header(outs, len(words))] + body, dtype=np.int32)
+
+
+def row_max_vprog(outs):
+    """r0 = max over the rows so far; the last row emitted is the maximum."""
+    return _vprog([(LOADZ, 1, 0, 0), (MAX, 0, 1, 0), (STORE, 0, 0, 0)], outs)
+
+
+def row_sum_vprog(outs):
+    """r0 += exp(score - max); the last row emitted is the sum."""
+    return _vprog(_EXP + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)], outs)
+
+
+def normalise_vprog(outs):
+    """exp(score - max) * (1 / sum), in PROB_BITS fixed point, every row."""
+    return _vprog(
+        _EXP
+        + [
+            (LOADR, 3, 0, 0),
+            (MUL, 1, 3, 0),
+            (SHR, 1, 0, RCP_BITS - PROB_BITS),
+            (STORE, 1, 0, 0),
+        ],
+        outs,
+    )
+
+
+def identity_file(dim, kfile):
+    W = np.zeros((dim, dim, kfile), dtype=np.int8)
+    W[:, :, 0] = np.eye(dim, dtype=np.int8)
+    return W
+
+
+def pass_operands(rows_in, dim, kfile, vprog, bias):
+    """One softmax pass: `rows_in` [R, dim] int8 through the identity tile."""
+    R = rows_in.shape[0]
+    A = rows_in.astype(np.int8).copy()
+    W = identity_file(dim, kfile)
+    mprog = mxu_program([mxu_sweep(0, 1)] * R, dim)
+    return A, W, bias.astype(np.int32), mprog, vprog
+
+
+def attention_head_ref(Q, K, V):
+    """The integer reference for one head, step for step with the passes."""
+    i32 = np.int32
+    clip8 = lambda x: np.clip(x, -128, 127).astype(np.int8)  # noqa: E731
+    scores = clip8((K.astype(i32) @ Q.T.astype(i32)) >> QUANT_SCORE)  # [key, query]
+    row_max = np.maximum(scores.max(axis=0), 0).astype(i32)
+    arg = np.clip(EXP_BASE + ((scores.astype(i32) - row_max) >> EXP_SHIFT), 0, 30)
+    exps = (np.int32(1) << arg).astype(i32)
+    row_sum = exps.sum(axis=0)
+    recip = np.where(
+        row_sum > 0, (np.int32(1) << RCP_BITS) // np.maximum(row_sum, 1), 0
+    )
+    probs_t = (exps * recip) >> (RCP_BITS - PROB_BITS)
+    probs = clip8(probs_t.T)  # [query, key]
+    attn = clip8((probs.astype(i32) @ V.astype(i32)) >> PROB_BITS)
+    return scores, row_max, row_sum, probs, attn
+
+
+def attention_head(Q, K, V, dim, kfile, target="ref"):
+    """One head of attention as stage-engine launches, on `target`.
+
+    Q, K: [seq, head]; V: [seq, head]. Returns (probs, attn) as the device
+    would deliver them, having checked every intermediate against the integer
+    reference on the way.
+    """
+    seq, head = Q.shape
+    ref = attention_head_ref(Q, K, V)
+    # 1. scores^T = K . Q^T, one launch per group of `slabs` x dim queries.
+    T = head // dim
+    # As many query slabs per launch as the file, the row buffer and the
+    # sequence allow; the engine and the operands must agree on this number.
+    slabs = max(1, min(kfile // T, 4, seq // dim))
+    per_launch = slabs * dim
+    scores = np.zeros((seq, seq), dtype=np.int8)  # [key, query]
+    eng = stage_engine(dim, kfile, outs=slabs * seq, sweep=T)
+    run = spmw.build(eng, target=target)
+    for q0 in range(0, seq, per_launch):
+        A, W, bias, mprog, vprog, _ = stage_operands(
+            K, Q.T[:, q0 : q0 + per_launch], dim, kfile, shift=QUANT_SCORE
+        )
+        Y = np.zeros((slabs * seq, dim), dtype=np.int32)
+        run(A, W, bias, mprog, vprog, Y)
+        for s_ in range(slabs):
+            scores[:, q0 + s_ * dim : q0 + (s_ + 1) * dim] = np.clip(
+                Y[s_ * seq : (s_ + 1) * seq], -128, 127
+            )
+    np.testing.assert_array_equal(scores, ref[0])
+    # 2-4. softmax down each lane, `dim` queries per launch, three passes.
+    eng1 = stage_engine(dim, kfile, outs=seq, sweep=1)
+    run1 = spmw.build(eng1, target=target)
+    probs_t = np.zeros((seq, seq), dtype=np.int32)
+    for q0 in range(0, seq, dim):
+        rows = scores[:, q0 : q0 + dim]  # [key, query-lane]
+        bias = np.zeros((dim, NB), dtype=np.int32)
+        A, W, b, mprog, vprog = pass_operands(
+            rows, dim, kfile, row_max_vprog(seq), bias
+        )
+        Y = np.zeros((seq, dim), dtype=np.int32)
+        run1(A, W, b, mprog, vprog, Y)
+        maxes = Y[-1]
+        np.testing.assert_array_equal(maxes, ref[1][q0 : q0 + dim])
+        bias[:, 0] = maxes
+        A, W, b, mprog, vprog = pass_operands(
+            rows, dim, kfile, row_sum_vprog(seq), bias
+        )
+        run1(A, W, b, mprog, vprog, Y)
+        sums = Y[-1]
+        np.testing.assert_array_equal(sums, ref[2][q0 : q0 + dim])
+        bias[:, 1] = sums
+        A, W, b, mprog, vprog = pass_operands(
+            rows, dim, kfile, normalise_vprog(seq), bias
+        )
+        run1(A, W, b, mprog, vprog, Y)
+        probs_t[:, q0 : q0 + dim] = Y
+    probs = np.clip(probs_t.T, -128, 127).astype(np.int8)
+    np.testing.assert_array_equal(probs, ref[3])
+    # 5. context = P . V, one launch (head <= slabs*dim here).
+    T2 = seq // dim
+    slabs2 = max(1, min(kfile // T2, 4, head // dim))
+    eng2 = stage_engine(dim, kfile, outs=slabs2 * seq, sweep=T2)
+    run2 = spmw.build(eng2, target=target)
+    attn = np.zeros((seq, head), dtype=np.int8)
+    for h0 in range(0, head, slabs2 * dim):
+        A, W, bias, mprog, vprog, _ = stage_operands(
+            probs, V[:, h0 : h0 + slabs2 * dim], dim, kfile, shift=PROB_BITS
+        )
+        Y = np.zeros((slabs2 * seq, dim), dtype=np.int32)
+        run2(A, W, bias, mprog, vprog, Y)
+        for s_ in range(slabs2):
+            attn[:, h0 + s_ * dim : h0 + (s_ + 1) * dim] = np.clip(
+                Y[s_ * seq : (s_ + 1) * seq], -128, 127
+            )
+    np.testing.assert_array_equal(attn, ref[4])
+    return probs, attn
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_one_attention_head_on_the_stage_engine(target):
+    """Scores, a three-pass softmax and the context, all on the stage engine,
+    bit-exact against the transformer block's integer reference."""
+    dim, seq, head, kfile = 4, 8, 8, 16
+    rng = np.random.default_rng(11)
+    Q = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    K = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    V = rng.integers(-8, 8, (seq, head)).astype(np.int8)
+    attention_head(Q, K, V, dim, kfile, target=target)
 
 
 def gpt_stage_of(size, kfile=256, rows=128, sweep=64, slabs=4):

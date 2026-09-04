@@ -3287,3 +3287,34 @@ FFN2 launches and 48 attention launches project to about **39 ms** on the
 board, against 8,287 ms tiled on the same array.
 
 The link for the U280 is running.
+
+### Attention on the same netlist
+
+The reference runs softmax in float on the FPGA; the first stage-engine
+version left it to the host. It no longer has to. With the transformer block's
+lane opcodes back in the stage VPU (`ACCZ`, `LOADZ`, `ADD`, `SUB`, `MUL`,
+`MAX`, `EXP2`, `LOADR`), one head of attention is four kinds of launch on the
+one netlist:
+
+1. **scores, transposed** -- K as the activations, Qᵀ as the weights, so a
+   lane holds one query and its keys come down the rows;
+2. **row maximum** -- scoresᵀ through the identity tile, `MAX` down the rows,
+   the last row emitted is the maximum;
+3. **exp and sum** -- the same rows, `exp(s − max)` as a shift with the
+   maximum handed in as a lane constant, `ADD` down the rows;
+4. **normalise** -- the same again times the lane's reciprocal of the sum,
+   in PROB_BITS fixed point;
+5. **context** -- P as the activations, V as the weights.
+
+`attention_head()` runs it and checks every intermediate against
+`attention_head_ref()`, the integer softmax lifted verbatim from
+`test_spmw_transformer._ref_block`: on the reference and the simulator, scores,
+maxima, sums, probabilities and the context all match bit for bit.
+
+The cost is launches. Softmax is one query-group of sixteen lanes per launch
+-- a running reduction cannot reset partway through a launch -- so a head is
+2 score launches, 8 groups × 3 passes, and 1 context launch: 27, against 3
+before, and a layer's attention is 432 launches. Each carries the launch's
+fixed cost, most of it the 256-channel weight file being fetched for an
+identity tile. That is the next thing to remove, and it is a flag, not a
+structure.
