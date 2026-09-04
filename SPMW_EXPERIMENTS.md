@@ -3171,3 +3171,22 @@ stalls and resumes rather than deadlocking, which was the whole argument for
 capping the depth.
 
 That is the gate for the link. `v++ -l` at 250 MHz is running.
+
+### The feeder was the bottleneck, by fifty times
+
+The score launch passed, but in 16,443 polls -- about 115,000 cycles for
+2,048 steps of array work. A 32,768-step projection launch then **timed out at
+200,000 polls** without finishing. The packaged `mac_a_in` master had come back
+32 bits wide, and the generated feeder read one int8 per AXI transaction:
+`out[c].write(src[t * channels + c])` synthesises to a scalar load per token,
+about four cycles each against the one cycle the array spends on it. The
+16-step launches this path was built for never showed it.
+
+The feeder now moves one 512-bit beat per transfer whatever the token. The
+host already lays a family out step-major and channel-minor as contiguous
+little-endian bytes, so a step's sixteen int8 activations are one beat and a
+step's sixteen int32 program words are one beat; a 2,048-bit weight token spans
+four consecutive beats. Every feeder's master is 512 bits, the activation
+stream needs 32,768 beats for 32,768 steps, and the feeder is exactly as fast
+as the array it feeds. The first link, started on the old feeder, was stopped
+six minutes in.
