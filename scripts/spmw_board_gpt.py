@@ -17,7 +17,8 @@ FPGA; here they are named as missing rather than folded in.
 Deliberately numpy-free: pyxrt is built against the system Python.
 
     python3 scripts/spmw_board_gpt.py DIR/spmw_kernel.xclbin DIR/args.json \\
-        /scratch/$USER/gpt_operands [--device 0] [--reps 200]
+        /scratch/$USER/gpt_operands [--device 0] [--reps 200] \\
+        [--shapes proj,ffn2,score,ctx]      # the GEMM-only netlist
 """
 
 import json
@@ -71,6 +72,10 @@ def main():
 
     device = int(opt("--device", "0"))
     reps = int(opt("--reps", "200"))
+    # Which launch shapes this netlist can run. The GEMM-only netlist has no
+    # lane opcodes for the softmax passes; asking it to run one is a hang, not
+    # a wrong answer, so the shapes are chosen rather than discovered.
+    wanted = opt("--shapes", "proj,ffn2,score,ctx,smax,ssum,snorm").split(",")
 
     spec = json.load(open(args_path))
     pointers = [a for a in spec if a["pointer"]]
@@ -138,7 +143,7 @@ def main():
         return (time.time() - t) / n
 
     shapes = {}
-    for name in ("proj", "ffn2", "score", "ctx", "smax", "ssum", "snorm"):
+    for name in wanted:
         d = os.path.join(ops_root, name)
         if os.path.isdir(d):
             shapes[name] = Shape(d)
