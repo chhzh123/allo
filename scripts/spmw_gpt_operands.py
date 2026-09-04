@@ -41,18 +41,30 @@ from allo.spmw.shell import (  # pylint: disable=wrong-import-position
     host_buffer,
 )
 
-DIM = 16
-KFILE = 256
 ROWS = 128  # the sequence
-STEPS = 32768  # activation steps per launch, every shape
 
-#: name -> (K, N per launch, rows, shift)
-SHAPES = {
-    "proj": (1024, 64, ROWS, 4),
-    "ffn2": (4096, 16, ROWS, 4),
-    "score": (64, 64, ROWS, 6),
-    "ctx": (128, 64, ROWS, 6),
-}
+
+def shapes_for(dim, kfile, slabs_max):
+    """name -> (K, N per launch, rows, shift) for an array of `dim` with a
+    `kfile`-tile weight file and room for `slabs_max` output slabs per launch.
+
+    A launch covers as many `dim`-column output slabs as the weight file holds
+    K-tiles for, and never more than the netlist's row buffer allows. FFN2's
+    K=4096 spills into several passes when the file is smaller than 256 tiles,
+    which the host chains through the bias.
+    """
+
+    def n_per_launch(K):
+        tiles = K // dim
+        slabs = max(1, min(kfile // tiles, slabs_max))
+        return slabs * dim
+
+    return {
+        "proj": (1024, n_per_launch(1024), ROWS, 4),
+        "ffn2": (min(4096, kfile * dim), dim, ROWS, 4),
+        "score": (64, n_per_launch(64), ROWS, 6),
+        "ctx": (128, n_per_launch(128), ROWS, 6),
+    }
 
 
 def main():
@@ -62,16 +74,36 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--dim", type=int, default=16)
+    parser.add_argument("--kfile", type=int, default=256)
+    parser.add_argument(
+        "--slabs",
+        type=int,
+        default=None,
+        help="output slabs per launch the netlist was built for",
+    )
     args = parser.parse_args()
     rng = np.random.default_rng(args.seed)
+    DIM, KFILE = args.dim, args.kfile
+    slabs = args.slabs or max(1, min(KFILE // (1024 // DIM), 4))
+    shapes = shapes_for(DIM, KFILE, slabs)
+    K1, _, _, _ = shapes["proj"]
+    sweep = K1 // DIM
+    STEPS = slabs * ROWS * sweep
 
-    # The netlist: 512 result rows, a 64-tile sweep is the *buffer*; every
-    # shape below tells the device smaller or equal counts.
-    engine = gpt_stage_of(DIM)
+    # The netlist: `slabs * ROWS` result rows and a `sweep`-tile program per
+    # row are the *buffer*; every shape below tells the device smaller or
+    # equal counts.
+    engine = gpt_stage_of(DIM, kfile=KFILE, rows=ROWS, sweep=sweep, slabs=slabs)
     graph = spmw.elaborate(engine)
     fams = families(graph)
+    words_max = slabs * ROWS
+    print(
+        f"array {DIM}x{DIM}, file {KFILE} tiles: buffer {STEPS} steps, "
+        f"{words_max} rows/words per launch"
+    )
 
-    for name, (K, N, rows, shift) in SHAPES.items():
+    for name, (K, N, rows, shift) in shapes.items():
         out_dir = os.path.join(args.out, name)
         os.makedirs(out_dir, exist_ok=True)
         X = rng.integers(-8, 8, size=(rows, K)).astype(np.int8)
@@ -89,9 +121,9 @@ def main():
         a_full[:a_steps] = A
         # Pad the program and the result to the buffer the netlist was built
         # with; the header and the count say how much of each is real.
-        mprog_full = np.zeros((513, DIM), dtype=np.int32)
+        mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
         mprog_full[: mprog.shape[0]] = mprog
-        y_full = np.zeros((512, DIM), dtype=np.int32)
+        y_full = np.zeros((words_max, DIM), dtype=np.int32)
         y_full[:outs] = expected
         arrays = {
             "A": a_full,

@@ -216,6 +216,14 @@ def design(name, size):
         from test_spmw_gpt_stage import gpt_stage_of
 
         return gpt_stage_of(size)
+    if name == "gptstage32":
+        # The same stage engine on a 32x32 array with a 64-tile file: K=1024 in
+        # one 32-tile sweep, two 32-column slabs per launch, 8,192 steps. The
+        # 512-bit weight token costs a quarter of the 256-tile file's
+        # registers, which is what lets four times the cells fit.
+        from test_spmw_gpt_stage import gpt_stage_of
+
+        return gpt_stage_of(32, kfile=64, rows=128, sweep=32, slabs=2)
     if name == "transformer16":
         # The same engine on a 16x16 array -- 272 instances, the same 12 roles.
         from test_spmw_transformer import BIG
@@ -791,6 +799,7 @@ def main():
             "transformer",
             "transformer16",
             "gptstage",
+            "gptstage32",
             "transformerN",
             "fft",
             "fftstream",
