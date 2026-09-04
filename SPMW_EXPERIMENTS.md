@@ -3318,3 +3318,39 @@ before, and a layer's attention is 432 launches. Each carries the launch's
 fixed cost, most of it the 256-channel weight file being fetched for an
 identity tile. That is the next thing to remove, and it is a flag, not a
 structure.
+
+### The second netlist, and where a launch's fixed cost actually is
+
+The stage engine with the full lane opcode set -- the one that runs softmax --
+packaged and simulated with three launch shapes, all bit-exact:
+
+| launch | steps | rows | cycles | cycles / row |
+|---|---:|---:|---:|---:|
+| score, K=64, four slabs | 2,048 | 512 | 12,144 | 23.7 |
+| projection, K=1024, four slabs | 32,768 | 512 | 42,864 | 83.7 (64 of them the sweep) |
+| normalise pass, identity tile | 128 | 128 | 7,412 | 57.9 |
+
+The "fixed ~9,000 cycles" of earlier launches is not the weight file after
+all. It is the lane: **the VPU spends about 12–20 cycles per row dispatching a
+program of four instructions, and about 58 per row for the eleven-instruction
+normalise**, on top of the one cycle per partial sum that `ACCN` folds. For a
+projection launch that is 512 rows × ~20 = the ~9,000 cycles beyond the
+32,768-step sweep; for a softmax pass it is nearly the whole launch. The array
+is never the bottleneck; the lane's instruction dispatch is, at roughly two
+cycles per instruction plus the entry and exit of the `ACCN` loop.
+
+That is the next microarchitectural change: pipelining the dispatch so a
+short program costs one cycle per instruction per row, or unrolling the fixed
+programs. It is not needed for the board result and it is not in either
+netlist being linked.
+
+What it costs a layer, at 250 MHz plus ~20 µs of PCIe per launch: 128
+projection-shaped launches at 171 µs and 64 FFN2 launches at ~171 µs are
+about **41 ms**; 32 score and 16 context launches about 3 ms; and the 384
+softmax launches, at 30 µs of kernel time each behind 20 µs of launch, about
+**19 ms**. Softmax on the device is therefore a third of the layer, almost
+entirely launch and dispatch overhead on 128-row passes -- the price of
+running the reference's float softmax as integer passes on a matrix engine's
+lane, and a fair thing to say next to the number.
+
+Both netlists are linking: v1 (GEMMs only) and v2 (GEMMs and softmax).
