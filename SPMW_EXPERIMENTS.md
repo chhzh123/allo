@@ -3469,3 +3469,28 @@ DNS resolves -- with everything below running detached on brg-zhang-xcel:
 Each watcher writes `/scratch/hc676/board_*.log` and ends it with a DONE
 marker, so whatever lands while the link is dark is recorded and can be read
 back afterwards.
+
+### The 256-tile netlist cannot always be placed
+
+The GEMM-only link (`gptkern2`) failed after 8 h 45 m, 5 h 51 m of it in
+`place_design`:
+
+    ERROR: [Place 30-484] The packing of LUTRAM/SRL instances into capable
+    slices could not be obeyed.
+    ERROR: [Place 30-99] Placer failed with error: 'Could not place all lutrams'
+
+A 256×8 LUTRAM weight file in each of 256 cells, and the edge FIFOs as
+LUTRAM/SRL, want more LUTRAM-capable slices than the placer can legalise
+inside the kernel's region. The softmax netlist -- the same transport plus a
+few opcodes -- is through placement and in post-place optimisation, so the
+design is at the edge of legalisability rather than past it: whether a given
+run makes it depends on the packing the placer happens to try.
+
+This is the same fact as the register count, seen from the placer's side. The
+weight file's transport -- a 2,048-bit vector token into a 256-entry local
+array -- is what a cell should not be asked to hold. An element stream into a
+brick the fabric places as block RAM would take neither the flip-flops nor the
+LUTRAM, and is the change this run argues for most strongly.
+
+The 64-tile hedge, a quarter of the LUTRAM, is the design to expect on the
+board first.
