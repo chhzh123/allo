@@ -171,6 +171,13 @@ def design(name, size):
         from test_spmw_daisy import daisy_of
 
         return daisy_of(size)
+    if name == "daisy8":
+        # The same daisy chain in AutoSA's arithmetic -- int8 into int32 -- so a
+        # comparison against AutoSA moves the structure without moving the type.
+        from allo.ir.types import int8, int32
+        from test_spmw_daisy import daisy_of
+
+        return daisy_of(size, operand=int8, accum=int32)
     if name == "autosa":
         # Structurally matched to what AutoSA emits: chained A/B distribution,
         # chained C drain, int8 into int32.
@@ -766,6 +773,7 @@ def main():
             "gemm",
             "gemm8",
             "daisy",
+            "daisy8",
             "autosa",
             "autosa-spec",
             "split",

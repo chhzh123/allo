@@ -22,23 +22,31 @@ import numpy as np
 import pytest
 
 import allo.spmw as spmw
-from allo.ir.types import int16
+from allo.ir.types import int8, int16, int32
 
 M, N, K = 4, 4, 4
 
 
-def daisy_of(size):
-    """The chained-drain mesh at a chosen size; the grid is a parameter."""
+def daisy_of(size, operand=int16, accum=None):
+    """The chained-drain mesh at a chosen size; the grid is a parameter.
+
+    ``operand``/``accum`` default to int16 into int16, which is what
+    ``tests/dataflow/test_daisy_chain_gemm.py`` uses and what this file is a
+    twin of. Passing int8 into int32 gives AutoSA's arithmetic instead, so the
+    two can be compared without the datatype moving at the same time as the
+    structure.
+    """
     n = size
+    accum = accum or operand
 
     class MacIO(spmw.Interface):
-        west = spmw.In(int16)
-        north = spmw.In(int16)
-        east = spmw.Out(int16)
-        south = spmw.Out(int16)
+        west = spmw.In(operand)
+        north = spmw.In(operand)
+        east = spmw.Out(operand)
+        south = spmw.Out(operand)
         # The drain chain: a whole column of results per token, not one scalar.
-        c_in = spmw.In(int16[n])
-        c_out = spmw.Out(int16[n])
+        c_in = spmw.In(accum[n])
+        c_out = spmw.Out(accum[n])
 
     # `spmw.mesh` wires the NSEW four by convention and knows nothing about the
     # drain pair, so the topology is spelled out: the same four links plus the
@@ -56,19 +64,19 @@ def daisy_of(size):
     @spmw.unit
     def pe(io: MacIO, site: spmw.Site):
         row, _col = site.rank
-        acc: int16 = 0
+        acc: accum = 0
         for k in range(n):
             a = io.west.get()
             b = io.north.get()
             acc += a * b
             io.east.put(a)
             io.south.put(b)
-        column: int16[n] = io.c_in.get()
+        column: accum[n] = io.c_in.get()
         column[row] = acc
         io.c_out.put(column)
 
     @spmw.fabric
-    def g(A: int16[n, n], B: int16[n, n], Ct: int16[n, n]):
+    def g(A: operand[n, n], B: operand[n, n], Ct: accum[n, n]):
         P = spmw.place(pe, on=topo)
         spmw.stream_in(A, into=P.west, index=(P.rows, ...))
         spmw.stream_in(B, into=P.north, index=(..., P.cols))
