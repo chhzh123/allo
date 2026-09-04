@@ -2939,3 +2939,42 @@ Against the version that actually runs, SPMW is **9.6% smaller on LUT**, not the
 4% the broken one suggested. The direction of the claim is unchanged and the
 margin is larger; the point is that the first number was measured on a design
 that could not execute.
+
+### Fig. 10 completed: the corrected baseline on the card
+
+The rebuilt bitstream links clean (10,115 s) and **runs**: `correctness on 2
+tiles: matches`. The deadlock is gone.
+
+Measured on the U280, both at SPMW's invocation granularity and at the
+granularity this baseline can actually use:
+
+| | µs per 16×16×16 tile | GOP/s | % of that design's peak |
+|---|---:|---:|---:|
+| SPMW role path (250 MHz) | 17.15 | 0.478 | 0.37% |
+| hand-written HLS, one tile per launch (300 MHz) | 40.53 | 0.202 | 0.13% |
+| hand-written HLS, 1,024 tiles per launch | 2.392 | 3.425 | 2.2% |
+
+Two readings, and they point opposite ways, so both belong in the paper.
+
+**At the same invocation granularity SPMW is 2.4× faster than the hand-written
+baseline** -- 17.15 µs against 40.53 µs per tile. That is a like-for-like
+comparison: one 16×16×16 tile per kernel launch on both sides.
+
+**Given the batching the baseline can do and SPMW cannot, the baseline is 7.2×
+faster** -- 3.425 GOP/s against 0.478. The SPMW kernel takes one tile per
+invocation because the fabric has no DRAM interface of its own, so it cannot
+amortise the launch over many tiles the way this baseline does. The
+host-interface effect measured directly on the baseline is **17×**: 40.53 µs
+per launch against 2.392 µs per tile when batched.
+
+Neither design is anywhere near its array's peak, and for different reasons.
+SPMW is bound by the PCIe round trip -- 17 µs of launch against 64 ns of array
+work. The batched baseline reaches only 2.2% because it reloads all 256
+stationary weights per tile: `load_w` is 330 cycles against the tile's own ~16,
+so 718 of its 718 cycles per tile are mostly weight traffic. A GEMM that reused
+one weight tile across many activation tiles would not pay that, and neither
+implementation currently expresses the reuse.
+
+The honest summary for Fig. 10 is that **the throughput axis measures memory
+and launch structure, not the generated array**, on both sides. The area and
+timing comparison is what carries the fidelity claim.
