@@ -3542,3 +3542,29 @@ fan-out the optimiser tried to fix with global buffers (v2, 12 h 39 m). The
 board result for the stage engine is that netlist -- 16×16, 64 tiles, GEMMs
 and softmax -- and it is the right one to report: the 256-tile design was
 correct in simulation and wrong for the silicon, and the reason is recorded.
+
+### The 64-tile link failed in routing: congestion, not the clock
+
+`gptkern_k64` (16×16, 64-tile file, GEMMs and softmax) finished placement
+and failed in `route_design` after 4 h 33 m of routing (9 h 39 m in all):
+
+    CRITICAL WARNING: [Route 35-162] 167885 signals failed to route due to
+    routing congestion.
+    CRITICAL WARNING: [Route 35-2] Design is not legally routed. There are
+    317144 node overlaps.
+    ERROR: [Constraints 18-1000] Routing results verification failed due to
+    partially-conflicted nets ... g_mac_a_out_a_in[179].u/...
+
+The router's global iterations never converged -- 607,319, 380,901, then
+666,014 overlapped nodes -- and timing was under water throughout: WNS
+-1.80 ns after placement at the 4 ns period, -1.25 ns after physical
+optimisation, -1.06 ns in the first routing pass, -11.8 ns when the router
+gave up. The placed design is 340,237 LUTs and 397,005 registers with the
+platform (232,608 and 260,919 without it), 243 block RAMs, 308 DSPs.
+
+This is the third link of the stage engine and the third failure from the
+weight-file transport, now at a quarter of the width: the 512-bit weight
+tokens flow cell to cell through 256 link FIFOs, and that wiring is what the
+router could not fit. The clock was not the cause but it would not have
+closed either -- 250 MHz needs the paths the HLS estimate (2.44 ns) did not
+see, over an array spread across SLRs.
