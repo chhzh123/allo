@@ -3741,3 +3741,41 @@ layers), 16.35 GMAC/s on the GEMMs, 42.6% of a 16x16 array's 38.4 GMAC/s at
 slower clock do get the token transport to the board; the brick transport at
 250 MHz is 1.7x faster per layer on the same array, and it is the one that
 places with timing met.
+
+## Bigger launches: MREP, GRP, and what the lane costs
+
+The 59.2 ms layer at 250 MHz is 624 launches. Two engine words make them
+fewer:
+
+- **MREP** `[op:8 | base:8 | log2 count:4 | reps:12]` -- `reps` output rows
+  of one sweep, in the cell. A 512-row projection is four words where it was
+  512, and the tile index is a mask of the step counter (a wrapping counter
+  cost 0.9 ns of the cell's HLS slack; two loops flattened, 0.4 ns; the mask
+  is the sweep's own path, slack -0.00).
+- **GRP** `[op:8 | 0:8 | rows:16]` -- a lane word: rows per group. At a group
+  boundary the lane zeroes its registers and takes the group's own maximum
+  and sum from a constant file of `GMAX` = 8 groups (`LOADB` indexes it), so
+  one launch carries eight query groups of a softmax pass.
+
+With them a layer's attention is: scores 2 launches (8 heads each, 8,192
+rows, one weight file), context 2 launches, each softmax pass 16 launches --
+against 32, 16 and 3 x 128. The GEMMs are unchanged.
+
+Verified: 14 of 14 tests on the reference and fabric simulators (two new:
+two query groups through one launch of each pass; four heads' products in
+one launch); the packaged kernel in xsim, elaborated for 8,192-row launches,
+on the batched softmax pass (**0 of 65,536 bytes wrong**) and the batched
+score launch (**0 of 524,288 bytes wrong**, 8,192 rows).
+
+What the simulation also says: the softmax pass runs at ~73 cycles a row and
+the score launch at ~25 -- the lane's instruction dispatch, not the host,
+is what the earlier "98% host overhead" was. The 36 us softmax launch on the
+board was 9,050 cycles for 128 rows: the lane. Batching removes the fixed
+launch cost; the per-row cost is the lane's, and it is the next design
+change (a pipelined dispatch, or one fused exp instruction for the softmax's
+seven). HLS's own loop pipelining (`config_compile -pipeline_loops 1`, now
+a package-script knob) does not pipeline that loop: the ACCN fold is a
+nested loop inside it.
+
+Linking: `gptkern_v2f`, HLS 300 / link 300 MHz, default placement, board
+watcher on `gpt_operands_v2b`.
