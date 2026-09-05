@@ -3568,3 +3568,42 @@ tokens flow cell to cell through 256 link FIFOs, and that wiring is what the
 router could not fit. The clock was not the cause but it would not have
 closed either -- 250 MHz needs the paths the HLS estimate (2.44 ns) did not
 see, over an array spread across SLRs.
+
+### The weight file as a stream: the brick transport
+
+Three links failed on one fact, so the fact changed. A cell's weight file no
+longer arrives as one wide token (`MemIn(int8[kfile])`, 2,048 bits a cell for
+256 tiles): it is a stream of 32-bit words along the cell's row, four int8 to
+a word. The program's first word is `MLOAD n` -- `n` words are coming for
+this cell and the ones beyond it; the cell keeps `kfile/4`, forwards the rest
+on a `w_out -> w_in` link to its neighbour, and forwards the word as
+`MLOAD n - kfile/4`. Every cell runs the same program; the last cell of a row
+receives exactly its own file and forwards nothing. The file is a local
+`int32[kfile/4]` array, which HLS gives a block RAM, read at the sweep as
+`(wf[i >> 2] >> 8 (i & 3)) & 255`, sign-extended in arithmetic.
+
+What it costs: `dim * kfile / 4` cycles a launch to load -- 1,024 for a
+16x16 with 256 tiles, against launches of 2,048 to 32,768 steps -- and one
+more 32-bit link per mesh edge. What it removes: the 2,048-flip-flop token
+per cell, the 256x8 LUTRAM the placer could not legalise, the write-enable
+fan-out the optimiser drowned in, and the 512-bit tokens the router could
+not fit.
+
+- `tests/dataflow/spmw/test_spmw_gpt_stage.py`: 10 of 10 pass on the
+  reference and fabric simulators -- GEMMs, the attention head, the three
+  softmax passes, all bit-exact through the new transport.
+- Kernel simulation (xsim, the packaged kernel with its six DMA feeders) on
+  the `score` shape: **0 of 32,768 bytes wrong**, done at 52.2 us -- 13,000
+  cycles for 2,048 steps, 514 program words and the 1,024-word load; the
+  same shape was 12,144 cycles before the load, so the load costs what it
+  should.
+- Operands regenerated in the new layout: `gpt_operands_brick` (16x16,
+  256-tile file, slabs 4: proj/ffn2/score/ctx/smax/ssum/snorm).
+- The package script now passes its `link.cfg` (one HBM channel per DMA --
+  it had been written and never passed, so every link so far queued six
+  DMAs on `HBM[0]`) and accepts `--vivado-prop`.
+
+Building: `gptkern_brick`, 250 MHz, `SSI_SpreadLogic_high`; its board walk
+is armed (`board_brick.sh`). In parallel the old 64-tile netlist is being
+relinked spread over the SLRs at 150 and 200 MHz (`gptkern_k64_150/200`),
+to separate what the placement directive fixes from what the transport does.
