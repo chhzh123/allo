@@ -4032,7 +4032,99 @@ SPMW stream is one byte a cycle *per PE*, AH x AW bytes a cycle for the
 array, which is where the difference lives -- a bandwidth choice the fabric
 makes visible rather than a smarter datapath.
 
-The reference so far is the design's *cycle model*, not a simulation of
-its RTL: the RTL ships without a testbench. The next step is a testbench
-for `feather_top` at the same sizes, driven as the deployment notebook and
-the MINISA trace generator drive it, so the comparison is RTL against RTL.
+The cycle model is the design's own accounting, not its RTL; the section
+below simulates the RTL.
+
+### The RTL itself: FEATHER_RTL through xsim, one tile at 4, 8, 16, 32
+
+`FEATHER_RTL/RTL` in maeri-project/FEATHER is shipped for synthesis and
+place-and-route (its README: area, power, 1 GHz) and has no testbench.
+`tests/dataflow/spmw/tb_feather_rtl.sv` drives `feather_top` through one
+N x N tile (an N x N NEST, N weights a PE, a pass-through BIRRD), checks
+every PE's weight file and the tile against the dot products in the bench,
+and prints the cycle at each phase boundary; `scripts/spmw_feather_rtl.py`
+runs it with xvlog/xelab/xsim for each size. All four sizes pass. What the
+shipped controller and PE do, read out of `feather_controller.v` and
+`feather_pe.v` and confirmed in the waveforms (the bench's header has the
+same list):
+
+- The weight feed reads one SRAM row a cycle and counts `pe_sel` one PE a
+  cycle (`pe_sel = N * col + row`), so one PE of the N^2 stores one weight
+  a cycle: N^3 cycles to fill the array, N bytes on the bus of which one is
+  taken. The cycle model charges AH^2 (every byte of the row used).
+- The SRAM's read register puts the data a cycle behind `pe_sel`, so row a
+  is stored by PE (a+1) mod N^2; the bench lays the SRAM out for that.
+- The ping/pong select toggles every sweep of N^2 cycles and a PE computes
+  from one buffer, so a PE's even-index weights land in one buffer and its
+  odd-index ones in the other: the compute sees half the file. The bench
+  zeroes the odd-index weights (the dot product the RTL can form is then
+  the whole one) and feeds N + 1 sweeps so the select ends on the buffer
+  with the even indices; the extra N^2 cycles are the bench's, not the
+  design's, and the tables below quote both.
+- A feed never ends on its own; a write pulse while the read address equals
+  addr_end ends it, the config word saying where to go next.
+- The activation pass is [stale row, row 0 .. row N-1] (the same read
+  register), and a PE emits the sum of the products between two "last
+  weight index" cycles provided the input valid is still up three cycles
+  after the second; so the valid runs four cycles past row N-1, and each PE
+  first emits an empty sum: N bubble rows on the BIRRD bus, then the tile.
+- The PE arithmetic is unsigned with a zero point (the bench uses zero
+  points of 0 and non-negative bytes); the outputs come out of BIRRD's
+  pass-through wiring in the same column order the SPMW port's wiring
+  gives at 8, 16 and 32 (at 4 the port follows `examples/feather` with
+  three stages, the RTL has four).
+
+Cycles, one tile, from the first weight-feed cycle (the SRAM is already
+filled; a deployment fills the other SRAM meanwhile) to the last tile row
+on the BIRRD bus; "design" is N^3 + pass, "driven" adds the bench's extra
+sweep; the activation pass is the cycle the first activation leaves the
+SRAM to the last tile row, i.e. what a tile costs with the weights in
+place: 2N + 5 + 2 log2 N.
+
+    N    weight feed          activation pass   first tile row   tile total            SPMW cosim,      RTL design
+         design    driven     (weights resident)  at             design    driven      one tile (first) / SPMW
+    4        64        80          17               +13              81        97         30 (27)        2.7x
+    8       512       576          27               +19             539       603         56 (49)        9.6x
+    16    4,096     4,352          45               +29           4,141     4,397        100 (85)       41.4x
+    32   32,768    33,792          79               +47          32,847    33,871        184 (153)     178.5x
+
+The SPMW column is the single-tile cosim of `feather(AW, AH)`: launch to
+last output, its weight files (the same N^3 bytes) and activations loaded
+by the fabric's feeds inside that count. The gap is the RTL's serial weight
+load, one PE a cycle; its activation pass alone is in the same range as
+the SPMW tile (17 vs 30 at 4x4, 79 vs 184 at 32x32), and that pass is what
+the weights-resident streaming cosim below is measured against.
+
+GEMM (the drivers' tiling, tiles = M/Mt * K/Kt * N/Nt). RTL "serial" is
+tiles x (N^3 + pass), the feed then the pass for every tile; "feed-bound"
+is tiles x N^3, the feed of the next tile hidden under the pass of this
+one, which the PE ping/pong buffers are for (and, as shipped, cannot do,
+since a file is split across them). SPMW "launch a tile" is tiles x the
+single-tile cosim; "streamed" is tiles x the 16-tile launch's per-tile
+slope (8.2 / 16.5 / 33.0), activations and weight files streamed to every
+PE each tile. Every workload total here is tiles x a measured per-tile
+number, not a cosim of the workload.
+
+    AW=AH   M    K    N   tiles    RTL serial   RTL feed-bound   SPMW, launch a tile   SPMW, streamed
+    4      16   16   32     128        10,368            8,192            3,840             1,050
+    4      64   64   64   4,096       331,776          262,144          122,880            33,587
+    4     128  128  128  32,768     2,654,208        2,097,152          983,040           268,698
+    8      16   16   32      16         8,624            8,192              896               264
+    8      32   32   32      64        34,496           32,768            3,584             1,056
+    8      64   64   64     512       275,968          262,144           28,672             8,448
+    8     128  128  128   4,096     2,207,744        2,097,152          229,376            67,584
+    16     64   64   64      64       265,024          262,144            6,400             2,112
+    16    128  128  128     512     2,120,192        2,097,152           51,200            16,896
+    16    256  256  256   4,096    16,961,536       16,777,216          409,600           135,168
+
+Convolution (the driver's tiling, tiles = P*Q * M/AH * C/AW * RS/AH):
+
+    AW=AH  N  C   H   W   M  R  S    tiles    RTL serial   RTL feed-bound   SPMW, launch a tile   SPMW, streamed
+    4      1  8   8   7   4  4  4      160        12,960           10,240            4,800             1,312
+    4      1 16  16  15   8  4  4    4,992       404,352          319,488          149,760            40,934
+    4      1 32  32  31  16  4  4  103,936     8,418,816        6,651,904        3,118,080           852,275
+
+Against the RTL, then: 2.7x per tile at 4x4 and 9.6x at 8x8 launching a
+tile at a time, 41x and 179x at 16 and 32; streaming, another 3.4x to 3x
+on top. The earlier cycle-model column undercounted the RTL by N (it
+charged the weight load at a row a cycle, the RTL takes a PE a cycle).
