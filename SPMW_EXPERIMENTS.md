@@ -3826,3 +3826,7 @@ lane-bound softmax pass loses the end of its output, intermittently, at
 300 MHz, where the same operands and order pass at 250. An experiment
 matrix (order, settle, the 300s placement, the 250 MHz kernel as control)
 is running to separate a control-path race from a timing-marginal path.
+
+Control `gptkern_k64_200` (the token netlist, spread, at 200 MHz) failed
+in routing like the 250 MHz link: partially-conflicted nets after "Routing
+Is Done". The token transport reaches the board at 150 MHz and not at 200.
