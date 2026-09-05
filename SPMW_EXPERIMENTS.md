@@ -3994,3 +3994,37 @@ is small and SPMW's fabric fill is not. The gap opens with the array: at
 is 2.5x and 5.4x faster per tile. A streaming variant (`feather_stream`,
 tiles back to back in one launch, operands streamed) measures throughput
 rather than one tile's latency; its cosims are running.
+
+### FEATHER on SPMW: all four sizes, latency and throughput
+
+Single tile (one launch), cycles from launch to last output, bit-exact:
+
+    array   instances   SPMW latency   FEATHER model, as shipped   model, loads hidden
+    4x4          14          30                 40                      20
+    8x8          56          56                142                      38
+    16x16       192         100                536                      72
+    32x32       672         184              2,090                     138
+
+"as shipped" is `minisa/cycles.py` for the drivers' GEMM tile (two K-groups
+of vs = AH: load vs^2 + max(nest, vs^2 - vs) + nest + 2 log2 AW); "loads
+hidden" is the same with every weight load hidden behind streaming (2 x
+nest + drain), the design's intent with its ping-pong registers. The
+32x32 BIRRD runs a pass-through program (the drivers ship layout programs
+up to AW = 16); the switches' cost does not depend on the program.
+
+Streaming (`feather_stream`, 16 tiles per launch, activations and weight
+files streamed to each PE at one word a cycle, the command to each switch):
+
+    array   cycles / 16 tiles   first output   cycles per tile in steady state
+    4x4            162               39                 8.2
+    8x8            356              109                16.5
+    16x16          832              337                33.0
+
+Steady state is (total - first) / 15: with tiles back to back, a PE's
+2 AH-word weight stream is the cost -- 8, 16, 32 cycles a tile, plus a few
+-- and the fabric's fill is paid once a launch. Against the model's per-tile
+142 at 8x8 that is 8.6x; against its loads-hidden 38, 2.3x. FEATHER's
+serial weight load is AW bytes a cycle for the whole array (AH^2 cycles); the
+SPMW stream is one byte a cycle *per PE*, AH x AW bytes a cycle for the
+array, which is where the difference lives -- a bandwidth choice the fabric
+makes visible rather than a smarter datapath.
