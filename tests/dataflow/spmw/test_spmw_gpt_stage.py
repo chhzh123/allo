@@ -53,6 +53,7 @@ from test_spmw_tpu_isa import (
 # -- the MXU's instruction set, sweep form -----------------------------------
 MSWEEP = 4  # [opcode:8 | base:8 | count:16]: MACC over tiles base..base+count-1
 MPASS = 5  # [opcode:8 | 0:8 | count:16]: count steps that forward the psum
+MLOAD = 6  # [opcode:8 | 0:8 | words:16]: fill the file from the weight stream
 
 # -- the VPU's extra opcode --------------------------------------------------
 ACCN = 13  # [opcode:8 | dst:4 | 0:4 | n:16]: reg[dst] += the next n psums
@@ -64,6 +65,31 @@ def mxu_sweep(base, count):
 
 def mxu_pass(count):
     return (MPASS << 24) | (count & 0xFFFF)
+
+
+def mxu_load(words):
+    return (MLOAD << 24) | (words & 0xFFFF)
+
+
+def file_to_stream(W):
+    """The weight file `W[k, c, :]` as the stream row `k` reads, packed.
+
+    Weights reach a cell as a stream of 32-bit words along its row, four int8
+    per word, not as one wide token: the first cell of a row keeps the first
+    ``kfile // 4`` words and forwards the rest, so cell `c` ends up holding
+    ``W[k, c, :]``. Delivered this way the file is a block RAM in the cell
+    and the mesh carries 32-bit links, where the token form was 2,048
+    flip-flops a cell and a mesh Vivado could not route.
+    """
+    dim, _, kfile = W.shape
+    rows = W.reshape(dim, dim * kfile).astype(np.uint8).astype(np.uint32)
+    words = (
+        rows[:, 0::4]
+        | (rows[:, 1::4] << 8)
+        | (rows[:, 2::4] << 16)
+        | (rows[:, 3::4] << 24)
+    )
+    return words.astype(np.int32).T.copy()  # [dim * kfile // 4, dim]
 
 
 def mxu_program(words, rows):
@@ -90,7 +116,8 @@ class MacIO(spmw.Interface):
     a_out = spmw.Out(int8)
     p_in = spmw.In(int32)
     p_out = spmw.Out(int32)
-    w = spmw.MemIn(int8[256])
+    w_in = spmw.In(int32)
+    w_out = spmw.Out(int32)
 
 
 def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
@@ -100,8 +127,9 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
     one sweep word per output row. ``steps`` -- the activation stream -- is
     ``outs * sweep``.
     """
-    words = outs if words is None else words
+    words = outs + 1 if words is None else words  # the load word, then a sweep per row
     steps = outs * sweep
+    kw = kfile // 4  # the file, in 32-bit words
 
     class CellIO(spmw.Interface):
         op_in = spmw.In(int32)
@@ -110,7 +138,8 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         a_out = spmw.Out(int8)
         p_in = spmw.In(int32)
         p_out = spmw.Out(int32)
-        w = spmw.MemIn(int8[kfile])
+        w_in = spmw.In(int32)
+        w_out = spmw.Out(int32)
 
     mxu = spmw.Topology(
         CellIO,
@@ -118,6 +147,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         link=lambda i, j: {
             CellIO.a_out: spmw.to((i, j + 1), CellIO.a_in),
             CellIO.op_out: spmw.to((i, j + 1), CellIO.op_in),
+            CellIO.w_out: spmw.to((i, j + 1), CellIO.w_in),
             CellIO.p_out: spmw.to((i + 1, j), CellIO.p_in),
         },
     )
@@ -129,26 +159,44 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
 
     @spmw.unit
     def mac(io: CellIO):
+        # The weight file, filled by a load word from the row's weight stream
+        # and read by the sweeps that follow it. A local array, so HLS gives
+        # it a block RAM rather than the flip-flops a port token would be.
+        wf: int32[kw]
         count: int32 = io.op_in.get()
         io.op_out.put(count)
         for _w in range(count):
             word: int32 = io.op_in.get()
-            io.op_out.put(word)
             opcode: int32 = (word >> 24) & 255
             base: int32 = (word >> 16) & 255
             n: int32 = word & 65535
-            # One word, many steps: the activation and the partial sum are
-            # consumed every step whatever the opcode, so the streams stay in
-            # lockstep with the lane that counts them.
-            for t in range(n):
-                a = io.a_in.get()
-                p = io.p_in.get()
-                io.a_out.put(a)
-                if opcode == MSWEEP:
-                    wt: int32 = io.w[base + t]
-                    io.p_out.put(p + a * wt)
-                else:
-                    io.p_out.put(p)
+            if opcode == MLOAD:
+                # `n` words are arriving for this cell and the ones beyond it:
+                # keep the file's worth, pass the rest on, and tell the next
+                # cell how many that was. Every cell runs the same program.
+                io.op_out.put((MLOAD << 24) | (n - kw))
+                for i in range(kw):
+                    wf[i] = io.w_in.get()
+                for _j in range(n - kw):
+                    x: int32 = io.w_in.get()
+                    io.w_out.put(x)
+            else:
+                io.op_out.put(word)
+                # One word, many steps: the activation and the partial sum are
+                # consumed every step whatever the opcode, so the streams stay
+                # in lockstep with the lane that counts them.
+                for t in range(n):
+                    a = io.a_in.get()
+                    p = io.p_in.get()
+                    io.a_out.put(a)
+                    if opcode == MSWEEP:
+                        idx: int32 = base + t
+                        packed: int32 = wf[idx >> 2]
+                        byte: int32 = (packed >> ((idx & 3) * 8)) & 255
+                        wt: int32 = (byte ^ 128) - 128
+                        io.p_out.put(p + a * wt)
+                    else:
+                        io.p_out.put(p)
 
     @spmw.unit
     def vpu(io: VpuIO):
@@ -235,7 +283,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
     @spmw.fabric
     def engine(
         A: int8[steps, dim],
-        W: int8[dim, dim, kfile],
+        W: int32[dim * kw, dim],
         Bias: int32[dim, NB],
         MProg: int32[words + 1, dim],
         VProg: int32[vprog_len + 1],
@@ -243,9 +291,11 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
     ):
         P = spmw.place(mac, on=mxu)
         V = spmw.place(vpu, on=chain)
-        spmw.shard(W, into=P.w)  # cell (k, c) holds W[k, c, :]
         spmw.shard(Bias, into=V.b)
         spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
+        spmw.stream_in(
+            W, into=P.w_in, index=(..., P.rows)
+        )  # cell (k, c) keeps W[k, c, :]
         spmw.stream_in(MProg, into=P.op_in, index=(..., P.rows))
         spmw.stream_in(0, into=P.p_in)
         spmw.link(P.p_out, to=V.z_in)
@@ -265,7 +315,9 @@ def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None):
 
     Returns (A, W, Bias, MProg, VProg, expected). `A` is the activation stream
     the array reads: for each slab, each row, each K-tile, one 16-wide vector.
-    `W` is the cell weight file: tile `s*T + t` is the (t, s) 16x16 block.
+    `W` is the cell weight file as the rows stream it in (`file_to_stream`):
+    tile `s*T + t` is the (t, s) 16x16 block. The program is one load word,
+    then a sweep per output row.
     """
     R, K = X.shape
     N = Wmat.shape[1]
@@ -284,14 +336,14 @@ def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None):
             for t in range(T):
                 A[row * T + t] = X[r, t * dim : (t + 1) * dim]
             words.append(mxu_sweep(s * T, T))
-    mprog = mxu_program(words, dim)
+    mprog = mxu_program([mxu_load(dim * kfile // 4)] + words, dim)
     vprog = stage_vprog(T, shift, outs)
     bias = np.zeros((dim, NB), dtype=np.int32)
     full = X.astype(np.int32) @ Wmat.astype(np.int32)
     expected = np.zeros((outs, dim), dtype=np.int32)
     for s in range(slabs):
         expected[s * R : (s + 1) * R] = full[:, s * dim : (s + 1) * dim] >> shift
-    return A, W, bias, mprog, vprog, expected
+    return A, file_to_stream(W), bias, mprog, vprog, expected
 
 
 def _case(dim, K, N, R, kfile, seed=0):
@@ -342,7 +394,7 @@ def test_a_launch_may_be_smaller_than_the_buffer():
     )
     assert proj[0].shape[0] == ffn2[0].shape[0] == 32768  # activation steps
     assert proj[5].shape[0] == 512 and ffn2[5].shape[0] == 128  # rows emitted
-    assert proj[3].shape[0] - 1 == 512 and ffn2[3].shape[0] - 1 == 128  # words
+    assert proj[3].shape[0] - 2 == 512 and ffn2[3].shape[0] - 2 == 128  # sweeps
     header_rows = lambda v: int(v[0]) >> 16  # noqa: E731
     assert header_rows(proj[4]) == 512 and header_rows(ffn2[4]) == 128
 
@@ -443,8 +495,8 @@ def pass_operands(rows_in, dim, kfile, vprog, bias):
     """One softmax pass: `rows_in` [R, dim] int8 through the identity tile."""
     R = rows_in.shape[0]
     A = rows_in.astype(np.int8).copy()
-    W = identity_file(dim, kfile)
-    mprog = mxu_program([mxu_sweep(0, 1)] * R, dim)
+    W = file_to_stream(identity_file(dim, kfile))
+    mprog = mxu_program([mxu_load(dim * kfile // 4)] + [mxu_sweep(0, 1)] * R, dim)
     return A, W, bias.astype(np.int32), mprog, vprog
 
 

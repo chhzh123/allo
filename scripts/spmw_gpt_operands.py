@@ -109,7 +109,7 @@ def main():
     engine = gpt_stage_of(DIM, kfile=KFILE, rows=ROWS, sweep=sweep, slabs=slabs)
     graph = spmw.elaborate(engine)
     fams = families(graph)
-    words_max = slabs * ROWS
+    words_max = slabs * ROWS + 1  # the load word, then a sweep per row
     print(
         f"array {DIM}x{DIM}, file {KFILE} tiles: buffer {STEPS} steps, "
         f"{words_max} rows/words per launch"
