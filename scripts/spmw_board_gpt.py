@@ -19,6 +19,7 @@ Deliberately numpy-free: pyxrt is built against the system Python.
     python3 scripts/spmw_board_gpt.py DIR/spmw_kernel.xclbin DIR/args.json \\
         /scratch/$USER/gpt_operands [--device 0] [--reps 200] \\
         [--shapes proj,ffn2,score,ctx]      # the GEMM-only netlist
+        [--clock-mhz 300]                  # the clock the link closed at
 """
 
 import json
@@ -78,6 +79,11 @@ def main():
 
     device = int(opt("--device", "0"))
     reps = int(opt("--reps", "200"))
+    # The kernel clock the bitstream was linked at: the busy figure and the
+    # peak are cycles, and a faster link makes both of them worth more.
+    global CLOCK_HZ  # pylint: disable=global-statement
+    CLOCK_HZ = float(opt("--clock-mhz", str(CLOCK_HZ / 1e6))) * 1e6
+    print(f"kernel clock taken as {CLOCK_HZ / 1e6:.0f} MHz")
     # Which launch shapes this netlist can run. The GEMM-only netlist has no
     # lane opcodes for the softmax passes; asking it to run one is a hang, not
     # a wrong answer, so the shapes are chosen rather than discovered.
