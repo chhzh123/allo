@@ -223,6 +223,13 @@ def main():
     parser.add_argument("--jobs", type=int, default=0)
     parser.add_argument("--sim", action="store_true", help="stop before v++")
     parser.add_argument("--link-frequency", type=float, default=0.0)
+    parser.add_argument(
+        "--vivado-prop",
+        action="append",
+        default=[],
+        metavar="RUN.PROP=VALUE",
+        help="a `--vivado.prop` for v++, e.g. a placement directive; repeatable",
+    )
     args = parser.parse_args()
 
     fabric = design(args.design, args.size)
@@ -376,6 +383,9 @@ def main():
             args.platform,
             "--kernel_frequency",
             str(int(link)),
+            "--config",
+            os.path.join(args.out, "link.cfg"),
+            *[f"--vivado.prop={prop}" for prop in args.vivado_prop],
             "-o",
             os.path.join(args.out, f"{args.top}.xclbin"),
             xo,
