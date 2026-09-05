@@ -4095,6 +4095,22 @@ load, one PE a cycle; its activation pass alone is in the same range as
 the SPMW tile (17 vs 30 at 4x4, 79 vs 184 at 32x32), and that pass is what
 the weights-resident streaming cosim below is measured against.
 
+What each column assumes about operand delivery, since that is where the
+gap lives. The array cosim's bench drives every resident file of the
+array as its own top-level port at one token a cycle (at 8x8: 32 `x`
+ports and 32 `w` ports at once), which is what the fabric can accept, not
+what a memory system supplies; the packaged kernel feeds the same ports
+from 512-bit AXI DMAs at 64 bytes a cycle. A tile's N^3 weight bytes are
+1 / 8 / 64 / 512 cycles on one such channel at 4 / 8 / 16 / 32, so the
+32x32 single-tile figure of 184 needs about three channels, or the
+weights kept resident across tiles (`feather_stream_x`). The RTL's column
+excludes its own SRAM fill (N^3 rows, one a cycle) and charges only the
+feed, and its feed uses one byte of the N-byte bus a cycle; had the
+controller used the whole row, as the cycle model assumes (N^2 a tile),
+the RTL tile would be 33 / 91 / 301 / 1,103 and the ratio 1.1x / 1.6x /
+3.0x / 6.0x: that part is the parallel load the fabric's ports give every
+PE at once, the rest of the 2.7x-179x is the shipped controller.
+
 GEMM (the drivers' tiling, tiles = M/Mt * K/Kt * N/Nt). RTL "serial" is
 tiles x (N^3 + pass), the feed then the pass for every tile; "feed-bound"
 is tiles x N^3, the feed of the next tile hidden under the pass of this
