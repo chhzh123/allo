@@ -217,6 +217,18 @@ def design(name, size):
         from test_spmw_gpt_stage import gpt_stage_of
 
         return gpt_stage_of(size, outs=8192)
+    if name == "feather":
+        # FEATHER (ISCA 2024): NEST as an AH x AW weight-file mesh and BIRRD
+        # as a butterfly grid of two-by-two switches; `size` is AW = AH.
+        from test_spmw_feather import feather as feather_engine
+
+        return feather_engine(size, size)
+    if name == "feather-stream":
+        # The same engine taking tiles back to back: 16 tiles per launch,
+        # operands streamed, so the cosim measures cycles per tile.
+        from test_spmw_feather import feather_stream
+
+        return feather_stream(size, size, 16)
     if name == "gptstage_v1":
         # The engine of record: the brick transport as it ran on the board.
         from gpt_stage_v1 import gpt_stage_of as gpt_stage_v1
@@ -804,6 +816,8 @@ def main():
         "--design",
         default="gemm",
         choices=(
+            "feather",
+            "feather-stream",
             "gemm",
             "gemm8",
             "daisy",

@@ -3924,3 +3924,73 @@ What this does to earlier numbers: the GEMM stages are array-bound and
 their launch cadence is real. The softmax passes' per-launch times at 250
 and 300 MHz were partly wait()'s early returns; the honest figures come
 from the fixed kernel.
+
+## FEATHER on SPMW: latency against the original design
+
+FEATHER (Tong et al., ISCA 2024) is NEST -- an AH x AW array of PEs, each
+with a stationary input activation and a local weight file of AH entries,
+partial sums reduced down a column -- and BIRRD, a butterfly of 2 log2(AW)
+stages of AW/2 two-by-two switches (pass, add-left, add-right, swap) that
+reduces the column sums and reorders them into the next layer's layout.
+`examples/feather` is Allo's dataflow version (one NEST kernel, a BIRRD
+kernel grid). `tests/dataflow/spmw/test_spmw_feather.py` is the SPMW
+version: a `pe` unit per column *pair* (two stationary activations, two
+weight files, two psum chains, so the bottom row pairs up with the first
+stage's left/right inputs), a `switch` unit with its command as a resident
+file, the mesh's column links and the paper's bit-reversal wiring between
+stages as SPMW topologies, and the drivers' GEMM and convolution tilings as
+functions of (AW, AH). 14 PEs+switches at 4x4, 56 at 8x8, 192 at 16x16.
+
+Correctness: the drivers' GEMM (Mt = AW/2, Kt = 2AH, Nt = AH) and
+channel-last -> row-major convolution tilings checked exactly against numpy
+on the reference simulator and the fabric simulator; the array cosim
+(HLS'd roles, Vivado-assembled fabric, xsim against the reference) is
+bit-exact at 4x4, 8x8 and 16x16.
+
+Latency, one tile of AH x AW x AH MACs, cycles from launch to last output:
+
+    array   SPMW cosim   FEATHER cycle model (minisa/cycles.py)
+                          GEMM tile (2 K-groups)   one K-group (conv tile)
+    4x4          30              40                      28
+    8x8          56             142                      86
+    16x16       100             536                     296
+
+The reference is the design's own cycle model, shipped with the RTL
+(`minisa/cycles.py`, calibrated to the README's per-tile timing: WVN load
+vs^2, IVN streaming T*vs, fill vs, BIRRD drain 2 log2 AW; per K-group
+period max(nest, vs^2 - vs)); the RTL itself ships without a testbench.
+Its per-tile cost is the serial weight load -- AH^2 cycles at AW bytes a
+cycle -- which the SPMW fabric takes as one resident token per PE at launch.
+What SPMW's number is: AH rows streamed at one a cycle, AH hops of column
+chain, 2 log2(AW) stages of BIRRD, and the fabric's own fill: 4 + 4 + 3 +
+fill = 30; 8 + 8 + 6 + fill = 56; 16 + 16 + 8 + fill = 100.
+
+GEMM data points (drivers' tiling; tiles = M/Mt * N/Nt * K/Kt; totals =
+tiles x per-tile for both, the model's own total for FEATHER):
+
+    AW=AH   M    K    N   tiles   FEATHER model   SPMW (1 tile/launch)
+    4      16   16   32     128         5,124            3,840
+    4      64   64   64   4,096       163,844          122,880
+    4     128  128  128  32,768     1,310,724          983,040
+    8      16   16   32      16         2,276              896
+    8      32   32   32      64         9,092            3,584
+    8      64   64   64     512        72,708           28,672
+    8     128  128  128   4,096       581,636          229,376
+    16     64   64   64      64        34,309            6,400
+    16    128  128  128     512       274,437           51,200
+    16    256  256  256   4,096     2,195,461          409,600
+
+Convolution (the driver's tiling: one AH x AW activation tile and an
+AH x AW x AH weight tile per launch, tiles = P*Q * M/AH * C/AW * RS/AH):
+
+    AW=AH  N  C   H   W   M  R  S   tiles   FEATHER (28/tile)   SPMW (30/tile)
+    4      1  8   8   7   4  4  4     160           4,480             4,800
+    4      1 16  16  15   8  4  4   4,992         139,776           149,760
+    4      1 32  32  31  16  4  4 103,936       2,910,208         3,118,080
+
+At 4x4 the two are within 10% either way: the RTL's 16-cycle weight load
+is small and SPMW's fabric fill is not. The gap opens with the array: at
+8x8 and 16x16 the serial load is 45% and 48% of the model's tile, and SPMW
+is 2.5x and 5.4x faster per tile. A streaming variant (`feather_stream`,
+tiles back to back in one launch, operands streamed) measures throughput
+rather than one tile's latency; its cosims are running.
