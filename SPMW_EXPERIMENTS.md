@@ -3779,3 +3779,20 @@ nested loop inside it.
 
 Linking: `gptkern_v2f`, HLS 300 / link 300 MHz, default placement, board
 watcher on `gpt_operands_v2b`.
+
+### The lane's dispatch, measured and rebuilt
+
+With the fold hoisted out of the dispatch loop and HLS told to pipeline
+every inner loop, the lane's dispatch pipelines at II=3 (the multiply's
+recurrence through the register file) -- and a four-word softmax row still
+costs 61 cycles in xsim, down from 73. The report says why: the pipelined
+loop's region latency is 97 cycles for sixteen words, i.e. ~49 cycles of
+fill and drain, paid again every row because the loop restarts every row.
+The words are not the cost; the restart is.
+
+So the lane is rebuilt around that: the fold moves to its own unit between
+the array and the lane (one psum a cycle, `rows` sums of `n`, told what to
+fold by the lane over a `f_op` link -- no new host family), and the lane's
+dispatch is one flat pipelined loop over every word of every row, with the
+row and group bookkeeping as counters inside it. Fill and drain are then
+paid once a launch.
