@@ -3607,3 +3607,16 @@ Building: `gptkern_brick`, 250 MHz, `SSI_SpreadLogic_high`; its board walk
 is armed (`board_brick.sh`). In parallel the old 64-tile netlist is being
 relinked spread over the SLRs at 150 and 200 MHz (`gptkern_k64_150/200`),
 to separate what the placement directive fixes from what the transport does.
+
+### The brick design places with timing met
+
+`gptkern_brick` (16x16, 256-tile file as a packed stream, 250 MHz,
+`SSI_SpreadLogic_high`) synthesised at 167,031 LUTs (51,370 as memory),
+116,249 registers, 45.5 block RAMs and 304 DSPs -- against 202,162 / 98,280 /
+208,530 for the 64-tile token netlist and 578,284 registers for the 256-tile
+token netlist -- and finished placement 1 h 50 m into implementation with
+
+    [Place 30-746] Post Placement Timing Summary WNS=0.004.
+
+at the 4 ns period. The 64-tile token netlist was at -1.80 ns at the same
+point and never recovered. Routing next.
