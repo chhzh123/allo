@@ -156,13 +156,29 @@ def stage_vprog(sweep, shift, outs, bias=False, depth=NPROG):
 
 class LaneIO(spmw.Interface):
     """A vector lane whose constants come in groups: `LOADB` reads the
-    current group's, and a `GRP rows` word says how many rows a group is."""
+    current group's, and a `GRP rows` word says how many rows a group is.
+
+    Its psums arrive already folded, one per row, from a fold unit the lane
+    tells what to fold (`f_op`): the fold runs at one psum a cycle in its
+    own process, and the lane's dispatch is one flat pipelined loop over
+    every word of every row, so a row costs its words and not a pipeline's
+    fill and drain.
+    """
 
     op_in = spmw.In(int32)
     op_out = spmw.Out(int32)
     z_in = spmw.In(int32)
     y_out = spmw.Out(int32)
+    f_op = spmw.Out(int32)
     b = spmw.MemIn(int32[NBG])
+
+
+class FoldIO(spmw.Interface):
+    """`[rows:16 | n:16]` in, then the sum of every `n` psums out, `rows` times."""
+
+    op_in = spmw.In(int32)
+    z_in = spmw.In(int32)
+    f_out = spmw.Out(int32)
 
 
 class MacIO(spmw.Interface):
@@ -214,6 +230,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         grid=(dim,),
         link=lambda i: {LaneIO.op_out: spmw.to((i + 1,), LaneIO.op_in)},
     )
+    folds = spmw.Topology(FoldIO, grid=(dim,), link=lambda i: {})
 
     @spmw.unit
     def mac(io: CellIO):
@@ -274,6 +291,24 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                         io.p_out.put(p)
 
     @spmw.unit
+    def fold(io: FoldIO):
+        hdr: int32 = io.op_in.get()
+        rows: int32 = (hdr >> 16) & 65535
+        n: int32 = hdr & 65535
+        # One flat loop over every psum of the launch, one a cycle, a sum
+        # out every `n`: a loop per row would restart its pipeline per row.
+        acc: int32 = 0
+        cnt: int32 = 0
+        for _i in range(rows * n):
+            zz: int32 = io.z_in.get()
+            acc = acc + zz
+            cnt = cnt + 1
+            if cnt == n:
+                io.f_out.put(acc)
+                acc = 0
+                cnt = 0
+
+    @spmw.unit
     def vpu(io: LaneIO):
         header: int32 = io.op_in.get()
         io.op_out.put(header)
@@ -287,17 +322,25 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         # Rows per group: a `GRP` word anywhere in the program sets it and is
         # kept as a NOP. Without one a launch is a single group.
         rows: int32 = 65535
+        # A program reads one psum a row -- an ACCN's fold, or a LOADZ or
+        # ACCZ of a single psum -- and the fold unit delivers exactly that:
+        # the row's `n` psums summed, where `n` is the ACCN's count or one.
+        fold_n: int32 = 1
         for pc in range(plen):
             word: int32 = io.op_in.get()
             io.op_out.put(word)
-            if ((word >> 24) & 255) == GRP:
+            wop: int32 = (word >> 24) & 255
+            if wop == GRP:
                 rows = word & 65535
                 prog[pc] = 0
             else:
                 prog[pc] = word
+            if wop == ACCN:
+                fold_n = word & 65535
         for _pad in range(vprog_len - plen):
             spare: int32 = io.op_in.get()
             io.op_out.put(spare)
+        io.f_op.put((nouts << 16) | fold_n)
 
         # The register file survives from one row to the next, so a program can
         # reduce down a lane's rows -- a running maximum, a running sum -- which
@@ -305,82 +348,129 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         # where that restarts: registers zeroed, and the pass reciprocal taken
         # from the group's own constants (see test_spmw_tpu_isa for why the
         # divide does not belong inside the dispatch).
-        reg: int32[REGS]
+        # The register file as four scalars, not an array: HLS pipelines the
+        # dispatch loop below, and a read-after-write through an array it
+        # indexes at run time is a hazard it does not always see (a fold of
+        # four came out wrong where a fold of eight, whose psums arrive too
+        # slowly to keep the pipeline full, came out right). Scalars carried
+        # round the loop are dependences it cannot miss.
+        r0: int32 = 0
+        r1: int32 = 0
+        r2: int32 = 0
+        r3: int32 = 0
+        # Every group's pass reciprocal, once per launch: a divide is thirty
+        # cycles, and on the row path it would be thirty cycles a row.
+        rcps: int32[GMAX]
+        for g in range(GMAX):
+            denom: int32 = io.b[g * NB + 1]
+            rcps[g] = 0
+            if denom > 0:
+                rcps[g] = (1 << RCP_BITS) // denom
         rcp: int32 = 0
+        gi: int32 = 0  # the current group
         gb: int32 = 0  # the current group's base in the constant file
         rg: int32 = 0  # row within the group
-        for _m in range(nouts):
-            if rg == 0:
-                for r0 in range(REGS):
-                    reg[r0] = 0
-                denom: int32 = io.b[gb + 1]
-                rcp = 0
-                if denom > 0:
-                    rcp = (1 << RCP_BITS) // denom
-            for pc2 in range(plen):
-                word2: int32 = prog[pc2]
-                opcode: int32 = (word2 >> 24) & 255
-                dst: int32 = (word2 >> 20) & 15
-                src: int32 = (word2 >> 16) & 15
-                imm: int32 = word2 & 65535
-                if opcode == ACCN:
-                    # The whole reduction, folded at one psum per cycle. This
-                    # is the instruction that lets the lane keep pace with the
-                    # array; dispatching one ACCZ per psum ran at II=2 and made
-                    # the vector unit the bottleneck of a matrix engine.
-                    acc: int32 = reg[dst]
-                    for _i in range(imm):
-                        zz: int32 = io.z_in.get()
-                        acc = acc + zz
-                    reg[dst] = acc
-                elif opcode == ACCZ:
-                    z1: int32 = io.z_in.get()
-                    reg[dst] = reg[dst] + z1
-                elif opcode == LOADZ:
-                    z2: int32 = io.z_in.get()
-                    reg[dst] = z2
-                elif opcode == LOADB:
-                    reg[dst] = io.b[gb + src]
-                elif opcode == LOADI:
-                    reg[dst] = imm
-                elif opcode == ADD:
-                    reg[dst] = reg[dst] + reg[src]
-                elif opcode == SUB:
-                    reg[dst] = reg[dst] - reg[src]
-                elif opcode == MUL:
-                    reg[dst] = reg[dst] * reg[src]
-                elif opcode == MAX:
-                    if reg[src] > reg[dst]:
-                        reg[dst] = reg[src]
-                elif opcode == SHR:
-                    reg[dst] = reg[dst] >> imm
-                elif opcode == EXP2:
-                    e: int32 = reg[dst]
-                    if e < 0:
-                        e = 0
-                    if e > 30:
-                        e = 30
-                    reg[dst] = 1 << e
-                elif opcode == LOADR:
-                    reg[dst] = rcp
-                elif opcode == SMXB:
-                    # The softmax exponent in one word: seven of the plain
-                    # ones, and the lane's dispatch is what a softmax row
-                    # costs, so seven words is seven times the price.
-                    ex: int32 = EXP_BASE + ((reg[dst] - io.b[gb + src]) >> EXP_SHIFT)
-                    if ex < 0:
-                        ex = 0
-                    if ex > 30:
-                        ex = 30
-                    reg[dst] = 1 << ex
-                elif opcode == NRM:
-                    reg[dst] = (reg[dst] * rcp) >> imm
-                elif opcode == STORE:
-                    io.y_out.put(reg[dst])
-            rg = rg + 1
-            if rg == rows:
-                rg = 0
-                gb = gb + NB
+        pc2: int32 = 0  # the word within the row
+        # One flat loop over every word of every row. Pipelined, its fill
+        # and drain are paid once a launch; two nested loops paid them once
+        # a row, and that was fifty cycles on a four-word row.
+        for _k in range(nouts * plen):
+            if pc2 == 0:
+                if rg == 0:
+                    r0 = 0
+                    r1 = 0
+                    r2 = 0
+                    r3 = 0
+                    rcp = rcps[gi]
+            word2: int32 = prog[pc2]
+            opcode: int32 = (word2 >> 24) & 255
+            dst: int32 = (word2 >> 20) & 15
+            src: int32 = (word2 >> 16) & 15
+            imm: int32 = word2 & 65535
+            # the operands: d is r[dst], a is r[src]
+            d: int32 = r0
+            if dst == 1:
+                d = r1
+            elif dst == 2:
+                d = r2
+            elif dst == 3:
+                d = r3
+            a: int32 = r0
+            if src == 1:
+                a = r1
+            elif src == 2:
+                a = r2
+            elif src == 3:
+                a = r3
+            bsrc: int32 = io.b[gb + src]
+            wr: int32 = 1  # every word but STORE and NOP writes r[dst]
+            if opcode == ACCN:
+                zf: int32 = io.z_in.get()
+                d = d + zf
+            elif opcode == ACCZ:
+                z1: int32 = io.z_in.get()
+                d = d + z1
+            elif opcode == LOADZ:
+                z2: int32 = io.z_in.get()
+                d = z2
+            elif opcode == LOADB:
+                d = bsrc
+            elif opcode == LOADI:
+                d = imm
+            elif opcode == ADD:
+                d = d + a
+            elif opcode == SUB:
+                d = d - a
+            elif opcode == MUL:
+                d = d * a
+            elif opcode == MAX:
+                if a > d:
+                    d = a
+            elif opcode == SHR:
+                d = d >> imm
+            elif opcode == EXP2:
+                e: int32 = d
+                if e < 0:
+                    e = 0
+                if e > 30:
+                    e = 30
+                d = 1 << e
+            elif opcode == LOADR:
+                d = rcp
+            elif opcode == SMXB:
+                # The softmax exponent in one word: seven of the plain
+                # ones, and the lane's dispatch is what a softmax row
+                # costs, so seven words is seven times the price.
+                ex: int32 = EXP_BASE + ((d - bsrc) >> EXP_SHIFT)
+                if ex < 0:
+                    ex = 0
+                if ex > 30:
+                    ex = 30
+                d = 1 << ex
+            elif opcode == NRM:
+                d = (d * rcp) >> imm
+            elif opcode == STORE:
+                io.y_out.put(d)
+                wr = 0
+            else:
+                wr = 0
+            if wr == 1:
+                if dst == 0:
+                    r0 = d
+                elif dst == 1:
+                    r1 = d
+                elif dst == 2:
+                    r2 = d
+                else:
+                    r3 = d
+            pc2 = pc2 + 1
+            if pc2 == plen:
+                pc2 = 0
+                rg = rg + 1
+                if rg == rows:
+                    rg = 0
+                    gi = gi + 1
+                    gb = gb + NB
 
     @spmw.fabric
     def engine(
@@ -393,6 +483,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
     ):
         P = spmw.place(mac, on=mxu)
         V = spmw.place(vpu, on=chain)
+        F = spmw.place(fold, on=folds)
         spmw.shard(Bias, into=V.b)
         spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
         spmw.stream_in(
@@ -400,12 +491,15 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         )  # cell (k, c) keeps W[k, c, :]
         spmw.stream_in(MProg, into=P.op_in, index=(..., P.rows))
         spmw.stream_in(0, into=P.p_in)
-        spmw.link(P.p_out, to=V.z_in)
+        spmw.link(P.p_out, to=F.z_in)
+        spmw.link(F.f_out, to=V.z_in)
+        spmw.link(V.f_op, to=F.op_in)
         spmw.stream_in(VProg, into=V.op_in, index=(...,))
         (lane,) = V.axes
         spmw.gather(Y, from_=V.y_out, index=(..., lane))
 
     engine.spmw_parts = (mac, vpu, dim, kfile, outs, sweep, words, steps)
+    engine.spmw_fold = fold
     return engine
 
 
