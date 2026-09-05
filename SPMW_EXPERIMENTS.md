@@ -3892,3 +3892,35 @@ walked the same way: proj 183.4 us, ffn2 154.7, score 70.0, ctx 77.8,
 smax 39.7, ssum 42.8 -- all matching -- and `snorm` lost its tail. Three
 placements, one behaviour: the early done is the 300 MHz kernels' until the
 beat-counted completion (`gptkern_301`, linking).
+
+### The early done is the control word, and it is every kernel's
+
+`gptkern_301` (beat-counted done) still lost a softmax tail now and then,
+so the 250 MHz brick was put through the same stress -- a hundred timed
+launches of one shape, then a checked launch of the next -- and it fails
+the same way (4 of 5 trials). Not a 300 MHz fault; a host-protocol fault.
+The walker's `--verify-last` polls the last timed launch's buffer to
+completion: **it completes 21-28 us after wait() returned**, every time.
+And with a pause between timed launches (`--gap-us 200`) the next shape's
+launches never run at all: 128 of 128 rows wrong, the buffer never written.
+
+The model that fits all of it: the control word's done bit is set by the
+kernel and cleared only when the host reads the control word; XRT's
+interrupt path does not read it, so the previous job's done outlives it and
+the next wait() returns at once with the launch still running. A start
+written while the kernel is busy was then dropped (the start register was
+still high, so no edge, no kick) -- the host waits on a job that never ran,
+or the IPs take a job twice. The register dump that would show the bit
+directly is refused by XRT while the walker holds the CU.
+
+Fix, in `allo/spmw/kernel.py`'s control map: a new start clears the stale
+done and interrupt bits; `ap_start` to the kernel is a one-cycle kick, now
+for an idle kernel or the cycle the current job ends for a start written
+during it (`busy`, `r_again`), never dropped; the completion block honours
+a kick in the cycle a job ends. Relinking the engine of record with it as
+`gptkern_302`; the walker's watchers now run with `--verify-last`.
+
+What this does to earlier numbers: the GEMM stages are array-bound and
+their launch cadence is real. The softmax passes' per-launch times at 250
+and 300 MHz were partly wait()'s early returns; the honest figures come
+from the fixed kernel.

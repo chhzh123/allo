@@ -172,7 +172,10 @@ module {name} #(
 
   reg        r_valid, b_valid;
   reg [DW-1:0] rdata;
-  reg        r_start, r_done, r_auto;
+  reg        r_done, r_auto;
+  // The kernel's own view of a job: `busy` from the start it accepts to its
+  // done, `r_again` a start the host wrote while it was busy, to run next.
+  reg        busy, r_again;
   reg        gier;
   reg [1:0]  ier, isr;
 {chr(10).join(decls)}
@@ -194,14 +197,21 @@ module {name} #(
   assign RDATA   = rdata;
   assign RRESP   = 2'b00;
   assign RVALID  = r_valid;
-  assign ap_start  = r_start;
+  wire start_wr = ctrl_write && w_data[0];
+  // `ap_start` is a one-cycle kick: now, when the host starts an idle
+  // kernel; or the cycle the current job ends, when a start was queued or
+  // auto-restart is on. A level would let the IPs take the job twice.
+  wire kick_now = start_wr && !busy && !r_again;
+  wire kick_q   = ap_ready && (r_again || r_auto);
+  assign ap_start  = kick_now || kick_q;
+  wire r_start = busy || r_again;  // what the host reads as bit 0
   assign interrupt = gier && |(isr & ier);
 {chr(10).join(outs)}
 
   always @(posedge ACLK) begin
     if (ARESET) begin
       b_valid <= 0; r_valid <= 0;
-      r_start <= 0; r_done <= 0; r_auto <= 0;
+      busy <= 0; r_again <= 0; r_done <= 0; r_auto <= 0;
       gier <= 0; ier <= 0; isr <= 0; rdata <= 0;
 {chr(10).join(resets)}
     end else begin
@@ -221,19 +231,25 @@ module {name} #(
         b_valid <= 0;
       end
 
-      // -- start. Written by the host, spent when the kernel accepts it. The
-      // write wins a tie, or a start issued in the cycle the previous job was
-      // accepted would be dropped.
-      if (ctrl_write && w_data[0]) r_start <= 1'b1;
-      else if (ap_ready)           r_start <= r_auto;
+      // -- start. A start written to an idle kernel kicks it now; one
+      // written while it is busy is queued and kicks the cycle the job ends,
+      // never dropped: XRT has been seen to start the next job before this
+      // one was over, and a dropped start is a host waiting for ever.
+      if (kick_now || kick_q) busy <= 1'b1;
+      else if (ap_done)       busy <= 1'b0;
+      if (start_wr && (busy || r_again)) r_again <= 1'b1;
+      else if (kick_q)                   r_again <= 1'b0;
 
       // -- done. Latched, and *set wins over clear*: the kernel's `ap_done` is
       // one cycle wide, and a host polling the control word will eventually
       // read it in that very cycle. Clearing then would lose the completion
-      // for good, and the host would poll a finished kernel for ever.
-      if (ap_done)        r_done <= 1'b1;
+      // for good, and the host would poll a finished kernel for ever. A new
+      // start clears it too: XRT's interrupt path never reads the control
+      // word, so without that the previous job's done outlives it and the
+      // next wait() returns at once -- with the launch still running.
+      if (start_wr)       begin r_done <= 1'b0; isr[0] <= 1'b0; end
+      else if (ap_done)   begin r_done <= 1'b1; isr[0] <= isr[0] | ier[0]; end
       else if (ctrl_read) r_done <= 1'b0;
-      if (ap_done) isr[0] <= isr[0] | ier[0];
 
       // -- read channel.
       if (r_fire) begin
@@ -530,7 +546,8 @@ def _completion(fams):
         "    if (rst) begin",
         "      fin <= 0; pend <= 0;",
         "    end else if (ap_ready) begin",
-        "      fin <= 0; pend <= 0;",
+        "      // the job is over; a start queued for this very cycle kicks now",
+        f"      fin <= 0; pend <= {{{n}{{kick}}}};",
         "    end else begin",
     ]
     for index in range(n):

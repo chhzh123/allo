@@ -24,6 +24,7 @@ Deliberately numpy-free: pyxrt is built against the system Python.
 
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -88,6 +89,20 @@ def main():
     print(f"kernel clock taken as {CLOCK_HZ / 1e6:.0f} MHz")
     dump = int(opt("--dump", "0"))  # mismatching values to print, if any
     settle = float(opt("--settle-ms", "0")) / 1e3  # wait after done before reading
+    # --watch: after the checked launch, re-read the drain buffer at these
+    # delays and say how many rows still differ -- rows that keep arriving
+    # after done are late, rows that never do are lost.
+    watch = [float(x) / 1e3 for x in opt("--watch", "").split(",") if x]
+    gap = float(opt("--gap-us", "0")) / 1e6  # pause between timed launches
+    verify_last = "--verify-last" in rest
+    regdump = opt("--regdump", "")  # a tool that prints the control registers
+
+    def registers(label):
+        if regdump:
+            out = subprocess.run(
+                [regdump, xclbin_path], capture_output=True, text=True, check=False
+            ).stdout
+            print(f"    registers {label}: " + " | ".join(l.strip() for l in out.splitlines() if "@0x" in l))
     keep_going = "--keep-going" in rest
     # Which launch shapes this netlist can run. The GEMM-only netlist has no
     # lane opcodes for the softmax passes; asking it to run one is a hang, not
@@ -167,16 +182,35 @@ def main():
                         shown += 1
         return got == want
 
-    def restarted(counts, n):
+    def restarted(counts, n, want=None):
         """`n` launches on one run object; the weights are re-fetched each time
-        because the kernel's own DMA does it, so this is a real walk's cost."""
+        because the kernel's own DMA does it, so this is a real walk's cost.
+
+        With ``want`` (the launch's expected drain bytes) and --verify-last,
+        the last launch is polled to completion after its wait() returns and
+        that time is added: the honest cost when wait() returns early."""
         run = krnl(*bos, *counts)
         run.wait()
         t = time.time()
         for _ in range(n):
             run.start()
             run.wait()
-        return (time.time() - t) / n
+            if gap:
+                time.sleep(gap)
+        total = time.time() - t
+        if verify_last and want is not None:
+            t1 = time.time()
+            for _ in range(5000):
+                bos[drain].sync(
+                    pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, sizes[drain], 0
+                )
+                if bytes(bos[drain].map()[: len(want)]) == want:
+                    break
+                time.sleep(0.00002)
+            late = time.time() - t1
+            print(f"    last launch complete {late * 1e6:.0f} us after its wait() returned")
+            total += late
+        return total / n - gap
 
     shapes = {}
     for name in wanted:
@@ -192,7 +226,33 @@ def main():
         if settle:
             time.sleep(settle)
         ok = check(expected, shape.outs)
-        secs = restarted(counts, reps)
+        if watch:
+            # What the control register says the moment wait() returned:
+            # bit 0 start, 1 done (clear on read), 2 idle, 3 ready.
+            try:
+                ctrl = krnl.read_register(0x0)
+                print(f"    control after wait: 0x{ctrl:02x} (done={ctrl >> 1 & 1} idle={ctrl >> 2 & 1} ready={ctrl >> 3 & 1})")
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"    control register unreadable: {exc}")
+        if watch and not ok:
+            t_done = time.time()
+            for delay in watch:
+                while time.time() - t_done < delay:
+                    time.sleep(0.0001)
+                bos[drain].sync(
+                    pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, sizes[drain], 0
+                )
+                want = expected[: shape.outs * DIM * 4]
+                got = bytes(bos[drain].map()[: len(want)])
+                bad = sum(
+                    1
+                    for r in range(shape.outs)
+                    if got[r * DIM * 4 : (r + 1) * DIM * 4] != want[r * DIM * 4 : (r + 1) * DIM * 4]
+                )
+                print(f"    +{delay * 1e3:7.2f} ms after done: {bad} rows still differ")
+        registers("after the check") if not ok else None
+        secs = restarted(counts, reps, expected[: shape.outs * DIM * 4])
+        registers("after the timed launches")
         per_launch[name] = secs
         steps = shape.fams["feed_mac_a_in_bind"]["steps"]
         busy = steps / CLOCK_HZ
