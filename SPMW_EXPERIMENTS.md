@@ -3620,3 +3620,60 @@ token netlist -- and finished placement 1 h 50 m into implementation with
 
 at the 4 ns period. The 64-tile token netlist was at -1.80 ns at the same
 point and never recovered. Routing next.
+
+## GPT-2 medium on the board: the brick design, per stage
+
+`gptkern_brick` -- 16x16 stage engine, 256-tile weight file as a packed
+stream, GEMMs and the integer softmax on one netlist -- linked in 4 h 11 m
+(`v++` to `.xclbin`; placement 1 h 50 m, routing 1 h) at **250 MHz with timing
+met** (placed WNS +0.004 ns, routed +0.009 ns), and ran on U280 device 0.
+Every shape's first launch matched the reference simulator byte for byte;
+then 100 repeats each.
+
+Routed, kernel only (whole design with the platform in brackets): 193,455
+LUTs (301,084, 23.1%), 59,900 LUT as memory (65,877), 169,052 registers
+(305,138, 11.7%), 243 block RAMs, 304 DSPs (308). The token netlist had
+synthesised to 578,284 registers; this one is 169k routed.
+
+Per launch:
+
+    shape  steps   us/launch  us streaming  busy
+    proj   32768      208.1       131.1     63.0%   (projections, FFN1)
+    ffn2   32768      172.8       131.1     75.8%
+    score   2048       72.7         8.2     11.3%
+    ctx     4096       81.8        16.4     20.0%
+    smax     128       36.2         0.5      1.4%
+    ssum     128       49.8         0.5      1.0%
+    snorm    128       53.6         0.5      1.0%
+
+One layer of GPT-2 medium (seq 128, 16 heads x 64, FFN 4096), on the device:
+
+    stage                shape  launches   ms/layer     MMAC   GMAC/s
+    Q projection         proj         16      3.330    134.2    40.31
+    K projection         proj         16      3.330    134.2    40.31
+    V projection         proj         16      3.330    134.2    40.31
+    scores K.Q^T         score        32      2.325     16.8     7.22
+    softmax: row max     smax        128      4.630        -        -
+    softmax: exp + sum   ssum        128      6.378        -        -
+    softmax: normalise   snorm       128      6.861        -        -
+    context P.V          ctx          16      1.309     16.8    12.82
+    output projection    proj         16      3.330    134.2    40.31
+    FFN1                 proj         64     13.318    536.9    40.31
+    FFN2                 ffn2         64     11.060    536.9    48.54
+    layer, on device            624 launches  59.200   1644.2    27.77
+    LayerNorm x2, GELU                        not on device
+
+**59.2 ms per layer, 1.42 s for the 24 layers**; 27.8 GMAC/s over the
+layer's GEMMs, 43.4% of the array's 64 GMAC/s peak. The GEMM launches keep
+the array 63-76% busy; the three softmax passes -- one 16-query group of 128
+keys per launch -- are 98% host overhead and cost 17.9 ms of the 59.2.
+Batching several query groups into one launch is the obvious next cut and
+needs no new hardware.
+
+Against the reference (three kernels, 1,783 DSPs, 12.0 ms/layer on the same
+board): 4.9x slower per layer with 5.9x fewer DSPs; 18.0 DSP-ms per layer
+against 21.4. GELU and the two LayerNorms are on the host in this version.
+
+Log: `/scratch/hc676/board_brick.log`. The 64-tile token netlist's spread
+relinks at 150 and 200 MHz (`gptkern_k64_150/200`) are still running as the
+control for what the placement directive alone does.
