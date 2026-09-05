@@ -76,7 +76,11 @@ def main():
         meta = json.load(h)
     by_name = {f["name"]: f for f in meta["families"]}
 
-    sim = os.path.join(args.kernel, "sim")
+    # Beside the kernel directory, not inside it: a kernel directory that has
+    # been simulated in place no longer packages -- Vivado's IP packager
+    # parses the copies under sim/ and reports "No interface information is
+    # available for Verilog design unit 'spmw_kernel'".
+    sim = args.kernel.rstrip(os.sep) + "_sim"
     os.makedirs(sim, exist_ok=True)
     operands, counts = {}, {}
     expected = b""

@@ -3721,3 +3721,11 @@ Linking at 300 MHz, three placements in parallel: `gptkern_300` (default),
 `gptkern_300s` (`SSI_SpreadLogic_high` + phys_opt `AggressiveExplore`),
 `gptkern_300x` (`ExtraTimingOpt` + `AggressiveExplore`); a board watcher on
 each, walking `gpt_operands_brick` at the linked clock.
+
+The first `gptkern_300` link died in packaging, twice, with `[IP_Flow 19-264]
+No interface information is available for Verilog design unit
+'spmw_kernel'`, while the two directories staged the same way packaged
+cleanly. The difference was the `sim/` directory the kernel simulation had
+left inside it. The default-placement link was relaunched in a fresh
+directory (`gptkern_300d`), and the kernel simulation now writes beside the
+kernel directory rather than inside it.
