@@ -305,6 +305,148 @@ def stream_operands(tiles, AW, AH):
     return X, W, I
 
 
+def feather_stream_x(AW, AH, NT):
+    """The engine with its weight files and commands resident and `NT`
+    tiles' activations streamed: what a tile costs once the weights are in
+    place, the counterpart of the RTL's activation pass.
+
+      X[NT * 2, AH, AW/2] streamed; W[AH, AW/2, 2AH], Inst[P0, P1, 2] resident
+      YL[NT * AH, P1], YR[NT * AH, P1]
+    """
+    P0, P1 = birrd_shape(AW)
+    W2 = 2 * AH
+
+    class PEIO(spmw.Interface):
+        p0_in = spmw.In(int32)
+        p0_out = spmw.Out(int32)
+        p1_in = spmw.In(int32)
+        p1_out = spmw.Out(int32)
+        x_in = spmw.In(int32)
+        w = spmw.MemIn(int8[W2])
+
+    class SwIO(spmw.Interface):
+        in_l = spmw.In(int32)
+        in_r = spmw.In(int32)
+        out_l = spmw.Out(int32)
+        out_r = spmw.Out(int32)
+        cmd = spmw.MemIn(int8[2])
+
+    nest = spmw.Topology(
+        PEIO,
+        grid=(AH, AW // 2),
+        link=lambda k, j: {
+            PEIO.p0_out: spmw.to((k + 1, j), PEIO.p0_in),
+            PEIO.p1_out: spmw.to((k + 1, j), PEIO.p1_in),
+        },
+    )
+
+    def wiring(stage, j):
+        if stage == P0 - 1:
+            return {}
+        bits = stage_bits(stage, AW)
+        out = {}
+        for port, q in ((SwIO.out_l, 2 * j), (SwIO.out_r, 2 * j + 1)):
+            pos = reverse_bits(q, bits)
+            target = SwIO.in_l if pos % 2 == 0 else SwIO.in_r
+            out[port] = spmw.to((stage + 1, pos // 2), target)
+        return out
+
+    birrd = spmw.Topology(SwIO, grid=(P0, P1), link=wiring)
+
+    @spmw.unit
+    def pe(io: PEIO):
+        for _t in range(NT):
+            x0: int32 = io.x_in.get()
+            x1: int32 = io.x_in.get()
+            for i in range(AH):
+                p0: int32 = io.p0_in.get()
+                p1: int32 = io.p1_in.get()
+                w0: int32 = io.w[i]
+                w1: int32 = io.w[AH + i]
+                io.p0_out.put(p0 + x0 * w0)
+                io.p1_out.put(p1 + x1 * w1)
+
+    @spmw.unit
+    def switch(io: SwIO):
+        c: int32 = io.cmd[0]
+        for _t in range(NT):
+            for _i in range(AH):
+                l: int32 = io.in_l.get()
+                r: int32 = io.in_r.get()
+                ol: int32 = l
+                orr: int32 = r
+                if c == 1:
+                    orr = l + r
+                elif c == 2:
+                    ol = l + r
+                elif c == 3:
+                    ol = r
+                    orr = l
+                io.out_l.put(ol)
+                io.out_r.put(orr)
+
+    @spmw.fabric
+    def engine(
+        X: int32[NT * 2, AH, AW // 2],
+        W: int8[AH, AW // 2, W2],
+        Inst: int8[P0, P1, 2],
+        YL: int32[NT * AH, P1],
+        YR: int32[NT * AH, P1],
+    ):
+        P = spmw.place(pe, on=nest)
+        B = spmw.place(switch, on=birrd)
+        (row, col) = P.axes
+        (_stage, sw) = B.axes
+        spmw.stream_in(X, into=P.x_in, index=(..., row, col))
+        spmw.shard(W, into=P.w)
+        spmw.shard(Inst, into=B.cmd)
+        spmw.stream_in(0, into=P.p0_in)
+        spmw.stream_in(0, into=P.p1_in)
+        spmw.link(P.p0_out, to=B.in_l)
+        spmw.link(P.p1_out, to=B.in_r)
+        spmw.gather(YL, from_=B.out_l, index=(..., sw))
+        spmw.gather(YR, from_=B.out_r, index=(..., sw))
+
+    engine.spmw_parts = (pe, switch, AW, AH, P0, P1, NT)
+    inst = np.zeros((P0, P1, 2), dtype=np.int8)
+    inst[:, :, 0] = gemm_insts(AW)
+    engine.spmw_operands = {"Inst": inst}
+    return engine
+
+
+def stream_x_operands(iacts_tiles, weights, inst, AW, AH):
+    """`feather_stream_x`'s arguments: the tiles' activations, one weight set."""
+    T = len(iacts_tiles)
+    X = np.zeros((T * 2, AH, AW // 2), dtype=np.int32)
+    for t, iActs in enumerate(iacts_tiles):
+        Xt, _, _ = tile_operands(iActs, weights, inst, AW, AH)
+        X[2 * t : 2 * t + 2] = Xt.transpose(2, 0, 1)
+    _, W, I = tile_operands(iacts_tiles[0], weights, inst, AW, AH)
+    return X, W, I
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_stream_x_two_tiles(target):
+    """Two tiles' activations through resident weights, 4x4."""
+    AW = AH = 4
+    rng = np.random.default_rng(11)
+    inst = gemm_insts(AW)
+    A = rng.integers(-4, 4, size=(AW // 2, 2 * AH)).astype(np.int8)
+    B = rng.integers(-4, 4, size=(2 * AH, AH)).astype(np.int8)
+    _, weights = gemm_tile(A, B, AW, AH)
+    iacts_tiles = [rng.integers(-4, 4, size=(AH, AW)).astype(np.int8) for _ in range(2)]
+    X, W, I = stream_x_operands(iacts_tiles, weights, inst, AW, AH)
+    P0, P1 = birrd_shape(AW)
+    YL = np.zeros((2 * AH, P1), dtype=np.int32)
+    YR = np.zeros((2 * AH, P1), dtype=np.int32)
+    spmw.build(feather_stream_x(AW, AH, 2), target=target)(X, W, I, YL, YR)
+    Y = merge_outputs(YL, YR)
+    for t, iActs in enumerate(iacts_tiles):
+        np.testing.assert_array_equal(
+            Y[t * AH : (t + 1) * AH], feather_ref(iActs, weights, inst, AW, AH)
+        )
+
+
 @pytest.mark.parametrize("target", ["ref", "simulator"])
 def test_stream_two_tiles(target):
     """Two GEMM tiles in one launch of the streaming engine, 4x4."""
@@ -486,7 +628,9 @@ def run_gemm(M, K, N, AW, AH, target="ref", seed=0):
                 YR = np.zeros((AH, P1), dtype=np.int32)
                 run(X, W, I, YL, YR)
                 Y = merge_outputs(YL, YR)
-                np.testing.assert_array_equal(Y, feather_ref(iActs, weights, inst, AW, AH))
+                np.testing.assert_array_equal(
+                    Y, feather_ref(iActs, weights, inst, AW, AH)
+                )
                 part = gemm_extract(Y, AW)  # [Nt, Mt]
                 out[m * Mt : (m + 1) * Mt, n * Nt : (n + 1) * Nt] += part.T
                 tiles += 1
@@ -519,7 +663,10 @@ def test_conv_4x4_matches_numpy():
             for p in range(P):
                 for q in range(Q):
                     ref[n, m, p, q] = int(
-                        (x[n, :, p : p + R, q : q + S].astype(np.int64) * wts[m].astype(np.int64)).sum()
+                        (
+                            x[n, :, p : p + R, q : q + S].astype(np.int64)
+                            * wts[m].astype(np.int64)
+                        ).sum()
                     )
     x_cl = np.ascontiguousarray(x.transpose(0, 2, 3, 1))  # NHWC
     w_flat = wts.reshape(M, C, R * S)
@@ -537,8 +684,12 @@ def test_conv_4x4_matches_numpy():
                     line, pos = (p * Q + q) // AW, (p * Q + q) % AW
                     for ct in range(0, C, AW):
                         for vn in range(0, R * S, AH):
-                            iActs = np.ascontiguousarray(win[vn : vn + AH, ct : ct + AW])
-                            weights = np.ascontiguousarray(w_flat[mt : mt + AH, ct : ct + AW, vn : vn + AH])
+                            iActs = np.ascontiguousarray(
+                                win[vn : vn + AH, ct : ct + AW]
+                            )
+                            weights = np.ascontiguousarray(
+                                w_flat[mt : mt + AH, ct : ct + AW, vn : vn + AH]
+                            )
                             X, W, I = tile_operands(iActs, weights, insts[pos], AW, AH)
                             YL = np.zeros((AH, P1), dtype=np.int32)
                             YR = np.zeros((AH, P1), dtype=np.int32)

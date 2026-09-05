@@ -229,6 +229,12 @@ def design(name, size):
         from test_spmw_feather import feather_stream
 
         return feather_stream(size, size, 16)
+    if name == "feather-x":
+        # Weights and commands resident, 16 tiles' activations streamed: the
+        # cost of a tile once the weights are in place.
+        from test_spmw_feather import feather_stream_x
+
+        return feather_stream_x(size, size, 16)
     if name == "gptstage_v1":
         # The engine of record: the brick transport as it ran on the board.
         from gpt_stage_v1 import gpt_stage_of as gpt_stage_v1
@@ -818,6 +824,7 @@ def main():
         choices=(
             "feather",
             "feather-stream",
+            "feather-x",
             "gemm",
             "gemm8",
             "daisy",

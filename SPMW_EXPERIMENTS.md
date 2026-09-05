@@ -4128,3 +4128,27 @@ Against the RTL, then: 2.7x per tile at 4x4 and 9.6x at 8x8 launching a
 tile at a time, 41x and 179x at 16 and 32; streaming, another 3.4x to 3x
 on top. The earlier cycle-model column undercounted the RTL by N (it
 charged the weight load at a row a cycle, the RTL takes a PE a cycle).
+
+### Weights resident: the activation pass on both sides
+
+`feather_stream_x(AW, AH, NT)` keeps the weight files and BIRRD commands
+resident and streams NT tiles' activations (two words a PE a tile); the
+bench's NP=2 run puts two tiles' activations through the RTL back to back
+with the weights in place. Cycles a tile in steady state (SPMW: the slope
+over the last fifteen of sixteen tiles), and the first tile's latency
+(RTL: activation feed start to the last row of tile 1; SPMW: launch to the
+first output, the resident files loaded inside):
+
+    N    RTL, cycles a tile   SPMW, cycles a tile (16 tiles: total, first out)   RTL, tile 1   SPMW, first out
+    4           4                 4.2   (106, 43)                                      17              43
+    8           8                 8.5   (208, 81)                                      27              81
+    16         16                17.0   (388, 133)                                     45             133
+    32         32                34.1   (760, 249)                                     79             249
+
+With the weights in place the two are the same machine: AH rows a tile,
+one output row a cycle, on both, SPMW a few cycles a tile behind (its two
+activation words a PE come through the fabric's feeds). SPMW's first tile
+is 2.5x to 3.2x the RTL's pass, which is the fabric loading the resident
+files, the cost the RTL's column excludes. Everything else that separates
+them in the tables above is the weight load: the RTL's one PE a cycle
+against SPMW's one token a PE.
