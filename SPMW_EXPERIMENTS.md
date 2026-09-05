@@ -3966,7 +3966,8 @@ chain, 2 log2(AW) stages of BIRRD, and the fabric's own fill: 4 + 4 + 3 +
 fill = 30; 8 + 8 + 6 + fill = 56; 16 + 16 + 8 + fill = 100.
 
 GEMM data points (drivers' tiling; tiles = M/Mt * N/Nt * K/Kt; totals =
-tiles x per-tile for both, the model's own total for FEATHER):
+tiles x per-tile for SPMW -- an extrapolation from the single-tile cosim,
+not a cosim of the workload -- and the model's own total for FEATHER):
 
     AW=AH   M    K    N   tiles   FEATHER model   SPMW (1 tile/launch)
     4      16   16   32     128         5,124            3,840
@@ -4020,7 +4021,9 @@ files streamed to each PE at one word a cycle, the command to each switch):
     8x8            356              109                16.5
     16x16          832              337                33.0
 
-Steady state is (total - first) / 15: with tiles back to back, a PE's
+Steady state is (total - first) / 15, the slope over the last fifteen
+tiles of a sixteen-tile launch; any per-workload 'streamed' total is that
+slope times the tile count, an extrapolation. With tiles back to back, a PE's
 2 AH-word weight stream is the cost -- 8, 16, 32 cycles a tile, plus a few
 -- and the fabric's fill is paid once a launch. Against the model's per-tile
 142 at 8x8 that is 8.6x; against its loads-hidden 38, 2.3x. FEATHER's
@@ -4028,3 +4031,8 @@ serial weight load is AW bytes a cycle for the whole array (AH^2 cycles); the
 SPMW stream is one byte a cycle *per PE*, AH x AW bytes a cycle for the
 array, which is where the difference lives -- a bandwidth choice the fabric
 makes visible rather than a smarter datapath.
+
+The reference so far is the design's *cycle model*, not a simulation of
+its RTL: the RTL ships without a testbench. The next step is a testbench
+for `feather_top` at the same sizes, driven as the deployment notebook and
+the MINISA trace generator drive it, so the comparison is RTL against RTL.
