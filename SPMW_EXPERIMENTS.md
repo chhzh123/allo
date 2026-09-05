@@ -3859,3 +3859,30 @@ visibly rather than hand the host a partial buffer.
 `gpt_stage_v1.py` freezes the engine that produced the board results, as
 `gptstage_v1` in the build registry; the live test module has moved on to
 MREP, lane groups and the fold unit.
+
+### 300s, every stage, at 300 MHz (done still the IPs' word)
+
+`gptkern_300s` walked all seven shapes (`--keep-going`); six matched on
+their first launch and `snorm`, the seventh, lost rows 80-127 -- so the
+early done is not one placement's quirk, it is the 300 MHz kernels' before
+the beat-counted done. The GEMM launches are array-bound and their times
+stand; the softmax passes' are what a launch takes until the feeders are
+done, which at 300 MHz is before the lanes are, so they read low.
+
+    stage                launches   ms/layer   GMAC/s      (250 MHz brick)
+    Q, K, V projections        48      8.853     45.5        9.99
+    scores K.Q^T               32      2.266      7.4        2.33
+    softmax: row max          128      2.621*     -          4.63
+    softmax: exp + sum        128      3.529*     -          6.38
+    softmax: normalise        128      3.939*     -          6.86
+    context P.V                16      0.928     18.1        1.31
+    output projection          16      2.951     45.5        3.33
+    FFN1                       64     11.802     45.5       13.32
+    FFN2                       64      9.896     54.3       11.06
+    layer                     624     46.784*                59.20
+
+    per launch: proj 184 us (208 at 250), ffn2 155 (173), score 71 (73),
+    ctx 58 (82); * = softmax passes reported early, see above.
+
+The GEMM stages alone: 33.5 ms a layer at 300 MHz against 42.1 at 250 --
+the 1.2x the clock buys, delivered.
