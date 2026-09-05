@@ -3729,3 +3729,15 @@ cleanly. The difference was the `sim/` directory the kernel simulation had
 left inside it. The default-placement link was relaunched in a fresh
 directory (`gptkern_300d`), and the kernel simulation now writes beside the
 kernel directory rather than inside it.
+
+### Control: the token netlist, spread, at 150 MHz
+
+`gptkern_k64_150` -- the old 64-tile token netlist relinked with
+`SSI_SpreadLogic_high` at 150 MHz and the HBM channel map passed -- routed
+and ran (every shape matches). One layer: **100.6 ms** (2.41 s for 24
+layers), 16.35 GMAC/s on the GEMMs, 42.6% of a 16x16 array's 38.4 GMAC/s at
+150 MHz (its log's busy and peak figures assume 250 MHz; the walker's
+`--clock-mhz` postdates that watcher). So the placement directive and a
+slower clock do get the token transport to the board; the brick transport at
+250 MHz is 1.7x faster per layer on the same array, and it is the one that
+places with timing met.
