@@ -3830,3 +3830,32 @@ is running to separate a control-path race from a timing-marginal path.
 Control `gptkern_k64_200` (the token netlist, spread, at 200 MHz) failed
 in routing like the 250 MHz link: partially-conflicted nets after "Routing
 Is Done". The token transport reaches the board at 150 MHz and not at 200.
+
+### The tail is late, not lost: the kernel's done fires early on 300x
+
+The experiment matrix on the 300 MHz kernels (`--dump`, `--keep-going`):
+
+    E1  300x  ssum then snorm, twice       snorm loses rows 64-127 both times
+    E2  300x  smax then snorm              snorm loses rows 64-127
+    E3  300x  proj first, then snorm       proj loses rows 96-511; snorm 64-127
+    E4  300x  ssum then snorm, 20 ms wait
+              before reading, twice        every launch matches
+    E5  brick at 250 MHz, ssum then snorm  matches
+    E6  300s  ssum then snorm, twice       matches (launches 51-86 us, not 27)
+
+So the rows arrive; the host reads before they do. On `300x` the kernel
+reports done while its drain is still writing -- the launch "takes" 27 us
+where the same work takes 51 us on `300s` and the 250 MHz brick, which
+report done when the drain is done. The kernel's done was `&fin`, a latch
+of each DMA IP's `ap_done`; on that bitstream the drain's `ap_done` reaches
+the latch early (a marginal path on a +0.016 ns design, or the IP's own
+behaviour -- the data path is fine either way). Whatever the micro-cause,
+the kernel should never have trusted it: it now counts the AXI beats each
+feeder reads and each drain writes against the beats the launch's `steps`
+amount to, and is done only when every count matches and every write burst
+is acknowledged. A drain that finished early would then hang the launch
+visibly rather than hand the host a partial buffer.
+
+`gpt_stage_v1.py` freezes the engine that produced the board results, as
+`gptstage_v1` in the build registry; the live test module has moved on to
+MREP, lane groups and the fold unit.
