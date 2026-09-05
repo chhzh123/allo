@@ -70,8 +70,9 @@ def shapes_for(dim, kfile, slabs_max):
 def main():
     # pylint: disable=import-outside-toplevel
     from test_spmw_gpt_stage import (
-        _EXP,
+        _EXP_FUSED,
         ADD,
+        NRM,
         EXP_BASE,
         EXP_SHIFT,
         GMAX,
@@ -346,23 +347,25 @@ def write_batched(args, rng, fams, STEPS, words_max):
     # pylint: disable=import-outside-toplevel
     from test_spmw_gpt_stage import (
         _EXP,
+        _EXP_FUSED,
         ADD,
+        EXP_BASE,
+        EXP_SHIFT,
         GMAX,
+        grouped_vprog,
+        lane_bias,
         LOADR,
         LOADZ,
         MAX,
         MUL,
         NB,
+        NRM,
+        pass_operands,
         PROB_BITS,
         RCP_BITS,
         SHR,
-        STORE,
-        EXP_BASE,
-        EXP_SHIFT,
-        grouped_vprog,
-        lane_bias,
-        pass_operands,
         stage_operands_multi,
+        STORE,
     )
 
     DIM, KFILE = args.dim, args.kfile
@@ -437,18 +440,12 @@ def write_batched(args, rng, fams, STEPS, words_max):
             ),
         ),
         "ssum": (
-            _EXP + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)],
+            _EXP_FUSED + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)],
             lane_bias([(mx, zeros) for mx in maxes], DIM),
             np.concatenate([np.cumsum(e, axis=0) for e in exps]),
         ),
         "snorm": (
-            _EXP
-            + [
-                (LOADR, 3, 0, 0),
-                (MUL, 1, 3, 0),
-                (SHR, 1, 0, RCP_BITS - PROB_BITS),
-                (STORE, 1, 0, 0),
-            ],
+            _EXP_FUSED + [(NRM, 1, 0, RCP_BITS - PROB_BITS), (STORE, 1, 0, 0)],
             lane_bias(list(zip(maxes, sums)), DIM),
             np.concatenate(
                 [(e * rc) >> (RCP_BITS - PROB_BITS) for e, rc in zip(exps, recips)]

@@ -58,11 +58,19 @@ MREP = 7  # [opcode:8 | base:8 | log2 count:4 | reps:12]: `reps` rows of one swe
 
 # -- the VPU's extra opcodes ---------------------------------------------------
 GRP = 14  # [opcode:8 | 0:8 | rows:16]: rows per group; a group restarts the lane
+SMXB = 15  # [op:8 | dst:4 | src:4 | 0:16]: r[dst] = exp2(clamp(EXP_BASE + ((r[dst] - b[src]) >> EXP_SHIFT)))
+NRM = 16  # [op:8 | dst:4 | 0:4 | imm:16]: r[dst] = (r[dst] * rcp) >> imm
 GMAX = 8  # query groups a softmax launch may batch: constants per lane
 NBG = GMAX * NB  # the lane's constant file: (max, sum) for each group
 
 # -- the VPU's extra opcode --------------------------------------------------
 ACCN = 13  # [opcode:8 | dst:4 | 0:4 | n:16]: reg[dst] += the next n psums
+
+# The integer softmax's fixed point, baked into the lane's fused exponent.
+QUANT_SCORE = 6
+EXP_SHIFT = 5
+EXP_BASE = 8
+PROB_BITS = 6
 
 
 def mxu_sweep(base, count):
@@ -355,6 +363,18 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                     reg[dst] = 1 << e
                 elif opcode == LOADR:
                     reg[dst] = rcp
+                elif opcode == SMXB:
+                    # The softmax exponent in one word: seven of the plain
+                    # ones, and the lane's dispatch is what a softmax row
+                    # costs, so seven words is seven times the price.
+                    ex: int32 = EXP_BASE + ((reg[dst] - io.b[gb + src]) >> EXP_SHIFT)
+                    if ex < 0:
+                        ex = 0
+                    if ex > 30:
+                        ex = 30
+                    reg[dst] = 1 << ex
+                elif opcode == NRM:
+                    reg[dst] = (reg[dst] * rcp) >> imm
                 elif opcode == STORE:
                     io.y_out.put(reg[dst])
             rg = rg + 1
@@ -541,6 +561,7 @@ QUANT_SCORE = 6
 EXP_SHIFT = 5
 EXP_BASE = 8
 PROB_BITS = 6
+# (defined again here for the reader; the engine takes them from the top)
 
 _EXP = [
     (LOADZ, 1, 0, 0),  # r1 = this row's score
@@ -557,6 +578,20 @@ def _vprog(prog, outs, depth=NPROG):
     words = [vpu_word(*p) for p in prog]
     body = words + [vpu_word(NOP)] * (depth - len(words))
     return np.array([vpu_header(outs, len(words))] + body, dtype=np.int32)
+
+
+# The same passes with the fused words: two where `_EXP` is seven.
+_EXP_FUSED = [(LOADZ, 1, 0, 0), (SMXB, 1, 0, 0)]
+
+
+def row_sum_fused(rows, groups):
+    return grouped_vprog(_EXP_FUSED + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)], rows, groups)
+
+
+def normalise_fused(rows, groups):
+    return grouped_vprog(
+        _EXP_FUSED + [(NRM, 1, 0, RCP_BITS - PROB_BITS), (STORE, 1, 0, 0)], rows, groups
+    )
 
 
 def row_max_vprog(outs):
@@ -803,6 +838,37 @@ def test_softmax_groups_in_one_launch(target):
     bias = lane_bias([(maxes[g], sums[g]) for g in range(groups)], dim)
     A_, W, b, mprog, vprog = pass_operands(
         A, dim, kfile, grouped_vprog(prog, seq, groups), bias
+    )
+    run(A_, W, b, mprog, vprog, Y)
+    got = np.concatenate([Y[g * seq : (g + 1) * seq].T for g in range(groups)])
+    np.testing.assert_array_equal(np.clip(got, -128, 127).astype(np.int8), probs)
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_fused_softmax_words(target):
+    """`SMXB` and `NRM` give the seven- and eleven-word passes' answers."""
+    dim, seq, head, kfile = 4, 8, 8, 16
+    rng = np.random.default_rng(7)
+    Q = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    K = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    V = rng.integers(-8, 8, (seq, head)).astype(np.int8)
+    scores, row_max, row_sum, probs, _ = attention_head_ref(Q, K, V)
+    groups = seq // dim
+    A = np.concatenate([scores[:, g * dim : (g + 1) * dim] for g in range(groups)])
+    eng = stage_engine(dim, kfile, outs=groups * seq, sweep=1)
+    run = spmw.build(eng, target=target)
+    Y = np.zeros((groups * seq, dim), dtype=np.int32)
+    maxes = row_max.reshape(groups, dim)
+    bias = lane_bias([(maxes[g], np.zeros(dim)) for g in range(groups)], dim)
+    A_, W, b, mprog, vprog = pass_operands(
+        A, dim, kfile, row_sum_fused(seq, groups), bias
+    )
+    run(A_, W, b, mprog, vprog, Y)
+    sums = np.stack([Y[(g + 1) * seq - 1] for g in range(groups)])
+    np.testing.assert_array_equal(sums.reshape(-1), row_sum)
+    bias = lane_bias([(maxes[g], sums[g]) for g in range(groups)], dim)
+    A_, W, b, mprog, vprog = pass_operands(
+        A, dim, kfile, normalise_fused(seq, groups), bias
     )
     run(A_, W, b, mprog, vprog, Y)
     got = np.concatenate([Y[g * seq : (g + 1) * seq].T for g in range(groups)])
