@@ -70,17 +70,30 @@ def shapes_for(dim, kfile, slabs_max):
 def main():
     # pylint: disable=import-outside-toplevel
     from test_spmw_gpt_stage import (
+        _EXP,
+        ADD,
         EXP_BASE,
         EXP_SHIFT,
-        PROB_BITS,
-        RCP_BITS,
-        NB,
+        GMAX,
         gpt_stage_of,
+        grouped_vprog,
+        lane_bias,
+        LOADR,
+        LOADZ,
+        MAX,
+        MUL,
+        NB,
+        NBG,
         normalise_vprog,
         pass_operands,
+        PROB_BITS,
+        RCP_BITS,
         row_max_vprog,
         row_sum_vprog,
+        SHR,
         stage_operands,
+        stage_operands_multi,
+        STORE,
     )
 
     parser = argparse.ArgumentParser()
@@ -88,6 +101,12 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--dim", type=int, default=16)
     parser.add_argument("--kfile", type=int, default=256)
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="batch heads into the score and context launches and query "
+        "groups into the softmax passes (the lane's GRP word)",
+    )
     parser.add_argument(
         "--slabs",
         type=int,
@@ -116,12 +135,14 @@ def main():
     )
 
     for name, (K, N, rows, shift) in shapes.items():
+        if args.batch and name in ("score", "ctx"):
+            continue
         out_dir = os.path.join(args.out, name)
         os.makedirs(out_dir, exist_ok=True)
         X = rng.integers(-8, 8, size=(rows, K)).astype(np.int8)
         Wm = rng.integers(-4, 4, size=(K, N)).astype(np.int8)
         A, W, bias, mprog, vprog, expected = stage_operands(
-            X, Wm, DIM, KFILE, shift=shift
+            X, Wm, DIM, KFILE, shift=shift, words=0
         )
         assert A.shape[0] <= STEPS, (name, A.shape)
         outs = expected.shape[0]
@@ -135,7 +156,7 @@ def main():
         # with; the header and the count say how much of each is real.
         mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
         mprog_full[: mprog.shape[0]] = mprog
-        y_full = np.zeros((words_max, DIM), dtype=np.int32)
+        y_full = np.zeros((max(words_max, outs), DIM), dtype=np.int32)
         y_full[:outs] = expected
         arrays = {
             "A": a_full,
@@ -215,7 +236,9 @@ def main():
     for name, (vprog, bias, expected) in passes.items():
         out_dir = os.path.join(args.out, name)
         os.makedirs(out_dir, exist_ok=True)
-        A, W, b, mprog, vprog = pass_operands(scores, DIM, KFILE, vprog, bias)
+        A, W, b, mprog, vprog = pass_operands(
+            scores, DIM, KFILE, vprog, lane_bias([tuple(bias.T)], DIM), words=0
+        )
         a_full = np.zeros((STEPS, DIM), dtype=np.int8)
         a_full[: A.shape[0]] = A
         mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
@@ -272,7 +295,189 @@ def main():
         print(
             f"  {name:6s} softmax pass: {A.shape[0]} steps -> {expected.shape[0]} rows"
         )
+    if args.batch:
+        write_batched(args, rng, fams, STEPS, words_max)
     print("wrote", args.out)
+
+
+def _emit(args, name, fams, arrays, counts, meta):
+    """One operand set: the family buffers, and a manifest with the counts."""
+    out_dir = os.path.join(args.out, name)
+    os.makedirs(out_dir, exist_ok=True)
+    manifest = []
+    for fam in fams:
+        buf = host_buffer(fam, arrays)
+        dma = _dma_name(fam)
+        with open(os.path.join(out_dir, dma + ".bin"), "wb") as handle:
+            handle.write(buf)
+        tensor = fam["tensor"]
+        manifest.append(
+            {
+                "name": dma,
+                "file": dma + ".bin",
+                "bytes": len(buf),
+                "reads": fam["reads"],
+                "channels": fam["channels"],
+                "steps": counts.get(tensor, fam["steps"]),
+                "buffer_steps": fam["steps"],
+                "tensor": tensor,
+            }
+        )
+    with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as h:
+        json.dump(dict(meta, shape=name, families=manifest), h, indent=2)
+
+
+def write_batched(args, rng, fams, STEPS, words_max):
+    """The attention shapes with heads and query groups batched per launch.
+
+    Scores and context: as many heads as the weight file holds -- eight of
+    either at 256 tiles -- one `MREP` word per head and slab, so a layer's
+    scores are two launches rather than thirty-two. The softmax passes: `GMAX`
+    query groups per launch, the lane restarting at each `GRP` boundary with
+    that group's own maximum and sum, so a pass is sixteen launches rather
+    than a hundred and twenty-eight.
+    """
+    # pylint: disable=import-outside-toplevel
+    from test_spmw_gpt_stage import (
+        _EXP,
+        ADD,
+        GMAX,
+        LOADR,
+        LOADZ,
+        MAX,
+        MUL,
+        NB,
+        PROB_BITS,
+        RCP_BITS,
+        SHR,
+        STORE,
+        EXP_BASE,
+        EXP_SHIFT,
+        grouped_vprog,
+        lane_bias,
+        pass_operands,
+        stage_operands_multi,
+    )
+
+    DIM, KFILE = args.dim, args.kfile
+    i32 = np.int32
+    # -- scores^T = K . Q^T and context = P . V, `heads` heads a launch --
+    for name, K, N, shift in (("score", 64, ROWS, 6), ("ctx", ROWS, 64, 6)):
+        per_head = (K // DIM) * (N // DIM)
+        heads = min(16, KFILE // per_head)
+        pairs = []
+        for _h in range(heads):
+            X = rng.integers(-8, 8, size=(ROWS, K)).astype(np.int8)
+            Wm = rng.integers(-4, 4, size=(K, N)).astype(np.int8)
+            pairs.append((X, Wm))
+        A, W, bias, mprog, vprog, expected = stage_operands_multi(
+            pairs, DIM, KFILE, shift, words=0
+        )
+        assert A.shape[0] <= STEPS, (name, A.shape)
+        outs = expected.shape[0]
+        a_full = np.zeros((STEPS, DIM), dtype=np.int8)
+        a_full[: A.shape[0]] = A
+        mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
+        mprog_full[: mprog.shape[0]] = mprog
+        y_full = np.zeros((max(words_max, outs), DIM), dtype=np.int32)
+        y_full[:outs] = expected
+        arrays = {
+            "A": a_full,
+            "W": W,
+            "Bias": bias,
+            "MProg": mprog_full,
+            "VProg": vprog,
+            "Y": y_full,
+        }
+        _emit(
+            args,
+            name,
+            fams,
+            arrays,
+            {"A": A.shape[0], "MProg": mprog.shape[0], "Y": outs},
+            {"K": K, "N": N, "rows": ROWS, "outs": outs, "heads": heads},
+        )
+        print(
+            f"  {name:6s} {heads} heads/launch K={K} N={N} rows={ROWS} -> outs={outs} "
+            f"steps={A.shape[0]} words={mprog.shape[0] - 1}"
+        )
+    # -- the softmax passes, GMAX query groups a launch --
+    G = GMAX
+    scores = [
+        rng.integers(-128, 128, size=(ROWS, DIM)).astype(np.int8) for _ in range(G)
+    ]
+    maxes = [np.maximum(sc.max(axis=0), 0).astype(i32) for sc in scores]
+    exps = [
+        (
+            i32(1) << np.clip(EXP_BASE + ((sc.astype(i32) - mx) >> EXP_SHIFT), 0, 30)
+        ).astype(i32)
+        for sc, mx in zip(scores, maxes)
+    ]
+    sums = [e.sum(axis=0) for e in exps]
+    recips = [
+        np.where(sm > 0, (i32(1) << RCP_BITS) // np.maximum(sm, 1), 0) for sm in sums
+    ]
+    A = np.concatenate(scores)
+    zeros = np.zeros(DIM, i32)
+    passes = {
+        "smax": (
+            [(LOADZ, 1, 0, 0), (MAX, 0, 1, 0), (STORE, 0, 0, 0)],
+            lane_bias([(zeros, zeros)] * G, DIM),
+            np.concatenate(
+                [
+                    np.maximum.accumulate(np.maximum(sc.astype(i32), 0), axis=0)
+                    for sc in scores
+                ]
+            ),
+        ),
+        "ssum": (
+            _EXP + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)],
+            lane_bias([(mx, zeros) for mx in maxes], DIM),
+            np.concatenate([np.cumsum(e, axis=0) for e in exps]),
+        ),
+        "snorm": (
+            _EXP
+            + [
+                (LOADR, 3, 0, 0),
+                (MUL, 1, 3, 0),
+                (SHR, 1, 0, RCP_BITS - PROB_BITS),
+                (STORE, 1, 0, 0),
+            ],
+            lane_bias(list(zip(maxes, sums)), DIM),
+            np.concatenate(
+                [(e * rc) >> (RCP_BITS - PROB_BITS) for e, rc in zip(exps, recips)]
+            ),
+        ),
+    }
+    for name, (prog, bias, expected) in passes.items():
+        vprog = grouped_vprog(prog, ROWS, G)
+        A_, W, b, mprog, vprog = pass_operands(A, DIM, KFILE, vprog, bias, words=0)
+        a_full = np.zeros((STEPS, DIM), dtype=np.int8)
+        a_full[: A_.shape[0]] = A_
+        mprog_full = np.zeros((words_max + 1, DIM), dtype=np.int32)
+        mprog_full[: mprog.shape[0]] = mprog
+        outs = expected.shape[0]
+        y_full = np.zeros((max(words_max, outs), DIM), dtype=np.int32)
+        y_full[:outs] = expected
+        arrays = {
+            "A": a_full,
+            "W": W,
+            "Bias": b,
+            "MProg": mprog_full,
+            "VProg": vprog,
+            "Y": y_full,
+        }
+        _emit(
+            args,
+            name,
+            fams,
+            arrays,
+            {"A": A_.shape[0], "MProg": mprog.shape[0], "Y": outs},
+            {"K": 0, "N": DIM, "rows": ROWS, "outs": outs, "groups": G},
+        )
+        print(
+            f"  {name:6s} softmax pass, {G} groups/launch: {A_.shape[0]} steps -> {outs} rows"
+        )
 
 
 if __name__ == "__main__":

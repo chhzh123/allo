@@ -63,6 +63,8 @@ class Shape:
         self.outs = meta["outs"]
         self.n = meta.get("N", DIM)  # output features one launch covers
         self.k = meta.get("K", 0)  # reduction length one launch covers
+        self.heads = meta.get("heads", 1)  # heads batched into one launch
+        self.groups = meta.get("groups", 1)  # query groups batched into one launch
         self.fams = {f["name"]: f for f in meta["families"]}
         self.data = {}
         for name, fam in self.fams.items():
@@ -197,9 +199,11 @@ def main():
             continue
         sh = shapes[shape]
         if shape in ("smax", "ssum", "snorm"):
-            launches = features // DIM  # one query-group of DIM lanes per launch
+            # one query group of DIM lanes per launch, or `groups` of them
+            launches = (features // DIM) // sh.groups
         else:
             launches = (features // sh.n) * max(1, reduction // max(sh.k, 1))
+            launches //= sh.heads
         secs = launches * per_launch[shape]
         total += secs
         total_macs += macs

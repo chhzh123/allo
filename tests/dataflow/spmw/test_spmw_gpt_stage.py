@@ -54,6 +54,12 @@ from test_spmw_tpu_isa import (
 MSWEEP = 4  # [opcode:8 | base:8 | count:16]: MACC over tiles base..base+count-1
 MPASS = 5  # [opcode:8 | 0:8 | count:16]: count steps that forward the psum
 MLOAD = 6  # [opcode:8 | 0:8 | words:16]: fill the file from the weight stream
+MREP = 7  # [opcode:8 | base:8 | count-1:8 | reps-1:8]: `reps` rows of one sweep
+
+# -- the VPU's extra opcodes ---------------------------------------------------
+GRP = 14  # [opcode:8 | 0:8 | rows:16]: rows per group; a group restarts the lane
+GMAX = 8  # query groups a softmax launch may batch: constants per lane
+NBG = GMAX * NB  # the lane's constant file: (max, sum) for each group
 
 # -- the VPU's extra opcode --------------------------------------------------
 ACCN = 13  # [opcode:8 | dst:4 | 0:4 | n:16]: reg[dst] += the next n psums
@@ -69,6 +75,26 @@ def mxu_pass(count):
 
 def mxu_load(words):
     return (MLOAD << 24) | (words & 0xFFFF)
+
+
+def mxu_rep(base, count, reps):
+    """`reps` output rows, each the sweep of tiles base..base+count-1.
+
+    One word where ``mxu_sweep`` needs one per row: a 512-row projection is
+    four words, the whole layer's attention scores are sixty-four.
+    """
+    assert 1 <= count <= 256 and 1 <= reps <= 256, (count, reps)
+    return (MREP << 24) | (base << 16) | ((count - 1) << 8) | (reps - 1)
+
+
+def lane_bias(groups, dim):
+    """The lanes' constant file for `groups` [(max[dim], sum[dim]), ...]."""
+    assert len(groups) <= GMAX, len(groups)
+    bias = np.zeros((dim, NBG), dtype=np.int32)
+    for g, (mx, sm) in enumerate(groups):
+        bias[:, g * NB] = mx
+        bias[:, g * NB + 1] = sm
+    return bias
 
 
 def file_to_stream(W):
@@ -92,9 +118,18 @@ def file_to_stream(W):
     return words.astype(np.int32).T.copy()  # [dim * kfile // 4, dim]
 
 
-def mxu_program(words, rows):
-    """[count] + words, broadcast across the array's rows."""
-    body = [len(words)] + list(words)
+def mxu_program(words, rows, pad_to=None):
+    """[count] + words, broadcast across the array's rows.
+
+    ``pad_to`` fills the program out to that many words with `MPASS 0` --
+    a word the cell reads, forwards and does nothing with -- so a launch can
+    carry the program length a fabric was elaborated with. The simulators
+    need the stream and the buffer to agree; the board reads the count.
+    """
+    words = list(words)
+    if pad_to is not None and len(words) < pad_to:
+        words += [mxu_pass(0)] * (pad_to - len(words))
+    body = [len(words)] + words
     return np.repeat(np.array(body, dtype=np.int32)[:, None], rows, axis=1)
 
 
@@ -105,6 +140,17 @@ def stage_vprog(sweep, shift, outs, bias=False, depth=NPROG):
     words = [vpu_word(*p) for p in prog]
     body = words + [vpu_word(NOP)] * (depth - len(words))
     return np.array([vpu_header(outs, len(words))] + body, dtype=np.int32)
+
+
+class LaneIO(spmw.Interface):
+    """A vector lane whose constants come in groups: `LOADB` reads the
+    current group's, and a `GRP rows` word says how many rows a group is."""
+
+    op_in = spmw.In(int32)
+    op_out = spmw.Out(int32)
+    z_in = spmw.In(int32)
+    y_out = spmw.Out(int32)
+    b = spmw.MemIn(int32[NBG])
 
 
 class MacIO(spmw.Interface):
@@ -152,9 +198,9 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         },
     )
     chain = spmw.Topology(
-        VpuIO,
+        LaneIO,
         grid=(dim,),
-        link=lambda i: {VpuIO.op_out: spmw.to((i + 1,), VpuIO.op_in)},
+        link=lambda i: {LaneIO.op_out: spmw.to((i + 1,), LaneIO.op_in)},
     )
 
     @spmw.unit
@@ -180,6 +226,20 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                 for _j in range(n - kw):
                     x: int32 = io.w_in.get()
                     io.w_out.put(x)
+            elif opcode == MREP:
+                io.op_out.put(word)
+                cnt: int32 = ((word >> 8) & 255) + 1
+                reps: int32 = (word & 255) + 1
+                for _r in range(reps):
+                    for t2 in range(cnt):
+                        a2 = io.a_in.get()
+                        p2 = io.p_in.get()
+                        io.a_out.put(a2)
+                        idx2: int32 = base + t2
+                        packed2: int32 = wf[idx2 >> 2]
+                        byte2: int32 = (packed2 >> ((idx2 & 3) * 8)) & 255
+                        wt2: int32 = (byte2 ^ 128) - 128
+                        io.p_out.put(p2 + a2 * wt2)
             else:
                 io.op_out.put(word)
                 # One word, many steps: the activation and the partial sum are
@@ -199,7 +259,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                         io.p_out.put(p)
 
     @spmw.unit
-    def vpu(io: VpuIO):
+    def vpu(io: LaneIO):
         header: int32 = io.op_in.get()
         io.op_out.put(header)
         plen: int32 = header & 65535
@@ -209,28 +269,39 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
         # netlist, told apart by two numbers in the stream.
         nouts: int32 = (header >> 16) & 65535
         prog: int32[vprog_len]
+        # Rows per group: a `GRP` word anywhere in the program sets it and is
+        # kept as a NOP. Without one a launch is a single group.
+        rows: int32 = 65535
         for pc in range(plen):
             word: int32 = io.op_in.get()
-            prog[pc] = word
             io.op_out.put(word)
+            if ((word >> 24) & 255) == GRP:
+                rows = word & 65535
+                prog[pc] = 0
+            else:
+                prog[pc] = word
         for _pad in range(vprog_len - plen):
             spare: int32 = io.op_in.get()
             io.op_out.put(spare)
 
-        # The pass reciprocal, once per launch -- see test_spmw_tpu_isa for why
-        # it does not belong inside the dispatch.
-        denom: int32 = io.b[1]
-        rcp: int32 = 0
-        if denom > 0:
-            rcp = (1 << RCP_BITS) // denom
-
         # The register file survives from one row to the next, so a program can
         # reduce down a lane's rows -- a running maximum, a running sum -- which
-        # is how softmax runs on the same netlist as the GEMMs.
+        # is how softmax runs on the same netlist as the GEMMs. A group is
+        # where that restarts: registers zeroed, and the pass reciprocal taken
+        # from the group's own constants (see test_spmw_tpu_isa for why the
+        # divide does not belong inside the dispatch).
         reg: int32[REGS]
-        for r0 in range(REGS):
-            reg[r0] = 0
+        rcp: int32 = 0
+        gb: int32 = 0  # the current group's base in the constant file
+        rg: int32 = 0  # row within the group
         for _m in range(nouts):
+            if rg == 0:
+                for r0 in range(REGS):
+                    reg[r0] = 0
+                denom: int32 = io.b[gb + 1]
+                rcp = 0
+                if denom > 0:
+                    rcp = (1 << RCP_BITS) // denom
             for pc2 in range(plen):
                 word2: int32 = prog[pc2]
                 opcode: int32 = (word2 >> 24) & 255
@@ -254,7 +325,7 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                     z2: int32 = io.z_in.get()
                     reg[dst] = z2
                 elif opcode == LOADB:
-                    reg[dst] = io.b[src]
+                    reg[dst] = io.b[gb + src]
                 elif opcode == LOADI:
                     reg[dst] = imm
                 elif opcode == ADD:
@@ -279,12 +350,16 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                     reg[dst] = rcp
                 elif opcode == STORE:
                     io.y_out.put(reg[dst])
+            rg = rg + 1
+            if rg == rows:
+                rg = 0
+                gb = gb + NB
 
     @spmw.fabric
     def engine(
         A: int8[steps, dim],
         W: int32[dim * kw, dim],
-        Bias: int32[dim, NB],
+        Bias: int32[dim, NBG],
         MProg: int32[words + 1, dim],
         VProg: int32[vprog_len + 1],
         Y: int32[outs, dim],
@@ -310,14 +385,15 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
 # -- laying a GEMM stage out for the engine ----------------------------------
 
 
-def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None):
+def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None, words=None):
     """One launch of `X[R, K] @ Wmat[K, N]` for `slabs` 16-column slabs of N.
 
     Returns (A, W, Bias, MProg, VProg, expected). `A` is the activation stream
     the array reads: for each slab, each row, each K-tile, one 16-wide vector.
     `W` is the cell weight file as the rows stream it in (`file_to_stream`):
     tile `s*T + t` is the (t, s) 16x16 block. The program is one load word,
-    then a sweep per output row.
+    then a `MREP` per slab, padded to ``words`` (default: the `outs + 1` a
+    `stage_engine` is elaborated with; 0 for the bare program).
     """
     R, K = X.shape
     N = Wmat.shape[1]
@@ -327,7 +403,7 @@ def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None):
     outs = slabs * R
     A = np.zeros((outs * T, dim), dtype=np.int8)
     W = np.zeros((dim, dim, kfile), dtype=np.int8)
-    words = []
+    words_ = []
     for s in range(slabs):
         for t in range(T):
             W[:, :, s * T + t] = Wmat[t * dim : (t + 1) * dim, s * dim : (s + 1) * dim]
@@ -335,10 +411,15 @@ def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None):
             row = s * R + r
             for t in range(T):
                 A[row * T + t] = X[r, t * dim : (t + 1) * dim]
-            words.append(mxu_sweep(s * T, T))
-    mprog = mxu_program([mxu_load(dim * kfile // 4)] + words, dim)
+        # One word per slab where it fits, one per row where it does not.
+        if T <= 256 and R <= 256:
+            words_.append(mxu_rep(s * T, T, R))
+        else:
+            words_ += [mxu_sweep(s * T, T)] * R
+    pad_to = outs + 1 if words is None else words
+    mprog = mxu_program([mxu_load(dim * kfile // 4)] + words_, dim, pad_to)
     vprog = stage_vprog(T, shift, outs)
-    bias = np.zeros((dim, NB), dtype=np.int32)
+    bias = np.zeros((dim, NBG), dtype=np.int32)
     full = X.astype(np.int32) @ Wmat.astype(np.int32)
     expected = np.zeros((outs, dim), dtype=np.int32)
     for s in range(slabs):
@@ -387,14 +468,24 @@ def test_a_launch_may_be_smaller_than_the_buffer():
     """
     dim, kfile, rows = 16, 256, 128
     proj = stage_operands(
-        np.zeros((rows, 1024), np.int8), np.zeros((1024, 64), np.int8), dim, kfile, 4
+        np.zeros((rows, 1024), np.int8),
+        np.zeros((1024, 64), np.int8),
+        dim,
+        kfile,
+        4,
+        words=0,
     )
     ffn2 = stage_operands(
-        np.zeros((rows, 4096), np.int8), np.zeros((4096, 16), np.int8), dim, kfile, 4
+        np.zeros((rows, 4096), np.int8),
+        np.zeros((4096, 16), np.int8),
+        dim,
+        kfile,
+        4,
+        words=0,
     )
     assert proj[0].shape[0] == ffn2[0].shape[0] == 32768  # activation steps
     assert proj[5].shape[0] == 512 and ffn2[5].shape[0] == 128  # rows emitted
-    assert proj[3].shape[0] - 2 == 512 and ffn2[3].shape[0] - 2 == 128  # sweeps
+    assert proj[3].shape[0] - 2 == 4 and ffn2[3].shape[0] - 2 == 1  # one word a slab
     header_rows = lambda v: int(v[0]) >> 16  # noqa: E731
     assert header_rows(proj[4]) == 512 and header_rows(ffn2[4]) == 128
 
@@ -491,13 +582,66 @@ def identity_file(dim, kfile):
     return W
 
 
-def pass_operands(rows_in, dim, kfile, vprog, bias):
-    """One softmax pass: `rows_in` [R, dim] int8 through the identity tile."""
+def pass_operands(rows_in, dim, kfile, vprog, bias, words=None):
+    """One softmax pass: `rows_in` [R, dim] int8 through the identity tile.
+
+    ``bias`` is the lanes' constant file, [dim, NBG]; `lane_bias` builds one.
+    ``words`` pads the program as in `stage_operands`.
+    """
     R = rows_in.shape[0]
     A = rows_in.astype(np.int8).copy()
     W = file_to_stream(identity_file(dim, kfile))
-    mprog = mxu_program([mxu_load(dim * kfile // 4)] + [mxu_sweep(0, 1)] * R, dim)
+    reps = [mxu_rep(0, 1, min(R - done, 256)) for done in range(0, R, 256)]
+    pad_to = R + 1 if words is None else words
+    mprog = mxu_program([mxu_load(dim * kfile // 4)] + reps, dim, pad_to)
     return A, W, bias.astype(np.int32), mprog, vprog
+
+
+def grouped_vprog(prog, rows, groups, depth=NPROG):
+    """A pass program over `groups` groups of `rows` rows: `GRP rows` first."""
+    body = [vpu_word(GRP, 0, 0, rows)] + [vpu_word(*p) for p in prog]
+    body += [vpu_word(NOP)] * (depth - len(body))
+    return np.array([vpu_header(rows * groups, len(body))] + body, dtype=np.int32)
+
+
+def stage_operands_multi(pairs, dim, kfile, shift, words=None):
+    """Several `X @ Wmat` products in one launch, one weight file.
+
+    `pairs` is [(X[R, K], Wmat[K, N]), ...] with one (R, K, N); product `h`
+    takes tiles `h * slabs * T` onwards, so sixteen attention heads with a
+    K of 64 fill a 256-tile file exactly. Returns the same tuple as
+    `stage_operands`, with the results stacked in order.
+    """
+    R, K = pairs[0][0].shape
+    N = pairs[0][1].shape[1]
+    T = K // dim
+    slabs = N // dim
+    per = slabs * T
+    assert len(pairs) * per <= kfile, (len(pairs), per, kfile)
+    outs = len(pairs) * slabs * R
+    A = np.zeros((outs * T, dim), dtype=np.int8)
+    W = np.zeros((dim, dim, kfile), dtype=np.int8)
+    reps = []
+    expected = np.zeros((outs, dim), dtype=np.int32)
+    for h, (X, Wmat) in enumerate(pairs):
+        full = X.astype(np.int32) @ Wmat.astype(np.int32)
+        for s in range(slabs):
+            base = h * per + s * T
+            for t in range(T):
+                W[:, :, base + t] = Wmat[
+                    t * dim : (t + 1) * dim, s * dim : (s + 1) * dim
+                ]
+            row0 = (h * slabs + s) * R
+            for r in range(R):
+                for t in range(T):
+                    A[(row0 + r) * T + t] = X[r, t * dim : (t + 1) * dim]
+            reps.append(mxu_rep(base, T, R))
+            expected[row0 : row0 + R] = full[:, s * dim : (s + 1) * dim] >> shift
+    pad_to = outs + 1 if words is None else words
+    mprog = mxu_program([mxu_load(dim * kfile // 4)] + reps, dim, pad_to)
+    vprog = stage_vprog(T, shift, outs)
+    bias = np.zeros((dim, NBG), dtype=np.int32)
+    return A, file_to_stream(W), bias, mprog, vprog, expected
 
 
 def attention_head_ref(Q, K, V):
@@ -553,7 +697,7 @@ def attention_head(Q, K, V, dim, kfile, target="ref"):
     probs_t = np.zeros((seq, seq), dtype=np.int32)
     for q0 in range(0, seq, dim):
         rows = scores[:, q0 : q0 + dim]  # [key, query-lane]
-        bias = np.zeros((dim, NB), dtype=np.int32)
+        bias = np.zeros((dim, NBG), dtype=np.int32)
         A, W, b, mprog, vprog = pass_operands(
             rows, dim, kfile, row_max_vprog(seq), bias
         )
@@ -606,6 +750,75 @@ def test_one_attention_head_on_the_stage_engine(target):
     K = rng.integers(-64, 64, (seq, head)).astype(np.int8)
     V = rng.integers(-8, 8, (seq, head)).astype(np.int8)
     attention_head(Q, K, V, dim, kfile, target=target)
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_softmax_groups_in_one_launch(target):
+    """Two query groups through one launch of each pass: `GRP` restarts the
+    lane at the group boundary and `LOADB` reads the group's own constants,
+    so the batched result is the per-group result, row for row."""
+    dim, seq, head, kfile = 4, 8, 8, 16
+    rng = np.random.default_rng(5)
+    Q = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    K = rng.integers(-64, 64, (seq, head)).astype(np.int8)
+    V = rng.integers(-8, 8, (seq, head)).astype(np.int8)
+    scores, row_max, row_sum, probs, _ = attention_head_ref(Q, K, V)
+    groups = seq // dim  # two groups of `dim` queries, `seq` keys each
+    A = np.concatenate([scores[:, g * dim : (g + 1) * dim] for g in range(groups)])
+    eng = stage_engine(dim, kfile, outs=groups * seq, sweep=1)
+    run = spmw.build(eng, target=target)
+    Y = np.zeros((groups * seq, dim), dtype=np.int32)
+    # pass 1: the maxima, one per group and lane, on the last row of the group
+    prog = [(LOADZ, 1, 0, 0), (MAX, 0, 1, 0), (STORE, 0, 0, 0)]
+    bias = lane_bias([(np.zeros(dim), np.zeros(dim))] * groups, dim)
+    A_, W, b, mprog, vprog = pass_operands(
+        A, dim, kfile, grouped_vprog(prog, seq, groups), bias
+    )
+    run(A_, W, b, mprog, vprog, Y)
+    maxes = np.stack([Y[(g + 1) * seq - 1] for g in range(groups)])
+    np.testing.assert_array_equal(maxes.reshape(-1), row_max)
+    # pass 2: the sums, with each group's maxima
+    prog = _EXP + [(ADD, 0, 1, 0), (STORE, 0, 0, 0)]
+    bias = lane_bias([(maxes[g], np.zeros(dim)) for g in range(groups)], dim)
+    A_, W, b, mprog, vprog = pass_operands(
+        A, dim, kfile, grouped_vprog(prog, seq, groups), bias
+    )
+    run(A_, W, b, mprog, vprog, Y)
+    sums = np.stack([Y[(g + 1) * seq - 1] for g in range(groups)])
+    np.testing.assert_array_equal(sums.reshape(-1), row_sum)
+    # pass 3: normalise, every row
+    prog = _EXP + [
+        (LOADR, 3, 0, 0),
+        (MUL, 1, 3, 0),
+        (SHR, 1, 0, RCP_BITS - PROB_BITS),
+        (STORE, 1, 0, 0),
+    ]
+    bias = lane_bias([(maxes[g], sums[g]) for g in range(groups)], dim)
+    A_, W, b, mprog, vprog = pass_operands(
+        A, dim, kfile, grouped_vprog(prog, seq, groups), bias
+    )
+    run(A_, W, b, mprog, vprog, Y)
+    got = np.concatenate([Y[g * seq : (g + 1) * seq].T for g in range(groups)])
+    np.testing.assert_array_equal(np.clip(got, -128, 127).astype(np.int8), probs)
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_heads_in_one_launch(target):
+    """Four heads' score products from one weight file in one launch: each
+    head's tiles sit at its own base, one `MREP` word per head and slab."""
+    dim, seq, head, kfile = 4, 8, 8, 16
+    rng = np.random.default_rng(6)
+    heads = kfile // ((head // dim) * (seq // dim))  # 4 heads x (2 tiles x 2 slabs)
+    pairs = []
+    for _h in range(heads):
+        Kh = rng.integers(-8, 8, (seq, head)).astype(np.int8)
+        Qh = rng.integers(-8, 8, (seq, head)).astype(np.int8)
+        pairs.append((Kh, Qh.T))  # scores^T = K . Q^T
+    A, W, bias, mprog, vprog, want = stage_operands_multi(pairs, dim, kfile, shift=0)
+    eng = stage_engine(dim, kfile, outs=want.shape[0], sweep=head // dim)
+    Y = np.zeros_like(want)
+    spmw.build(eng, target=target)(A, W, bias, mprog, vprog, Y)
+    np.testing.assert_array_equal(Y, want)
 
 
 def gpt_stage_of(size, kfile=256, rows=128, sweep=64, slabs=4):
