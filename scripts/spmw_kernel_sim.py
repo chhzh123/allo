@@ -46,6 +46,16 @@ def _hex(path, raw):
         handle.write("\n".join(f"{b:02x}" for b in raw) + "\n")
 
 
+def xpm_sources():
+    """The XPM macros the block-RAM FIFO instantiates, from the Vivado install."""
+    root = os.environ.get("XILINX_VIVADO", "")
+    found = [
+        os.path.join(root, "data", "ip", "xpm", sub, "hdl", sub + ".sv")
+        for sub in ("xpm_memory", "xpm_fifo")
+    ]
+    return [f for f in found if os.path.isfile(f)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("kernel")
@@ -132,6 +142,7 @@ def main():
     missing = [s for s in sources if not os.path.exists(s)]
     if missing:
         raise SystemExit(f"missing sources: {missing[:3]}")
+    sources = xpm_sources() + sources
     print(f"{len(sources)} source file(s)")
 
     def run(cmd, log):

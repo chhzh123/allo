@@ -26,12 +26,13 @@ Two kinds of family come out of resolution and they become different things:
 
 from . import channels as ch
 from .abi import (
-    CoordPort,
     _decl,
     _port_signals,
     _width,
     _WIDTH,
     const_module,
+    CoordPort,
+    fifo_choice,
     fifo_module,
 )
 from .errors import SPMWBindingError
@@ -516,8 +517,9 @@ class StructuralEmitter:
             f" begin : g_{fam.name}",
         ]
         own = _fifo_ports(fam.name, idx)
+        module, depth = fifo_choice(fam.depth)
         plain = (
-            f"      spmw_fifo #(.DW({width}), .DEPTH({fam.depth})) u ("
+            f"      {module} #(.DW({width}), .DEPTH({depth})) u ("
             f".clk(ap_clk), .rst_n(ap_rst_n), {own});"
         )
         if not crossing:
@@ -540,7 +542,7 @@ class StructuralEmitter:
             f", .empty_n({tag}_valid[{idx}])"
             f", .read({tag}_ready[{idx}]));",
             # ... and the anchor's into the channel the consumer reads.
-            f"        spmw_fifo #(.DW({width}), .DEPTH({fam.depth})) u ("
+            f"        {module} #(.DW({width}), .DEPTH({depth})) u ("
             f".clk(ap_clk), .rst_n(ap_rst_n)"
             f", .din({tag}_data[{idx}])"
             f", .full_n({tag}_ready[{idx}])"

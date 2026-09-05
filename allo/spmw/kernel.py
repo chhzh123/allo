@@ -33,7 +33,7 @@ put the shape back into the bitstream, and the shape is the thing a new model
 changes.
 """
 
-from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals
+from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals, fifo_choice
 from .rtl import StructuralEmitter, _volume, _width
 from .shell import _dma_name, beats_of, families
 
@@ -418,7 +418,7 @@ def _edge_wires(fam, plan):
     # EDGE_DEPTH, whichever is smaller; a feeder that outruns it blocks on a
     # full FIFO and resumes, which is a stall rather than the deadlock, because
     # every row's FIFO is now deep enough for every other row to catch up.
-    depth = min(max(2, plan["steps"]), EDGE_DEPTH)
+    module, depth = fifo_choice(min(max(2, plan["steps"]), EDGE_DEPTH))
     lines = [
         f"  // {name}: {count} channel(s) of {width} bits between the "
         f"{'feeder' if plan['reads'] else 'drain'} and the array, "
@@ -433,7 +433,7 @@ def _edge_wires(fam, plan):
         "  generate",
         f"    for ({name}_i = 0; {name}_i < {count}; {name}_i = {name}_i + 1)"
         f" begin : g_edge_{name}",
-        f"      spmw_fifo #(.DW({width}), .DEPTH({depth})) u ("
+        f"      {module} #(.DW({width}), .DEPTH({depth})) u ("
         ".clk(ap_clk), .rst_n(ap_rst_n)"
         + "".join(
             f", .{s}({name}_e_{s}[{name}_i])"

@@ -3677,3 +3677,47 @@ against 21.4. GELU and the two LayerNorms are on the host in this version.
 Log: `/scratch/hc676/board_brick.log`. The 64-tile token netlist's spread
 relinks at 150 and 200 MHz (`gptkern_k64_150/200`) are still running as the
 control for what the placement directive alone does.
+
+## Towards 300 MHz: what set the clock at 250, and the fabric change
+
+The brick link's routed timing report (250 MHz, WNS +0.009 ns) names the
+walls, and none is the array. The worst kernel-clock paths:
+
+    3.935 ns (logic 0.18, route 3.76)  u_drain_vpu_y_out_bind/gmem_m_axi_U/
+        bus_write/wreq_throttle/data_fifo/raddr_reg[1]_rep -> U_fifo_srl/dout_reg[N]
+    3.81-3.84 ns (logic 0.73-0.89, route 2.95-3.08)
+        g_edge_mac_w_in_bind[5].u/count_reg[k] -> count_reg[j]
+
+The first is the drain's HLS AXI write adapter: a 512-bit SRL FIFO whose
+read address fans out over 3.76 ns of routing -- a placement-spread problem.
+The second is the fabric's own boundary FIFO: `spmw_fifo` is `assign dout =
+mem[rptr]`, an asynchronous read, so a 1024-deep boundary FIFO is
+distributed LUTRAM (the 59,900 "LUT as memory" of the routed kernel, and
+the `mem_reg_320_383` RAM64 blocks in the hold paths), and its
+`count`-based `full_n`/`empty_n` put the feeder's `write` and a far-away
+cell's `read` on one combinational path. The cells appear only in hold
+paths.
+
+Change: `spmw_fifo_bram` in `allo/spmw/abi.py` -- the same ap_fifo
+handshake on `xpm_fifo_sync` in first-word-fall-through block-RAM mode,
+registered `empty_n`/`dout`; `fifo_choice(depth)` picks it from 64 deep up
+(rounded to a power of two), the two-deep mesh links stay registers. The
+kernel's boundary FIFOs become `spmw_fifo_bram` (1024 x 8/32 bits per
+channel); the packager declares the XPM libraries; both simulators compile
+the XPM sources.
+
+- xsim unit test, 4,000 tokens under the ap_fifo handshake: the block-RAM
+  FIFO moves one token per cycle at producer gaps of 1, 2 and 3 cycles
+  (4,002 / 8,001 / 12,000 cycles against the register FIFO's 4,000 / 7,999 /
+  11,998) -- no throughput bubble, two cycles of latency.
+- Packaged kernel in xsim on the `score` shape: 0 of 32,768 bytes wrong,
+  done at 52.23 us against 52.21 us with the register FIFOs.
+- A first staging at an HLS target of 400 MHz simulated 11% slower (58.4 us)
+  with the same result: the tighter target deepens the vector lane's
+  per-instruction pipelines, and the score shape is lane-bound. The units
+  stay at the 300 MHz HLS target; it is the link clock that moves.
+
+Linking at 300 MHz, three placements in parallel: `gptkern_300` (default),
+`gptkern_300s` (`SSI_SpreadLogic_high` + phys_opt `AggressiveExplore`),
+`gptkern_300x` (`ExtraTimingOpt` + `AggressiveExplore`); a board watcher on
+each, walking `gpt_operands_brick` at the linked clock.

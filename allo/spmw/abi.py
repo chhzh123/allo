@@ -49,12 +49,42 @@ def _width(family):
     return bits
 
 
+#: Below this depth a FIFO is registers and a read mux; from it up it is a
+#: block RAM with registered flags. The line is where the mux stops being
+#: cheap: a 1024-deep, 512-bit boundary FIFO written the register way is
+#: 60k LUTs of asynchronous-read LUTRAM whose read path, and whose count
+#: handshake between a feeder and a far-away cell, set the clock of a whole
+#: kernel at 250 MHz.
+BRAM_FIFO_DEPTH = 64
+
+
+def fifo_choice(depth):
+    """The FIFO module for a ``depth``, and the depth to build it with.
+
+    The block-RAM FIFO wants a power of two of at least 16, so a deep request
+    is rounded up; a FIFO's depth is a capacity floor, never a count anything
+    relies on.
+    """
+    if depth < BRAM_FIFO_DEPTH:
+        return "spmw_fifo", depth
+    rounded = 16
+    while rounded < depth:
+        rounded *= 2
+    return "spmw_fifo_bram", rounded
+
+
 def fifo_module():
-    """A synchronous FIFO with the ap_fifo handshake HLS exports.
+    """The synchronous FIFOs with the ap_fifo handshake HLS exports.
 
     Write side is ``din``/``full_n``/``write``, read side ``dout``/``empty_n``/
     ``read`` -- what a free-running (``ap_ctrl_none``) HLS IP presents for an
     ``hls::stream`` argument, so a role IP drops straight onto it.
+
+    ``spmw_fifo`` is registers: right for the two-deep links of a mesh.
+    ``spmw_fifo_bram`` is a block RAM in first-word-fall-through mode with the
+    same handshake, for the deep boundary buffers -- registered ``empty_n`` and
+    ``dout``, so the cell that reads it and the feeder that writes it are no
+    longer on one combinational path through a count.
     """
     return """`timescale 1ns/1ps
 
@@ -86,6 +116,66 @@ module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
       count <= count + (do_wr ? 1 : 0) - (do_rd ? 1 : 0);
     end
   end
+endmodule
+
+// The same handshake on a block RAM. `write` only ever arrives with `full_n`
+// high and `read` with `empty_n` high -- that is the ap_fifo contract -- and
+// the gating below keeps the macro's own overflow and underflow checks quiet
+// through reset, when the HLS side is held too.
+module spmw_fifo_bram #(parameter DW = 32, parameter DEPTH = 1024) (
+  input  wire          clk,
+  input  wire          rst_n,
+  input  wire [DW-1:0] din,
+  output wire          full_n,
+  input  wire          write,
+  output wire [DW-1:0] dout,
+  output wire          empty_n,
+  input  wire          read
+);
+  wire full, empty, wr_rst_busy, rd_rst_busy;
+  assign full_n  = ~full & ~wr_rst_busy;
+  assign empty_n = ~empty & ~rd_rst_busy;
+  xpm_fifo_sync #(
+    .FIFO_MEMORY_TYPE("block"),
+    .FIFO_WRITE_DEPTH(DEPTH),
+    .WRITE_DATA_WIDTH(DW),
+    .READ_DATA_WIDTH(DW),
+    .READ_MODE("fwft"),
+    .FIFO_READ_LATENCY(0),
+    .USE_ADV_FEATURES("0000"),
+    .ECC_MODE("no_ecc"),
+    .WAKEUP_TIME(0),
+    .DOUT_RESET_VALUE("0"),
+    .FULL_RESET_VALUE(1),
+    .RD_DATA_COUNT_WIDTH(1),
+    .WR_DATA_COUNT_WIDTH(1)
+  ) u (
+    .rst(~rst_n),
+    .wr_clk(clk),
+    .wr_en(write & full_n),
+    .din(din),
+    .full(full),
+    .wr_rst_busy(wr_rst_busy),
+    .rd_en(read & empty_n),
+    .dout(dout),
+    .empty(empty),
+    .rd_rst_busy(rd_rst_busy),
+    .sleep(1'b0),
+    .injectsbiterr(1'b0),
+    .injectdbiterr(1'b0),
+    .overflow(),
+    .underflow(),
+    .prog_full(),
+    .prog_empty(),
+    .wr_ack(),
+    .almost_full(),
+    .almost_empty(),
+    .data_valid(),
+    .rd_data_count(),
+    .wr_data_count(),
+    .sbiterr(),
+    .dbiterr()
+  );
 endmodule
 """
 

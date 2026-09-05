@@ -62,6 +62,7 @@ PLATFORM = "xilinx_u280_gen3x16_xdma_1_202211_1"
 # so the clock associations can be set on the core before it is wrapped. The
 # floorplan does *not* ride along here -- see `KERNEL_PATH` below.
 PACKAGE_TCL = """create_project -in_memory -part {part}
+set_property XPM_LIBRARIES {{XPM_CDC XPM_MEMORY XPM_FIFO}} [current_project]
 add_files -norecurse [glob {root}/*.sv]
 proc add_if_any {{pattern}} {{
   # `add_files` on an empty glob is an error, not a no-op.
