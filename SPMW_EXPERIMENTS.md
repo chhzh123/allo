@@ -3925,6 +3925,46 @@ their launch cadence is real. The softmax passes' per-launch times at 250
 and 300 MHz were partly wait()'s early returns; the honest figures come
 from the fixed kernel.
 
+### 302 on the board: the fixed control word, every stage honest at 300 MHz
+
+`gptkern_302` -- the engine of record, block-RAM boundary FIFOs,
+beat-counted done, the control map above (stale done cleared by a start,
+one-cycle kick, a start during a job queued), linked at 300 MHz with the
+ExtraTimingOpt placement -- ran the walker with `--verify-last`, a hundred
+timed launches a shape, one checked launch of the next: every shape
+matches, and the last timed launch of every shape is complete at the
+host's first look after wait() (the 23-52 us the walker printed is one
+sync of the drain buffer from the device, which the walker now says so).
+
+    stage                shape  launches    time (ms)         MMAC     GMAC/s
+    Q, K, V projection   proj       3x16   3 x 2.890        134.2      46.44
+    scores K.Q^T         score        32        2.117         16.8       7.92
+    softmax: row max     smax        128        5.306            -          -
+    softmax: exp + sum   ssum        128        6.932            -          -
+    softmax: normalise   snorm       128        7.101            -          -
+    context P.V          ctx          16        1.162         16.8      14.43
+    output projection    proj         16        2.890        134.2      46.44
+    FFN1                 proj         64       11.560        536.9      46.44
+    FFN2                 ffn2         64        9.699        536.9      55.35
+    one layer on device                        55.437       1644.2      29.66
+
+    per launch: proj 180.6 us (109.2 of array work, 60% busy), ffn2 151.6,
+    score 66.2, ctx 72.6, smax 41.5, ssum 54.2, snorm 55.5
+
+55.4 ms a layer, 1.33 s for the 24 layers, against 59.2 ms at 250 MHz on
+the brick design; 38.6% of the array's 76.8 GMAC/s over the layer's GEMMs.
+The GEMM stages are the 300/250 clock ratio faster and nothing else; the
+softmax passes are now what they cost -- 19.3 ms of the 55.4, three
+launches of 128 rows each per layer at 41-56 us a launch, launch overhead
+almost entirely (0.4 us of array work each) -- which is what the batched
+lane (`gptkern_v8b`, 8 groups a launch) is for. The v8b link is in
+placement; its board run is queued behind this one.
+
+The board scripts run the walker on the system Python from now on:
+pyxrt is built against it (the script is numpy-free for that reason), and
+the venv's Python 3.12 has no pyxrt -- the `No module named 'pyxrt'` seen
+during the network outage was this, not the outage.
+
 ## FEATHER on SPMW: latency against the original design
 
 FEATHER (Tong et al., ISCA 2024) is NEST -- an AH x AW array of PEs, each

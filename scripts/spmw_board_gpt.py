@@ -200,7 +200,8 @@ def main():
         total = time.time() - t
         if verify_last and want is not None:
             t1 = time.time()
-            for _ in range(5000):
+            polls = 0
+            for polls in range(5000):
                 bos[drain].sync(
                     pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_FROM_DEVICE, sizes[drain], 0
                 )
@@ -208,7 +209,13 @@ def main():
                     break
                 time.sleep(0.00002)
             late = time.time() - t1
-            print(f"    last launch complete {late * 1e6:.0f} us after its wait() returned")
+            # One sync of the drain buffer costs tens of microseconds by itself,
+            # so the time only says something when the first look did not match.
+            if polls == 0:
+                print(f"    last launch complete at the first look ({late * 1e6:.0f} us: one sync of the drain)")
+                late = 0.0
+            else:
+                print(f"    last launch complete {late * 1e6:.0f} us after its wait() returned ({polls} looks)")
             total += late
         return total / n - gap
 
