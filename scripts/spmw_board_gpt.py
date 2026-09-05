@@ -86,6 +86,9 @@ def main():
     global CLOCK_HZ  # pylint: disable=global-statement
     CLOCK_HZ = float(opt("--clock-mhz", str(CLOCK_HZ / 1e6))) * 1e6
     print(f"kernel clock taken as {CLOCK_HZ / 1e6:.0f} MHz")
+    dump = int(opt("--dump", "0"))  # mismatching values to print, if any
+    settle = float(opt("--settle-ms", "0")) / 1e3  # wait after done before reading
+    keep_going = "--keep-going" in rest
     # Which launch shapes this netlist can run. The GEMM-only netlist has no
     # lane opcodes for the softmax passes; asking it to run one is a hang, not
     # a wrong answer, so the shapes are chosen rather than discovered.
@@ -143,6 +146,25 @@ def main():
         )
         want = expected[: outs * DIM * 4]
         got = bytes(bos[drain].map()[: len(want)])
+        if got != want and dump:
+            # Which rows and lanes disagree: a tail of stale rows is a
+            # completion race, a scatter is a data path, one lane is a lane.
+            rows = [
+                r
+                for r in range(outs)
+                if got[r * DIM * 4 : (r + 1) * DIM * 4]
+                != want[r * DIM * 4 : (r + 1) * DIM * 4]
+            ]
+            print(f"    {len(rows)} of {outs} rows differ; first {rows[:6]}, last {rows[-3:]}")
+            shown = 0
+            for r in rows:
+                for lane in range(DIM):
+                    o = (r * DIM + lane) * 4
+                    g = int.from_bytes(got[o : o + 4], "little", signed=True)
+                    w = int.from_bytes(want[o : o + 4], "little", signed=True)
+                    if g != w and shown < dump:
+                        print(f"    row {r} lane {lane}: got {g} want {w}")
+                        shown += 1
         return got == want
 
     def restarted(counts, n):
@@ -167,6 +189,8 @@ def main():
     for name, shape in shapes.items():
         counts, expected = load(shape)
         invoke(counts, 20000)
+        if settle:
+            time.sleep(settle)
         ok = check(expected, shape.outs)
         secs = restarted(counts, reps)
         per_launch[name] = secs
@@ -183,7 +207,7 @@ def main():
                 100.0 * busy / secs,
             )
         )
-        if not ok:
+        if not ok and not keep_going:
             raise SystemExit("the device disagrees with the reference simulator")
 
     print("\nGPT-2 medium, one layer, per stage")

@@ -35,7 +35,7 @@ changes.
 
 from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals, fifo_choice
 from .rtl import StructuralEmitter, _volume, _width
-from .shell import _dma_name, beats_of, families
+from .shell import _dma_name, beats_of, families, BEAT
 
 # The first argument sits above the four control words, and each argument gets
 # a 64-bit slot whatever it holds -- what `v++` expects of a kernel it did not
@@ -537,10 +537,50 @@ def _completion(fams):
         lines.append(f"      if (kick) pend[{index}] <= 1'b1;")
         lines.append(f"      else if (ready_{index}) pend[{index}] <= 1'b0;")
         lines.append(f"      if (done_{index}) fin[{index}] <= 1'b1;")
+    lines += ["    end", "  end"]
+    # An IP's `ap_done` is not the kernel's business. On one 300 MHz
+    # bitstream a drain's done reached the kernel before its loop had
+    # finished, the host read the buffer on the kernel's done, and the tail
+    # of every launch -- rows 64 to 127, or 96 to 511 -- was still on its way
+    # (it arrived within 20 ms). So the kernel counts what each DMA actually
+    # moves on its AXI port -- read beats for a feeder, write beats for a
+    # drain -- against the beats the launch's `steps` amount to, and is not
+    # done until every count matches and every write has been answered.
+    for index, plan in enumerate(fams):
+        axi = f"m_axi_gmem{index}"
+        name = _dma_name(plan)
+        bits = plan["channels"] * plan["width"]  # bits per step
+        lines += [
+            f"  // {name}: {bits} bits a step, {BEAT}-bit beats",
+            f"  wire [31:0] want_{index} = (({name}_steps * 32'd{bits}) + 32'd{BEAT - 1}) >> {BEAT.bit_length() - 1};",
+            f"  reg [31:0] moved_{index};",
+        ]
+        if plan["reads"]:
+            lines.append(f"  wire beat_{index} = {axi}_RVALID & {axi}_RREADY;")
+        else:
+            lines += [
+                f"  wire beat_{index} = {axi}_WVALID & {axi}_WREADY;",
+                f"  reg [15:0] wout_{index};  // bursts issued and not yet answered",
+            ]
+        lines += [
+            "  always @(posedge ap_clk) begin",
+            f"    if (rst | ap_ready) moved_{index} <= 32'd0;",
+            f"    else if (beat_{index}) moved_{index} <= moved_{index} + 32'd1;",
+        ]
+        if not plan["reads"]:
+            lines += [
+                f"    if (rst) wout_{index} <= 16'd0;",
+                f"    else wout_{index} <= wout_{index}"
+                f" + (({axi}_AWVALID & {axi}_AWREADY) ? 16'd1 : 16'd0)"
+                f" - (({axi}_BVALID & {axi}_BREADY) ? 16'd1 : 16'd0);",
+            ]
+        lines.append("  end")
+    settled = " & ".join(
+        [f"(moved_{i} == want_{i})" for i in range(n)]
+        + [f"(wout_{i} == 16'd0)" for i, plan in enumerate(fams) if not plan["reads"]]
+    )
     lines += [
-        "    end",
-        "  end",
-        "  assign ap_done  = &fin;",
+        f"  assign ap_done  = (&fin) & {settled};",
         "  assign ap_ready = ap_done;",
         "  assign ap_idle  = " + " & ".join(f"idle_{i}" for i in range(n)) + ";",
     ]

@@ -217,6 +217,11 @@ def design(name, size):
         from test_spmw_gpt_stage import gpt_stage_of
 
         return gpt_stage_of(size, outs=8192)
+    if name == "gptstage_v1":
+        # The engine of record: the brick transport as it ran on the board.
+        from gpt_stage_v1 import gpt_stage_of as gpt_stage_v1
+
+        return gpt_stage_v1(size)
     if name == "gptstage16k64":
         # The 16x16 stage engine with a 64-tile file: K=1024 in one sweep, one
         # 16-column slab per launch, 8,192 steps; FFN2 is four passes chained
