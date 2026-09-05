@@ -3796,3 +3796,33 @@ fold by the lane over a `f_op` link -- no new host family), and the lane's
 dispatch is one flat pipelined loop over every word of every row, with the
 row and group bookkeeping as counters inside it. Fill and drain are then
 paid once a launch.
+
+## 300 MHz on the U280: the links close; the board says almost
+
+Three links of the brick engine with block-RAM boundary FIFOs at a 300 MHz
+kernel clock (HLS at 300, `--kernel_frequency 300`):
+
+    placement directive          placed WNS   routed WNS   link
+    ExtraTimingOpt   (300x)        +0.004      +0.016      4 h 08 m
+    SSI_SpreadLogic_high (300s)    +0.004      +0.016      ~4 h
+    default          (300d)        +0.004      +0.003      (routing done)
+
+All three place and route with timing met at 3.33 ns; the block-RAM FIFOs
+took the fabric off the critical path (the 250 MHz brick had placed at
+-0.240 before optimisation and routed at +0.009).
+
+On the board, `300x` (kernel clock 300 MHz in the xclbin's DATA_CLK): the
+first launch of proj, ffn2, score, ctx and smax matches the reference
+simulator; per launch proj 188.9 us (208.1 at 250 MHz), ffn2 158.2
+(172.8), score 71.6 (72.7), ctx 63.8 (81.8), smax 22.1 (36.2). Then
+`ssum` mismatched and the walk stopped.
+
+The mismatch is a *tail* of rows left unwritten: rerunning `snorm` after
+`ssum` gave rows 112-127, 96-127 and 48-127 as zeros in three runs -- a
+multiple of 16 rows, one AXI write burst, each time -- while `snorm` alone
+matches every time, with or without a 5 ms wait before reading. So it is
+not a wrong value and not a plain readback race: the shape *after* a
+lane-bound softmax pass loses the end of its output, intermittently, at
+300 MHz, where the same operands and order pass at 250. An experiment
+matrix (order, settle, the 300s placement, the 250 MHz kernel as control)
+is running to separate a control-path race from a timing-marginal path.
