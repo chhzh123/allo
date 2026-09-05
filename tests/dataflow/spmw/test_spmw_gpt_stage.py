@@ -54,7 +54,7 @@ from test_spmw_tpu_isa import (
 MSWEEP = 4  # [opcode:8 | base:8 | count:16]: MACC over tiles base..base+count-1
 MPASS = 5  # [opcode:8 | 0:8 | count:16]: count steps that forward the psum
 MLOAD = 6  # [opcode:8 | 0:8 | words:16]: fill the file from the weight stream
-MREP = 7  # [opcode:8 | base:8 | count-1:8 | reps-1:8]: `reps` rows of one sweep
+MREP = 7  # [opcode:8 | base:8 | log2 count:4 | reps:12]: `reps` rows of one sweep
 
 # -- the VPU's extra opcodes ---------------------------------------------------
 GRP = 14  # [opcode:8 | 0:8 | rows:16]: rows per group; a group restarts the lane
@@ -81,10 +81,14 @@ def mxu_rep(base, count, reps):
     """`reps` output rows, each the sweep of tiles base..base+count-1.
 
     One word where ``mxu_sweep`` needs one per row: a 512-row projection is
-    four words, the whole layer's attention scores are sixty-four.
+    four words, the whole layer's attention scores are sixty-four. `count` is
+    a power of two so the cell's tile index is a mask of its step counter --
+    a wrapping counter put 0.9 ns on the weight-read path -- and every
+    sweep length here is one: 1, 4, 8, 64 and 256 tiles.
     """
-    assert 1 <= count <= 256 and 1 <= reps <= 256, (count, reps)
-    return (MREP << 24) | (base << 16) | ((count - 1) << 8) | (reps - 1)
+    assert count & (count - 1) == 0 and 1 <= count <= 32768, count
+    assert 1 <= reps <= 4095, reps
+    return (MREP << 24) | (base << 16) | (count.bit_length() - 1) << 12 | reps
 
 
 def lane_bias(groups, dim):
@@ -228,18 +232,21 @@ def stage_engine(dim, kfile, outs, sweep, words=None, vprog_len=NPROG):
                     io.w_out.put(x)
             elif opcode == MREP:
                 io.op_out.put(word)
-                cnt: int32 = ((word >> 8) & 255) + 1
-                reps: int32 = (word & 255) + 1
-                for _r in range(reps):
-                    for t2 in range(cnt):
-                        a2 = io.a_in.get()
-                        p2 = io.p_in.get()
-                        io.a_out.put(a2)
-                        idx2: int32 = base + t2
-                        packed2: int32 = wf[idx2 >> 2]
-                        byte2: int32 = (packed2 >> ((idx2 & 3) * 8)) & 255
-                        wt2: int32 = (byte2 ^ 128) - 128
-                        io.p_out.put(p2 + a2 * wt2)
+                # One flat loop, the tile index a mask of the step counter:
+                # the same path as a sweep. A wrapping counter, or two nested
+                # loops flattened, put their exit tests on the weight read.
+                sh: int32 = (word >> 12) & 15
+                reps: int32 = word & 4095
+                mask: int32 = (1 << sh) - 1
+                for i in range(reps << sh):
+                    a2 = io.a_in.get()
+                    p2 = io.p_in.get()
+                    io.a_out.put(a2)
+                    idx2: int32 = base + (i & mask)
+                    packed2: int32 = wf[idx2 >> 2]
+                    byte2: int32 = (packed2 >> ((idx2 & 3) * 8)) & 255
+                    wt2: int32 = (byte2 ^ 128) - 128
+                    io.p_out.put(p2 + a2 * wt2)
             else:
                 io.op_out.put(word)
                 # One word, many steps: the activation and the partial sum are
@@ -412,7 +419,7 @@ def stage_operands(X, Wmat, dim, kfile, shift, slabs=None, rng=None, words=None)
             for t in range(T):
                 A[row * T + t] = X[r, t * dim : (t + 1) * dim]
         # One word per slab where it fits, one per row where it does not.
-        if T <= 256 and R <= 256:
+        if T & (T - 1) == 0 and R <= 4095:
             words_.append(mxu_rep(s * T, T, R))
         else:
             words_ += [mxu_sweep(s * T, T)] * R
@@ -591,7 +598,7 @@ def pass_operands(rows_in, dim, kfile, vprog, bias, words=None):
     R = rows_in.shape[0]
     A = rows_in.astype(np.int8).copy()
     W = file_to_stream(identity_file(dim, kfile))
-    reps = [mxu_rep(0, 1, min(R - done, 256)) for done in range(0, R, 256)]
+    reps = [mxu_rep(0, 1, min(R - done, 4095)) for done in range(0, R, 4095)]
     pad_to = R + 1 if words is None else words
     mprog = mxu_program([mxu_load(dim * kfile // 4)] + reps, dim, pad_to)
     return A, W, bias.astype(np.int32), mprog, vprog
@@ -821,10 +828,16 @@ def test_heads_in_one_launch(target):
     np.testing.assert_array_equal(Y, want)
 
 
-def gpt_stage_of(size, kfile=256, rows=128, sweep=64, slabs=4):
+def gpt_stage_of(size, kfile=256, rows=128, sweep=64, slabs=4, outs=None):
     """The board shape: a `size` x `size` array, K=1024 in one sweep, four
-    output slabs per launch -- 512 result rows, 32,768 activation steps."""
-    return stage_engine(size, kfile, outs=slabs * rows, sweep=sweep)
+    output slabs per launch -- 512 result rows, 32,768 activation steps.
+
+    ``outs`` sizes the launch buffers beyond that: a batched attention launch
+    delivers 8,192 rows, and the host buffers the families are packed into
+    are cut from the elaborated shape, so the board build elaborates for the
+    largest launch it will be asked for.
+    """
+    return stage_engine(size, kfile, outs=outs or slabs * rows, sweep=sweep)
 
 
 if __name__ == "__main__":

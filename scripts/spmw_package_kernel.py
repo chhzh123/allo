@@ -225,6 +225,13 @@ def main():
     parser.add_argument("--sim", action="store_true", help="stop before v++")
     parser.add_argument("--link-frequency", type=float, default=0.0)
     parser.add_argument(
+        "--pipeline-loops",
+        type=int,
+        default=64,
+        help="HLS pipelines inner loops from this trip count up (its default "
+        "is 64, which leaves a vector lane's short instruction loop unpipelined)",
+    )
+    parser.add_argument(
         "--vivado-prop",
         action="append",
         default=[],
@@ -263,6 +270,7 @@ def main():
         args.part,
         args.frequency,
         anchors=anchors,
+        pipeline_loops=args.pipeline_loops,
     )
     feeders = stage_feeders(graph, args.out, args.part, args.frequency)
     # `stage` writes the fabric under roles/; the kernel wants it beside itself.

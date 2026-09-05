@@ -69,6 +69,7 @@ open_solution sol
 set_part {part}
 create_clock -period {period:.2f} -name default
 config_interface -clock_enable=0
+config_compile -pipeline_loops {pipeline_loops}
 set_directive_interface -mode ap_ctrl_none "{name}_0" return
 csynth_design
 export_design -format ip_catalog
@@ -215,7 +216,7 @@ def design(name, size):
         # MSWEEP over K=1024, four 16-column output slabs of 128 rows each.
         from test_spmw_gpt_stage import gpt_stage_of
 
-        return gpt_stage_of(size)
+        return gpt_stage_of(size, outs=8192)
     if name == "gptstage16k64":
         # The 16x16 stage engine with a 64-tile file: K=1024 in one sweep, one
         # 16-column slab per launch, 8,192 steps; FFN2 is four passes chained
@@ -364,7 +365,7 @@ _NUMPY = {
 }
 
 
-def stage(graph, out, part, frequency, ii=None, anchors=None):
+def stage(graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64):
     """Write one HLS project per role, plus the fabric that will hold them.
 
     Every placement, not just the first: a design can put more than one
@@ -389,7 +390,12 @@ def stage(graph, out, part, frequency, ii=None, anchors=None):
             )
             _write(
                 os.path.join(directory, "run.tcl"),
-                ROLE_TCL.format(name=name, part=part, period=1000.0 / frequency),
+                ROLE_TCL.format(
+                    name=name,
+                    part=part,
+                    period=1000.0 / frequency,
+                    pipeline_loops=pipeline_loops,
+                ),
             )
             names.append(name)
     _write(os.path.join(out, "spmw_fifo.sv"), rtl.fifo_module())
@@ -518,9 +524,9 @@ def tune(graph, out, part, frequency, candidates=(0, 2, 3, 4, 5, 6)):
         _write(os.path.join(directory, "kernel.cpp"), code)
         _write(
             os.path.join(directory, "run.tcl"),
-            ROLE_TCL.format(name=name, part=part, period=target).replace(
-                "export_design -format ip_catalog\n", ""
-            ),
+            ROLE_TCL.format(
+                name=name, part=part, period=target, pipeline_loops=64
+            ).replace("export_design -format ip_catalog\n", ""),
         )
         jobs.append((ii, directory))
 

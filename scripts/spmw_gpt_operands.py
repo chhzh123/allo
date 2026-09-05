@@ -120,18 +120,24 @@ def main():
     shapes = shapes_for(DIM, KFILE, slabs)
     K1, _, _, _ = shapes["proj"]
     sweep = K1 // DIM
-    STEPS = slabs * ROWS * sweep
-
     # The netlist: `slabs * ROWS` result rows and a `sweep`-tile program per
     # row are the *buffer*; every shape below tells the device smaller or
-    # equal counts.
-    engine = gpt_stage_of(DIM, kfile=KFILE, rows=ROWS, sweep=sweep, slabs=slabs)
+    # equal counts. Batched attention launches deliver 8,192 rows, and the
+    # board netlist is elaborated for that.
+    engine = gpt_stage_of(
+        DIM,
+        kfile=KFILE,
+        rows=ROWS,
+        sweep=sweep,
+        slabs=slabs,
+        outs=8192 if args.batch else None,
+    )
     graph = spmw.elaborate(engine)
     fams = families(graph)
-    words_max = slabs * ROWS + 1  # the load word, then a sweep per row
+    _mac, _vpu, _dim, _kfile, outs_max, _sweep, words_max, STEPS = engine.spmw_parts
     print(
         f"array {DIM}x{DIM}, file {KFILE} tiles: buffer {STEPS} steps, "
-        f"{words_max} rows/words per launch"
+        f"{outs_max} rows, {words_max} words per launch"
     )
 
     for name, (K, N, rows, shift) in shapes.items():
