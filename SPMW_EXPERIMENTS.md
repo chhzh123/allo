@@ -3886,3 +3886,9 @@ done, which at 300 MHz is before the lanes are, so they read low.
 
 The GEMM stages alone: 33.5 ms a layer at 300 MHz against 42.1 at 250 --
 the 1.2x the clock buys, delivered.
+
+`gptkern_300d` (default placement, routed WNS +0.003 ns, link 4 h 23 m)
+walked the same way: proj 183.4 us, ffn2 154.7, score 70.0, ctx 77.8,
+smax 39.7, ssum 42.8 -- all matching -- and `snorm` lost its tail. Three
+placements, one behaviour: the early done is the 300 MHz kernels' until the
+beat-counted completion (`gptkern_301`, linking).
