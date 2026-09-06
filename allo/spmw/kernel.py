@@ -33,7 +33,7 @@ put the shape back into the bitstream, and the shape is the thing a new model
 changes.
 """
 
-from .abi import AXI_ADDR_WIDTH as AXI_ADDR, axi_signals, fifo_choice
+from .abi import AXI_ADDR_WIDTH as AXI_ADDR, EDGE_DEPTH, axi_signals, fifo_choice
 from .rtl import StructuralEmitter, _volume, _width
 from .shell import _dma_name, beats_of, families, BEAT
 
@@ -62,7 +62,6 @@ class Argument:
 
 
 #: The most tokens an edge FIFO buffers between a feeder and the array.
-EDGE_DEPTH = 1024
 
 
 def arguments(graph):

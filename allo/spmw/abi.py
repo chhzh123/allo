@@ -56,6 +56,13 @@ def _width(family):
 #: handshake between a feeder and a far-away cell, set the clock of a whole
 #: kernel at 250 MHz.
 BRAM_FIFO_DEPTH = 64
+# The deepest an edge stream gets between a feeder or drain and the array,
+# in the kernel's block RAM and in the fabric simulator alike: a launch's
+# tokens for one site, or this, whichever is smaller. A feeder that outruns
+# it stalls; a drain read in a fixed site order behind a shallower one can
+# deadlock the array, which the simulator did at 8x8 with the ports' own
+# depth of two.
+EDGE_DEPTH = 1024
 
 
 def fifo_choice(depth):
@@ -312,6 +319,7 @@ def _decl(signals, indent="  "):
 
 
 __all__ = [
+    "EDGE_DEPTH",
     "CoordPort",
     "axi_signals",
     "const_module",

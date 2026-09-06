@@ -3965,6 +3965,33 @@ pyxrt is built against it (the script is numpy-free for that reason), and
 the venv's Python 3.12 has no pyxrt -- the `No module named 'pyxrt'` seen
 during the network outage was this, not the outage.
 
+### The fabric simulator hung above 48 units: OpenMP sections need a team as large
+
+`test_gemm_8x8[simulator]` in the FEATHER tests never returned (a run was
+stopped after two hours at 190% CPU); every 4x4 case took seconds. Not a
+deadlock of the design: the array cosim of the same 8x8 engine passes with
+the same two-deep links. `feather(8, 4)` (40 units) and `feather(4, 8)`
+(22) run in under a second on the simulator, `feather(8, 8)` (56 units)
+hangs -- and the machine has 48 cores.
+
+The dataflow simulator (`allo/backend/simulator.py`) runs every PE as one
+`omp.section` of a `omp.parallel` region, and a PE blocked on a stream
+spins in its section (`taskyield` + `usleep(1)`). The team defaults to
+the core count, so with more sections than cores the sections that would
+unblock the spinning ones never start: a live-lock that scales with the
+array, invisible below 48 units. The fix pins the region's `num_threads`
+to the section count, and the 8x8 launch takes 0.8 s whatever
+`OMP_NUM_THREADS` says (default, 256, 16 all pass).
+
+Found on the way: the simulator's edge streams (a feeder's or drain's
+binding family) had the ports' own depth of two, where the kernel's edge
+FIFOs hold a launch's tokens for the site up to `EDGE_DEPTH`; a drain
+reading its sites in a fixed order behind a two-deep stream can deadlock
+an array the hardware would not. `lower_df` now sizes them as the kernel
+does (`abi.EDGE_DEPTH`, one definition for both). That alone did not
+free the 8x8 launch -- the thread team was the cause -- but it is the
+same rule on both paths now.
+
 ## FEATHER on SPMW: latency against the original design
 
 FEATHER (Tong et al., ISCA 2024) is NEST -- an AH x AW array of PEs, each

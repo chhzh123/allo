@@ -24,6 +24,7 @@ import tempfile
 import types
 
 from . import channels as ch
+from .abi import EDGE_DEPTH
 from .bricks import Brick, Tensor
 from .component import _io_param_name, captured_env
 from .errors import SPMWBindingError, SPMWMemoryError
@@ -225,6 +226,14 @@ class Lowering:
 
     def _plan_mover(self, binding, bundle, tensor, role):
         family = self._binding_family(bundle)
+        # An edge stream holds a launch's tokens for its site (up to
+        # EDGE_DEPTH), as the kernel's edge FIFOs do: a drain reads its sites
+        # in a fixed order, and at a depth of two a site that has produced its
+        # rows blocks while the drain waits on another site whose inputs
+        # are stuck behind the first -- the 8x8 FEATHER launch never returned.
+        family.depth = max(
+            family.depth, min(_tokens_per_site(tensor, bundle), EDGE_DEPTH)
+        )
         name = f"{self.kernel_names[bundle.placement]}_{bundle.port.name}_{role}"
         self.movers.append(
             Mover(
@@ -1402,6 +1411,15 @@ class _Geometry:
 
 def _geometry(bundle):
     return _Geometry(bundle)
+
+
+def _tokens_per_site(tensor, bundle):
+    """How many tokens a launch moves through one member of the bundle."""
+    shape = getattr(tensor, "shape", None) or ()
+    volume = 1
+    for extent in shape:
+        volume *= int(extent)
+    return max(1, -(-volume // max(1, len(bundle))))
 
 
 def _progression(values):
