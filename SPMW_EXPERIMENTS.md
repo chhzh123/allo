@@ -4182,8 +4182,7 @@ registers so synthesis copies them.
     free-running cells + directives (--frp)             -0.795   358 MHz               -0.934   341 MHz
     on the DSP grid (--dsp-grid)                        -1.584   279 MHz               -1.176   315 MHz
     on the DSP grid + directives                        -1.375   296 MHz               --
-    three bands + anchored crossings (--slots 3)        --                            no result after 8.4 h: routing,
-                                                                                     120 congestion iterations and counting
+    three bands + anchored crossings (--slots 3)        --                            -1.824   262 MHz, 6.5 h of routing
 
 The mesh: replicating the twenty-load control nets takes the last of
 it, from -0.257 to -0.064 -- a 32x32 int8 systolic array of 1,024 DSP
@@ -4195,10 +4194,11 @@ are a link slice into the next slice through a cell's stall logic, 2.1
 ns of route -- a density problem the mesh does not have. Its run with
 replicated control registers is the last one in flight. The banded
 floorplan with anchored crossings -- the AutoBridge recipe as the record
-tried it, now on a fabric whose links are all registered -- is still
-routing after eight hours with the router reporting congestion every
-iteration, which is the record's 32x32 finding again: the bands crowd
-the placement and the crossings were never the problem.
+tried it, now on a fabric whose links are all registered -- took 6.5
+hours to route through 120-odd congestion iterations and came out at
+-1.824 ns, 262 MHz, its worst paths 3.3-3.5 ns of wire between two link
+slices and inside a cell: the record's 32x32 finding again. The bands
+crowd the placement, and the crossings were never the problem.
 
 Reading the table as the answer to the question: a floorplan could not
 help because what sets the clock is inside the cells and the links, and
