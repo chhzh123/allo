@@ -3965,6 +3965,45 @@ pyxrt is built against it (the script is numpy-free for that reason), and
 the venv's Python 3.12 has no pyxrt -- the `No module named 'pyxrt'` seen
 during the network outage was this, not the outage.
 
+### v8b on the board: batching wins the small launches and loses the big ones
+
+`gptkern_v8b` -- the batched design (MREP, GRP, eight heads or eight
+softmax groups a launch, fused exp+sum, the fold unit, the scalar-register
+lane pipelined at II=3), block-RAM FIFOs, beat-counted done, the fixed
+control word, 300 MHz -- ran the same walker (`--verify-last`, a hundred
+timed launches a shape): every shape matches.
+
+    stage, one layer      302 (ms)   v8b (ms)   launches 302 -> v8b   v8b per launch
+    Q, K, V projections      8.67      12.46        48 -> 48            259.6 us (109.2 of array work)
+    scores K.Q^T             2.12       0.79        32 -> 2             393.2 us for 8 heads
+    softmax, three passes   19.34      10.60       384 -> 48            221 us for 8 groups
+    context P.V              1.16       0.52        16 -> 2             259.9 us for 8 heads
+    output projection        2.89       4.15        16 -> 16
+    FFN1                    11.56      16.61        64 -> 64
+    FFN2                     9.70      16.62        64 -> 64            259.7 us (109.2 of array work)
+    one layer               55.44      61.76       624 -> 244
+
+Batching does what it was for: the softmax passes go from 19.3 to 10.6 ms,
+scores and context from 3.3 to 1.3 ms, and a layer is 244 launches
+instead of 624. It loses on the long launches: a 32,768-step projection
+or FFN pass costs 259.6 us against 302's 180.6, the same 109.2 us of array
+work under 150 us of something the lane does, and the projections and
+FFNs are 65% of a layer, so the layer is 61.8 ms against 55.4. Per row:
+the v8b lane spends 152 cycles on a 64-step projection row where the
+array needs 64 -- the fabric runs at the lane's pace, not the array's --
+and 65 cycles on a softmax row of a single step. The v1 lane in 302 kept
+up with the array on the GEMM passes (71 us over the array work, most of
+it the launch itself). The kernel xsim of v8b's softmax said the same
+before the board did (a 1,024-step launch simulated at ~300 us).
+
+So the design of record stays 302 at 55.4 ms a layer, and the next step
+is measured, not guessed: an xsim trace of the v8b lane on one projection
+row, cycle by opcode, to see whether the ACCN's blocking read of the fold
+unit drains the pipelined dispatch every row (in which case the fix is a
+row-ahead fold FIFO or a two-row dispatch), or whether the II=3 loop is
+paying its 3 cycles on padding words too. With v1's per-row cost and
+v8b's batching, a layer would be about 46 ms.
+
 ### The fabric simulator hung above 48 units: OpenMP sections need a team as large
 
 `test_gemm_8x8[simulator]` in the FEATHER tests never returned (a run was
