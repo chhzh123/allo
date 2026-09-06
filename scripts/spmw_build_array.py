@@ -957,6 +957,14 @@ def main():
     parser.add_argument("--part", default=PART)
     parser.add_argument("--frequency", type=float, default=300.0)
     parser.add_argument(
+        "--max-fanout",
+        type=int,
+        default=0,
+        help="replicate the roles' pipeline control registers (loop-init and "
+        "stage-enable flags) so no such net drives more than this many loads; "
+        "0 leaves them alone",
+    )
+    parser.add_argument(
         "--frp",
         action="store_true",
         help="free-running pipelines in the roles: each role's body behind a "
@@ -1012,6 +1020,17 @@ def main():
     start = time.time()
     anchors = {}
     floorplan = ""
+    if args.max_fanout:
+        # The worst paths of a well-placed array are a cell's loop-init or
+        # stage-enable flag into the reset or enable of every bit of a
+        # register: one net, twenty to thirty loads. MAX_FANOUT on the flag's
+        # register has synthesis replicate it, so each copy drives a few.
+        floorplan += (
+            f"\nset_property MAX_FANOUT {args.max_fanout} [get_cells -quiet -hier "
+            "-filter {NAME =~ *ap_loop_init_int_reg* || NAME =~ *ap_enable_reg_pp0_iter* "
+            "|| NAME =~ *ap_start_reg_reg*}]\n"
+        )
+        print(f"max fanout {args.max_fanout} on the roles' pipeline control registers")
     if args.dsp_grid:
         os.makedirs(args.out, exist_ok=True)
         _write(

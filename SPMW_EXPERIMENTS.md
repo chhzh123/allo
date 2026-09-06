@@ -4127,11 +4127,13 @@ Measured, it is a negative result:
 
     2.0 ns target                    free placer   on the DSP grid
     int8 mesh 16x16                    +0.111          -0.029
-    int8 mesh 32x32                    -1.355          -1.584   (free placer + effort: -0.257)
+    int8 mesh 32x32                    -1.355          -1.584   (free placer + effort: -0.257; grid + effort: -1.375)
     MXU+VPU engine 32x32               -1.014          -1.176
 
 The worst paths on the grid are the same flag-to-reset paths, still
-2.6-2.7 ns of route. The part's DSP grid is the wrong shape for a 32-wide
+2.6-2.8 ns of route, and with the directives on top they sit on the
+mesh's edge columns (DSP columns 2 and 30, the die's margins), which is
+where the pitch to the next DSP column is widest. The part's DSP grid is the wrong shape for a 32-wide
 mesh: its 32 DSP columns span the whole die, so an east neighbour is a
 DSP-column pitch away (ten or more CLB columns), while the cells of a
 column, stacked on consecutive DSP sites, need more slices than the strip
@@ -4155,6 +4157,20 @@ each output, and Vitis only allows it inside a dataflow region. The
 roles are single functions, so `--frp` wraps each role's body behind a
 one-process dataflow region and asks for `config_compile -pipeline_style
 frp`.
+
+HLS takes it (`yes(frp)`, II=1) and the 8x8 mesh passes its cosim
+bit-exact. It is not a win: the 16x16 mesh with free-running cells and
+the directives is -0.105 against +0.111 plain, its worst path *still*
+the loop-init pulse into every accumulator bit's reset -- that reset is
+the cell's `acc = 0`, a function of the loop and not of the stall, so no
+pipeline style removes it -- and the buffers the style adds on each
+output bring paths of their own (a buffer's pointer into the link slice,
+1.5 ns). And it costs latency: the 8x8 tile's cosim goes from 28
+cycles (first output at 14) to 57 (first at 16), the added buffer on
+every output being a hop on every link. What is left to do about a
+twenty-load control net is to replicate its driver: `--max-fanout N`
+puts MAX_FANOUT on the roles' loop-init, stage-enable and start
+registers so synthesis copies them.
 
 
     4x4 MXU+VPU engine (16 cells, 4 lanes)
