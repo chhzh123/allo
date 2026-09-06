@@ -4172,6 +4172,40 @@ twenty-load control net is to replicate its driver: `--max-fanout N`
 puts MAX_FANOUT on the roles' loop-init, stage-enable and start
 registers so synthesis copies them.
 
+### 32x32 at 2.0 ns, every configuration measured
+
+    32x32, 2.0 ns target, worst in-array slack     int8 mesh (1,024 cells)     MXU+VPU engine (1,024 cells, 32 lanes)
+    as recorded (LUT-RAM FIFO, ISA lane)                -- (300 MHz at 3.3 ns)        -2.264   235 MHz
+    slice links, DSP multiplies, scalar lane            -1.355   298 MHz               -1.014   332 MHz
+    + timing-driven directives (--effort)               -0.257   443 MHz               -0.984   335 MHz
+    + control registers replicated (--max-fanout 8)     -0.064   484 MHz               (running)
+    free-running cells + directives (--frp)             -0.795   358 MHz               -0.934   341 MHz
+    on the DSP grid (--dsp-grid)                        -1.584   279 MHz               -1.176   315 MHz
+    on the DSP grid + directives                        -1.375   296 MHz               --
+    three bands + anchored crossings (--slots 3)        --                            no result after 8.4 h: routing,
+                                                                                     120 congestion iterations and counting
+
+The mesh: replicating the twenty-load control nets takes the last of
+it, from -0.257 to -0.064 -- a 32x32 int8 systolic array of 1,024 DSP
+cells at **484 MHz**, every path inside a cell or across one link, on a
+placer left to itself. The engine sits at 335-341 MHz whatever the
+directives: its cell is six times the mesh's (an instruction decoder, a
+weight file), 200k LUTs against 45k at this size, and its worst paths
+are a link slice into the next slice through a cell's stall logic, 2.1
+ns of route -- a density problem the mesh does not have. Its run with
+replicated control registers is the last one in flight. The banded
+floorplan with anchored crossings -- the AutoBridge recipe as the record
+tried it, now on a fabric whose links are all registered -- is still
+routing after eight hours with the router reporting congestion every
+iteration, which is the record's 32x32 finding again: the bands crowd
+the placement and the crossings were never the problem.
+
+Reading the table as the answer to the question: a floorplan could not
+help because what sets the clock is inside the cells and the links, and
+once those are local the free placer with its timing-driven directives
+is the best floorplanner this mesh has; the two hand floorplans tried
+(bands, a DSP grid) both take away exactly the freedom it needs.
+
 
     4x4 MXU+VPU engine (16 cells, 4 lanes)
     LUT-RAM FIFO, ISA lane (as recorded)            -0.082      FIFO count -> a cell's reset, 1.62 ns route; a FIFO's RAM read
