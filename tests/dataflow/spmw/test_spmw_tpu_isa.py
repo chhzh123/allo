@@ -244,52 +244,94 @@ def _engine(steps, outs=None, vprog_len=NPROG, dim=D):
         if denom > 0:
             rcp = (1 << RCP_BITS) // denom
 
-        # Declared *outside* the step loop, so a register survives from one
-        # accumulator to the next and a program can reduce across the pass --
-        # a running maximum, a running sum. A program that wants a fresh value
-        # each step says so with LOADI, which every one here does.
-        reg: int32[REGS]
-        for m in range(nouts):
-            for pc2 in range(plen):
-                word2: int32 = prog[pc2]
-                opcode: int32 = (word2 >> 24) & 255
-                dst: int32 = (word2 >> 20) & 15
-                src: int32 = (word2 >> 16) & 15
-                imm: int32 = word2 & 65535
-                if opcode == ACCZ:
-                    zz: int32 = io.z_in.get()
-                    reg[dst] = reg[dst] + zz
-                elif opcode == LOADZ:
-                    z2: int32 = io.z_in.get()
-                    reg[dst] = z2
-                elif opcode == LOADB:
-                    reg[dst] = io.b[src]
-                elif opcode == LOADI:
-                    reg[dst] = imm
-                elif opcode == ADD:
-                    reg[dst] = reg[dst] + reg[src]
-                elif opcode == MUL:
-                    reg[dst] = reg[dst] * reg[src]
-                elif opcode == MAX:
-                    if reg[src] > reg[dst]:
-                        reg[dst] = reg[src]
-                elif opcode == SHR:
-                    reg[dst] = reg[dst] >> imm
-                elif opcode == SUB:
-                    reg[dst] = reg[dst] - reg[src]
-                elif opcode == EXP2:
-                    # Clamped both ends: below 0 the true value is a fraction an
-                    # integer cannot hold, above 30 it leaves int32.
-                    e: int32 = reg[dst]
-                    if e < 0:
-                        e = 0
-                    if e > 30:
-                        e = 30
-                    reg[dst] = 1 << e
-                elif opcode == LOADR:
-                    reg[dst] = rcp
-                elif opcode == STORE:
-                    io.y_out.put(reg[dst])
+        # The register file as four scalars, not an array indexed at run time.
+        # An array read and written through `dst` in one iteration is a
+        # recurrence HLS has to schedule as a mux over the whole file and
+        # back, which is what set the clock of the 16x16 array and, at a
+        # 2 ns target, an interval of six. Scalars carried round the loop
+        # are the same dependence as an add and a mux. They survive from one
+        # accumulator to the next, so a program can reduce across the pass
+        # (a running maximum, a running sum); a program that wants a fresh
+        # value each step says so with LOADI, which every one here does.
+        r0: int32 = 0
+        r1: int32 = 0
+        r2: int32 = 0
+        r3: int32 = 0
+        pc2: int32 = 0
+        # One flat loop over every word of every row: a pipelined loop pays
+        # its fill and drain once a pass, where a loop per row paid them per
+        # row.
+        for _k in range(nouts * plen):
+            word2: int32 = prog[pc2]
+            opcode: int32 = (word2 >> 24) & 255
+            dst: int32 = (word2 >> 20) & 15
+            src: int32 = (word2 >> 16) & 15
+            imm: int32 = word2 & 65535
+            # the operands: d is r[dst], a is r[src]
+            d: int32 = r0
+            if dst == 1:
+                d = r1
+            elif dst == 2:
+                d = r2
+            elif dst == 3:
+                d = r3
+            a: int32 = r0
+            if src == 1:
+                a = r1
+            elif src == 2:
+                a = r2
+            elif src == 3:
+                a = r3
+            wr: int32 = 1  # every word but STORE and a NOP writes r[dst]
+            if opcode == ACCZ:
+                zz: int32 = io.z_in.get()
+                d = d + zz
+            elif opcode == LOADZ:
+                z2: int32 = io.z_in.get()
+                d = z2
+            elif opcode == LOADB:
+                d = io.b[src]
+            elif opcode == LOADI:
+                d = imm
+            elif opcode == ADD:
+                d = d + a
+            elif opcode == MUL:
+                d = d * a
+            elif opcode == MAX:
+                if a > d:
+                    d = a
+            elif opcode == SHR:
+                d = d >> imm
+            elif opcode == SUB:
+                d = d - a
+            elif opcode == EXP2:
+                # Clamped both ends: below 0 the true value is a fraction an
+                # integer cannot hold, above 30 it leaves int32.
+                e: int32 = d
+                if e < 0:
+                    e = 0
+                if e > 30:
+                    e = 30
+                d = 1 << e
+            elif opcode == LOADR:
+                d = rcp
+            elif opcode == STORE:
+                io.y_out.put(d)
+                wr = 0
+            else:
+                wr = 0
+            if wr == 1:
+                if dst == 0:
+                    r0 = d
+                elif dst == 1:
+                    r1 = d
+                elif dst == 2:
+                    r2 = d
+                else:
+                    r3 = d
+            pc2 = pc2 + 1
+            if pc2 == plen:
+                pc2 = 0
 
     @spmw.fabric
     def engine(

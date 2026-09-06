@@ -70,6 +70,11 @@ set_part {part}
 create_clock -period {period:.2f} -name default
 config_interface -clock_enable=0
 config_compile -pipeline_loops {pipeline_loops}
+# Every multiply in a DSP. Left to itself HLS builds a lone int8 x int8 (a
+# cell whose partial sum is a folded constant has no add to pair it with) as
+# a 16-bit LUT multiplier, seven logic levels that were the worst path of a
+# 4x4 array at a 2 ns target; the DSP does it in its own pipeline.
+config_op mul -impl dsp
 set_directive_interface -mode ap_ctrl_none "{name}_0" return
 csynth_design
 export_design -format ip_catalog

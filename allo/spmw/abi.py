@@ -87,15 +87,74 @@ def fifo_module():
     ``read`` -- what a free-running (``ap_ctrl_none``) HLS IP presents for an
     ``hls::stream`` argument, so a role IP drops straight onto it.
 
-    ``spmw_fifo`` is registers: right for the two-deep links of a mesh.
-    ``spmw_fifo_bram`` is a block RAM in first-word-fall-through mode with the
-    same handshake, for the deep boundary buffers -- registered ``empty_n`` and
-    ``dout``, so the cell that reads it and the feeder that writes it are no
-    longer on one combinational path through a count.
+    ``spmw_fifo`` at depth two is a register slice: ``dout``, ``empty_n`` and
+    ``full_n`` are all flops, and ``write``/``read`` only reach the slice's
+    own next-state logic, so no combinational path crosses a link in either
+    direction. That is what makes every link of a mesh a register-to-register
+    hop the placer can keep short (and a Laguna hop when it must cross an
+    SLR), the property AutoBridge and RapidStream add by hand at the slots
+    they cut. One cycle of latency, one beat a cycle. Deeper than two it is
+    a small LUT-RAM FIFO behind such a slice. ``spmw_fifo_bram`` is a block
+    RAM in first-word-fall-through mode with the same handshake for the deep
+    boundary buffers -- registered flags and ``dout`` -- so the cell that
+    reads it and the feeder that writes it are not on one combinational path
+    through a count.
     """
     return """`timescale 1ns/1ps
 
 module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
+  input  wire          clk,
+  input  wire          rst_n,
+  input  wire [DW-1:0] din,
+  output wire          full_n,
+  input  wire          write,
+  output wire [DW-1:0] dout,
+  output wire          empty_n,
+  input  wire          read
+);
+  generate
+    if (DEPTH <= 2) begin : slice
+      // q0 is the output register, q1 the skid behind it. full_n is ~v1 -- a
+      // flop -- so a beat written while the output holds lands in the skid,
+      // and the producer sees the slice fill one cycle later.
+      reg [DW-1:0] q0, q1;
+      reg          v0, v1;
+      assign dout    = q0;
+      assign empty_n = v0;
+      assign full_n  = ~v1;
+      wire pop  = read  & v0;
+      wire push = write & ~v1;
+      always @(posedge clk) begin
+        if (!rst_n) begin
+          v0 <= 1'b0; v1 <= 1'b0;
+        end else if (!v0 | pop) begin
+          if (v1) begin
+            q0 <= q1; v0 <= 1'b1; v1 <= 1'b0;
+          end else begin
+            q0 <= din; v0 <= push;
+          end
+        end else if (push) begin
+          q1 <= din; v1 <= 1'b1;
+        end
+      end
+    end else begin : deep
+      wire [DW-1:0] mid_d;
+      wire          mid_v, mid_r;
+      spmw_fifo_lutram #(.DW(DW), .DEPTH(DEPTH)) ram (
+        .clk(clk), .rst_n(rst_n),
+        .din(din), .full_n(full_n), .write(write),
+        .dout(mid_d), .empty_n(mid_v), .read(mid_v & mid_r));
+      spmw_fifo #(.DW(DW), .DEPTH(2)) out (
+        .clk(clk), .rst_n(rst_n),
+        .din(mid_d), .full_n(mid_r), .write(mid_v & mid_r),
+        .dout(dout), .empty_n(empty_n), .read(read));
+    end
+  endgenerate
+endmodule
+
+// The LUT-RAM FIFO the deep variant is built on: `dout` is the RAM's
+// asynchronous read, so it only ever feeds the slice above.
+module spmw_fifo_lutram #(parameter DW = 32, parameter DEPTH = 4) (
   input  wire          clk,
   input  wire          rst_n,
   input  wire [DW-1:0] din,
