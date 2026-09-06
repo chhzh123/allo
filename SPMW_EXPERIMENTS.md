@@ -4178,7 +4178,8 @@ registers so synthesis copies them.
     as recorded (LUT-RAM FIFO, ISA lane)                -- (300 MHz at 3.3 ns)        -2.264   235 MHz
     slice links, DSP multiplies, scalar lane            -1.355   298 MHz               -1.014   332 MHz
     + timing-driven directives (--effort)               -0.257   443 MHz               -0.984   335 MHz
-    + control registers replicated (--max-fanout 8)     -0.064   484 MHz               (running)
+    + control registers replicated (--max-fanout 8)     -0.064   484 MHz               -1.016   332 MHz
+    + replicated harder (--max-fanout 4)                -0.194   456 MHz               --
     free-running cells + directives (--frp)             -0.795   358 MHz               -0.934   341 MHz
     on the DSP grid (--dsp-grid)                        -1.584   279 MHz               -1.176   315 MHz
     on the DSP grid + directives                        -1.375   296 MHz               --
@@ -4187,12 +4188,23 @@ registers so synthesis copies them.
 The mesh: replicating the twenty-load control nets takes the last of
 it, from -0.257 to -0.064 -- a 32x32 int8 systolic array of 1,024 DSP
 cells at **484 MHz**, every path inside a cell or across one link, on a
-placer left to itself. The engine sits at 335-341 MHz whatever the
-directives: its cell is six times the mesh's (an instruction decoder, a
-weight file), 200k LUTs against 45k at this size, and its worst paths
-are a link slice into the next slice through a cell's stall logic, 2.1
-ns of route -- a density problem the mesh does not have. Its run with
-replicated control registers is the last one in flight. The banded
+placer left to itself. Replicating harder (four loads a copy) is worse,
+-0.194: more registers to place, and the worst path is then the one
+thing left that no constraint touches, the accumulator's trip out of the
+DSP's P register and back into its C port through the fabric, 1.7 ns of
+route. That is HLS keeping the accumulator in fabric flops and using the
+DSP as a multiply-add each cycle rather than accumulating in the DSP's
+own P register; the day the cell wants 500 MHz, that is the change --
+the accumulate inside the DSP, its reset the DSP's own RSTP pin -- and it
+is a cell-codegen change, not a placement one.
+
+The engine sits at 332-341 MHz whatever the directives, replication
+included: its cell is six times the mesh's (an instruction decoder, a
+weight file), 200k LUTs against 45k at this size (570k registers once
+the control is replicated), and its worst paths are a link slice into
+the next slice through a cell's stall logic, 2.1-2.5 ns of route -- a
+density problem the mesh does not have, and one that a leaner cell
+answers rather than a floorplan. The banded
 floorplan with anchored crossings -- the AutoBridge recipe as the record
 tried it, now on a fabric whose links are all registered -- took 6.5
 hours to route through 120-odd congestion iterations and came out at
