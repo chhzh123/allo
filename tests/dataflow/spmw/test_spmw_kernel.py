@@ -83,9 +83,15 @@ def test_a_completion_survives_being_read_in_the_same_cycle():
     """
     _graph, args, _widths, _sv = _kernel()
     ctrl = control_sv(args)
-    set_at = ctrl.index("if (ap_done)        r_done <= 1'b1;")
+    # A new start clears a stale completion first: XRT's interrupt path never
+    # reads the control word, so without this the previous job's done bit
+    # outlives it and the next wait() returns with the launch still running.
+    start_at = ctrl.index("if (start_wr)       begin r_done <= 1'b0;")
+    set_at = ctrl.index("else if (ap_done)   begin r_done <= 1'b1;")
     clear_at = ctrl.index("else if (ctrl_read) r_done <= 1'b0;")
-    assert set_at < clear_at, "the clear must be the `else` of the set"
+    assert (
+        start_at < set_at < clear_at
+    ), "start clears, done sets, a read clears: in that order"
     # The read reports a same-cycle completion as well as the latched one.
     assert "r_done | ap_done" in ctrl
     # And a write is not accepted while a response is still outstanding.
