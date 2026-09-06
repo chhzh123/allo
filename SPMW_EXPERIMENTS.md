@@ -4031,6 +4031,184 @@ does (`abi.EDGE_DEPTH`, one definition for both). That alone did not
 free the 8x8 launch -- the thread team was the cause -- but it is the
 same rule on both paths now.
 
+## Why the floorplan never helped, and what the clock is actually made of
+
+The floorplanning record above ends in a limit: a 2% loss at 16x16, 35% at
+32x32, and critical paths that were never a link between units. This
+section reads those paths as a diagnosis rather than a verdict, measures
+the array out of context at a 2.0 ns target where the paths show
+themselves, and changes the three things they point at.
+
+### What AutoBridge and RapidStream actually do, and what of it applies
+
+Both take a dataflow design whose kernels talk through FIFOs, cut the
+device into slots, assign kernels to slots (an ILP over area and crossing
+width), and then -- the half that matters -- **pipeline every FIFO that
+crosses a cut** so that no combinational path spans two slots, and every
+crossing is a register-to-register hop the router can lay on Laguna
+columns when it crosses an SLR. RapidStream goes further and places and
+routes each slot on its own, with anchor registers at the cuts. Their
+gains come from designs whose critical paths *were* long wires between
+kernels, which the pipelining turns into short ones.
+
+A systolic array on SPMW has no long wires to cut: every link joins a
+neighbour, and the placer keeps neighbours adjacent whether told to or
+not (the record's "no floorplan" columns). Cutting it into bands and
+anchoring the crossings pipelines wires that had slack, while the pblocks
+take freedom from the placer -- and at 32x32 the *FIFOs* implementing the
+links, which the floorplan does not mention, were scattered so that a
+FIFO's own counter bits sat 4.7 ns apart. So the floorplan cannot help,
+and it can hurt, because the clock is set by paths a floorplan cannot
+see: inside a cell, inside a FIFO, and across one handshake.
+
+What does transfer is the half the papers spend their pipelining on: the
+property that no combinational path crosses a link. SPMW's links had one
+in each direction -- a LUT-RAM FIFO whose `empty_n`/`full_n` were a LUT
+off its counter and whose `dout` was an asynchronous RAM read into the
+consumer's DSP -- and every worst path at a tight target went through it.
+
+### The paths, out of context, at 2.0 ns
+
+`spmw_build_array.py --pnr --frequency 500` (the array behind its LFSR
+harness, no floorplan), worst path with both ends inside the array
+(`worst_paths.tcl` over the routed checkpoint):
+
+    design, 4x4 TPU (16 cells, 4 act units)      worst slack   the path
+    LUT-RAM FIFO (as recorded)                      +0.146      a 16-bit LUT multiplier in a cell, 7 levels, 0.85 logic + 0.91 route;
+                                                                then FIFO count -> a cell's control, FIFO RAM read -> a DSP input
+    register-slice FIFO                             +0.240      every worst path inside a cell: the same LUT multiplier
+    + every multiply in a DSP                       +0.375      a slice register -> a neighbour's DSP input, 0 levels, 1.2 ns route
+
+    8x8 int8 GEMM mesh (64 cells), LUT-RAM FIFO      +0.066      FIFO count -> a cell's DSP reset; the DSP accumulate loop, 1.25 ns route
+    16x16 int8 GEMM mesh (256 cells), all changes    +0.111      a slice's full flag -> a cell's DSP reset, 1.19 ns route; the DSP
+                                                                accumulate loop; a slice register -> a neighbour's DSP input. 529 MHz.
+    32x32 int8 GEMM mesh (1,024 cells), slice FIFO   -1.355      the same paths at 2.4-3.2 ns of route: a slice's flag -> a cell's
+                                                                DSP reset, a cell's own start register -> its DSP reset (2.8 ns),
+                                                                a slice's own flag -> its own skid register (3.2 ns). 298 MHz.
+                                                                3.5% of the LUTs, 1,024 DSPs, 0 unrouted: not congestion of the
+                                                                die, a placement that stopped keeping neighbours near.
+
+    The routed checkpoint says where: cell (10,10) has its DSP at column 30,
+    row 36 of the DSP grid; its south neighbour (11,10) is at column 29,
+    row 52, sixteen DSP rows (forty CLB rows) away; (20,20) and (21,20) are
+    fourteen rows apart in different columns. The 1,024 DSPs are spread
+    over every clock region of the SLR (9 in one, 864 in another). At
+    16x16 the placer kept the mesh regular on its own; at 32x32 it did
+    not, and the link between two cells that are logically adjacent is a
+    2.7 ns wire.
+
+    32x32 int8 mesh, slice FIFO, the timing-driven directives (`--effort`:
+    place ExtraTimingOpt, phys_opt and route AggressiveExplore): **-0.257 ns,
+    443 MHz** -- 1.1 ns of the 1.36 back from tool effort alone, at
+    the price of 82 minutes in place-and-route instead of 74. The worst
+    paths are now a cell's pipeline enable, or a slice's full flag, into
+    the synchronous reset of the cell's accumulator bits, 1.5-1.75 ns of
+    route on a net that fans out to every bit of the accumulator.
+
+### The floorplan a systolic array actually wants: the DSP grid
+
+What the placer lost at 32x32 is the one thing a mesh has and a
+netlist does not say: its geometry. AutoBridge's answer is to cut the
+design into slots and pin whole kernels to them, and at this
+granularity it hurt here, because a slot is a crowd of cells the placer
+still has to arrange inside. The right granularity for a mesh is one
+site per cell. `shell.dsp_grid_tcl` (`--dsp-grid`) pins each mesh cell's
+DSP48E2 to a site -- mesh column c on DSP column c, the part has 32; mesh
+row r on DSP row y0 + r -- and pins nothing else. A partial sum then
+travels one DSP site south, an activation one DSP column east, and every
+cell's logic and the slices of its links are placed by the placer around
+a fixed point, which is the part of the job it does well (at 16x16 it
+did the whole job unaided). The pinning is a Tcl script sourced after
+synthesis, so a cell with no DSP, or two, is skipped rather than an
+error, and it applies to any two-dimensional placement whose unit holds
+one DSP: the int8 mesh, the ISA mac, FEATHER's NEST.
+
+Measured, it is a negative result:
+
+    2.0 ns target                    free placer   on the DSP grid
+    int8 mesh 16x16                    +0.111          -0.029
+    int8 mesh 32x32                    -1.355          -1.584   (free placer + effort: -0.257)
+    MXU+VPU engine 32x32               -1.014          -1.176
+
+The worst paths on the grid are the same flag-to-reset paths, still
+2.6-2.7 ns of route. The part's DSP grid is the wrong shape for a 32-wide
+mesh: its 32 DSP columns span the whole die, so an east neighbour is a
+DSP-column pitch away (ten or more CLB columns), while the cells of a
+column, stacked on consecutive DSP sites, need more slices than the strip
+beside the column holds and spill sideways. The pinned point helps
+nothing and takes away the placer's freedom to trade those two off. The
+mechanism stays in the tree as `--dsp-grid` for a mesh whose width fits
+a few columns; for this one the placer with the timing-driven directives
+is the better floorplanner.
+
+### What is left is HLS's own control fan-out, and the pipeline style for it
+
+Every good run ends on the same kind of path: a cell's pipeline enable
+or loop-init flag, or the link slice's flag through the cell's stall
+logic, into the enable or synchronous reset of every bit of the cell's
+accumulator -- one net, twenty to thirty loads, 1.5-1.75 ns of route
+once the placer is busy. That is the standard HLS pipeline (`stp`),
+whose stall signal "often becomes the driver of a high-fanout net". The
+free-running style (`frp`) "completely eliminates the blocking signal
+connections to the register enables", at the price of a small FIFO on
+each output, and Vitis only allows it inside a dataflow region. The
+roles are single functions, so `--frp` wraps each role's body behind a
+one-process dataflow region and asks for `config_compile -pipeline_style
+frp`.
+
+
+    4x4 MXU+VPU engine (16 cells, 4 lanes)
+    LUT-RAM FIFO, ISA lane (as recorded)            -0.082      FIFO count -> a cell's reset, 1.62 ns route; a FIFO's RAM read
+                                                                through a cell into the next FIFO's RAM, 1.66 ns route
+    slice FIFO, ISA lane                            -0.085      the lane's pipeline enable -> its register file, 1.57 ns route;
+                                                                its dispatch at II=6 at this target (II=2 at 3.3 ns)
+    slice FIFO, DSP multiplies, scalar lane         +0.110      the lane's pipeline control -> a register's enable, 1.59 ns route;
+                                                                nothing between units
+
+    MXU+VPU engine, 16x16 (256 cells, 16 lanes)
+    as recorded                                     -0.363      a cell's loop-init flag -> its psum register's reset, 1.71 ns route
+    all changes                                     -0.024      the same flag -> the register's enable, 1.51 ns route. 494 MHz.
+    MXU+VPU engine, 32x32 (1,024 cells, 32 lanes)
+    as recorded                                     -2.264      a FIFO's count -> another FIFO's LUT-RAM write enable, 3.3 ns route
+    all changes                                     -1.014      a slice's own flag -> its own skid register, 2.5 ns route. 332 MHz.
+
+Three things, then, none of them a wire between units:
+
+1. **The link FIFO.** `spmw_fifo` at depth two is now a register slice
+   (`abi.py`): `dout`, `empty_n` and `full_n` are flops; `write` and
+   `read` reach only the slice's next-state logic. No LUT-RAM in a link,
+   no combinational path across one, and a link that crosses an SLR is a
+   flop-to-flop hop the router can put on Laguna registers. Deeper small
+   FIFOs are LUT-RAM behind such a slice; the block-RAM boundary FIFOs
+   already had registered flags. Bit-exact on the FEATHER and TPU cosims,
+   with identical cycle counts, so the slice costs nothing in latency.
+2. **A LUT multiplier HLS chose.** A cell whose partial sum folds to a
+   constant (the north edge, `p = 0`) has no add for the multiply to pair
+   with, and HLS built the lone int8 x int8 as a 16-bit LUT multiplier
+   with a 1.8 ns path; `config_op mul -impl dsp` in the role script puts
+   every multiply in a DSP, where it is pipelined.
+3. **The ISA lane's register file**, indexed at run time. At a 2 ns
+   target HLS schedules the read-modify-write through the array at II=6,
+   and its enable fan-out is the worst path of the engine. The lane now
+   holds four scalars round one flat dispatch loop (the form the GPT
+   lane already had); the 25 ISA and transformer tests pass unchanged.
+   What that fixes is the *clock*: the paths are local again. It does
+   not fix the lane's interval at 2 ns, which stays at 6 -- HLS reports
+   the carried dependence through the operand it multiplies, because a
+   32-bit `MUL` is five DSP stages at 500 MHz and its result is the next
+   word's operand. At 3.3 ns the same recurrence was II=2. A lane that
+   keeps II=2 at 500 MHz needs the multiply out of the immediate
+   recurrence -- a `MUL` whose result lands two words later, which the
+   programs would respect, or a narrower requant multiply -- and that is
+   an ISA change rather than a placement one. It is the open item on the
+   lane; the array's clock does not depend on it.
+
+The 4x4 TPU with all three: **+0.375 ns at 2.0 ns, 615 MHz** for the
+array's own paths; the 4x4 MXU+VPU engine goes from failing 2 ns to
+**+0.110 ns, 529 MHz**, with every remaining path inside a unit. The
+16x16 and 32x32 runs of the engine, with and without the changes, and
+the 16x16 and 32x32 int8 meshes are in flight; their rows follow.
+
 ## FEATHER on SPMW: latency against the original design
 
 FEATHER (Tong et al., ISCA 2024) is NEST -- an AH x AW array of PEs, each

@@ -33,6 +33,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -75,6 +76,7 @@ config_compile -pipeline_loops {pipeline_loops}
 # a 16-bit LUT multiplier, seven logic levels that were the worst path of a
 # 4x4 array at a 2 ns target; the DSP does it in its own pipeline.
 config_op mul -impl dsp
+{pipeline_style}
 set_directive_interface -mode ap_ctrl_none "{name}_0" return
 csynth_design
 export_design -format ip_catalog
@@ -125,10 +127,11 @@ proc stage {{name body}} {{
 }}
 stage synth  {{ synth_design -top {top} -part {part} }}
 report_utilization -file util_synth.rpt
+{grid_hook}
 stage opt    {{ opt_design }}
-stage place  {{ place_design }}
-stage physopt {{ phys_opt_design }}
-stage route  {{ route_design }}
+stage place  {{ place_design {place_directive} }}
+stage physopt {{ phys_opt_design {physopt_directive} }}
+stage route  {{ route_design {route_directive} }}
 report_utilization -file util.rpt
 report_timing_summary -file timing.rpt
 report_route_status -file route.rpt
@@ -393,7 +396,31 @@ _NUMPY = {
 }
 
 
-def stage(graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64):
+def frp_wrap(code, name):
+    """Put a role's body behind a one-process dataflow region.
+
+    Vitis allows the free-running pipeline style only inside a dataflow
+    region, and a role is a single function; so the function becomes a static
+    body and the role a region that calls it once, same arguments, same
+    interface (`ap_ctrl_none`, every port a stream).
+    """
+    fn = f"{name}_0"
+    head = code.index(f"void {fn}(")
+    sig_end = code.index(") {", head)
+    args = code[code.index("(", head) + 1 : sig_end]
+    names = re.findall(r"&\s*(\w+)", args)
+    body_end = code.index("\n}\n", sig_end) + 3
+    func = code[head:body_end].replace(f"void {fn}(", f"static void {fn}_body(", 1)
+    region = (
+        f"void {fn}({args}) {{\n  #pragma HLS dataflow\n"
+        f"  {fn}_body({', '.join(names)});\n}}\n"
+    )
+    return code[:head] + func + "\n" + region + code[body_end:]
+
+
+def stage(
+    graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64, frp=False
+):
     """Write one HLS project per role, plus the fabric that will hold them.
 
     Every placement, not just the first: a design can put more than one
@@ -411,7 +438,10 @@ def stage(graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64)
             code, _bound = optimise(trim_includes(str(built.hls_code)), built)
             directory = os.path.join(out, name)
             os.makedirs(directory, exist_ok=True)
-            _write(os.path.join(directory, "kernel.cpp"), code)
+            _write(
+                os.path.join(directory, "kernel.cpp"),
+                frp_wrap(code, name) if frp else code,
+            )
             _write(
                 os.path.join(directory, f"{name}.sv"),
                 wrapper_sv(graph, placement, order, code),
@@ -423,6 +453,7 @@ def stage(graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64)
                     part=part,
                     period=1000.0 / frequency,
                     pipeline_loops=pipeline_loops,
+                    pipeline_style="config_compile -pipeline_style frp" if frp else "",
                 ),
             )
             names.append(name)
@@ -553,7 +584,11 @@ def tune(graph, out, part, frequency, candidates=(0, 2, 3, 4, 5, 6)):
         _write(
             os.path.join(directory, "run.tcl"),
             ROLE_TCL.format(
-                name=name, part=part, period=target, pipeline_loops=64
+                name=name,
+                part=part,
+                period=target,
+                pipeline_loops=64,
+                pipeline_style="",
             ).replace("export_design -format ip_catalog\n", ""),
         )
         jobs.append((ii, directory))
@@ -665,7 +700,16 @@ def _synthesise_one(out, name):
     return name, seconds, done.returncode
 
 
-def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False, floorplan=""):
+def assemble(
+    out,
+    part,
+    names,
+    top="spmw_top",
+    frequency=None,
+    pnr=False,
+    floorplan="",
+    effort=False,
+):
     """Vivado reads the exported IPs and builds the array.
 
     With ``frequency`` it runs real synthesis and reports the array's own clock
@@ -683,7 +727,21 @@ def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False, floorp
             f"create_clock -period {period:.3f} -name ap_clk [get_ports ap_clk]\n"
             + floorplan,
         )
-        step = (IMPLEMENT if pnr else SYNTHESISE).format(top=top, part=part, root=out)
+        # `effort` asks the placer and router for their timing-driven
+        # directives, the same ones the v++ link is given for the board.
+        step = (IMPLEMENT if pnr else SYNTHESISE).format(
+            top=top,
+            part=part,
+            root=out,
+            grid_hook=(
+                f"source {out}/grid.tcl"
+                if os.path.exists(os.path.join(out, "grid.tcl"))
+                else ""
+            ),
+            place_directive="-directive ExtraTimingOpt" if effort else "",
+            physopt_directive="-directive AggressiveExplore" if effort else "",
+            route_directive="-directive AggressiveExplore" if effort else "",
+        )
     else:
         step = ELABORATE.format(top=top, part=part)
     script = os.path.join(out, "assemble.tcl")
@@ -720,7 +778,7 @@ def assemble(out, part, names, top="spmw_top", frequency=None, pnr=False, floorp
                 wns = None
         # Each implementation stage times itself, so the cost can be attributed
         # rather than reported as one number.
-        elif line.startswith("SPMW STAGE ") or line.startswith("SPMW UNROUTED "):
+        elif line.startswith(("SPMW STAGE ", "SPMW UNROUTED ", "SPMW DSP GRID ")):
             print("  " + line.replace("SPMW ", "").lower())
     return elapsed, wns
 
@@ -899,6 +957,26 @@ def main():
     parser.add_argument("--part", default=PART)
     parser.add_argument("--frequency", type=float, default=300.0)
     parser.add_argument(
+        "--frp",
+        action="store_true",
+        help="free-running pipelines in the roles: each role's body behind a "
+        "dataflow region and config_compile -pipeline_style frp, so no stall "
+        "signal fans out to the pipeline registers' enables",
+    )
+    parser.add_argument(
+        "--dsp-grid",
+        action="store_true",
+        help="pin each mesh cell's DSP to a site so the mesh lies on the DSP "
+        "grid, one column per mesh column and one row per mesh row; the rest "
+        "of the cell and its links follow the placer",
+    )
+    parser.add_argument(
+        "--effort",
+        action="store_true",
+        help="place and route with the timing-driven directives (ExtraTimingOpt, "
+        "AggressiveExplore) rather than the defaults",
+    )
+    parser.add_argument(
         "--stage-only", action="store_true", help="write the projects, run nothing"
     )
     parser.add_argument(
@@ -934,6 +1012,13 @@ def main():
     start = time.time()
     anchors = {}
     floorplan = ""
+    if args.dsp_grid:
+        os.makedirs(args.out, exist_ok=True)
+        _write(
+            os.path.join(args.out, "grid.tcl"),
+            shell.dsp_grid_tcl(graph, part=args.part),
+        )
+        print("dsp grid: one DSP site per mesh cell (grid.tcl)")
     if args.slots:
         floorplan = "\n" + shell.floorplan_xdc(
             graph, part=args.part, top="dut", slots=args.slots
@@ -944,7 +1029,9 @@ def main():
             f"floorplan: {args.slots} slot(s); anchors on "
             f"{sorted(anchors) or 'nothing (floorplan-only ablation)'}"
         )
-    names = stage(graph, args.out, args.part, args.frequency, ii=ii, anchors=anchors)
+    names = stage(
+        graph, args.out, args.part, args.frequency, ii=ii, anchors=anchors, frp=args.frp
+    )
     print(
         f"staged {len(names)} role project(s) in {time.time() - start:.1f}s "
         f"(frontend + per-role HLS codegen)"
@@ -994,6 +1081,7 @@ def main():
         frequency=args.frequency if (args.synth or args.pnr) else None,
         pnr=args.pnr,
         floorplan=floorplan,
+        effort=args.effort,
         top="spmw_harness" if args.pnr else "spmw_top",
     )
     verb = (
