@@ -13,6 +13,33 @@ For every `i` and `j` in `0..7`:
 values. No saturation, no rounding, no scaling: the products and their sum are
 exact in 32-bit arithmetic.
 
+## The architecture you must build
+
+This is not open. Build exactly the structure below; a design that computes the
+right answer another way does not satisfy the task.
+
+- **Sixty-four processing elements in an 8 by 8 grid.** Call the one in row `i`
+  and column `j` `PE(i,j)`. Each holds one multiplier and one accumulator, and
+  the design uses 64 multipliers in total, no more and no fewer.
+- **Output-stationary.** `PE(i,j)` accumulates `C[i][j]` across all eight values
+  of `k` and holds it until it is drained. No element's partial sums are
+  computed anywhere else, and there is no adder tree over the grid.
+- **Nearest-neighbour movement only.** A processing element exchanges values
+  only with the elements directly north, south, east and west of it. Nothing is
+  broadcast: no value reaches more than one element in the same cycle, and no
+  element reads an input port other than the ones described below.
+- **`A` travels east.** `A[i][k]` enters the grid at `PE(i,0)` and passes from
+  each element to its eastern neighbour.
+- **`B` travels south.** `B[k][j]` enters the grid at `PE(0,j)` and passes from
+  each element to its southern neighbour.
+- **Results leave along the rows.** Each row's accumulators reach output port
+  `i` through its own chain of elements, so no element drives an output port
+  other than through its neighbours.
+
+Because a value takes one step per element, the element in the far corner
+cannot finish before the wave has crossed the grid. That is a property of this
+architecture and the harness checks for it.
+
 ## The interface your module must present
 
 The module has 24 handshaked ports. Every port carries one value per transfer
@@ -53,13 +80,19 @@ least eight cycles before the first transfer.
 | Requirement | Threshold |
 |---|---|
 | Correctness | every one of the 64 output values exact, on held-out inputs |
-| Latency | at most 64 clock cycles from the first input transfer to the last output transfer of the **first** product after reset |
+| Correct structure | the architecture above, checked by reading your design |
+| Latency | between 22 and 64 clock cycles from the first input transfer to the last output transfer of the **first** product after reset |
 | Throughput | at most 16 clock cycles between the starts of consecutive products, once running |
 | Clock | routes on the target device at a 3.333 ns period with non-negative worst slack |
-| Multipliers | at most 64 DSP blocks |
+| Multipliers | exactly 64 DSP blocks, one per processing element |
 | Logic | at most 25,000 lookup tables |
 
-Both thresholds are twice the lower bound the ports themselves impose. Each
+The latency has a floor as well as a ceiling. A value entering at `PE(i,0)`
+needs seven steps to reach the eastern edge and seven more southward, so the
+far corner cannot have its last operand before cycle 22, and a design that
+produces every result sooner than that is moving data further than one
+neighbour per cycle. Both upper thresholds are twice the lower bound the ports
+themselves impose. Each
 port carries eight values per product, so no design can start products closer
 together than eight cycles, and none can finish one in fewer than about
 twenty-four. A design that computes the 512 multiplications one at a time meets
