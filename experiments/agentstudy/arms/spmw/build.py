@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 STUDY = "/scratch/hc676/agentstudy"
 ALLO = "/scratch/hc676/allo"
@@ -153,29 +154,41 @@ def main():
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
 
+    def stage_time(label, fn):
+        start = time.time()
+        value = fn()
+        print("STUDY STAGE %s %.2f" % (label, time.time() - start))
+        return value
+
     fabric = load(path)
-    graph = spmw.elaborate(fabric)
-    names = sba.stage(graph, out, PART, 300.0,
-                      pipeline_style=getattr(fabric, "spmw_pipeline_style", None))
-    sba.synthesise(out, names, jobs=8)
+    graph = stage_time("elaborate", lambda: spmw.elaborate(fabric))
+    names = stage_time("generate", lambda: sba.stage(
+        graph, out, PART, 300.0,
+        pipeline_style=getattr(fabric, "spmw_pipeline_style", None)))
+    stage_time("synthesise", lambda: sba.synthesise(out, names, jobs=8))
     sim = os.path.join(out, "sim")
-    sources = collect(out, names, sim)
+    sources = stage_time("assemble", lambda: collect(out, names, sim))
     sba._write(os.path.join(sim, "dut_norm.sv"), wrapper(graph))
     shutil.copy(os.path.join(STUDY, "task", "tb_study.sv"), sim)
     sources += ["dut_norm.sv", "tb_study.sv"]
 
     import json
     nprod = len(json.load(open(os.path.join(STUDY, "task", "vectors", f"{vecset}.json"))))
-    sba._run(["xvlog", "-sv"] + sources, sim)
-    loose = [f for f in os.listdir(sim) if f.endswith(".v")]
-    if loose:
-        sba._run(["xvlog"] + loose, sim)
-    sba._run(["xelab", "tb", "-s", "tbsim", "--timescale", "1ns/1ps",
-              "--generic_top", f"NPROD={nprod}", "-L", "unisims_ver",
-              "-L", "unimacro_ver", "-L", "secureip"], sim)
-    done = subprocess.run(["xsim", "tbsim", "-runall", "-testplusarg",
-                           f"vecdir={STUDY}/task/vectors/{vecset}"],
-                          cwd=sim, capture_output=True, text=True, check=False)
+    def compile_all():
+        sba._run(["xvlog", "-sv"] + sources, sim)
+        loose = [f for f in os.listdir(sim) if f.endswith(".v")]
+        if loose:
+            sba._run(["xvlog"] + loose, sim)
+
+    stage_time("compile", compile_all)
+    stage_time("elaborate_rtl", lambda: sba._run(
+        ["xelab", "tb", "-s", "tbsim", "--timescale", "1ns/1ps",
+         "--generic_top", "NPROD=%d" % nprod, "-L", "unisims_ver",
+         "-L", "unimacro_ver", "-L", "secureip"], sim))
+    done = stage_time("simulate", lambda: subprocess.run(
+        ["xsim", "tbsim", "-runall", "-testplusarg",
+         "vecdir=%s/task/vectors/%s" % (STUDY, vecset)],
+        cwd=sim, capture_output=True, text=True, check=False))
     shown = 0
     for line in done.stdout.splitlines():
         if "STUDY " in line or "MISMATCH" in line:

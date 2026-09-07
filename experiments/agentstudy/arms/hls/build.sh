@@ -23,7 +23,9 @@ csynth_design
 export_design -format ip_catalog
 exit
 TCL
+T0=$(date +%s.%N)
 vitis_hls -f run.tcl > hls.log 2>&1
+echo "STUDY STAGE synthesise $(echo \"$(date +%s.%N) - $T0\" | bc)"
 V_DIR=prj/sol/syn/verilog
 [ -f "$V_DIR/gemm_tile.v" ] || { echo "STUDY BUILD FAIL synthesis"; grep -iE "^ERROR|error:" hls.log | head -20; exit 1; }
 python3 "$S/arms/hls/wrap.py" "$V_DIR/gemm_tile.v" > dut_norm.sv || { echo "STUDY BUILD FAIL wrapper"; exit 1; }
@@ -32,9 +34,12 @@ mkdir -p sim; cd sim
 cp ../dut_norm.sv "$S/task/tb_study.sv" .
 cp ../$V_DIR/*.v . 2>/dev/null
 NPROD=$(python3 -c "import json;print(len(json.load(open('$S/task/vectors/$V.json'))))")
-xvlog -sv dut_norm.sv tb_study.sv > xvlog.log 2>&1 || { echo "STUDY BUILD FAIL compile"; grep -iE "^ERROR" xvlog.log | head; exit 1; }
+T0=$(date +%s.%N); xvlog -sv dut_norm.sv tb_study.sv > xvlog.log 2>&1 || { echo "STUDY BUILD FAIL compile"; grep -iE "^ERROR" xvlog.log | head; exit 1; }
 xvlog *.v >> xvlog.log 2>&1
+echo "STUDY STAGE compile $(echo \"$(date +%s.%N) - $T0\" | bc)"; T0=$(date +%s.%N)
 xelab tb -s tbsim --timescale 1ns/1ps --generic_top "NPROD=$NPROD" -L unisims_ver -L unimacro_ver -L secureip > xelab.log 2>&1 || { echo "STUDY BUILD FAIL elaborate"; grep -iE "^ERROR" xelab.log | head; exit 1; }
+echo "STUDY STAGE elaborate $(echo \"$(date +%s.%N) - $T0\" | bc)"; T0=$(date +%s.%N)
 xsim tbsim -runall -testplusarg "vecdir=$S/task/vectors/$V" > xsim.log 2>&1
+echo "STUDY STAGE simulate $(echo \"$(date +%s.%N) - $T0\" | bc)"
 grep -E "STUDY |MISMATCH" xsim.log | head -30
 grep -q "STUDY RESULT" xsim.log || { echo "STUDY BUILD FAIL simulation produced no verdict"; tail -5 xsim.log; exit 1; }

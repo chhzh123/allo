@@ -54,6 +54,13 @@ class Trial:
         self.tool_seconds = 0.0
         self.submitted = False
         self.build_history = []
+        # Where the effort went, segment by segment. A segment is the work
+        # between two builds: the model thinking and writing, then the tools
+        # running. Reported per build, so a trial reads as a sequence of
+        # attempts rather than as one total.
+        self.segments = []
+        self.seg_tokens = 0
+        self.seg_model_seconds = 0.0
 
     def record(self, kind, **fields):
         fields.update({"kind": kind, "t": round(time.time() - self.started, 2),
@@ -82,9 +89,32 @@ class Trial:
             start = time.time()
             done = subprocess.run(["bash", "-lc", cmd], capture_output=True,
                                   text=True, timeout=self.args.tool_timeout, check=False)
-            self.tool_seconds += time.time() - start
+            self.tool_seconds += tool_seconds
+            tool_seconds = time.time() - start
             out = (done.stdout + done.stderr).strip()
-            verdict = [l for l in out.splitlines() if "STUDY " in l or "MISMATCH" in l]
+            stages = {}
+            for line in out.splitlines():
+                if line.startswith("STUDY STAGE "):
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        try:
+                            stages[parts[2]] = round(float(parts[3]), 2)
+                        except ValueError:
+                            pass
+            self.segments.append({
+                "build": self.builds,
+                "tokens": self.seg_tokens,
+                "model_seconds": round(self.seg_model_seconds, 1),
+                "tool_seconds": round(tool_seconds, 1),
+                "stages": stages,
+                "verdict": next((l.strip() for l in out.splitlines()
+                                 if "STUDY RESULT" in l or "STUDY BUILD" in l), None),
+            })
+            self.record("segment", **self.segments[-1])
+            self.seg_tokens = 0
+            self.seg_model_seconds = 0.0
+            verdict = [l for l in out.splitlines()
+                       if ("STUDY " in l and "STUDY STAGE" not in l) or "MISMATCH" in l]
             body = "\n".join(verdict) if verdict else out[-4000:]
             self.build_history.append(body)
             self.record("build", command=cmd, output=body[:8000])
@@ -122,9 +152,13 @@ class Trial:
                 if attempt == 3:
                     raise SystemExit(f"the model API kept failing: {detail[:200]}")
                 time.sleep(5 * (attempt + 1))
-        self.model_seconds += time.time() - start
+        elapsed = time.time() - start
+        self.model_seconds += elapsed
+        self.seg_model_seconds += elapsed
         usage = body.get("usage") or {}
-        self.tokens += int(usage.get("total_tokens") or 0)
+        spent = int(usage.get("total_tokens") or 0)
+        self.tokens += spent
+        self.seg_tokens += spent
         return body["choices"][0]["message"], usage
 
 
@@ -216,6 +250,7 @@ def main():
                  wall_seconds=round(time.time() - trial.started, 1),
                  last_build=(trial.build_history[-1][:2000] if trial.build_history else None))
     summary = {"arm": args.arm, "model": args.model, "trial": trial.dir,
+               "segments": trial.segments,
                "tokens": trial.tokens, "builds": trial.builds, "submitted": trial.submitted,
                "model_seconds": round(trial.model_seconds, 1),
                "tool_seconds": round(trial.tool_seconds, 1),
