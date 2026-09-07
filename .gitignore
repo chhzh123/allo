@@ -94,3 +94,6 @@ sg_execution_times.rst
 tests/xlscc_tests/**/test.cpp
 tests/xlscc_tests/**/test_block.cpp
 tests/xlscc_tests/**/test
+experiments/agentstudy/trials/
+*.openrouter_key
+.openrouter_key
