@@ -4030,6 +4030,23 @@ Getting there took four fixes, each of which had hidden itself:
   count runs out, so the 17 iterations in flight died there. A design can
   now ask for a pipeline style, and this one asks for `flp`.
 
+The whole sweep, cosim and out-of-context P&R at 3.333 ns:
+
+    N      tokens   cycles  first  per transform   LUT     FF    DSP  BRAM18   WNS
+    128     4,224    4,749    522      132.09   10,930  25,425   139     12  +0.461
+    256     8,448    9,486  1,035      264.09   12,361  28,865   159     18  +0.388
+    512    16,896   18,958  2,059      528.09   13,864  32,222   179     24  +0.129
+    1024   33,792   37,902  4,107    1,056.09   15,423  35,587   199     31  +0.431
+
+Every token matched and every size routed with nothing unrouted. The
+interval is N + 0.09 cycles at every size: one complex sample a cycle, held
+from 128 to 1,024 points. Cost grows with log N rather than N, because a
+size doubling adds one stage unit: 20 DSPs and about 1,500 LUTs. The
+latency is the delay lines (N - 1 samples) plus the stages' pipeline depths
+plus the reorder's block. HP-FFT's UF1 at the same points is 679 and 6,298
+cycles of latency at intervals of 76 and 526, but it carries two samples a
+beat, so it is ahead on throughput and behind on latency.
+
 Three structures were measured on the way: one loop with a running counter
 and a data-dependent address (HLS serialised the read-modify-write, 22
 cycles a token), two pipelined loops a block with the stage index
