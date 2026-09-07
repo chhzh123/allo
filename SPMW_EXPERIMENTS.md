@@ -3965,6 +3965,40 @@ pyxrt is built against it (the script is numpy-free for that reason), and
 the venv's Python 3.12 has no pyxrt -- the `No module named 'pyxrt'` seen
 during the network outage was this, not the outage.
 
+### Complete blocks on 302: GPT-2 medium and LLaMA-7B, chained on the board
+
+`scripts/spmw_gpt_block.py` runs one decoder layer end to end on the
+`gptkern_302` bitstream through `scripts/spmw_xrt_runner.py` (a persistent
+pyxrt process on the system Python; one run handle per launch shape,
+restarted, as the walker's timed loop does). Every device launch is checked
+against the integer reference before the next stage consumes it. The block
+is hybrid: the GEMMs and the three softmax passes on the device; LayerNorm /
+RMSNorm, RoPE, the causal mask, GELU / the SiLU gate, residuals, all
+requantisation and the packing of each launch's operands on the host.
+LLaMA's shapes are decomposed on the host into the 302 launch set: K > 1024
+projections as K/1024 launches whose partials are summed and shifted once,
+head width 128 as two 64-column launches, K=11008 FFN2 as three `ffn2`
+launches (4096, 4096, 2816).
+
+    block (one layer,     launches   device kernel   transfers   packing   host math   mismatches
+    prefill 128 tokens)                 (ms)            (ms)        (s)       (ms)
+    GPT-2 medium (4 reps)      624      72.7 (best 72.3)   371.8      4.64      53.0          0
+    LLaMA-7B     (2 reps)    4,064     715.2 (best 704.6) 2381.5     28.85      38.8          0
+
+Device kernel = sum over launches of start-to-wait (one launch at a time,
+nothing pipelined across launches); transfers = the per-launch operand
+writes/syncs and the drain read. Per launch: proj 216 us (109 us of array
+work), ffn2 190, score 100, ctx 107, a softmax pass 67-80 us (0.4 us of
+array work). The walker's 55.4 ms for the same layer issues a hundred
+launches of one shape back to back with no syncs between them; the chained
+block interleaves a write, a launch and a drain read, and that is the
+72.7 vs 55.4 (the softmax passes at 67-80 us against 42-56). Before the
+runner reused its run handle, a fresh `krnl(...)` a launch cost 141-151 ms
+of "device" time for the same layer -- pyxrt's run-object setup, not the
+array. The complete block is bound by the host's data movement: GPT-2's
+device time is 30% of its transfer time and 1.6% of its packing time.
+Bundle: /scratch/hc676/spmw_eval_remaining_2026-09-06/e3_tpu.
+
 ### v8b on the board: batching wins the small launches and loses the big ones
 
 `gptkern_v8b` -- the batched design (MREP, GRP, eight heads or eight

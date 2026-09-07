@@ -1,0 +1,18 @@
+% Copyright Allo authors. All Rights Reserved.
+% SPDX-License-Identifier: Apache-2.0
+% Fixture for scripts/spmw_loc2.py: listings are extracted before counting.
+\begin{figure}
+\begin{minted}{python}
+# a comment inside a listing does not count
+def unit(io):  # KEEP
+    """A docstring inside a listing does not count."""
+    return io  # KEEP
+\end{minted}
+\caption{A Python listing; the caption is not code.}
+\begin{minted}[highlightlines={1,2}]{cpp}
+/* a block comment */
+int pe(int a) { // KEEP
+  return a; // KEEP
+} // KEEP
+\end{minted}
+\end{figure}
