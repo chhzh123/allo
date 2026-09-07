@@ -4,20 +4,23 @@
   "FILE": "design.py",
   "TOP": "a fabric named `engine`",
   "build": "python3 /scratch/hc676/agentstudy/arms/spmw/build.py {trial} visible",
-  "stub": "design.py"
+  "stub": "design.py",
+  "rtl_dir": "build/sim"
  },
  "hls": {
   "LANG": "C++ for AMD Vitis HLS",
   "FILE": "design.cpp",
   "TOP": "a function named `gemm_tile`",
   "build": "bash /scratch/hc676/agentstudy/arms/hls/build.sh {trial} visible",
-  "stub": "design.cpp"
+  "stub": "design.cpp",
+  "rtl_dir": "sim"
  },
  "rtl": {
   "LANG": "SystemVerilog",
   "FILE": "design.sv",
   "TOP": "a module named `dut_norm`",
   "build": "bash /scratch/hc676/agentstudy/arms/rtl/build.sh {trial} visible",
-  "stub": "design.sv"
+  "stub": "design.sv",
+  "rtl_dir": "sim"
  }
 }

@@ -1,0 +1,147 @@
+{
+ "bundle": "spmw_eval_remaining_2026-09-06",
+ "assembled": "2026-09-07T13:32:31",
+ "host": "brg-zhang-xcel.ece.cornell.edu",
+ "board": "AMD Alveo U280, xcu280-fsvh2892-2L-e",
+ "tools": "Vitis HLS 2023.2, Vivado 2023.2, XRT for the board runs",
+ "target": "300 MHz (3.333 ns) unless a package says otherwise",
+ "allo_commit": "d7ce0da49d0da574a36b51507a1253ce11dd6bec",
+ "packages": {
+  "e1_gemm/spmw": {
+   "experiment": "E1",
+   "title": "SPMW output-stationary int8 GEMM mesh (stream-fed)",
+   "rows": 12,
+   "by_status": {
+    "pass": 8,
+    "unsupported": 4
+   },
+   "passing": 8,
+   "has_readme": true
+  },
+  "e1_gemm/spmw_mem": {
+   "experiment": "E1",
+   "title": "SPMW GEMM, memory-fed kernel (AXI movers)",
+   "rows": 12,
+   "by_status": {
+    "unsupported": 4,
+    "pass": 8
+   },
+   "passing": 8,
+   "has_readme": true
+  },
+  "e1_gemm/autosa": {
+   "experiment": "E1",
+   "title": "AutoSA-generated int8 GEMM",
+   "rows": 8,
+   "by_status": {
+    "pass": 8
+   },
+   "passing": 8,
+   "has_readme": true
+  },
+  "e1_gemm/allo": {
+   "experiment": "E1",
+   "title": "Allo library systolic int8 GEMM",
+   "rows": 16,
+   "by_status": {
+    "pass": 8,
+    "timeout_cosim": 2,
+    "not_run_impl": 2,
+    "timeout": 4
+   },
+   "passing": 8,
+   "has_readme": true
+  },
+  "e2_fft/spmw": {
+   "experiment": "E2",
+   "title": "SPMW folded radix-2 FFT (delay-feedback pipeline)",
+   "rows": 8,
+   "by_status": {
+    "pass": 8
+   },
+   "passing": 8,
+   "has_readme": true
+  },
+  "e2_fft/hpfft": {
+   "experiment": "E2",
+   "title": "HP-FFT hand-tuned HLS radix-2 FFT",
+   "rows": 73,
+   "by_status": {
+    "ok": 49,
+    "not_run": 22,
+    "timing_fail": 2
+   },
+   "passing": 49,
+   "has_readme": true
+  },
+  "e2_fft/allo": {
+   "experiment": "E2",
+   "title": "Allo strided in-place FFT",
+   "rows": 20,
+   "by_status": {
+    "ok": 20
+   },
+   "passing": 20,
+   "has_readme": true
+  },
+  "e3_tpu": {
+   "experiment": "E3",
+   "title": "Complete GPT-2 medium and LLaMA-7B blocks on the mini-TPU",
+   "rows": 2,
+   "by_status": {
+    "pass": 2
+   },
+   "passing": 2,
+   "has_readme": true
+  },
+  "e4_feather": {
+   "experiment": "E4",
+   "title": "FEATHER: the SPMW port against the original RTL",
+   "rows": 66,
+   "by_status": {
+    "pass": 60,
+    "fail": 4,
+    "not_run": 2
+   },
+   "passing": 60,
+   "has_readme": true
+  },
+  "e5_compile": {
+   "experiment": "E5",
+   "title": "Compilation time: shared vs per-instance kernels",
+   "rows": 24,
+   "by_status": {
+    "pass": 23,
+    "timeout": 1
+   },
+   "passing": 23,
+   "has_readme": true
+  },
+  "e6_attention": {
+   "experiment": "E6",
+   "title": "Grouped attention-PV on a fixed workload",
+   "rows": 80,
+   "by_status": {
+    "ok": 80
+   },
+   "passing": 80,
+   "has_readme": true
+  },
+  "e7_loc": {
+   "experiment": "E7",
+   "title": "Language-aware source size, HLS vs SPMW",
+   "rows": 20,
+   "by_status": {
+    "pass": 8,
+    "unsupported": 11,
+    "environment_blocked": 1
+   },
+   "passing": 8,
+   "has_readme": true
+  }
+ },
+ "totals": {
+  "rows": 341,
+  "passing": 282
+ }
+}

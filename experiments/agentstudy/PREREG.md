@@ -25,7 +25,7 @@ per arm is not claimed.
 |---|---|
 | Models | `anthropic/claude-opus-5`, `openai/gpt-5.6-sol`, `moonshotai/kimi-k3`, `z-ai/glm-5.3`, `deepseek/deepseek-v4-pro` |
 | Temperature | 0.0 |
-| Budget | 200,000 billed tokens, or 25 builds, whichever comes first |
+| Budget | 500,000 billed tokens, 8 builds, 3 routing runs, or 4 hours, whichever comes first (amendments 1 and 3) |
 | Task | 8x8 output-stationary int8 systolic array, one 8x8 by 8x8 product |
 | Device | xcu280-fsvh2892-2L-e, 3.333 ns |
 
@@ -94,3 +94,72 @@ With one trial per cell, nothing about within-cell variance. With one task,
 nothing about other kinds of design. And SPMW is absent from every model's
 training data while the other two are abundant in it, which no protocol
 removes; the documentation cap bounds it but does not eliminate it.
+
+---
+
+## Amendment 1, before the first graded trial
+
+**What changed.** The budget was 200,000 billed tokens and 25 builds. It is now
+500,000 tokens, 20 builds and a four-hour wall cap.
+
+**Why.** A trial run of the harness, thrown away and not graded, showed one
+model spending 861 seconds and 50,169 tokens on a single turn of reasoning
+before touching a tool. At the original cap a reasoning-heavy model would
+exhaust its whole budget in one turn and never reach a build, so the token cap
+would have measured reasoning verbosity rather than design ability, and it
+would have done so unequally: billed tokens include reasoning tokens, and the
+five models differ by an order of magnitude in how many they emit.
+
+**What this means for the analysis.** Builds, not tokens, is now the binding
+constraint in most trials, and every model gets the same twenty attempts.
+Tokens are reported as a cost rather than used as a gate, and the
+budget-sensitivity question is answered by the profile curve, the fraction of
+trials passing against tokens spent, which does not depend on where a cap was
+placed. The stop reason of every trial is recorded, so a trial stopped by
+tokens, by builds or by the clock is distinguishable in the results.
+
+**What did not change.** The task, the architecture requirement, the pass bars
+and their derivation, the documentation packs, the models, and the temperature.
+
+## Amendment 2, after a discarded launch
+
+**What happened.** The first launch of the fifteen trials was stopped after 47
+minutes and discarded. The harness kept each trial's transcript inside the
+model's own working directory, so `ls` showed it and a model read it back:
+one trial spent 112,000 tokens in a single turn after `cat transcript.jsonl`,
+and had consumed half its budget without ever running a build.
+
+**The fix.** The transcript and the summary now live beside the trial directory
+rather than in it, and `ls` and `cat` serve only the three files a trial is
+supposed to have: the task, the reference, and the design under construction.
+Anything else is refused by name.
+
+**What this does not change.** No graded result came from the discarded launch;
+all fifteen trials start again from scratch. The task, the bars, the packs, the
+models, the temperature and the budget are unchanged. The discarded transcripts
+are kept as `discarded_launch_1/` so the reason for the restart is checkable.
+
+## Amendment 3, before the first graded trial
+
+**Routing is now a tool, not only a final check.** A trial may place and route
+what it last built, three times, and see the lookup tables, registers,
+multipliers, worst slack and unrouted nets. Measured cost on this device for a
+design of this size: 399 seconds. Without it a model could not iterate on the
+timing bar at all, and would be failed on a criterion it was given no way to
+observe. The final grading still routes the submitted artifact once,
+authoritatively, and that run is what the table reports.
+
+**The build budget falls from 20 to 8.** Twenty attempts is more than this task
+needs and makes an all-pass table likely, which would say nothing. Eight is
+chosen rather than five to hedge one asymmetry: the models have seen a great
+deal of SystemVerilog and Vitis HLS and none of SPMW, so a very tight budget
+risks flooring the SPMW arm for unfamiliarity and producing a result about
+training data rather than about the language.
+
+**How this is reported.** Every trial records the build at which it first met
+every cycle bar, so the result is reported as a profile: the fraction of trials
+passing within one build, two, and so on to eight. A reading at five builds is
+therefore available from the same runs, and reading at any budget does not
+depend on where the cap happened to sit. Trials are told their real budget of
+eight, so a five-build reading is drawn from models that were pacing for eight,
+which makes it a conservative figure rather than a flattering one.

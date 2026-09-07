@@ -1,0 +1,388 @@
+{
+ "kernel": {
+  "bitstream": "gptkern_302 (gptstage_v1 --size 16, 300 MHz, ExtraTimingOpt)",
+  "lut": 132922,
+  "ff": 116913,
+  "dsp": 304,
+  "bram_36k": 75,
+  "bram_18k": 37,
+  "bram_18k_equiv": 187,
+  "bram_tiles": 93.5,
+  "uram": 0,
+  "wns_ns": 0.016,
+  "tns_ns": 0.0,
+  "whs_ns": 0.006,
+  "clock_mhz": 300
+ },
+ "runs": [
+  {
+   "model": "gpt2-medium",
+   "shape": {
+    "seq": 128,
+    "hid": 1024,
+    "heads": 16,
+    "head": 64,
+    "ffn": 4096,
+    "norm": "layernorm",
+    "rope": false,
+    "gate": false
+   },
+   "seed": 0,
+   "reps": 4,
+   "launches": 624,
+   "mismatched_values": 0,
+   "mean": {
+    "wall_s": 13.075287580490112,
+    "kernel_s": 0.0727235,
+    "transfer_s": 0.37179274999999995,
+    "pack_s": 4.6435335874557495,
+    "host_math_s": 0.05295306444168091
+   },
+   "best": {
+    "wall_s": 11.825487613677979,
+    "kernel_s": 0.07226700000000001,
+    "transfer_s": 0.3515109999999999,
+    "pack_s": 4.294084787368774,
+    "host_math_s": 0.051264286041259766
+   },
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 1.455545425415039,
+     "device": false
+    },
+    "Q": {
+     "launches": 16,
+     "kernel_ms": 3.5145,
+     "load_ms": 6.885,
+     "read_ms": 3.9490000000000003,
+     "pack_ms": 171.37408256530762,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "K": {
+     "launches": 16,
+     "kernel_ms": 3.4565,
+     "load_ms": 6.922000000000001,
+     "read_ms": 3.7255,
+     "pack_ms": 131.0076117515564,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "V": {
+     "launches": 16,
+     "kernel_ms": 3.4549999999999996,
+     "load_ms": 6.7105,
+     "read_ms": 3.713,
+     "pack_ms": 125.24640560150146,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "score": {
+     "launches": 32,
+     "kernel_ms": 3.1670000000000007,
+     "load_ms": 12.70525,
+     "read_ms": 6.57175,
+     "pack_ms": 237.4364137649536,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "mask": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 1.4213323593139648,
+     "device": false
+    },
+    "smax": {
+     "launches": 128,
+     "kernel_ms": 8.567000000000004,
+     "load_ms": 50.548249999999996,
+     "read_ms": 23.425999999999995,
+     "pack_ms": 934.7423911094666,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "ssum": {
+     "launches": 128,
+     "kernel_ms": 9.768249999999997,
+     "load_ms": 50.766999999999996,
+     "read_ms": 22.968750000000004,
+     "pack_ms": 931.2036633491516,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "snorm": {
+     "launches": 128,
+     "kernel_ms": 10.212499999999999,
+     "load_ms": 50.82674999999998,
+     "read_ms": 23.11925,
+     "pack_ms": 933.0220818519592,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "ctx": {
+     "launches": 16,
+     "kernel_ms": 1.7217499999999997,
+     "load_ms": 6.347,
+     "read_ms": 3.1539999999999995,
+     "pack_ms": 118.64036321640015,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "O": {
+     "launches": 16,
+     "kernel_ms": 3.362,
+     "load_ms": 6.3999999999999995,
+     "read_ms": 3.3262500000000004,
+     "pack_ms": 107.8188419342041,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "res1": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 0.2967715263366699,
+     "device": false
+    },
+    "ln2": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 0.8932948112487793,
+     "device": false
+    },
+    "FFN1": {
+     "launches": 64,
+     "kernel_ms": 13.640999999999996,
+     "load_ms": 26.639749999999992,
+     "read_ms": 14.530000000000001,
+     "pack_ms": 460.93183755874634,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "FFN2": {
+     "launches": 64,
+     "kernel_ms": 11.858,
+     "load_ms": 25.971499999999995,
+     "read_ms": 12.58625,
+     "pack_ms": 492.10989475250244,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "res2": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 0.3019571304321289,
+     "device": false
+    }
+   },
+   "device_stage_kernel_ms": 72.7235,
+   "host_stage_ms": 52.95306444168091,
+   "run_dir": "/scratch/hc676/e3_block_timed2"
+  },
+  {
+   "model": "llama-7b",
+   "shape": {
+    "seq": 128,
+    "hid": 4096,
+    "heads": 32,
+    "head": 128,
+    "ffn": 11008,
+    "norm": "rmsnorm",
+    "rope": true,
+    "gate": true
+   },
+   "seed": 0,
+   "reps": 2,
+   "launches": 4064,
+   "mismatched_values": 0,
+   "mean": {
+    "wall_s": 138.05756032466888,
+    "kernel_s": 0.715233,
+    "transfer_s": 2.381533,
+    "pack_s": 28.851483464241028,
+    "host_math_s": 0.03880453109741211
+   },
+   "best": {
+    "wall_s": 130.72005677223206,
+    "kernel_s": 0.7045820000000006,
+    "transfer_s": 2.358754,
+    "pack_s": 27.377994298934937,
+    "host_math_s": 0.03534054756164551
+   },
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 6.400346755981445,
+     "device": false
+    },
+    "Q": {
+     "launches": 256,
+     "kernel_ms": 55.39049999999999,
+     "load_ms": 95.66950000000004,
+     "read_ms": 55.28150000000002,
+     "pack_ms": 1815.8013820648193,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "K": {
+     "launches": 256,
+     "kernel_ms": 55.2115,
+     "load_ms": 97.08299999999997,
+     "read_ms": 55.52700000000001,
+     "pack_ms": 1826.1243104934692,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "V": {
+     "launches": 256,
+     "kernel_ms": 55.20450000000002,
+     "load_ms": 95.31399999999998,
+     "read_ms": 56.423499999999976,
+     "pack_ms": 1828.511118888855,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "score": {
+     "launches": 64,
+     "kernel_ms": 6.7585,
+     "load_ms": 22.760499999999997,
+     "read_ms": 12.763,
+     "pack_ms": 457.3718309402466,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "mask": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 2.517223358154297,
+     "device": false
+    },
+    "smax": {
+     "launches": 256,
+     "kernel_ms": 16.839000000000006,
+     "load_ms": 90.48349999999996,
+     "read_ms": 45.42600000000002,
+     "pack_ms": 1806.1480522155762,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "ssum": {
+     "launches": 256,
+     "kernel_ms": 19.30199999999999,
+     "load_ms": 90.77249999999998,
+     "read_ms": 45.321000000000026,
+     "pack_ms": 1798.503041267395,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "snorm": {
+     "launches": 256,
+     "kernel_ms": 20.125000000000004,
+     "load_ms": 92.09800000000001,
+     "read_ms": 45.461,
+     "pack_ms": 1806.227684020996,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "ctx": {
+     "launches": 64,
+     "kernel_ms": 6.6845,
+     "load_ms": 22.974,
+     "read_ms": 13.203,
+     "pack_ms": 457.45813846588135,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "O": {
+     "launches": 256,
+     "kernel_ms": 54.385499999999965,
+     "load_ms": 93.3805,
+     "read_ms": 55.049,
+     "pack_ms": 1862.4929189682007,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "res1": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 1.46484375,
+     "device": false
+    },
+    "ln2": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 3.301262855529785,
+     "device": false
+    },
+    "FFN1": {
+     "launches": 688,
+     "kernel_ms": 148.0820000000002,
+     "load_ms": 285.10099999999994,
+     "read_ms": 156.1844999999998,
+     "pack_ms": 5536.874294281006,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "FFN3": {
+     "launches": 688,
+     "kernel_ms": 147.52649999999971,
+     "load_ms": 263.1845000000001,
+     "read_ms": 136.03650000000007,
+     "pack_ms": 4598.519325256348,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "FFN2": {
+     "launches": 768,
+     "kernel_ms": 129.72350000000017,
+     "load_ms": 292.6975000000003,
+     "read_ms": 163.33850000000004,
+     "pack_ms": 5057.451367378235,
+     "host_ms": 0.0,
+     "device": true
+    },
+    "res2": {
+     "launches": 0,
+     "kernel_ms": 0.0,
+     "load_ms": 0.0,
+     "read_ms": 0.0,
+     "pack_ms": 0.0,
+     "host_ms": 1.2049674987792969,
+     "device": false
+    }
+   },
+   "device_stage_kernel_ms": 715.2330000000002,
+   "host_stage_ms": 38.80453109741211,
+   "run_dir": "/scratch/hc676/e3_llama_dev"
+  }
+ ]
+}

@@ -1,0 +1,105 @@
+{
+ "title": "E7 addendum: the folded FFT, HP-FFT (Vitis HLS C++, UF1) vs SPMW (single-path delay-feedback pipeline)",
+ "date": "2026-09-06",
+ "roots": {
+  "allo": "/scratch/hc676/allo",
+  "hpfft": "/scratch/hc676/HP-FFT-HLS"
+ },
+ "inclusion_rule": "As in the E7 recount: design = unit/PE bodies, interfaces, topology rules, boundary bindings and design-specific helpers (twiddle and bit-reversal tables), HLS pragmas inside them; config = includes, #defines, typedefs, type aliases and sizes; test = testbenches, references, operand generators (reported, excluded). Framework code (allo/spmw, hls_stream.h, hls_vector.h) excluded on both sides.",
+ "designs": [
+  {
+   "id": "fft_folded",
+   "title": "Folded radix-2 FFT (HP-FFT n256/UF1, one sample per cycle, vs the SPMW single-path delay-feedback pipeline)",
+   "archived": {
+    "hls": 407,
+    "spmw": null,
+    "note": "The archived 407 was HP-FFT n1024/UF32 (a 32-samples-per-cycle unrolled variant) counted with the C rule on the whole file; the architecture comparable to the SPMW SDF pipeline is UF1 (one sample per cycle), n256 and n1024 differ by 6 lines."
+   },
+   "notes": [
+    "HLS: HP-FFT-HLS commit c4611b8, n256/UF1/FFT.cpp: the double-buffered butterfly, the input bit-reversal stream, the stage functions (spatially unrolled per stage, pipelined), the vector-stream stage-1 form, the DIT driver and FFT_TOP; FFT.h holds includes, sizes (FFT_NUM, EXP2_FFT, UF) and the top's declaration (3 lines, counted as config with the header).",
+    "SPMW: tests/dataflow/spmw/test_spmw_fft_sdf.py fft_sdf_of(n, batch): StageIO/ReorderIO, the chain topology, the stage unit (delay line + butterfly + twiddle), the reorder unit (double buffer, bit-reversal ROM) and the engine fabric; twiddles and bitrev are the ROM contents (design). csample is a type alias (config)."
+   ],
+   "sides": {
+    "hls": {
+     "label": "Vitis HLS C++ (HP-FFT UF1)",
+     "parts": [
+      {
+       "file": "hpfft:n256/UF1/FFT.cpp",
+       "category": "design",
+       "symbols": [
+        "revIdxTab",
+        "twiddles",
+        "RADIX2_BFLY_double_buffer_quarter_CY",
+        "output_result_array_to_stream",
+        "bit_reverse",
+        "reverse_input_stream_UF1",
+        "FFT_stage_spatial_unroll",
+        "RADIX2_BFLY_double_buffer_quarter_onlycompute",
+        "FFT_Stage1_vectorstream_parameterize",
+        "FFT_DIT_spatial_unroll_CY_stream_vector",
+        "FFT_TOP"
+       ],
+       "note": "every function and the two global tables of the design file"
+      },
+      {
+       "file": "hpfft:n256/UF1/FFT.cpp",
+       "category": "config",
+       "match": [
+        "^#include"
+       ]
+      },
+      {
+       "file": "hpfft:n256/UF1/FFT.h",
+       "category": "config",
+       "all": true,
+       "note": "includes, sizes, the top's declaration"
+      },
+      {
+       "file": "hpfft:n256/UF1/testbench.cpp",
+       "category": "test",
+       "all": true
+      }
+     ]
+    },
+    "spmw": {
+     "label": "SPMW (Python)",
+     "parts": [
+      {
+       "file": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+       "category": "design",
+       "symbols": [
+        "twiddles",
+        "bitrev",
+        "fft_sdf_of"
+       ]
+      },
+      {
+       "file": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+       "category": "config",
+       "match": [
+        "^import",
+        "^from"
+       ],
+       "symbols": [
+        "csample"
+       ]
+      },
+      {
+       "file": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+       "category": "test",
+       "symbols": [
+        "operands",
+        "check",
+        "test_sdf_matches_numpy",
+        "test_sdf_impulses_and_tone"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "provenance": [
+  "Counted on brg-zhang-xcel with scripts/spmw_loc2.py as black-formatted there (sha256 fea0ba570ece6b7694b43e3edb747e5761cc0daa83088f7227b48fea18568c56; the E7 archive's 68a47ad0... is the same program before black), over /scratch/hc676/allo (the worktree's rsync) and /scratch/hc676/HP-FFT-HLS at c4611b8."
+ ]
+}

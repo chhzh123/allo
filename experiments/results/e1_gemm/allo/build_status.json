@@ -1,0 +1,168 @@
+{
+ "collected_at": "2026-09-07 13:34:40",
+ "deadline": "2026-09-07 01:45",
+ "builds": [
+  {
+   "S": 4,
+   "W": "tile",
+   "dir": "/scratch/hc676/e1_allo_w1/S4_tile",
+   "agent": "w1",
+   "state": "complete",
+   "procs": ""
+  },
+  {
+   "S": 4,
+   "W": "128",
+   "dir": "/scratch/hc676/e1_allo_w1/S4_128",
+   "agent": "w1",
+   "state": "complete",
+   "procs": ""
+  },
+  {
+   "S": 8,
+   "W": "tile",
+   "dir": "/scratch/hc676/e1_allo_w1/S8_tile",
+   "agent": "w1",
+   "state": "complete",
+   "procs": ""
+  },
+  {
+   "S": 8,
+   "W": "128",
+   "dir": "/scratch/hc676/e1_allo_w1/S8_128",
+   "agent": "w1",
+   "state": "complete",
+   "procs": ""
+  },
+  {
+   "S": 16,
+   "W": "tile",
+   "dir": "/scratch/hc676/e1_allo_w1/S16_tile",
+   "agent": "w1",
+   "state": "complete_with_failures",
+   "procs": ""
+  },
+  {
+   "S": 16,
+   "W": "tile",
+   "dir": "/scratch/hc676/e1_allo_v2_S16_tile",
+   "agent": "v2",
+   "state": "interrupted (not used)",
+   "procs": ""
+  },
+  {
+   "S": 16,
+   "W": "128",
+   "dir": "/scratch/hc676/e1_allo_w1/S16_128",
+   "agent": "w1",
+   "state": "complete_with_failures",
+   "procs": ""
+  },
+  {
+   "S": 32,
+   "W": "tile",
+   "dir": "/scratch/hc676/e1_allo_w1/S32_tile",
+   "agent": "w1",
+   "state": "running",
+   "procs": "260126 vitis_hls, 260170 vitis_hls"
+  },
+  {
+   "S": 32,
+   "W": "128",
+   "dir": "/scratch/hc676/e1_allo_w1/S32_128",
+   "agent": "w1",
+   "state": "running",
+   "procs": "241336 vitis_hls, 241380 vitis_hls"
+  },
+  {
+   "S": 32,
+   "W": "128",
+   "dir": "/scratch/hc676/e1_allo_v2_S32_128",
+   "agent": "v2",
+   "state": "aborted (not used)",
+   "procs": ""
+  }
+ ],
+ "duplicates": [
+  {
+   "S": 4,
+   "W": "tile",
+   "agent": "v2",
+   "build_dir": "/scratch/hc676/e1_allo_v2_S4_tile",
+   "finished": "2026-09-06T21:15:52",
+   "cosim_status": "pass",
+   "validation_pass": true,
+   "completion_cycles": 136,
+   "steady_interval_cycles": 137,
+   "first_output_cycles": 112,
+   "impl_status": "pass",
+   "lut": 3693,
+   "ff": 4459,
+   "dsp": 16,
+   "bram_36k": 0,
+   "bram_18k": 3,
+   "uram": 0,
+   "wns_ns": 0.625,
+   "reports": "reports/_duplicates/v2/reports/"
+  },
+  {
+   "S": 4,
+   "W": "128",
+   "agent": "v2",
+   "build_dir": "/scratch/hc676/e1_allo_v2_S4_128",
+   "finished": "2026-09-06T21:44:57",
+   "cosim_status": "pass",
+   "validation_pass": true,
+   "completion_cycles": 334909,
+   "steady_interval_cycles": 334910,
+   "first_output_cycles": 316471,
+   "impl_status": "pass",
+   "lut": 4193,
+   "ff": 4808,
+   "dsp": 16,
+   "bram_36k": 18,
+   "bram_18k": 5,
+   "uram": 0,
+   "wns_ns": 0.792,
+   "reports": "reports/_duplicates/v2/reports/"
+  }
+ ],
+ "lanes": {
+  "w1 lane1": {
+   "specs": [
+    "4_tile",
+    "32_128",
+    "8_tile",
+    "8_128"
+   ],
+   "current": [],
+   "remaining": [],
+   "done": true,
+   "alive": true
+  },
+  "w1 lane2": {
+   "specs": [
+    "32_tile",
+    "16_128",
+    "16_tile",
+    "4_128"
+   ],
+   "current": [],
+   "remaining": [],
+   "done": true,
+   "alive": true
+  },
+  "v2 laneC": {
+   "specs": [
+    "4_128",
+    "8_tile",
+    "8_128",
+    "16_tile"
+   ],
+   "current": [],
+   "remaining": [],
+   "done": true,
+   "alive": true
+  }
+ }
+}

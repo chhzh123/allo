@@ -19,14 +19,18 @@ The commands that run are:
     build         compile, elaborate and simulate your design against the
                   visible vectors, then report how many values were wrong and
                   how many cycles it took
+    route         place and route what you last built, on the real device, and
+                  report its lookup tables, registers, multipliers and worst
+                  timing slack. It takes about ten minutes and you get
+                  {ROUTES} of them, so build until you are close, then route
     cat <path>    print a file in your working directory
     ls            list your working directory
 
 Nothing else runs. You have no network access, and no access to any file
 outside your working directory.
 
-Your budget is {BUDGET} tokens and {STEPS} builds. Both are counted for you and
-reported to you after every build. When either runs out the trial ends, and
+Your budget is {BUDGET} tokens, {STEPS} builds and {ROUTES} routing runs. All
+three are counted for you and reported after every build. When either runs out the trial ends, and
 whatever design you last wrote is what gets graded.
 
 When you believe your design meets every requirement in `TASK.md`, write SUBMIT

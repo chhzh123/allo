@@ -15,5 +15,5 @@ source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 T=$S/trials/$NAME; rm -rf "$T"; mkdir -p "$T"
 cd /scratch/hc676/allo
 python3 -u "$S/harness/agent.py" --arm "$ARM" --model "$MODEL" --trial "$T" \
-  --tokens "${TRIAL_TOKENS:-200000}" --builds "${TRIAL_BUILDS:-40}" 2>&1 | tail -5
+  --tokens "${TRIAL_TOKENS:-500000}" --builds "${TRIAL_BUILDS:-20}" --wall-seconds "${TRIAL_WALL:-14400}" --routes "${TRIAL_ROUTES:-3}" 2>&1 | tail -5
 echo "TRIAL_DONE $NAME"

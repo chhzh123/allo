@@ -2,6 +2,7 @@
 # Route one design out of context and report what the task's bars need.
 # usage: pnr_ooc.sh <rtl-dir> <top> <out-dir>
 set -u
+source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 RTL=$1; TOP=$2; OUT=$3
 mkdir -p "$OUT"; cd "$OUT" || exit 2
 cat > pnr.tcl <<TCL
