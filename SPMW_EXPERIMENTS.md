@@ -3999,6 +3999,42 @@ array. The complete block is bound by the host's data movement: GPT-2's
 device time is 30% of its transfer time and 1.6% of its packing time.
 Bundle: /scratch/hc676/spmw_eval_remaining_2026-09-06/e3_tpu.
 
+### What kernel reuse is worth, measured properly
+
+E5, with the hardware held fixed: one HLS project per role against one per
+site, the generated C++ identical in both, three repetitions of every point
+in a randomised mode order, eight workers throughout, a fresh directory per
+run, elapsed and child CPU time reported apart (`scripts/spmw_ablate_compile.py`,
+driver `/scratch/hc676/e5_run.sh`). Medians of three, spread under 2%:
+
+    design       projects  shared/8w  shared/1w  per-instance/8w  reuse gain
+    gemm8   4x4    9 / 16     82.0 s     361.0 s      85.4 s          1.0x
+    gemm8   8x8    9 / 64     82.4 s     364.4 s     339.1 s          4.1x
+    gemm8 16x16    9 / 256    82.4 s     361.5 s   1,377.7 s         16.7x
+    gemm8 32x32    9 / 1024   82.2 s     363.2 s    >3,600 s        >43.8x
+    fftsdf   128   8 / 8      47.5 s     351.3 s      47.8 s          1.0x
+    fftsdf   256   9 / 9      88.5 s     400.9 s      88.2 s          1.0x
+    fftsdf   512  10 / 10     92.2 s     443.3 s      91.3 s          1.0x
+    fftsdf  1024  11 / 11     92.9 s     490.0 s      93.0 s          1.0x
+
+The GEMM's shared build is flat at 82 s from 4x4 to 32x32, because it always
+compiles the same nine roles; the per-instance build tracks the site count.
+At 32x32 all three repetitions hit the preset one-hour cap having finished
+665, 680 and 658 of 1,024 projects, so that row is a bound, not a
+measurement, and is recorded as a timeout.
+
+The FFT is the control: its folded pipeline has one site per role, so there
+is no reuse to be had and the experiment finds none, to within 1%. Reuse is
+worth exactly the instances-per-role ratio and nothing more. Parallelism is
+a separate and much smaller effect: 361 s serial against 82 s on eight
+workers, 4.4x, and it saturates once the roles fit the worker count -- which
+is also why the FFT jumps from 47.5 s at 8 roles to 88.5 s at 9, one round
+of eight workers against two.
+
+The earlier 46.0x at 32x32 used 24 workers and the earlier 4x4 pairs used
+32; the 123.8x was a ratio of summed job elapsed times. Neither is a
+repetition of this protocol, and both stay as their own experiments.
+
 ### The folded FFT: one sample a cycle, and the four bugs in the way
 
 E2's SPMW side (`tests/dataflow/spmw/test_spmw_fft_sdf.py`, registry
