@@ -1,0 +1,22 @@
+{
+ "4x4": {
+  "workload": "16x16x16",
+  "command": "./autosa /scratch/hc676/e1_autosa_2026-09-06/gen/mm4i8z/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_hls_c --output-dir=/scratch/hc676/e1_autosa_2026-09-06/gen/mm4i8z/out --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[4,4,16];kernel[]->latency[1,1];kernel[]->simd[1]} --simd-info=/scratch/hc676/e1_autosa_2026-09-06/gen/mm4i8z/simd_info.json --hls",
+  "status": "pass"
+ },
+ "8x8": {
+  "workload": "16x16x16",
+  "command": "./autosa /scratch/hc676/e1_autosa_2026-09-06/gen/mm8i8z/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_hls_c --output-dir=/scratch/hc676/e1_autosa_2026-09-06/gen/mm8i8z/out --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[8,8,16];kernel[]->latency[1,1];kernel[]->simd[1]} --simd-info=/scratch/hc676/e1_autosa_2026-09-06/gen/mm8i8z/simd_info.json --hls",
+  "status": "pass"
+ },
+ "16x16": {
+  "workload": "16x16x16",
+  "command": "./autosa /scratch/hc676/e1_autosa_2026-09-06/gen/mm16i8z/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_hls_c --output-dir=/scratch/hc676/e1_autosa_2026-09-06/gen/mm16i8z/out --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[16,16,16];kernel[]->latency[1,1];kernel[]->simd[1]} --simd-info=/scratch/hc676/e1_autosa_2026-09-06/gen/mm16i8z/simd_info.json --hls",
+  "status": "pass"
+ },
+ "32x32": {
+  "workload": "32x32x16",
+  "command": "./autosa /scratch/hc676/e1_autosa_2026-09-06/gen/mm32i8z32/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_hls_c --output-dir=/scratch/hc676/e1_autosa_2026-09-06/gen/mm32i8z32/out --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[32,32,16];kernel[]->latency[1,1];kernel[]->simd[1]} --simd-info=/scratch/hc676/e1_autosa_2026-09-06/gen/mm32i8z32/simd_info.json --hls",
+  "status": "pass"
+ }
+}
