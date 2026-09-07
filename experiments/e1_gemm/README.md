@@ -70,3 +70,43 @@ Names ending `z` use the corrected kernel form, with the accumulator reset
 inside the scope. The uncorrected form is functionally wrong: without
 `C[i][j] = 0` in the scop the accumulator is never cleared, and the 4x4 design
 fails 240 of its 256 outputs. Only the corrected rows are reported.
+
+## Generated code and synthesis reports
+
+`spmw/generated_8x8/` holds what the SPMW compiler emitted for the 8x8 mesh:
+the C++ each distinct wiring class is synthesised from (`roles/pe_r*/kernel.cpp`),
+the module wrapper it becomes (`pe_r*.sv`), its Vitis synthesis report
+(`csynth.rpt`), the assembled fabric (`fabric/spmw_top.sv`) with its link buffer
+(`spmw_fifo.sv`), the role and instance counts (`cost.json`), and the build log.
+Three of the nine roles are included: the interior element, one edge, and the
+corner.
+
+`allo/S8_tile/` holds the same for Allo: the emitted `kernel.cpp`, the MLIR it
+lowered through, the per-element and top-level synthesis reports, and the build
+log. `allo/allo_library_systolic.py` is Allo's own library source, copied here
+for convenience; it is `allo/library/systolic.py` in this repository.
+
+### Both processing elements reach an initiation interval of one
+
+The reduction loop is the thing that has to pipeline, and in both systems it
+does, with the same iteration latency and the same trip count.
+
+SPMW, `roles/pe_r0/csynth.rpt`:
+
+    | Modules & Loops   | Latency | Iteration |          | Trip |           |
+    |                   | (cycles)|  Latency  | Interval | Count| Pipelined |
+    | o l_S_k_0_k       |      11 |         5 |        1 |    8 |       yes |
+
+Allo, `reports/PE_kernel_gemm_0_0_csynth.rpt`:
+
+    | Loop Name      | min | max | Iteration | achieved | target | Count | Pipelined |
+    | l_reduction_k  |  11 |  11 |         5 |        1 |      1 |     8 |       yes |
+
+So the arithmetic pipeline is identical: eight iterations, one per cycle, five
+cycles deep, eleven cycles end to end, one multiplier. Neither system has an
+advantage inside the element, which is what makes the array-level and
+compilation-level differences the interesting ones.
+
+Allo's top-level report for the same tile gives 272 cycles of latency and an
+interval of 273, against the 306 its cosimulation measured; the difference is
+the surrounding interface, which the report does not model.
