@@ -68,12 +68,17 @@ def _bits(value, dtype, block=()):
 class Testbench:
     """A self-checking testbench for one fabric and one set of inputs."""
 
-    def __init__(self, graph, data):
+    def __init__(self, graph, data, tolerance=None):
         self.graph = graph
         self.data = data
         self.emitter = StructuralEmitter(graph)
         self.plan = boundary_plan(graph)
         self.families = {f.name: f for f in self.emitter.families()[1]}
+        if tolerance is not None:
+            # A design may widen the floating-point check: a deep pipeline
+            # (a folded FFT's log2 N butterflies) cancels O(N) intermediates
+            # and leaves absolute errors far above the default floor.
+            self._REL_TOL, self._ABS_TOL = (float(t) for t in tolerance)
 
     def _dtype(self, name):
         return self.families[name].dtype
@@ -287,14 +292,20 @@ class Testbench:
         return lines
 
 
-def render_testbench(graph, data, results, cycles=200000, top="spmw_top"):
+def render_testbench(
+    graph, data, results, cycles=200000, top="spmw_top", tolerance=None
+):
     """A self-checking testbench for ``graph`` driven by ``data``.
 
     ``data`` and ``results`` are ``{tensor_name: numpy array}`` -- the inputs to
     feed and the outputs to expect. Use the reference simulator to produce the
     latter, so the RTL is compared against the design's own semantics.
+    ``tolerance`` is ``(relative, absolute)`` for floating-point outputs; the
+    default is the class's.
     """
-    return Testbench(graph, data).render(results, cycles=cycles, top=top)
+    return Testbench(graph, data, tolerance=tolerance).render(
+        results, cycles=cycles, top=top
+    )
 
 
 __all__ = ["Testbench", "render_testbench"]

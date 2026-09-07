@@ -26,7 +26,7 @@ import types
 from . import channels as ch
 from .abi import EDGE_DEPTH
 from .bricks import Brick, Tensor
-from .component import _io_param_name, captured_env
+from .component import _io_param_name, captured_env, rename_free
 from .errors import SPMWBindingError, SPMWMemoryError
 from .index import IndexMap, SliceMap, TIME, to_source
 from .placement import Bundle, MemGrid
@@ -194,8 +194,27 @@ class Lowering:
                 tree = getattr(body, "tree", None)
                 if fn is None or tree is None:
                     continue
-                for name, value in captured_env(fn, tree).items():
-                    self.injected.setdefault(name, value)
+                # Units made by a factory capture the same names with
+                # different values (a stage's `span`); every body is emitted
+                # into one program, so a name that is already injected with
+                # another value is renamed in this body and injected afresh.
+                renamed = dict(getattr(body, "spmw_renamed", {}))
+                fresh = {}
+                for name, value in captured_env(fn, tree, renamed).items():
+                    if name in self.injected and not _same(self.injected[name], value):
+                        new = f"{name}__{_ident(placement.name)}"
+                        while new in self.injected:
+                            new += "_"
+                        fresh[name] = new
+                        self.injected[new] = value
+                    else:
+                        self.injected.setdefault(name, value)
+                if fresh:
+                    rename_free(tree, fresh)
+                    for name, new in fresh.items():
+                        renamed[new] = renamed.get(name, name)
+                    body.spmw_renamed = renamed
+                    tree.spmw_renamed = renamed
         self.reserved = set(self.injected)
 
     def _plan_binding(self, binding):

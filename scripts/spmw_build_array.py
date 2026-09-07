@@ -298,6 +298,13 @@ def design(name, size):
         from test_spmw_tpu import tpu_matmul
 
         return tpu_matmul
+    if name == "fftsdf":
+        # The folded FFT: log2(size) single-path delay-feedback stages and a
+        # reorder unit, 33 transforms a launch (one for the fill, 32 for the
+        # steady-state interval).
+        from test_spmw_fft_sdf import fft_sdf_of
+
+        return fft_sdf_of(size, 33)
     if name == "fft":
         from test_spmw_fft import fft_spatial
 
@@ -418,8 +425,30 @@ def frp_wrap(code, name):
     return code[:head] + func + "\n" + region + code[body_end:]
 
 
+def _style_tcl(frp, pipeline_style):
+    """The `config_compile -pipeline_style` line, if the build asks for one.
+
+    `stp` (the default) holds a pipeline's registers when a stream stalls and
+    *does not drain* when its loop's trip count runs out: a unit whose whole
+    body is one deep pipeline (the folded FFT's stages) then keeps its last
+    iterations, and the array is short by the pipeline's depth. `flp` flushes
+    on exit at the cost of some logic; `frp` is the free-running form, which
+    also wants the body behind a dataflow region (`--frp`).
+    """
+    style = pipeline_style or ("frp" if frp else None)
+    return f"config_compile -pipeline_style {style}" if style else ""
+
+
 def stage(
-    graph, out, part, frequency, ii=None, anchors=None, pipeline_loops=64, frp=False
+    graph,
+    out,
+    part,
+    frequency,
+    ii=None,
+    anchors=None,
+    pipeline_loops=64,
+    frp=False,
+    pipeline_style=None,
 ):
     """Write one HLS project per role, plus the fabric that will hold them.
 
@@ -453,7 +482,7 @@ def stage(
                     part=part,
                     period=1000.0 / frequency,
                     pipeline_loops=pipeline_loops,
-                    pipeline_style="config_compile -pipeline_style frp" if frp else "",
+                    pipeline_style=_style_tcl(frp, pipeline_style),
                 ),
             )
             names.append(name)
@@ -794,13 +823,16 @@ generate_target {{simulation}} [get_ips]
 """
 
 
-def cosim(graph, out, part, arrays, names):
+def cosim(graph, out, part, arrays, names, tolerance=None):
     """Simulate the assembled array and compare against the reference.
 
     Elaborating is not computing, so this is the check that the mixed path is
     right rather than merely well-formed.
     """
-    _write(os.path.join(out, "tb.sv"), render_testbench(graph, arrays, arrays))
+    _write(
+        os.path.join(out, "tb.sv"),
+        render_testbench(graph, arrays, arrays, tolerance=tolerance),
+    )
 
     # The exported IPs instantiate Xilinx FP cores; xsim needs their generated
     # simulation models, which only Vivado can produce from the .xci files.
@@ -829,7 +861,10 @@ def cosim(graph, out, part, arrays, names):
         verilog = os.path.join(out, role, "prj", "sol", "syn", "verilog")
         if os.path.isdir(verilog):
             for name in os.listdir(verilog):
-                if name.endswith(".v"):
+                # A ROM's contents (a resident memory with an init) are a
+                # .dat beside the .v, read by $readmemh from the cwd: without
+                # it xsim warns and the ROM reads as zero.
+                if name.endswith((".v", ".dat")):
                     shutil.copy(os.path.join(verilog, name), sim)
     for root, _dirs, files in os.walk(os.path.join(out, "ipgen")):
         if "sources_1" in root and os.sep + "ip" + os.sep in root + os.sep:
@@ -888,6 +923,7 @@ def main():
             "feather",
             "feather-stream",
             "feather-x",
+            "fftsdf",
             "gemm",
             "gemm8",
             "daisy",
@@ -963,6 +999,14 @@ def main():
         help="replicate the roles' pipeline control registers (loop-init and "
         "stage-enable flags) so no such net drives more than this many loads; "
         "0 leaves them alone",
+    )
+    parser.add_argument(
+        "--pipeline-style",
+        choices=("stp", "flp", "frp"),
+        default=None,
+        help="config_compile -pipeline_style for every role; a design may ask "
+        "for one itself with `spmw_pipeline_style` (the folded FFT wants flp, "
+        "whose pipelines drain when their loop ends)",
     )
     parser.add_argument(
         "--frp",
@@ -1049,7 +1093,15 @@ def main():
             f"{sorted(anchors) or 'nothing (floorplan-only ablation)'}"
         )
     names = stage(
-        graph, args.out, args.part, args.frequency, ii=ii, anchors=anchors, frp=args.frp
+        graph,
+        args.out,
+        args.part,
+        args.frequency,
+        ii=ii,
+        anchors=anchors,
+        frp=args.frp,
+        pipeline_style=args.pipeline_style
+        or getattr(fabric, "spmw_pipeline_style", None),
     )
     print(
         f"staged {len(names)} role project(s) in {time.time() - start:.1f}s "
@@ -1116,7 +1168,14 @@ def main():
 
     if args.cosim:
         print("simulating the assembled array:")
-        cosim(graph, args.out, args.part, operands(fabric, graph), names)
+        cosim(
+            graph,
+            args.out,
+            args.part,
+            operands(fabric, graph),
+            names,
+            tolerance=getattr(fabric, "spmw_tolerance", None),
+        )
     _write(
         os.path.join(args.out, "cost.json"),
         json.dumps(

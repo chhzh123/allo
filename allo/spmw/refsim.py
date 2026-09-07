@@ -220,6 +220,12 @@ def _prepare(body):
                 env[name] = cell.cell_contents
             except ValueError:
                 continue
+    # A lowering may have renamed captured names in this body's tree
+    # (`span` -> `span__stage1` when another unit captured a different
+    # `span`); the renamed name resolves to the original's value.
+    for new, original in (getattr(body.tree, "spmw_renamed", None) or {}).items():
+        if original in env:
+            env[new] = env[original]
     exec(compile(module, "<spmw-refsim>", "exec"), env)  # pylint: disable=exec-used
     return env["_body"]
 

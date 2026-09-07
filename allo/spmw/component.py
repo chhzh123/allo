@@ -332,10 +332,20 @@ def free_names(tree):
     return reads - bound
 
 
-def captured_env(fn, tree):
-    """Resolve a body's free names against the module it was written in."""
+def captured_env(fn, tree, renamed=None):
+    """Resolve a body's free names against the module it was written in.
+
+    ``renamed`` maps a name the tree now uses to the name the function was
+    written with (a lowering renames a captured constant when another body
+    captured a different value under the same name); the value is looked up
+    under the original.
+    """
     env = {}
     closure = {}
+    # A lowering that renamed names in this tree leaves the map on it, so
+    # every evaluator of the body -- the reference simulator included --
+    # resolves them without being told.
+    renamed = renamed or getattr(tree, "spmw_renamed", None) or {}
     if fn.__closure__:
         for name, cell in zip(fn.__code__.co_freevars, fn.__closure__):
             try:
@@ -343,13 +353,34 @@ def captured_env(fn, tree):
             except ValueError:
                 continue
     for name in free_names(tree):
-        if name in closure:
-            env[name] = closure[name]
-        elif name in fn.__globals__:
-            env[name] = fn.__globals__[name]
-        elif name in getattr(__builtins__, "__dict__", __builtins__):
+        key = renamed.get(name, name)
+        if key in closure:
+            env[name] = closure[key]
+        elif key in fn.__globals__:
+            env[name] = fn.__globals__[key]
+        elif key in getattr(__builtins__, "__dict__", __builtins__):
             continue
     return env
+
+
+class _RenameFree(ast.NodeTransformer):
+    """Rename free names in a body: ``Name`` nodes only, never attributes."""
+
+    def __init__(self, mapping):
+        self.mapping = mapping
+
+    def visit_Name(self, node):  # pylint: disable=invalid-name
+        if node.id in self.mapping:
+            return ast.copy_location(
+                ast.Name(id=self.mapping[node.id], ctx=node.ctx), node
+            )
+        return node
+
+
+def rename_free(tree, mapping):
+    """Rename the free names in ``mapping`` throughout ``tree``, in place."""
+    _RenameFree(mapping).visit(tree)
+    ast.fix_missing_locations(tree)
 
 
 def port_uses(tree, iface):
