@@ -64,7 +64,13 @@ def main():
     t0 = time.time()
     fab = design(args.design, args.size)
     graph = spmw.elaborate(fab)
-    names = stage(graph, args.out, args.part, args.frequency)
+    names = stage(
+        graph,
+        args.out,
+        args.part,
+        args.frequency,
+        pipeline_style=getattr(fab, "spmw_pipeline_style", None),
+    )
     counts = sites_per_role(graph)
     instances = sum(counts.values())
     stage_s = round(time.time() - t0, 2)
