@@ -3999,6 +3999,74 @@ array. The complete block is bound by the host's data movement: GPT-2's
 device time is 30% of its transfer time and 1.6% of its packing time.
 Bundle: /scratch/hc676/spmw_eval_remaining_2026-09-06/e3_tpu.
 
+### The folded FFT: one sample a cycle, and the four bugs in the way
+
+E2's SPMW side (`tests/dataflow/spmw/test_spmw_fft_sdf.py`, registry
+`fftsdf`): the radix-2 single-path delay-feedback pipeline, log2(N) stage
+units in a chain plus a reorder unit, complex float32, 33 transforms a
+launch. At 128 points the assembled array matches the reference on all
+4,224 output tokens in 4,749 cycles, first out at 522: 132 cycles a
+transform against an ideal 128, so it sustains one complex sample a cycle.
+
+Getting there took four fixes, each of which had hidden itself:
+
+- Every output was zero and nothing complained. Vitis writes a ROM's
+  contents to a `.dat` beside the Verilog, read by `$readmemh` from the
+  cwd, and the cosim copied only `*.v` into `sim/`: every twiddle read as
+  zero. P&R was never affected (Vivado resolves the path against the
+  source), which is why synthesis had looked fine.
+- With the ROMs in place, 11 of 4,224 tokens differed by ~1e-5. A
+  log2(N)-stage float pipeline cancels O(N) intermediates, so the class-wide
+  rel 1e-5 / abs 1e-6 was too tight; a fabric now sets `spmw_tolerance`.
+- The simulator and HLS targets computed a wrong transform while `ref`
+  passed. Units made by a factory (one per stage, each capturing its own
+  `span`) are emitted into one program, and the lowering merged captured
+  constants by name: every stage ran with the first stage's `span`. Right
+  at N=2, wrong from N=4 -- the shape of bug this record keeps meeting.
+  Conflicting names are renamed per body now.
+- Then the cosim timed out 145 tokens short with no error. A probe on every
+  link showed the last stage had read all 4,352 tokens and written 4,335:
+  HLS's default stall-style pipeline does not drain when its loop's trip
+  count runs out, so the 17 iterations in flight died there. A design can
+  now ask for a pipeline style, and this one asks for `flp`.
+
+Three structures were measured on the way: one loop with a running counter
+and a data-dependent address (HLS serialised the read-modify-write, 22
+cycles a token), two pipelined loops a block with the stage index
+specialised into the role (1.8 cycles a token: each loop entry paid a
+pipeline fill), and the feed-forward form above, which keeps both halves of
+the block and computes on the way out so nothing computed is stored.
+
+The whole suite passes with these changes: 456 tests.
+
+### The GEMM sweep at 300 MHz: the mesh and the memory-fed kernel, 4 to 32
+
+E1 of the remaining-experiments plan (bundle
+/scratch/hc676/spmw_eval_remaining_2026-09-06/e1_gemm/spmw{,_mem}). `gemm8`
+is the output-stationary int8 mesh with its boundary FIFOs; `autosa` the
+same mesh in AutoSA's shape with the loaders that stream A and B from
+memory and a drain for C. Array cosim = the assembled RTL in xsim against
+the design's own reference, one SxS tile with K = S; kernel sim = the
+`autosa` design packaged as the kernel (roles, three 512-bit AXI masters,
+control) against behavioural AXI RAM, start bit to last drain beat, seen
+through AXI-lite polls; P&R out of context at 3.333 ns.
+
+    S    mesh cosim      kernel sim    mesh P&R (LUT / FF / DSP / WNS)      kernel P&R (LUT / FF / DSP / WNS)
+         total first     cycles
+    4      16    10        66           560 /   1,021 /   16 / +1.167       1,867 /   2,516 /   16 / +1.301
+    8      28    14       100         2,225 /   4,301 /   64 / +0.996       8,015 /  10,220 /   64 / +1.232
+    16     52    22       152         9,026 /  18,048 /  256 / +0.428      32,756 /  40,732 /  256 / +0.541
+    32    100    38       298        37,917 /  74,945 / 1024 / +0.431     137,741 / 163,708 / 1024 / +0.529
+
+Every row routed with no unrouted nets and no BRAM; every cosim matched
+every token. P&R wall: 316 / 462 / 1,746 / 4,188 s for the mesh, 335 / 531 /
+2,055 / 5,247 s for the kernel (the machine was shared and loaded). The
+`--memory --cosim` mode of the array builder is unsupported (the OOC
+testbench drives streams and has no AXI model; the kernel sim is the
+memory-connected validation), and the 16x16 mesh P&R died once with no
+message -- a detached `python3 script > log` block-buffers stdout; the
+sweeps use `python3 -u` now.
+
 ### v8b on the board: batching wins the small launches and loses the big ones
 
 `gptkern_v8b` -- the batched design (MREP, GRP, eight heads or eight
