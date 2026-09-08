@@ -163,3 +163,79 @@ therefore available from the same runs, and reading at any budget does not
 depend on where the cap happened to sit. Trials are told their real budget of
 eight, so a five-build reading is drawn from models that were pacing for eight,
 which makes it a conservative figure rather than a flattering one.
+
+## Amendment 4, during the graded run
+
+**Two trials are being repeated, and this records why, because repeating a
+trial is exactly the move that can turn a study into a search for a result.**
+
+`moonshotai/kimi-k3` in the HLS arm died at 3,252 tokens on
+`http.client.IncompleteRead`, a transient network fault. The retry in the
+agent loop caught three exception classes and that was not one of them, so a
+dropped connection ended the trial. That is a harness fault with no bearing on
+the model, and the trial is repeated.
+
+`z-ai/glm-5.3` in the SPMW arm spent 615,613 tokens across turns that returned
+neither text nor a tool call, then wrote its design after the budget had
+already gone. Each such turn cost about 115,000 tokens. The harness noticed
+nothing and kept asking. This is closer to model behaviour than to a fault,
+but the loop gave it no signal that it was spending a budget on nothing, so it
+is treated as a harness deficiency and repeated. The loop now stops after
+three consecutive turns that produce nothing, recording `empty_replies` as the
+stop reason, and records each turn's finish reason and reasoning length so the
+same thing is diagnosable rather than mysterious next time.
+
+**What is not repeated.** `deepseek/deepseek-v4-pro` in the SystemVerilog arm
+used its whole token budget across four builds, reaching a correct design at
+build 1 and again at build 3 and then replacing it with a wrong one both times.
+That is a result, not a fault, and it stands.
+
+**The rule applied here**, stated so it can be checked: a trial is repeated
+only when the harness, not the model, ended it. Every repeat is named in this
+file with its reason, and the original transcript is kept.
+
+## Amendment 5, during the graded run
+
+**Every request now bounds its own output.** The loop sent no `max_tokens`, so
+each provider applied its own default. One model's turns ended at exactly
+131,072 completion tokens with the reasoning field consuming all of them, three
+turns in a row, so it returned nothing usable and spent 615,613 tokens without
+producing a design. Its actual ceiling is 943,718, so the limit was a default
+rather than the model's capacity.
+
+Raising the limit alone would let a single turn consume a whole trial budget,
+so the fix bounds reasoning instead: `max_tokens` 65,536 with
+`reasoning.max_tokens` 32,768, applied identically to all five models and
+inside the smallest completion ceiling among them, which is 128,000. A turn can
+therefore always emit an answer after thinking, and no turn can cost more than
+about an eighth of the trial budget.
+
+**Both GLM trials are repeated under this amendment**, the SPMW one and the
+HLS one, because both were running unbounded when they stalled: the HLS trial
+reached 412,035 tokens without a single build. Its SystemVerilog trial had
+already submitted a correct design before the limit bit, and stands.
+
+### Which already-finished trials the bound would have changed
+
+Amendment 5 arrived mid-run, so the trials that finished before it ran without
+a limit. Checking every turn of every finished trial against the new one:
+
+| Trial | Peak completion tokens in a turn | Inside the new 65,536 limit |
+|---|---:|---|
+| deepseek, SPMW | 20,954 | yes |
+| deepseek, HLS | 38,639 | yes |
+| deepseek, SystemVerilog | 49,779 | yes |
+| kimi, SPMW | 32,289 | yes |
+| kimi, SystemVerilog | 33,634 | yes |
+| glm, SystemVerilog | **88,159** | **no** |
+
+So the bound is inert for five of the six and would have constrained exactly one
+turn in one trial. That trial, `z-ai/glm-5.3` in the SystemVerilog arm, is
+repeated under the bound so that every reported trial ran under one set of
+request parameters. Its unbounded transcript is kept, and if the repeat gives a
+different outcome both are reported.
+
+**Who this affects.** It is a uniform change, but not a neutral one: models that
+reason at length are constrained more than terse ones. That is preferable to
+the alternative, in which a model that reasons at length produces nothing at
+all and is scored as having failed the task.

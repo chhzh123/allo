@@ -1,0 +1,16 @@
+trial,model,arm,state,stopped_by,submitted,builds_used,routes_used,tokens,first_build_meeting_bars,best_latency,best_interval,model_seconds,tool_seconds,wall_seconds
+anthropic_claude-opus-5__hls,anthropic/claude-opus-5,hls,running,running,False,1,0,55668,,,,0.0,0.0,0.0
+anthropic_claude-opus-5__rtl,anthropic/claude-opus-5,rtl,running,running,False,2,0,174521,2,34,8,0.0,0.0,0.0
+anthropic_claude-opus-5__spmw,anthropic/claude-opus-5,spmw,running,running,False,0,0,82588,,,,0.0,0.0,0.0
+deepseek_deepseek-v4-pro__hls,deepseek/deepseek-v4-pro,hls,complete,submit,True,2,1,187897,2,39,8,1394.4,833.8,2228.2
+deepseek_deepseek-v4-pro__rtl,deepseek/deepseek-v4-pro,rtl,complete,tokens,False,4,2,503813,1,31,8,4060.3,718.5,4778.8
+deepseek_deepseek-v4-pro__spmw,deepseek/deepseek-v4-pro,spmw,complete,submit,True,2,1,67083,2,35,14,507.5,507.2,1014.7
+moonshotai_kimi-k3__hls,moonshotai/kimi-k3,hls,complete,builds,False,8,0,317380,,72,14,1353.4,590.9,1944.3
+moonshotai_kimi-k3__rtl,moonshotai/kimi-k3,rtl,complete,submit,True,2,2,122374,1,32,16,264.0,640.2,904.1
+moonshotai_kimi-k3__spmw,moonshotai/kimi-k3,spmw,complete,submit,True,1,1,62073,1,35,14,4824.4,491.1,5315.6
+openai_gpt-5_6-sol__hls,openai/gpt-5.6-sol,hls,running,running,False,2,0,74041,,,,0.0,0.0,0.0
+openai_gpt-5_6-sol__rtl,openai/gpt-5.6-sol,rtl,running,running,False,4,0,201026,4,30,8,0.0,0.0,0.0
+openai_gpt-5_6-sol__spmw,openai/gpt-5.6-sol,spmw,running,running,False,2,0,35967,2,34,14,0.0,0.0,0.0
+z-ai_glm-5_3__hls,z-ai/glm-5.3,hls,running,running,False,2,0,57330,,35,24,0.0,0.0,0.0
+z-ai_glm-5_3__rtl,z-ai/glm-5.3,rtl,running,running,False,1,0,60695,,,,0.0,0.0,0.0
+z-ai_glm-5_3__spmw,z-ai/glm-5.3,spmw,running,running,False,3,1,135733,,33,30,0.0,0.0,0.0

@@ -120,7 +120,17 @@ class Trial:
             self.seg_model_seconds = 0.0
             verdict = [l for l in out.splitlines()
                        if ("STUDY " in l and "STUDY STAGE" not in l) or "MISMATCH" in l]
-            body = "\n".join(verdict) if verdict else out[-4000:]
+            failed = any("STUDY BUILD FAIL" in l for l in verdict)
+            if verdict and not failed:
+                body = "\n".join(verdict)
+            elif verdict:
+                # A failure needs the tool's own words, not just the verdict.
+                detail = [l for l in out.splitlines()
+                          if l not in verdict and l.strip()
+                          and not l.startswith("STUDY STAGE")]
+                body = "\n".join(verdict + detail[-40:])
+            else:
+                body = out[-4000:]
             self.build_history.append(body)
             self.record("build", command=cmd, output=body[:8000])
             left = (f"\n\nBudget left: {self.args.tokens - self.tokens} tokens, "
@@ -165,8 +175,15 @@ class Trial:
 
     # ---- the model ----------------------------------------------------------
     def ask(self, messages, key):
+        # Without a limit the provider applies its own, and one model spent
+        # every one of its 131,072 output tokens on reasoning and returned
+        # nothing usable, three turns running. Bounding reasoning leaves room
+        # for an answer. Applied identically to every model, and inside the
+        # smallest completion ceiling among the five (128,000).
         payload = {"model": self.args.model, "messages": messages, "tools": TOOLS,
-                   "temperature": self.args.temperature, "stream": False}
+                   "temperature": self.args.temperature, "stream": False,
+                   "max_tokens": self.args.max_tokens,
+                   "reasoning": {"max_tokens": self.args.reasoning_tokens}}
         request = urllib.request.Request(
             ENDPOINT, data=json.dumps(payload).encode(),
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
@@ -178,7 +195,7 @@ class Trial:
                 with urllib.request.urlopen(request, timeout=self.args.reply_timeout) as reply:
                     body = json.loads(reply.read().decode())
                 break
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            except Exception as exc:  # noqa: BLE001 - any transport fault retries
                 detail = redact(str(exc), key)
                 self.record("api_error", attempt=attempt, detail=detail[:400])
                 if attempt == 3:
@@ -191,7 +208,11 @@ class Trial:
         spent = int(usage.get("total_tokens") or 0)
         self.tokens += spent
         self.seg_tokens += spent
-        return body["choices"][0]["message"], usage
+        choice = body["choices"][0]
+        usage = dict(usage)
+        usage["finish_reason"] = choice.get("finish_reason")
+        usage["reasoning_chars"] = len(str(choice["message"].get("reasoning") or ""))
+        return choice["message"], usage
 
 
 def fallback_calls(text):
@@ -217,6 +238,8 @@ def main():
     ap.add_argument("--tokens", type=int, default=200000)
     ap.add_argument("--builds", type=int, default=40)
     ap.add_argument("--routes", type=int, default=3)
+    ap.add_argument("--max-tokens", type=int, default=65536)
+    ap.add_argument("--reasoning-tokens", type=int, default=32768)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--tool-timeout", type=int, default=3600)
     ap.add_argument("--wall-seconds", type=int, default=14400)
@@ -250,6 +273,7 @@ def main():
     trial.record("start", arm=args.arm, model=args.model, tokens_budget=args.tokens,
                  builds_budget=args.builds, routes_budget=args.routes, temperature=args.temperature, system=system)
 
+    empty = 0
     messages = [{"role": "system", "content": system},
                 {"role": "user", "content": "Read TASK.md and REFERENCE.md, then build the design."}]
     while (trial.tokens < args.tokens and trial.builds < args.builds
@@ -273,9 +297,14 @@ def main():
             trial.record("submit")
             break
         if not calls:
+            empty = empty + 1 if not text.strip() else 0
+            if empty >= 3:
+                trial.record("stalled", empty_turns=empty)
+                break
             messages.append({"role": "user", "content":
                              "Use write_file or run. Write SUBMIT alone on a line when done."})
             continue
+        empty = 0
         for index, (name, arguments) in enumerate(calls):
             result = (trial.write_file(arguments.get("path"), arguments.get("content", ""))
                       if name == "write_file" else trial.run(arguments.get("command")))
@@ -291,6 +320,7 @@ def main():
 
     trial.record("end", submitted=trial.submitted,
                  stopped_by=("submit" if trial.submitted else
+                             "empty_replies" if empty >= 3 else
                              "tokens" if trial.tokens >= args.tokens else
                              "builds" if trial.builds >= args.builds else "wall"), model_seconds=round(trial.model_seconds, 1),
                  tool_seconds=round(trial.tool_seconds, 1),
@@ -299,7 +329,8 @@ def main():
     summary = {"arm": args.arm, "model": args.model, "trial": trial.dir,
                "segments": trial.segments,
                "stopped_by": ("submit" if trial.submitted else
-                              "tokens" if trial.tokens >= args.tokens else
+                              "empty_replies" if empty >= 3 else
+                             "tokens" if trial.tokens >= args.tokens else
                               "builds" if trial.builds >= args.builds else "wall"),
                "tokens": trial.tokens, "builds": trial.builds, "routes": trial.routes, "submitted": trial.submitted,
                "model_seconds": round(trial.model_seconds, 1),
