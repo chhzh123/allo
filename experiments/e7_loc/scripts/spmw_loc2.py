@@ -505,8 +505,7 @@ def python_code_lines(text):
         if isinstance(node, ast.Expr):
             value = node.value
             if (
-                isinstance(value, ast.Constant)
-                and isinstance(value.value, (str, bytes))
+                isinstance(value, ast.Constant) and isinstance(value.value, (str, bytes))
             ) or isinstance(value, ast.JoinedStr):
                 standalone.append(
                     (
@@ -795,9 +794,7 @@ def select(source, part):
             hits[name] = list(ranges[0])
             lines.update(range(ranges[0][0], ranges[0][1] + 1))
         if not hits:
-            raise LocError(
-                f"{source.label}: symbol pattern {pattern!r} matches nothing"
-            )
+            raise LocError(f"{source.label}: symbol pattern {pattern!r} matches nothing")
         resolved["symbol_pattern"][pattern] = hits
     for start, end in part.get("lines", []):
         if not 1 <= start <= end <= total:
@@ -876,8 +873,7 @@ class Counter:
             lines, resolved = select(source, part)
             key = (path, part.get("listing"))
             entry = per_file.setdefault(
-                key,
-                {"source": source, "selected": set(), "path": path, "shared": False},
+                key, {"source": source, "selected": set(), "path": path, "shared": False}
             )
             # a ``shared`` part borrows from a file whose other symbols belong
             # to another design: the file's remainder is not this side's
@@ -945,9 +941,7 @@ class Counter:
                     "category": remainder_category,
                     "count": len(counted),
                     "ranges": _ranges(rest),
-                    "sha256_selected": (
-                        sha256_text(source.text_of(rest)) if rest else ""
-                    ),
+                    "sha256_selected": sha256_text(source.text_of(rest)) if rest else "",
                     "whole_file_count": whole,
                     "whole_file_lines": source.total_lines,
                 }
@@ -1079,16 +1073,12 @@ def summary_rows(designs):
             )
         row["ratio_design"] = ratio(row["hls_design"], row["spmw_design"])
         row["ratio_design_plus_config"] = ratio(
-            (
-                None
-                if row["hls_design"] is None
-                else row["hls_design"] + row["hls_config"]
-            ),
-            (
-                None
-                if row["spmw_design"] is None
-                else row["spmw_design"] + row["spmw_config"]
-            ),
+            None
+            if row["hls_design"] is None
+            else row["hls_design"] + row["hls_config"],
+            None
+            if row["spmw_design"] is None
+            else row["spmw_design"] + row["spmw_config"],
         )
         archived = d.get("archived") or {}
         row["archived_hls"] = archived.get("hls")
@@ -1161,7 +1151,9 @@ def markdown_report(designs, meta):
         def pair(key):
             return f"{_cell(r['hls_' + key])} / {_cell(r['spmw_' + key])}"
 
-        dpc_h = None if r["hls_design"] is None else r["hls_design"] + r["hls_config"]
+        dpc_h = (
+            None if r["hls_design"] is None else r["hls_design"] + r["hls_config"]
+        )
         dpc_s = (
             None if r["spmw_design"] is None else r["spmw_design"] + r["spmw_config"]
         )
@@ -1173,9 +1165,7 @@ def markdown_report(designs, meta):
     out.append("")
     frag = [r for r in rows if r["kind"] in ("fragment", "generated")]
     if frag:
-        out.append(
-            "## Listing fragments and generated code (not comparable to the rows above)\n"
-        )
+        out.append("## Listing fragments and generated code (not comparable to the rows above)\n")
         out.append("| Item | HLS side | SPMW side | what it is |")
         out.append("|---|---:|---:|---|")
         for r in frag:
@@ -1191,9 +1181,7 @@ def markdown_report(designs, meta):
                         f"{t['design']} design, {t['generated']} generated, "
                         f"{t['test'] + t['remainder']} test/host"
                     )
-            out.append(
-                f"| {r['title']} | {cells[0]} | {cells[1]} | {' '.join(d['notes'])} |"
-            )
+            out.append(f"| {r['title']} | {cells[0]} | {cells[1]} | {' '.join(d['notes'])} |")
         out.append("")
     adapt = [r for r in rows if r["adaptation"]]
     if adapt:
@@ -1203,9 +1191,7 @@ def markdown_report(designs, meta):
             "design lines of the two selections; `added`/`removed` are line "
             "counts, not a measure of effort.\n"
         )
-        out.append(
-            "| Design | side | original | adapted | unchanged | added | removed |"
-        )
+        out.append("| Design | side | original | adapted | unchanged | added | removed |")
         out.append("|---|---|---:|---:|---:|---:|---:|")
         for r in adapt:
             for side_name, a in r["adaptation"].items():
@@ -1220,9 +1206,7 @@ def markdown_report(designs, meta):
         out.append(f"### {d['title']} (`{d['id']}`)\n")
         for side_name, side in d["sides"].items():
             if side["status"] == "missing":
-                out.append(
-                    f"- **{side['label']}**: no counterpart counted. {side['reason']}"
-                )
+                out.append(f"- **{side['label']}**: no counterpart counted. {side['reason']}")
                 continue
             t = side["totals"]
             parts = []
@@ -1248,8 +1232,7 @@ def markdown_report(designs, meta):
                     where += f"#listing{p['listing']}"
                 parts.append(
                     f"  - {p['category']} {p['count']}: `{where}` "
-                    f"{', '.join(sel)}{excl}"
-                    + (f" -- {p['note']}" if p["note"] else "")
+                    f"{', '.join(sel)}{excl}" + (f" -- {p['note']}" if p["note"] else "")
                 )
             for rem in side["remainder"]:
                 if rem["count"]:
@@ -1283,12 +1266,15 @@ def included_report(designs, meta):
                 path = p["file"]
                 if path not in seen:
                     seen.add(path)
-                    file_hash = p.get("sha256_file") or next(
-                        q["sha256_file"]
-                        for dd in designs
-                        for ss in dd["sides"].values()
-                        for q in ss["parts"]
-                        if q["file"] == path
+                    file_hash = (
+                        p.get("sha256_file")
+                        or next(
+                            q["sha256_file"]
+                            for dd in designs
+                            for ss in dd["sides"].values()
+                            for q in ss["parts"]
+                            if q["file"] == path
+                        )
                     )
                     out.append(f"{file_hash}  {path}")
                 if "selectors" in p:
@@ -1302,9 +1288,7 @@ def included_report(designs, meta):
                     if p["selectors"].get("exclude_lines"):
                         sel.append(
                             "minus "
-                            + ",".join(
-                                f"L{s}-{e}" for s, e in p["selectors"]["exclude_lines"]
-                            )
+                            + ",".join(f"L{s}-{e}" for s, e in p["selectors"]["exclude_lines"])
                         )
                     what = p["category"]
                 else:
@@ -1321,9 +1305,7 @@ def included_report(designs, meta):
 
 def print_table(designs):
     rows = summary_rows(designs)
-    print(
-        f"{'design':44s} {'HLS':>6s} {'SPMW':>6s} {'ratio':>7s}   {'arch HLS':>8s} {'arch SPMW':>9s}"
-    )
+    print(f"{'design':44s} {'HLS':>6s} {'SPMW':>6s} {'ratio':>7s}   {'arch HLS':>8s} {'arch SPMW':>9s}")
     for r in rows:
         if r["kind"] not in ("design", "variant"):
             continue
@@ -1409,9 +1391,7 @@ def main(argv=None):
                 with open(path, encoding="utf-8") as handle:
                     for entry in tex_listings(handle.read()):
                         src = Source(entry["code"], entry["language"], path)
-                        print(
-                            f"{len(src.code_lines):6d}  {path}#listing{entry['index']} ({entry['language']})"
-                        )
+                        print(f"{len(src.code_lines):6d}  {path}#listing{entry['index']} ({entry['language']})")
             else:
                 print(f"{count_file(path):6d}  {path}")
         return 0
