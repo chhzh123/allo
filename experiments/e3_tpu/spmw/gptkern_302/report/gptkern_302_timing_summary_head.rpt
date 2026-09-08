@@ -1,0 +1,60 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Sun Sep  6 20:33:36 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing_summary -max_paths 5 -file /scratch/hc676/e3_timing.rpt
+| Design            : level0_wrapper
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Routed
+| Temperature Grade : E
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Summary Report
+
+------------------------------------------------------------------------------------------------
+| Timer Settings
+| --------------
+------------------------------------------------------------------------------------------------
+
+  Enable Multi Corner Analysis               :  Yes
+  Enable Pessimism Removal                   :  Yes
+  Pessimism Removal Resolution               :  Nearest Common Node
+  Enable Input Delay Default Clock           :  No
+  Enable Preset / Clear Arcs                 :  No
+  Disable Flight Delays                      :  No
+  Ignore I/O Paths                           :  No
+  Timing Early Launch at Borrowing Latches   :  No
+  Borrow Time for Max Delay Exceptions       :  Yes
+  Merge Timing Exceptions                    :  Yes
+  Inter-SLR Compensation                     :  Conservative
+
+  Corner  Analyze    Analyze    
+  Name    Max Paths  Min Paths  
+  ------  ---------  ---------  
+  Slow    Yes        Yes        
+  Fast    Yes        Yes        
+
+
+------------------------------------------------------------------------------------------------
+| Report Methodology
+| ------------------
+------------------------------------------------------------------------------------------------
+
+Rule       Severity          Description                                             Violations  
+---------  ----------------  ------------------------------------------------------  ----------  
+TIMING-7   Critical Warning  No common node between related clocks                   1           
+TIMING-14  Critical Warning  LUT on the clock tree                                   1           
+TIMING-54  Critical Warning  Scoped false path                                       6           
+LUTAR-1    Warning           LUT drives async reset alert                            21          
+TIMING-9   Warning           Unknown CDC Logic                                       1           
+TIMING-10  Warning           Missing property on synchronizer                        1           
+TIMING-18  Warning           Missing input or output delay                           1           
+TIMING-24  Warning           Overridden Max delay datapath only                      1           
+TIMING-47  Warning           False path                                              7           
+XDCB-5     Warning           Runtime inefficient way to find pin objects             2           
+XDCC-1     Warning           Scoped Clock constraint overwritten with the same name  2           
+XDCC-7     Warning           Scoped Clock constraint overwritten on the same source  2           
+CLKC-3     Advisory          Clock Buffer has LOC and not CLOCK_REGION               30          
+CLKC-13    Advisory          PLLE4 divide could be done by BUFG_GT                   1           
