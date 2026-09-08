@@ -26,16 +26,16 @@ reports too (`spmw_tokens_per_transform` on the fabric).
 | 128 | **581** | 742 | 128.0 | 100.0% | 76.0 | 84.2% |
 | 256 | **1,158** | 1,527 | 256.0 | 100.0% | 140.5 | 91.1% |
 | 512 | **2,310** | 3,208 | 512.0 | 100.0% | 269.0 | 95.2% |
-| 1024 | (building) | 6,809 | | | 525.5 | 97.4% |
+| 1024 | **4,614** | 6,809 | 1024.0 | 100.0% | 525.5 | 97.4% |
 
 Two results, in opposite directions, and both follow from the same fact:
 
 - **SPMW has the lower full-transform latency at every size, despite half the
   datapath width**, and its lead grows with N: 1.28x at 128, 1.32x at 256,
-  1.39x at 512. It sustains exactly one sample a cycle -- the steady interval
+  1.39x at 512, 1.48x at 1024. It sustains exactly one sample a cycle -- the steady interval
   is N to the cycle at every size, 100% of ideal -- while HP-FFT carries a
   roughly fixed per-transform overhead.
-- **HP-FFT has the higher throughput**, 1.68 to 1.90 samples a cycle against
+- **HP-FFT has the higher throughput**, 1.68 to 1.95 samples a cycle against
   SPMW's 1.00, and its lead also grows with N, toward the 2x its datapath
   allows. That is the same fixed overhead amortising over more beats.
 
