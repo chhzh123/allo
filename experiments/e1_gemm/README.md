@@ -44,7 +44,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | 8x8 | SPMW mesh | streams | 28 | | 2,225 | 4,301 | 64 | 0 | +0.996 ns | 428 MHz |
 | | SPMW kernel | 512/512 | 82 | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
 | | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
-| | **AutoSA, wide** | **512/512** | **130** | **202** | | | 64 | | | |
+| | **AutoSA, wide** | **512/512** | **130** | **202** | 15,343 | 25,536 | 64 | 23 | +0.738 ns | 385 MHz |
 | | Allo | 32/32 | | 306 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
 | 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
 | | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
@@ -127,6 +127,24 @@ the serializer rather than the pack size, and that row stays narrow.
 Allo is the narrowest of the three at 32 bits on all three ports, so its
 figures carry the largest interface component of any row here. It has not been
 rebuilt wide.
+
+The wide port is not free, which is the part worth reporting. Buying those 92
+cycles cost AutoSA 15 per cent more lookup tables, 11 per cent more registers
+and **4.6 times the block RAM** -- 23 tiles against 5 -- because the wider
+masters need the staging to match. Its clock moved the right way but barely,
+378 to 385 MHz. So at a matched 512-bit interface the comparison at 8x8 is:
+
+| 8x8, both at 512 bits | Cycles | LUT | FF | BRAM18 | Clock |
+|---|---:|---:|---:|---:|---:|
+| SPMW kernel | 82 | 8,015 | 10,220 | 0 | 476 MHz |
+| AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
+
+Matching the port narrowed the cycle gap from 2.7x to 1.6x and widened the area
+gap: 1.9 times the lookup tables and 2.5 times the registers for the same 64
+multipliers, and block RAM where SPMW uses none. Both directions are the same
+cause -- SPMW's feeders write into the array's edge FIFOs, so a 512-bit port
+needs no staging behind it, while AutoSA's has to feed a level that then feeds
+another.
 
 **How the cycles are counted, now settled.** The table's first cycle column is
 one definition on both sides, so the control traffic that used to differ is no
