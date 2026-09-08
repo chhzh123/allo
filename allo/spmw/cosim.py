@@ -118,8 +118,15 @@ class Testbench:
             ]
         return out
 
-    def render(self, results, cycles=200000, top="spmw_top"):
-        """The testbench module."""
+    def render(self, results, cycles=200000, top="spmw_top", per_transform=None):
+        """The testbench module.
+
+        ``per_transform`` is the number of output tokens one transform (or
+        one problem) produces. Given it, the testbench also reports the
+        cycle each transform completed on, which is what makes a
+        full-transform latency comparable with a flow that reports one
+        transform rather than a whole launch.
+        """
         stim, want = self.stimulus(), self.expected(results)
         lines = [
             "`timescale 1ns/1ps",
@@ -130,6 +137,8 @@ class Testbench:
             "  integer errors = 0;",
             "  integer produced = 0;",
             "  integer first = -1;",
+            "  integer first_in = -1;",
+            "  integer reported = 0;",
             # Every token on every channel, not every channel: counting
             # channels made the run stop at the first token of each and call
             # that a pass, so attention checked 2 of its 12 and still said PASS.
@@ -158,11 +167,23 @@ class Testbench:
             f"    for (integer c = 0; c < {cycles}; c = c + 1) begin",
             "      @(posedge clk);",
             "      if (produced > 0 && first < 0) first = c;",
+            "      if (any_input_handshake && first_in < 0) first_in = c;",
+            *(
+                [
+                    "      if (produced >= (reported + 1) * %d) begin" % per_transform,
+                    "        reported = reported + 1;",
+                    '        $display("SPMW XFORM %0d done_cycle=%0d first_in=%0d",',
+                    "                 reported, c + 1, first_in + 1);",
+                    "      end",
+                ]
+                if per_transform
+                else []
+            ),
             "      if (produced == TOTAL) begin",
             '        $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",',
             '                 errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);',
-            '        $display("SPMW CYCLES total=%0d first_out=%0d",',
-            "                 c + 1, first + 1);",
+            '        $display("SPMW CYCLES total=%0d first_out=%0d first_in=%0d",',
+            "                 c + 1, first + 1, first_in + 1);",
             "        $finish;",
             "      end",
             "    end",
@@ -176,8 +197,14 @@ class Testbench:
         return "\n".join(lines) + "\n"
 
     def _inbound(self, stim, conns):
-        """Drivers: present each channel's tokens in order, advance on `read`."""
+        """Drivers: present each channel's tokens in order, advance on `read`.
+
+        Also exposes `any_input_handshake`, true on a cycle any channel accepts
+        a token. The first such cycle is the launch's first input beat, which
+        is where a latency is measured from.
+        """
         lines = []
+        handshakes = []
         for name, channels in stim.items():
             width = self._width(name)
             count = len(channels)
@@ -204,11 +231,19 @@ class Testbench:
                     f"  always @(posedge clk) if (rst_n && {name}_read[{k}] && "
                     f"{name}_empty_n[{k}]) {name}_p{k} <= {name}_p{k} + 1;",
                 ]
+            handshakes += [
+                f"({name}_read[{k}] && {name}_empty_n[{k}])" for k in range(count)
+            ]
             conns += [
                 f".{name}_dout({name}_dout)",
                 f".{name}_empty_n({name}_empty_n)",
                 f".{name}_read({name}_read)",
             ]
+        lines.append(
+            "  wire any_input_handshake = "
+            + (" || ".join(handshakes) if handshakes else "1'b0")
+            + ";"
+        )
         return lines
 
     # Floating point cannot be compared bit-for-bit across two implementations.
@@ -293,7 +328,8 @@ class Testbench:
 
 
 def render_testbench(
-    graph, data, results, cycles=200000, top="spmw_top", tolerance=None
+    graph, data, results, cycles=200000, top="spmw_top", tolerance=None,
+    per_transform=None,
 ):
     """A self-checking testbench for ``graph`` driven by ``data``.
 
@@ -301,10 +337,12 @@ def render_testbench(
     feed and the outputs to expect. Use the reference simulator to produce the
     latter, so the RTL is compared against the design's own semantics.
     ``tolerance`` is ``(relative, absolute)`` for floating-point outputs; the
-    default is the class's.
+    default is the class's. ``per_transform`` is the number of output tokens
+    one transform produces; given it, the testbench reports each transform's
+    completion cycle as well as the launch's.
     """
     return Testbench(graph, data, tolerance=tolerance).render(
-        results, cycles=cycles, top=top
+        results, cycles=cycles, top=top, per_transform=per_transform
     )
 
 

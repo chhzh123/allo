@@ -15,20 +15,43 @@ factor that is its port rather than its architecture. This is E1's memory-port
 problem in another form; unlike E1's it cannot be removed by a flag, because
 UF1 is the narrowest configuration the repository ships.
 
-Read the last two columns instead. Each system is close to *its own* ideal:
+Read full-transform latency and each system's efficiency against *its own*
+ideal instead. Both are measured first-input-beat to last-output-beat, and the
+steady interval is the median of consecutive completion differences -- the
+definition HP-FFT's harness already used, and which SPMW's cosimulation now
+reports too (`spmw_tokens_per_transform` on the fabric).
 
-| N | SPMW cyc/transform | ideal | of ideal | HP-FFT cyc/transform | ideal | of ideal |
+| N | SPMW full-transform | HP-FFT full-transform | SPMW steady | of ideal | HP-FFT steady | of ideal |
 |---|---:|---:|---:|---:|---:|---:|
-| 128 | 132.1 | 128 | 96.9% | 76.0 | 64 | 84.2% |
-| 256 | 264.1 | 256 | 96.9% | 140.5 | 128 | 91.1% |
-| 512 | 528.1 | 512 | 97.0% | 269.0 | 256 | 95.2% |
-| 1024 | 1056.1 | 1024 | 97.0% | 525.5 | 512 | 97.4% |
+| 128 | **581** | 742 | 128.0 | 100.0% | 76.0 | 84.2% |
+| 256 | **1,158** | 1,527 | 256.0 | 100.0% | 140.5 | 91.1% |
+| 512 | **2,310** | 3,208 | 512.0 | 100.0% | 269.0 | 95.2% |
+| 1024 | (building) | 6,809 | | | 525.5 | 97.4% |
 
-SPMW holds 97% of its ideal at every size. HP-FFT climbs from 84% to 97% as the
-transform grows, because its per-transform overhead is roughly fixed and is
-being amortised over more beats. Neither result is about the other; the honest
-throughput statement is samples a cycle, where SPMW sustains 0.97 of its
-1-sample datapath and HP-FFT 1.68 to 1.95 of its 2-sample one.
+Two results, in opposite directions, and both follow from the same fact:
+
+- **SPMW has the lower full-transform latency at every size, despite half the
+  datapath width**, and its lead grows with N: 1.28x at 128, 1.32x at 256,
+  1.39x at 512. It sustains exactly one sample a cycle -- the steady interval
+  is N to the cycle at every size, 100% of ideal -- while HP-FFT carries a
+  roughly fixed per-transform overhead.
+- **HP-FFT has the higher throughput**, 1.68 to 1.90 samples a cycle against
+  SPMW's 1.00, and its lead also grows with N, toward the 2x its datapath
+  allows. That is the same fixed overhead amortising over more beats.
+
+A larger transform helps HP-FFT's throughput and does not help its latency,
+which is why the two directions diverge.
+
+### A correction
+
+An earlier version of this table gave SPMW 132.1 cycles a transform at N=128
+and 96.9% of ideal. That was wrong twice over. It came from
+`(launch total - first output) / 32`: the span was measured from the first
+*output* beat, so the 127-cycle pipeline fill landed inside the interval, and
+it was divided by 32 when 33 transforms are emitted. 128 + 127/32 is 132.0,
+which is the whole of the error. The measured completion-to-completion
+distances are 128 exactly at every size (min 128, max 132, the single 132 being
+the final drain). The HP-FFT column was not affected.
 
 ## Results
 
