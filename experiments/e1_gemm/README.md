@@ -159,9 +159,22 @@ together, and the gap grows with the array: A's beats land at 79-94 and B's at
 both at once. That serialization is a dataflow opportunity the generated code
 does not take, and it is a large part of the 288 and the 928.
 
-At 16x16 the census is 64 + 64 + 256 = 384 beats against the 24 SPMW moves, so
-Allo's transaction count grows as the square of the array while SPMW's stays
-proportional to the data.
+The census is exactly what the port widths predict at every size, and the
+ratio between the two is the ratio of their ports:
+
+| Array | Allo beats | SPMW beats | ratio |
+|---|---:|---:|---:|
+| 4x4 | 4 + 4 + 16 = 24 | 3 | 8x |
+| 8x8 | 16 + 16 + 64 = 96 | 6 | 16x |
+| 16x16 | 64 + 64 + 256 = 384 | 24 | 16x |
+| 32x32 | 256 + 256 + 1024 = 1,536 | 96 | 16x |
+
+16x is 512/32, the port-width ratio exactly. Only 4x4 differs, at 8x, because
+one 512-bit beat already holds more than the whole 16-byte operand there and
+SPMW cannot use less than one beat.
+
+The gap between A's and B's loads widens the same way -- 63 cycles at 8x8, 207
+at 16x16, 1,038 at 32x32 -- because each operand load is itself longer.
 
 The wide port is not free, which is the part worth reporting. Buying those 92
 cycles cost AutoSA 15 per cent more lookup tables, 11 per cent more registers
