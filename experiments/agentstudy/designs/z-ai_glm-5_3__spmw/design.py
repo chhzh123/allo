@@ -26,29 +26,25 @@ mesh = spmw.Topology(
 
 @spmw.unit
 def pe(io: PEIO, site: spmw.Site):
-    """Output-stationary PE(i,j) for 1<=j<=6, 0<=i<=6.
+    """Output-stationary PE(i,j).
 
-    Computes C[i][j] while passing A east and B south.  During the last
-    j iterations of the multiply loop it also forwards the j results of
-    its row's western neighbours eastward, so the drain of one product
-    overlaps the computation of the next; its own accumulator follows the
-    forwarded ones onto c_out."""
+    Consumes the eight A/B operand pairs of one product, multiplying and
+    accumulating its own C[i][j] while passing A east and B south.  During
+    the last j iterations it also forwards, one hop eastward, the j results
+    its row's western neighbours have already finished, so the drain of one
+    product overlaps the computation of the next.  Its own accumulator
+    follows the forwarded ones onto c_out."""
     j: int32 = site.rank[1]
     acc: int32 = 0
-    for k in range(N - j):
+    for k in range(N):
         a = io.a_in.get()
         b = io.b_in.get()
         acc = acc + a * b
         io.a_out.put(a)
         io.b_out.put(b)
-    for k in range(j):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-        io.a_out.put(a)
-        io.b_out.put(b)
-        r = io.c_in.get()
-        io.c_out.put(r)
+        if k + j >= N:
+            r = io.c_in.get()
+            io.c_out.put(r)
     io.c_out.put(acc)
 
 
@@ -67,69 +63,59 @@ def pe_west(io: PEIO):
 
 @pe.role(unbound=(PEIO.a_out,))
 def pe_east(io: PEIO):
-    """Eastern column: no eastern neighbour; forwards 7 results then its own."""
+    """Eastern column: no eastern neighbour on the operand path; forwards
+    the seven results of its row then its own accumulator to the boundary."""
     acc: int32 = 0
-    for k in range(1):
+    for k in range(N):
         a = io.a_in.get()
         b = io.b_in.get()
         acc = acc + a * b
         io.b_out.put(b)
-    for k in range(N - 1):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-        io.b_out.put(b)
-        r = io.c_in.get()
-        io.c_out.put(r)
+        if k >= 1:
+            r = io.c_in.get()
+            io.c_out.put(r)
     io.c_out.put(acc)
 
 
 @pe.role(unbound=(PEIO.b_out,))
 def pe_south(io: PEIO, site: spmw.Site):
-    """Southern row: no southern neighbour; forwards j results then its own."""
+    """Southern row: no southern neighbour on the operand path."""
     j: int32 = site.rank[1]
-    acc: int32 = 0
-    for k in range(N - j):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-        io.a_out.put(a)
-    for k in range(j):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-        io.a_out.put(a)
-        r = io.c_in.get()
-        io.c_out.put(r)
-    io.c_out.put(acc)
-
-
-@pe.role(unbound=(PEIO.a_out, PEIO.b_out))
-def pe_se(io: PEIO):
-    """South-east corner."""
-    acc: int32 = 0
-    for k in range(1):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-    for k in range(N - 1):
-        a = io.a_in.get()
-        b = io.b_in.get()
-        acc = acc + a * b
-        r = io.c_in.get()
-        io.c_out.put(r)
-    io.c_out.put(acc)
-
-
-@pe.role(unbound=(PEIO.b_out, PEIO.c_in))
-def pe_sw(io: PEIO):
-    """South-west corner: nothing to forward."""
     acc: int32 = 0
     for k in range(N):
         a = io.a_in.get()
         b = io.b_in.get()
         acc = acc + a * b
         io.a_out.put(a)
+        if k + j >= N:
+            r = io.c_in.get()
+            io.c_out.put(r)
+    io.c_out.put(acc)
+
+
+@pe.role(unbound=(PEIO.b_out, PEIO.c_in))
+def pe_sw(io: PEIO):
+    """South-west corner."""
+    acc: int32 = 0
+    for k in range(N):
+        a = io.a_in.get()
+        b = io.b_in.get()
+        acc = acc + a * b
+        io.a_out.put(a)
+    io.c_out.put(acc)
+
+
+@pe.role(unbound=(PEIO.a_out, PEIO.b_out))
+def pe_se(io: PEIO):
+    """South-east corner: forwards seven results then its own."""
+    acc: int32 = 0
+    for k in range(N):
+        a = io.a_in.get()
+        b = io.b_in.get()
+        acc = acc + a * b
+        if k >= 1:
+            r = io.c_in.get()
+            io.c_out.put(r)
     io.c_out.put(acc)
 
 
