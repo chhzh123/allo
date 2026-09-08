@@ -153,10 +153,15 @@ has no flag for this, because its ports come from `int8_t *` scalars and the
 width would have to come from Vitis's own widening.
 
 Its waveform also shows the operands loaded **sequentially** rather than
-together: A's beats land at 79-94 and B's at 157-172 at 8x8, `load_buf0`
-draining fully before `load_buf1` starts, where AutoSA fetches both at once.
-That serialization is a dataflow opportunity the generated code does not take,
-and it is a large part of the 288.
+together, and the gap grows with the array: A's beats land at 79-94 and B's at
+157-172 at 8x8, and at 79-142 and 349-412 at 16x16 -- 63 cycles apart, then
+207. `load_buf0` drains fully before `load_buf1` starts, where AutoSA fetches
+both at once. That serialization is a dataflow opportunity the generated code
+does not take, and it is a large part of the 288 and the 928.
+
+At 16x16 the census is 64 + 64 + 256 = 384 beats against the 24 SPMW moves, so
+Allo's transaction count grows as the square of the array while SPMW's stays
+proportional to the data.
 
 The wide port is not free, which is the part worth reporting. Buying those 92
 cycles cost AutoSA 15 per cent more lookup tables, 11 per cent more registers
