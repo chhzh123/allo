@@ -144,7 +144,7 @@ def _write(path, text):
         handle.write(text)
 
 
-def stage_feeders(graph, out, part, frequency):
+def stage_feeders(graph, out, part, frequency, widen=512):
     """One HLS project per boundary family."""
     names = []
     for fam in families(graph):
@@ -153,7 +153,7 @@ def stage_feeders(graph, out, part, frequency):
         _write(os.path.join(directory, "kernel.cpp"), shell.feeder_cpp(fam))
         _write(
             os.path.join(directory, "run.tcl"),
-            feeder_tcl(fam, part, 1000.0 / frequency),
+            feeder_tcl(fam, part, 1000.0 / frequency, widen=widen),
         )
         names.append(name)
     return names
@@ -222,6 +222,14 @@ def main():
     )
     parser.add_argument("--top", default="spmw_kernel")
     parser.add_argument("--jobs", type=int, default=0)
+    parser.add_argument(
+        "--widen",
+        type=int,
+        default=512,
+        help="the ceiling Vitis may widen a feeder's memory burst to, in bits. "
+        "It sets how many elements arrive per beat, so a comparison against "
+        "another system should match that system's port width",
+    )
     parser.add_argument("--sim", action="store_true", help="stop before v++")
     parser.add_argument("--link-frequency", type=float, default=0.0)
     parser.add_argument(
@@ -272,7 +280,8 @@ def main():
         anchors=anchors,
         pipeline_loops=args.pipeline_loops,
     )
-    feeders = stage_feeders(graph, args.out, args.part, args.frequency)
+    feeders = stage_feeders(graph, args.out, args.part, args.frequency,
+                            widen=args.widen)
     # `stage` writes the fabric under roles/; the kernel wants it beside itself.
     for name in ("spmw_fifo.sv", "spmw_const.sv", "spmw_top.sv"):
         src = os.path.join(args.out, "roles", name)

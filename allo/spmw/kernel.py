@@ -272,12 +272,17 @@ endmodule
 """
 
 
-def feeder_tcl(fam, part, period):
+def feeder_tcl(fam, part, period, widen=512):
     """The HLS run for one family's DMA.
 
     ``-offset direct`` puts the address on a port instead of in a register map
     of its own: this feeder is not the kernel, it is one master inside it, and
     the kernel's own slave supplies the pointer.
+
+    ``widen`` is the ceiling Vitis may widen a burst to. It decides how many
+    elements a feeder fetches per memory beat, so a comparison against another
+    system has to set it to that system's port width or measure a different
+    memory interface rather than a different array.
     """
     total = beats_of(fam)
     return f"""open_project prj
@@ -286,7 +291,7 @@ add_files kernel.cpp
 open_solution sol
 set_part {part}
 create_clock -period {period:.3f} -name default
-config_interface -clock_enable=0 -m_axi_max_widen_bitwidth 512
+config_interface -clock_enable=0 -m_axi_max_widen_bitwidth {widen}
 set_directive_interface -mode m_axi -offset direct -depth {total} \
 "{_dma_name(fam)}" {'src' if fam['reads'] else 'dst'}
 csynth_design
