@@ -49,7 +49,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
 | | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
 | | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | 9 | +0.410 ns | 342 MHz |
-| | AutoSA, wide | 512/512 | | | | | 256 | | | |
+| | **AutoSA, wide** | **512/512** | **374** | **445** | | | 256 | | | |
 | 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
 | | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
 
@@ -139,8 +139,14 @@ masters need the staging to match. Its clock moved the right way but barely,
 | SPMW kernel | 82 | 8,015 | 10,220 | 0 | 476 MHz |
 | AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
 
-Matching the port narrowed the cycle gap from 2.7x to 1.6x and widened the area
-gap: 1.9 times the lookup tables and 2.5 times the registers for the same 64
+At 16x16 the same change takes AutoSA from 782 beats-cycles to 374 and from
+859 flow-reported to 445, again on exactly the arithmetic: 4 + 4 + 16 beats,
+the 24 SPMW moves. But the gap that survives the match *grows* with the array,
+1.6x at 8x8 and 2.8x at 16x16 against SPMW's 82 and 133, which is what a drain
+network growing as S squared predicts and a port width does not.
+
+Matching the port narrowed the cycle gap at 8x8 from 2.7x to 1.6x and widened
+the area gap: 1.9 times the lookup tables and 2.5 times the registers for the same 64
 multipliers, and block RAM where SPMW uses none. Both directions are the same
 cause -- SPMW's feeders write into the array's edge FIFOs, so a 512-bit port
 needs no staging behind it, while AutoSA's has to feed a level that then feeds
