@@ -1,9 +1,9 @@
 # Agentic design across three hardware representations: interim results
 
-**Status: all fifteen trials have run and been re-measured over twelve
-products. Three checks remain: held-out vectors, authoritative routing, and the
-architecture review for eleven of the fifteen designs.** Any of those can still
-change a row.
+**Status: all fifteen trials have run, been re-measured over twelve unseen
+products, and been routed on the device. The architecture review covers nine of
+fifteen.** The six unreviewed designs could still be demoted, and nothing else
+is outstanding.
 
 ## The question
 
@@ -96,46 +96,69 @@ This is my fault, not the models'. They optimised against the signal the harness
 showed them and met the bar they were given. Both numbers are reported for every
 design, and the twelve-product figure is the one that counts.
 
-## Every design, measured over twelve products
+## Every design, fully graded
 
-| Model | Arm | Builds | Tokens | Latency | Interval, first | Interval, sustained | Meets bars |
-|---|---|---:|---:|---:|---:|---:|---|
-| Opus 5 | SPMW | 1 | 107,350 | 33 | 14 | 14 | **yes** |
-| GPT-5.6 Sol | SPMW | 2 | 44,014 | 34 | 14 | 14 | **yes** |
-| DeepSeek | SPMW | 2 | 67,083 | 35 | 14 | 25 | no |
-| Kimi K3 | SPMW | 1 | 62,073 | 35 | 14 | 25 | no |
-| GLM 5.3 | SPMW | 5 | 205,076 | 53 | 14 | 28 | no |
-| GPT-5.6 Sol | SystemVerilog | 7 | 524,554 | **30** | 8 | **8** | **yes** |
-| Opus 5 | SystemVerilog | 2 | 204,401 | 34 | 8 | **8** | **yes** |
-| DeepSeek | SystemVerilog | 4 | 503,813 | 32 | 8 | **8** | **yes** |
-| Kimi K3 | SystemVerilog | 2 | 122,374 | 32 | 16 | 16 | **yes** |
-| GLM 5.3 | SystemVerilog | 5 | 527,420 | 33 | 16 | 16 | **yes** |
-| Opus 5 | HLS | 3 | 300,414 | 32 | 13 | 13 | **yes** |
-| GLM 5.3 | HLS | 8 | 478,484 | 44 | 15 | 15 | **yes** |
-| DeepSeek | HLS | 2 | 187,897 | 39 | 8 | 24 | no |
-| Kimi K3 | HLS | 8 | 317,380 | 74 | 32 | 32 | no |
-| GPT-5.6 Sol | HLS | 8 | 296,563 | — | — | — | no, never correct |
+Correctness and cycles from twelve products the models never saw; multipliers,
+logic and slack from routing the submitted design on the device at 3.333 ns.
+A design passes only if it clears every bar.
+
+| Model | Arm | Builds | Tokens | Latency | Interval | DSP | Slack | Passes | Failed bar |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| Opus 5 | SPMW | 1 | 107,350 | 33 | 14 | 64 | +1.364 | **yes** | |
+| GPT-5.6 Sol | SPMW | 2 | 44,014 | 34 | 14 | 64 | +1.288 | **yes** | |
+| DeepSeek | SPMW | 2 | 67,083 | 35 | 25 | 64 | +1.399 | no | interval |
+| Kimi K3 | SPMW | 1 | 62,073 | 35 | 25 | 64 | +1.274 | no | interval |
+| GLM 5.3 | SPMW | 5 | 205,076 | 53 | 28 | 64 | +1.259 | no | interval |
+| Opus 5 | SystemVerilog | 2 | 204,401 | 34 | 8 | 64 | +2.061 | **yes** | |
+| Kimi K3 | SystemVerilog | 2 | 122,374 | 32 | 16 | 64 | +2.004 | **yes** | |
+| GPT-5.6 Sol | SystemVerilog | 7 | 524,554 | **30** | **8** | 64 | +1.331 | **yes** | |
+| GLM 5.3 | SystemVerilog | 5 | 527,420 | 33 | 16 | 64 | +1.763 | **yes** | |
+| DeepSeek | SystemVerilog | 4 | 503,813 | 32 | 8 | **0** | +1.050 | no | multipliers |
+| Opus 5 | HLS | 3 | 300,414 | 32 | 13 | 64 | +0.819 | **yes** | |
+| GLM 5.3 | HLS | 8 | 478,484 | 44 | 15 | 64 | +1.054 | **yes** | |
+| DeepSeek | HLS | 2 | 187,897 | 39 | 24 | 64 | +1.031 | no | interval |
+| Kimi K3 | HLS | 8 | 317,380 | 74 | 32 | 64 | +1.448 | no | latency, interval |
+| GPT-5.6 Sol | HLS | 8 | 296,563 | — | — | — | — | no | never correct |
+
+| Arm | Passes | Median tokens | Median builds |
+|---|---|---:|---:|
+| SystemVerilog | **4 of 5** | 503,813 | 4 |
+| SPMW | 2 of 5 | **67,083** | **2** |
+| HLS | 2 of 5 | 300,414 | 8 |
 
 ## What this says, honestly
 
-**SystemVerilog wins on the hardware.** Five of five designs sustain the bars,
-three of them at the interval floor of 8, and the best latency of 30 is within
-one cycle of the architectural floor. It costs the most: a median of 524,554
-tokens against SPMW's 67,083, and two trials exhausted their token budget.
+**SystemVerilog produces the best hardware and costs the most to get there.**
+Four of five pass, three at the interval floor of 8, and the best latency of 30
+is within one cycle of the architectural floor. The median trial spent 503,813
+tokens, seven and a half times SPMW's, and two trials exhausted their budget.
+Its one failure is instructive: DeepSeek's design clears correctness, latency
+and interval but routes to **zero** multipliers, because a plain signed multiply
+in SystemVerilog is inferred as logic unless the design says otherwise. Three of
+the five hit that at least once; only Opus reached exactly 64 on its first try.
 
-**SPMW is by far the cheapest but only two of five designs sustain.** Every
-SPMW trial reached a correct design, four within two builds, at a median of
-67,083 tokens, an eighth of the SystemVerilog cost. But three of them sustain an
-interval of 25 to 28 rather than the 14 they showed on two products.
+**SPMW is far the cheapest and only two of five pass.** Every SPMW trial reached
+a correct design, four of them within two builds, at a median of 67,083 tokens.
+Every SPMW design routes with exactly 64 multipliers and over 1.2 ns of slack
+without being asked, because the multiplier comes from the language rather than
+from inference. All three failures are the same bar: sustained interval.
 
-**The difference between the passing and failing SPMW designs is one technique.**
-Reaching a sustained interval needs a product's drain overlapped with the next
-product's accumulation. Opus and GPT-5.6 Sol did that; the other three wrote a
-drain chain that serialises after the multiply-accumulate phase, which is also
-what the hand-written reference does. So the bar is reachable in SPMW, and three
-models did not reach it.
+**The failing SPMW designs differ from the passing ones by where the unit
+boundary is drawn.** SPMW's concurrency comes from unit boundaries, so anything
+inside one element runs in sequence. Opus and GPT-5.6 Sol put the result drain
+in its own unit, which the fabric then runs concurrently with the next product's
+accumulation. DeepSeek, Kimi and GLM inlined the drain into the element, which
+serialises eight multiply-accumulate steps behind up to seven forwards. GLM is
+the sharpest case: its comment says the drain should overlap the next product,
+and it wrote the overlap inside the element's own loop, and got the worst
+interval of the five. The hand-written reference makes the same mistake.
 
-**HLS is the worst arm on every count.** Two of five sustain, three ran out of
+That is a finding about the documentation as much as the models. The reference
+pack says units run concurrently but never says that concurrency follows unit
+boundaries, so a reader who keeps one element in one unit gets a correct design
+that does not pipeline.
+
+**HLS is the worst arm on every count.** Two of five pass, three ran out of
 builds, and one never produced a correct design in eight attempts and 296,563
 tokens.
 
@@ -158,14 +181,13 @@ Eleven designs remain to review, including every SPMW design.
 
 ## What is still missing
 
-1. Held-out vector grading for all fifteen. Every design so far has only been
-   checked on products it could see while working.
-2. Authoritative routing for all fifteen, which decides the timing and area
-   bars. Models could route themselves and eleven did at least once, but the
-   post-submission route has not been run.
-3. Architecture review for eleven of the fifteen.
-4. `openai/gpt-5.6-sol` in the HLS arm fails to build on the twelve-product set
-   and needs its failure classified.
+1. Architecture review for six of the fifteen designs: the four fastest and the
+   five SPMW ones have been read, the rest have not. A design that computes the
+   right answer without being systolic would still be counted as a pass in the
+   table above.
+2. `openai/gpt-5.6-sol` in the HLS arm is recorded as never correct. Its final
+   design fails to build on the twelve-product set, and the cause has not been
+   separated from the eight failures it had during the trial.
 
 ## Honesty about the harness
 
