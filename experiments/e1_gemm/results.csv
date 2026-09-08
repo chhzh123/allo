@@ -5,7 +5,7 @@ array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_be
 4x4,autosa,AutoSA,4^3,narrow,32,32,78,148,4974,8171,16,3,0.512,2.821,354,kernel
 8x8,spmw_mesh,SPMW mesh,8^3,streams,,,28,,2225,4301,64,0,0.996,2.337,428,array
 8x8,spmw_kernel,SPMW kernel,8^3,512b,512,512,82,100,8015,10220,64,0,1.232,2.101,476,kernel
-8x8,allo,Allo,8^3,narrow,32,32,,306,8419,8220,64,3,0.598,2.735,366,kernel
+8x8,allo,Allo,8^3,narrow,32,32,288,337,8419,8220,64,3,0.598,2.735,366,kernel
 8x8,autosa,AutoSA,8^3,narrow,64,32,222,292,13393,22924,64,5,0.69,2.643,378,kernel
 8x8,autosa,AutoSA,8^3,wide,512,512,130,202,15343,25536,64,23,0.738,2.595,385,kernel
 16x16,spmw_mesh,SPMW mesh,16^3,streams,,,52,,9026,18048,256,0,0.428,2.905,344,array

@@ -45,7 +45,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | | SPMW kernel | 512/512 | 82 | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
 | | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
 | | **AutoSA, wide** | **512/512** | **130** | **202** | 15,343 | 25,536 | 64 | 23 | +0.738 ns | 385 MHz |
-| | Allo | 32/32 | | 306 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
+| | Allo | 32/32 | 288 | 337 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
 | 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
 | | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
 | | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | 9 | +0.410 ns | 342 MHz |
@@ -76,7 +76,10 @@ Allo's standing in the earlier table:
   AutoSA each report a single launch. Later launches are faster because the
   cosimulation's memory model is warm. The measurement build runs one seed;
   4x4's flow-reported figure is therefore 167 rather than the 136 previously
-  recorded. The three-seed run remains the correctness evidence.
+  recorded, and 8x8's is 337 rather than 306 (min 306, avg 316, max 337). The
+  single-launch figure equals that run's own maximum at both sizes, which is
+  the first launch: the later ones are the fast ones. The three-seed run
+  remains the correctness evidence.
 - First beat to last across three launches is not the quantity the other two
   report, so the window had to come from a single-launch build regardless.
 
@@ -136,9 +139,17 @@ beat, so the packed loop's trip count is zero and AutoSA's bit-width shrinker
 divides by zero. It fails the same way at a 16- and a 32-byte bound, so it is
 the serializer rather than the pack size, and that row stays narrow.
 
-Allo is the narrowest of the three at 32 bits on all three ports, so its
-figures carry the largest interface component of any row here. It has not been
-rebuilt wide.
+Allo is the narrowest of the three at 32 bits on all three ports, and its beat
+census is what that predicts: 4 + 4 + 16 at 4x4 and 16 + 16 + 64 at 8x8, so 96
+transactions where SPMW moves 6. It has not been rebuilt wide; unlike AutoSA it
+has no flag for this, because its ports come from `int8_t *` scalars and the
+width would have to come from Vitis's own widening.
+
+Its waveform also shows the operands loaded **sequentially** rather than
+together: A's beats land at 79-94 and B's at 157-172 at 8x8, `load_buf0`
+draining fully before `load_buf1` starts, where AutoSA fetches both at once.
+That serialization is a dataflow opportunity the generated code does not take,
+and it is a large part of the 288.
 
 The wide port is not free, which is the part worth reporting. Buying those 92
 cycles cost AutoSA 15 per cent more lookup tables, 11 per cent more registers
