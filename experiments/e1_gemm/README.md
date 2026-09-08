@@ -64,9 +64,14 @@ level in. Blank cells are builds still running or, for Allo, a cosimulation
 that does not complete in this tool version; none is an estimate.
 
 **Allo, re-measured.** Its rows now carry the same definition, from the same
-waveform method, at the two sizes where its cosimulation completes at all;
-16x16 and 32x32 produce synthesis reports and no cosimulation report in this
-tool version, so those cells stay empty.
+waveform method. An earlier note here said its cosimulation does not complete
+at 16x16 and 32x32 in this tool version; that was wrong. Both complete on a
+retry. What stalls is Vitis's deadlock-monitor step, "Generating RTL test
+bench", which hangs indefinitely and was killed by the driver's watchdog after
+35 minutes at 16x16; re-running the same cosimulation unchanged finished it in
+131 seconds. 32x32 took two retries and 1,127 seconds. Both stage logs are in
+`report/stages.txt`, including a correction one of those watchdogs wrote about
+itself.
 
 Two differences had to be removed to get there, and both had been inflating
 Allo's standing in the earlier table:
@@ -78,7 +83,9 @@ Allo's standing in the earlier table:
   4x4's flow-reported figure is therefore 167 rather than the 136 previously
   recorded, and 8x8's is 337 rather than 306 (min 306, avg 316, max 337). The
   single-launch figure equals that run's own maximum at both sizes, which is
-  the first launch: the later ones are the fast ones. The three-seed run
+  the first launch: the later ones are the fast ones. The shipped three-seed
+  figures at the other sizes are 946/956/977 at 16x16 and 3426/3436/3457 at
+  32x32. The three-seed run
   remains the correctness evidence.
 - First beat to last across three launches is not the quantity the other two
   report, so the window had to come from a single-launch build regardless.
