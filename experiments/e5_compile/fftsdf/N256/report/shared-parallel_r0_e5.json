@@ -1,0 +1,28 @@
+{
+ "design": "fftsdf",
+ "size": 256,
+ "mode": "shared-parallel",
+ "jobs": 8,
+ "roles": 9,
+ "instances": 9,
+ "projects": 9,
+ "completed_jobs": 9,
+ "frontend_s": 2.33,
+ "hls_wall_s": 88.5,
+ "hls_sum_job_elapsed_s": 419.8,
+ "cpu_user_s": 276.1,
+ "cpu_sys_s": 25.8,
+ "load_start": 7.3,
+ "load_end": 6.7,
+ "job_elapsed_s": {
+  "stage7_r0": 46.1,
+  "stage6_r0": 46.8,
+  "stage4_r0": 47.0,
+  "stage1_r0": 47.3,
+  "stage0_r0": 47.4,
+  "stage2_r0": 47.5,
+  "stage3_r0": 47.6,
+  "stage5_r0": 47.7,
+  "reorder_r0": 42.4
+ }
+}
