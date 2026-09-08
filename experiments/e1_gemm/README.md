@@ -49,7 +49,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
 | | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
 | | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | 9 | +0.410 ns | 342 MHz |
-| | **AutoSA, wide** | **512/512** | **374** | **445** | | | 256 | | | |
+| | **AutoSA, wide** | **512/512** | **374** | **445** | 48,957 | 84,062 | 256 | 23 | +0.380 ns | 339 MHz |
 | 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
 | | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
 
@@ -157,10 +157,19 @@ and **4.6 times the block RAM** -- 23 tiles against 5 -- because the wider
 masters need the staging to match. Its clock moved the right way but barely,
 378 to 385 MHz. So at a matched 512-bit interface the comparison at 8x8 is:
 
-| 8x8, both at 512 bits | Cycles | LUT | FF | BRAM18 | Clock |
+| Both at 512 bits | Cycles | LUT | FF | BRAM18 | Clock |
 |---|---:|---:|---:|---:|---:|
-| SPMW kernel | 82 | 8,015 | 10,220 | 0 | 476 MHz |
-| AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
+| 8x8 SPMW kernel | 82 | 8,015 | 10,220 | 0 | 476 MHz |
+| 8x8 AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
+| 16x16 SPMW kernel | 133 | 32,756 | 40,732 | 0 | 358 MHz |
+| 16x16 AutoSA, wide | 374 | 48,957 | 84,062 | 23 | 339 MHz |
+
+The wide port's own overhead is mostly fixed rather than proportional, which is
+visible once there are two sizes: it costs 15 per cent of the lookup tables at
+8x8 but 3 per cent at 16x16, and the same 23 block RAM tiles at both, against 5
+and 9 narrow. The staging it adds is sized by the 512-bit port, not by the
+array. Its effect on the clock is small and not consistently signed: 378 to 385
+MHz at 8x8, 342 to 339 at 16x16.
 
 At 16x16 the same change takes AutoSA from 782 beats-cycles to 374 and from
 859 flow-reported to 445, again on exactly the arithmetic: 4 + 4 + 16 beats,
