@@ -1,0 +1,109 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Sep  6 21:29:14 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 1 -file /scratch/hc676/e4_pnr/fixed_8/util_hier.rpt
+| Design       : feather_top
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|                                             Instance                                            |               Module               | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| feather_top                                                                                     |                              (top) |       9694 |       9670 |       0 |   24 | 15332 |      0 |      0 |    0 |          0 |
+|   IACTS_PING_SRAM                                                                               |   sram_sp_2d_array__parameterized0 |         64 |         64 |       0 |    0 |   320 |      0 |      0 |    0 |          0 |
+|   IACTS_PONG_SRAM                                                                               | sram_sp_2d_array__parameterized0_0 |         64 |         64 |       0 |    0 |   320 |      0 |      0 |    0 |          0 |
+|   INSTR_SRAM                                                                                    |   sram_sp_2d_array__parameterized1 |         51 |         51 |       0 |    0 |   240 |      0 |      0 |    0 |          0 |
+|   OUTPUT_BUFFER_SRAM                                                                            |   sram_sp_2d_array__parameterized2 |         64 |         64 |       0 |    0 |   320 |      0 |      0 |    0 |          0 |
+|   WEIGHTS_PING_BUFFER                                                                           |                   sram_sp_2d_array |         64 |         64 |       0 |    0 |   320 |      0 |      0 |    0 |          0 |
+|   WEIGHTS_PONG_BUFFER                                                                           |                 sram_sp_2d_array_1 |         64 |         64 |       0 |    0 |   320 |      0 |      0 |    0 |          0 |
+|   birrd_INST                                                                                    |          birrd_simple_cmd_flow_seq |        376 |        352 |       0 |   24 |   508 |      0 |      0 |    0 |          0 |
+|   feather_CONTROLLER_INST                                                                       |                 feather_controller |       1140 |       1140 |       0 |    0 |   474 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].COL_WISE_O_DATA_BUS                                       |                 o_bus_autopick_seq |          0 |          0 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |                         feather_pe |        105 |        105 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |         feather_pe__parameterized0 |        104 |        104 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |         feather_pe__parameterized1 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |         feather_pe__parameterized2 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |         feather_pe__parameterized3 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |         feather_pe__parameterized4 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |         feather_pe__parameterized5 |        129 |        129 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |         feather_pe__parameterized6 |        104 |        104 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_2 |         16 |         16 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |         feather_pe__parameterized7 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |         feather_pe__parameterized8 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |         feather_pe__parameterized9 |        121 |        121 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized10 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized11 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized12 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized13 |        122 |        122 |       0 |    0 |   196 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized14 |         96 |         96 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_3 |          0 |          0 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized15 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized16 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized17 |        121 |        121 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized18 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized19 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized20 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized21 |        128 |        128 |       0 |    0 |   197 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized22 |        112 |        112 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_4 |         16 |         16 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized23 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized24 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized25 |        122 |        122 |       0 |    0 |   196 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized26 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized27 |        120 |        120 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized28 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized29 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized30 |         96 |         96 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_5 |          0 |          0 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized31 |        105 |        105 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized32 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized33 |        120 |        120 |       0 |    0 |   197 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized34 |        170 |        170 |       0 |    0 |   202 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized35 |        210 |        210 |       0 |    0 |   203 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized36 |        113 |        113 |       0 |    0 |   196 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized37 |        129 |        129 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[4].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized38 |        104 |        104 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_6 |         16 |         16 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized39 |        105 |        105 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized40 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized41 |        121 |        121 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized42 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized43 |        127 |        127 |       0 |    0 |   197 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized44 |        127 |        127 |       0 |    0 |   197 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized45 |        186 |        186 |       0 |    0 |   202 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[5].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized46 |        105 |        105 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_7 |          0 |          0 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized47 |        105 |        105 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized48 |        104 |        104 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized49 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized50 |        119 |        119 |       0 |    0 |   198 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized51 |        112 |        112 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized52 |        160 |        160 |       0 |    0 |   202 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized53 |        121 |        121 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[6].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized54 |        104 |        104 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_8 |         16 |         16 |       0 |    0 |     9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized55 |        178 |        178 |       0 |    0 |   205 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized56 |        194 |        194 |       0 |    0 |   205 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized57 |        161 |        161 |       0 |    0 |   202 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized58 |        113 |        113 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[4].feather_PE_OTHER_ROWS |        feather_pe__parameterized59 |        121 |        121 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[5].feather_PE_OTHER_ROWS |        feather_pe__parameterized60 |        121 |        121 |       0 |    0 |   211 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[6].feather_PE_OTHER_ROWS |        feather_pe__parameterized61 |        122 |        122 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[7].feather_GENVAR_DPE_INST_ROW_ITER[7].feather_PE_OTHER_ROWS |        feather_pe__parameterized62 |         97 |         97 |       0 |    0 |   179 |      0 |      0 |    0 |          0 |
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

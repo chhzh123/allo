@@ -1,0 +1,89 @@
+{
+ "N": 16,
+ "NT": 512,
+ "resident": false,
+ "workload": "gemm",
+ "cost": {
+  "roles": 11,
+  "instances": 192,
+  "fifos": 384,
+  "streams": 336
+ },
+ "timing": {
+  "operands_s": 1.6,
+  "hls_wall_s": null,
+  "vivado_elab_s": null,
+  "tb_s": 1.5,
+  "sim_compile_s": 18.1,
+  "xsim_s": 48.6
+ },
+ "sizes": {
+  "pe_x_in_bind": [
+   128,
+   1024
+  ],
+  "pe_w_in_bind": [
+   128,
+   16384
+  ],
+  "switch_cmd_in_bind": [
+   64,
+   512
+  ],
+  "switch_out_l_bind": [
+   8,
+   8192
+  ],
+  "switch_out_r_bind": [
+   8,
+   8192
+  ]
+ },
+ "total_tokens": 131072,
+ "cosim": "SPMW COSIM PASS (131072/131072 tokens, 0 errors)",
+ "total_cycles": 16720,
+ "first_out_cycles": 353,
+ "end_cycount": 16723,
+ "end_c": 16719,
+ "status": "pass",
+ "tiles_logged": 512,
+ "tile_done_cycles": [
+  384,
+  416,
+  448,
+  480,
+  512,
+  544,
+  576,
+  608,
+  16512,
+  16544,
+  16576,
+  16608,
+  16640,
+  16672,
+  16704,
+  16720
+ ],
+ "first_tile_done": 384,
+ "last_tile_done": 16720,
+ "interval": {
+  "min": 16,
+  "median": 32.0,
+  "max": 32,
+  "mean": 31.968688845401175,
+  "mean_last32": 31.5
+ },
+ "operands": {
+  "pattern": "full",
+  "seed": 0,
+  "dtype": "int8 (stored bytes read as two's complement)",
+  "range": "[0, 256) as bytes = [-128, 127] as int8"
+ },
+ "host_check": "pass",
+ "host_bad": 0,
+ "host_out_range": [
+  -242138,
+  234527
+ ]
+}
