@@ -13,15 +13,23 @@ counts on the state accumulated *before* that timestamp's changes.
 The per-port census is the check on that: each design's beat count must equal
 its own arithmetic (at 8x8, 8 + 8 + 64 beats narrow and 1 + 1 + 4 wide).
 
-    beats.py <vcd>
+    beats.py <vcd> [name:valid:ready ...]
+
+with no port list meaning AutoSA's three masters. Allo names its ports
+differently and is read as:
+
+    beats.py <vcd> A:m_axi_gmem0_RVALID:m_axi_gmem0_RREADY \
+                   B:m_axi_gmem1_RVALID:m_axi_gmem1_RREADY \
+                   C:m_axi_gmem2_WVALID:m_axi_gmem2_WREADY
 """
 import collections
 import re
 import sys
 
-PORTS = [("A", "m_axi_gmem_A_RVALID", "m_axi_gmem_A_RREADY"),
-         ("B", "m_axi_gmem_B_RVALID", "m_axi_gmem_B_RREADY"),
-         ("C", "m_axi_gmem_C_WVALID", "m_axi_gmem_C_WREADY")]
+PORTS = [tuple(a.split(":", 2)) for a in sys.argv[2:]] or [
+    ("A", "m_axi_gmem_A_RVALID", "m_axi_gmem_A_RREADY"),
+    ("B", "m_axi_gmem_B_RVALID", "m_axi_gmem_B_RREADY"),
+    ("C", "m_axi_gmem_C_WVALID", "m_axi_gmem_C_WREADY")]
 NEED = ["ap_clk"] + [s for _, a, b in PORTS for s in (a, b)]
 
 ids = {}
