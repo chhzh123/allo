@@ -28,27 +28,40 @@ differ, which the last section explains.
 
 ## Results
 
-| Array | Design | Cycles | LUT | FF | DSP | BRAM18 | Slack | Clock |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 4x4 | SPMW mesh | 16 | 560 | 1,021 | 16 | 0 | +1.167 ns | 462 MHz |
-| | SPMW kernel | 66 | 1,867 | 2,516 | 16 | 0 | +1.301 ns | 492 MHz |
-| | Allo | 136 | 3,693 | 4,459 | 16 | 3 | +0.625 ns | 369 MHz |
-| | AutoSA | 148 | 4,974 | 8,171 | 16 | 3 | +0.512 ns | 354 MHz |
-| 8x8 | SPMW mesh | 28 | 2,225 | 4,301 | 64 | 0 | +0.996 ns | 428 MHz |
-| | SPMW kernel | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
-| | AutoSA | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
-| | Allo | 306 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
-| 16x16 | SPMW mesh | 52 | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
-| | SPMW kernel | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
-| | AutoSA | 859 | routing | | 256 | | | |
-| 32x32 | SPMW mesh | 100 | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
-| | SPMW kernel | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
+Cycles are **first memory beat to last memory beat**, one definition for every
+row: the control writes, the start bit and the polling or handshake that each
+flow's own testbench performs are all outside it. SPMW's testbench reports it
+directly; AutoSA's comes from a waveform of the same cosimulation snapshot,
+logging the same handshakes. Where a flow's own reported figure differs it is
+kept beside it, because the gap is the control traffic and is worth seeing.
 
-Cycles are one launch. Slack is against a 3.333 ns target, routed out of
-context; the clock is the period that slack implies. Blank cells are builds
-still running, never estimates. Allo's 16x16 cosimulation does not complete in
-this tool version: Vitis stops writing files inside testbench generation and
-spins, which is recorded in its package README.
+| Array | Design | Cycles | (flow reports) | LUT | FF | DSP | BRAM18 | Slack | Clock |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | SPMW mesh | 16 | | 560 | 1,021 | 16 | 0 | +1.167 ns | 462 MHz |
+| | SPMW kernel | 47 | 66 | 1,867 | 2,516 | 16 | 0 | +1.301 ns | 492 MHz |
+| | AutoSA | 77 | 148 | 4,974 | 8,171 | 16 | 3 | +0.512 ns | 354 MHz |
+| | Allo | | 136 | 3,693 | 4,459 | 16 | 3 | +0.625 ns | 369 MHz |
+| 8x8 | SPMW mesh | 28 | | 2,225 | 4,301 | 64 | 0 | +0.996 ns | 428 MHz |
+| | SPMW kernel | 82 | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
+| | AutoSA | 221 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
+| | Allo | | 306 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
+| 16x16 | SPMW mesh | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
+| | SPMW kernel | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
+| | AutoSA | 781 | 859 | 47,390 | 81,265 | 256 | 9 | +0.410 ns | 342 MHz |
+| 32x32 | SPMW mesh | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
+| | SPMW kernel | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
+
+Slack is against a 3.333 ns target, routed out of context with nothing
+unrouted; the clock is the period that slack implies. `spmw_mesh` is the array
+alone and moves no memory beats, so its cycles are the array cosimulation's own
+count from first input token to last output token, which is the same idea one
+level in. Blank cells are builds still running or, for Allo, a cosimulation
+that does not complete in this tool version; none is an estimate.
+
+**Allo's cycles have not been re-measured this way.** Its rows still carry only
+what its own flow reports, so they are not directly comparable with the two
+columns beside them and are marked as such. The waveform method used for
+AutoSA applies to Allo unchanged and is the next thing to run.
 
 ## The element is identical in all four
 
@@ -85,10 +98,12 @@ synthesis ceiling. Setting `-m_axi_max_widen_bitwidth` to 32 still produced a
 512-bit port. So at 8x8 SPMW reads an operand in one beat where AutoSA takes
 eight, and part of the cycle gap is that rather than the design.
 
-**How the cycles are counted.** SPMW's figure is the start bit to the last drain
-beat. AutoSA's and Allo's are their own flows' cosimulation latency, which
-includes the testbench's control transactions; on earlier runs that was worth
-about 60 cycles.
+**How the cycles are counted, now settled.** The table's first cycle column is
+one definition on both sides, so the control traffic that used to differ is no
+longer in it. Measuring it cost SPMW 19 cycles of apparent advantage at every
+size and AutoSA between 71 and 78, which is roughly what the earlier record
+guessed for AutoSA and had not accounted for at all on the SPMW side. The
+remaining gap is design and interface, not measurement.
 
 ## Reproducing
 
