@@ -1,0 +1,20 @@
+{
+ "cost": {
+  "roles": 8,
+  "instances": 8,
+  "fifos": 7,
+  "streams": 2
+ },
+ "hls_seconds": {
+  "reorder_r0": 47.3,
+  "stage6_r0": 48.1,
+  "stage4_r0": 49.4,
+  "stage0_r0": 49.7,
+  "stage3_r0": 49.8,
+  "stage1_r0": 50.1,
+  "stage5_r0": 50.5,
+  "stage2_r0": 50.7
+ },
+ "hls_wall_seconds": 50.7,
+ "vivado_seconds": 83.1
+}
