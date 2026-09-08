@@ -1,0 +1,79 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Sep  6 21:35:13 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++----------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|          Instance          |            Module            | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++----------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| spmw_harness               |                        (top) |       1207 |       1055 |       0 |  152 | 2997 |      0 |      0 |    0 |         16 |
+|   (spmw_harness)           |                        (top) |         84 |         44 |       0 |   40 |  413 |      0 |      0 |    0 |          0 |
+|   dut                      |                     spmw_top |       1123 |       1011 |       0 |  112 | 2584 |      0 |      0 |    0 |         16 |
+|     g_drain_z_in_bind[0].u |    spmw_fifo__parameterized0 |         18 |         18 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_drain_z_in_bind[1].u |  spmw_fifo__parameterized0_0 |         18 |         18 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_drain_z_in_bind[2].u |  spmw_fifo__parameterized0_1 |         18 |         18 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_drain_z_in_bind[3].u |  spmw_fifo__parameterized0_2 |         19 |         19 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[10].u |                    spmw_fifo |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[11].u |                  spmw_fifo_3 |          6 |          6 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[13].u |                  spmw_fifo_4 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[14].u |                  spmw_fifo_5 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[15].u |                  spmw_fifo_6 |          6 |          6 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[1].u  |                  spmw_fifo_7 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[2].u  |                  spmw_fifo_8 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[3].u  |                  spmw_fifo_9 |          6 |          6 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[5].u  |                 spmw_fifo_10 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[6].u  |                 spmw_fifo_11 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[7].u  |                 spmw_fifo_12 |          6 |          6 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|     g_mac_a_out_a_in[9].u  |                 spmw_fifo_13 |          6 |          6 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[10].u | spmw_fifo__parameterized0_14 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[11].u | spmw_fifo__parameterized0_15 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[12].u | spmw_fifo__parameterized0_16 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[13].u | spmw_fifo__parameterized0_17 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[14].u | spmw_fifo__parameterized0_18 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[15].u | spmw_fifo__parameterized0_19 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[4].u  | spmw_fifo__parameterized0_20 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[5].u  | spmw_fifo__parameterized0_21 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[6].u  | spmw_fifo__parameterized0_22 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[7].u  | spmw_fifo__parameterized0_23 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[8].u  | spmw_fifo__parameterized0_24 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_mac_p_out_p_in[9].u  | spmw_fifo__parameterized0_25 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     u_drain_r0_0           |                     drain_r0 |         45 |         45 |       0 |    0 |   56 |      0 |      0 |    0 |          0 |
+|     u_drain_r0_1           |                  drain_r0_26 |         23 |         23 |       0 |    0 |   56 |      0 |      0 |    0 |          0 |
+|     u_drain_r0_2           |                  drain_r0_27 |         35 |         35 |       0 |    0 |   56 |      0 |      0 |    0 |          0 |
+|     u_drain_r0_3           |                  drain_r0_28 |         24 |         24 |       0 |    0 |   56 |      0 |      0 |    0 |          0 |
+|     u_mac_r0_1_1           |                       mac_r0 |         44 |         35 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r0_1_2           |                    mac_r0_29 |         44 |         35 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r0_2_1           |                    mac_r0_30 |         44 |         35 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r0_2_2           |                    mac_r0_31 |         44 |         35 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r1_3_1           |                       mac_r1 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r1_3_2           |                    mac_r1_32 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r2_0_1           |                       mac_r2 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r2_0_2           |                    mac_r2_33 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r3_1_3           |                       mac_r3 |         36 |         35 |       0 |    1 |   64 |      0 |      0 |    0 |          1 |
+|     u_mac_r3_2_3           |                    mac_r3_34 |         36 |         35 |       0 |    1 |   64 |      0 |      0 |    0 |          1 |
+|     u_mac_r4_1_0           |                       mac_r4 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r4_2_0           |                    mac_r4_35 |         43 |         34 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r5_3_3           |                       mac_r5 |         36 |         35 |       0 |    1 |   64 |      0 |      0 |    0 |          1 |
+|     u_mac_r6_0_3           |                       mac_r6 |         34 |         33 |       0 |    1 |   64 |      0 |      0 |    0 |          1 |
+|     u_mac_r7_3_0           |                       mac_r7 |         42 |         33 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
+|     u_mac_r8_0_0           |                       mac_r8 |         41 |         32 |       0 |    9 |   72 |      0 |      0 |    0 |          1 |
++----------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+
