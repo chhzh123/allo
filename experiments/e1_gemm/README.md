@@ -90,6 +90,67 @@ Allo's standing in the earlier table:
 - First beat to last across three launches is not the quantity the other two
   report, so the window had to come from a single-launch build regardless.
 
+## Gemmini, a published RTL baseline
+
+`gemmini/` holds UCB's Gemmini systolic mesh at the same four sizes, routed the
+same way. Gemmini's `Mesh`, `Tile` and `PE` import `chisel3` alone -- no
+rocket-chip, no RoCC, no DMA, no scratchpad -- so the array elaborates on its
+own, and the array is what `spmw_mesh` is. `source/` carries those files
+verbatim, the elaboration entry point and the exact command.
+
+| Array | Design | LUT | FF | DSP | Clock |
+|---|---|---:|---:|---:|---:|
+| 4x4 | SPMW mesh | 560 | 1,021 | **16** | 462 MHz |
+| | Gemmini WS mesh | 1,592 | 1,064 | **0** | 365 MHz |
+| 8x8 | SPMW mesh | 2,225 | 4,301 | **64** | 428 MHz |
+| | Gemmini WS mesh | 6,457 | 4,128 | **0** | 343 MHz |
+| 16x16 | SPMW mesh | 9,026 | 18,048 | **256** | 344 MHz |
+| | Gemmini WS mesh | 26,847 | 17,024 | **0** | 330 MHz |
+| 32x32 | SPMW mesh | 37,917 | 74,945 | **1,024** | 345 MHz |
+| | Gemmini WS mesh | 111,787 | 71,380 | **0** | 308 MHz |
+
+Across a 64-fold range of array size the lookup-table ratio is flat at 2.84,
+2.90, 2.97, 2.95, and **the register counts agree within 6 per cent at every
+size** -- 1.04, 0.96, 0.94, 0.95. Equal registers with a constant lookup-table
+gap and every SPMW multiplier in a DSP is one difference, not three: the arrays
+are structurally the same and the 8-bit multiply lands in fabric on one side
+and in a DSP block on the other. Vivado leaves a signed 8x8 multiply written in
+plain RTL below its inference threshold; the HLS path does not. This is the
+second RTL baseline to behave this way -- FEATHER does the same in E4 -- so it
+is a property of how the multiply is written, not of one baseline. **Do not
+read the lookup-table column here without the DSP column beside it.**
+
+SPMW's clock advantage is real and largest where the arrays are small: 462
+against 365 MHz at 4x4, narrowing to 345 against 308 at 32x32.
+
+### Why the weight-stationary rows are the comparable ones
+
+Gemmini's output-stationary mode is also built here, and it is **not** a
+like-for-like area comparison. Its PE performs output requantisation that the
+weight-stationary PE does not and that SPMW's array does not have at all --
+four 32-bit variable shifts and round-to-nearest per PE:
+
+    wire [31:0] _io_out_c_point_five_T_3 = $signed(c1) >>> _io_out_c_point_five_T_2;
+    wire [31:0] _io_out_c_ones_digit_T   = $signed(c1) >>> shift_offset;
+
+The weight-stationary PE contains no shift at all. Barrel shifters on 32 bits
+are expensive in fabric, and that is the whole of the difference between
+Gemmini's own two modes: 1,592 against 7,235 lookup tables at 4x4 and 6,457
+against 28,982 at 8x8, a factor of 4.5 both times. SPMW requantises on the
+host (E3 records this), so charging Gemmini's OS rows against SPMW would bill
+it for arithmetic SPMW never performs -- and would turn a 2.9x gap into 12.9x.
+The OS rows are kept because they say what that mode costs, not as a
+comparison. 16x16 and 32x32 OS are still building.
+
+**Cycles are not measured for Gemmini.** Its shipped `MeshWithDelaysUnitTest`
+does not compile against its own HEAD -- it drives `io.s`, `io.tag_in`,
+`io.shift`, which the current `MeshWithDelays` has consolidated into `req` and
+`resp` -- and the last commit where test and source agree is the 2019 rename of
+the package. A cycle count would therefore come from a driver written here, and
+a correct but untuned driver understates the design it drives. That is the same
+kind of bias the interface work in this experiment removed, so the number is
+left out rather than reported unqualified.
+
 ## The element is identical in all four
 
 The reduction loop is what has to pipeline, and every system pipelines it the

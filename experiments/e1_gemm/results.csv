@@ -1,19 +1,25 @@
 array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_beats,cycles_flow_reported,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz,scope
 4x4,spmw_mesh,SPMW mesh,4^3,streams,,,16,,560,1021,16,0,1.167,2.166,462,array
 4x4,spmw_kernel,SPMW kernel,4^3,512b,512,512,47,66,1867,2516,16,0,1.301,2.032,492,kernel
+4x4,gemmini,Gemmini OS mesh,4^3,streams,,,,,7235,2096,0,0,0.297,3.036,329,array
+4x4,gemmini,Gemmini WS mesh,4^3,streams,,,,,1592,1064,0,0,0.59,2.743,365,array
 4x4,allo,Allo,4^3,narrow,32,32,118,167,3693,4459,16,3,0.625,2.708,369,kernel
 4x4,autosa,AutoSA,4^3,narrow,32,32,78,148,4974,8171,16,3,0.512,2.821,354,kernel
 8x8,spmw_mesh,SPMW mesh,8^3,streams,,,28,,2225,4301,64,0,0.996,2.337,428,array
 8x8,spmw_kernel,SPMW kernel,8^3,512b,512,512,82,100,8015,10220,64,0,1.232,2.101,476,kernel
+8x8,gemmini,Gemmini OS mesh,8^3,streams,,,,,28982,8147,0,0,0.112,3.221,310,array
+8x8,gemmini,Gemmini WS mesh,8^3,streams,,,,,6457,4128,0,0,0.418,2.915,343,array
 8x8,allo,Allo,8^3,narrow,32,32,288,337,8419,8220,64,3,0.598,2.735,366,kernel
 8x8,autosa,AutoSA,8^3,narrow,64,32,222,292,13393,22924,64,5,0.69,2.643,378,kernel
 8x8,autosa,AutoSA,8^3,wide,512,512,130,202,15343,25536,64,23,0.738,2.595,385,kernel
 16x16,spmw_mesh,SPMW mesh,16^3,streams,,,52,,9026,18048,256,0,0.428,2.905,344,array
 16x16,spmw_kernel,SPMW kernel,16^3,512b,512,512,133,152,32756,40732,256,0,0.541,2.792,358,kernel
+16x16,gemmini,Gemmini WS mesh,16^3,streams,,,,,26847,17024,0,0,0.306,3.027,330,array
 16x16,allo,Allo,16^3,narrow,32,32,,,,,256,,,,,kernel
 16x16,autosa,AutoSA,16^3,narrow,128,32,782,859,47390,81265,256,9,0.41,2.923,342,kernel
 16x16,autosa,AutoSA,16^3,wide,512,512,374,445,48957,84062,256,23,0.38,2.953,339,kernel
 32x32,spmw_mesh,SPMW mesh,32^3,streams,,,100,,37917,74945,1024,0,0.431,2.902,345,array
 32x32,spmw_kernel,SPMW kernel,32^3,512b,512,512,280,298,137741,163708,1024,0,0.529,2.804,357,kernel
+32x32,gemmini,Gemmini WS mesh,32^3,streams,,,,,111787,71380,0,0,0.083,3.25,308,array
 32x32,allo,Allo,32^3,narrow,32,32,,,,,1024,,,,,kernel
 32x32,autosa,AutoSA,32^3,narrow,,,,,,,1024,,,,,kernel
