@@ -1,7 +1,40 @@
 # Experiments
 
-One folder per experiment, holding the sources that produced its numbers, and
-one folder holding the numbers themselves.
+One folder per experiment. Each now holds the code and reports that reproduce
+its own table, in a common layout, plus the `results.csv` that table comes
+from.
+
+## The common layout
+
+    <experiment>/
+        README.md          what the table means, and what it does not
+        results.csv        the table
+        <framework>/<point>/
+            source/        the design input, and the exact command or tcl
+            generated/     what the compiler emitted for it
+            report/        synthesis, simulation and place-and-route reports
+        scripts/           what drove the runs
+
+`<point>` is whatever axis the experiment varies: `S<n>` for square arrays
+(E1, E4), `N<n>` for transform lengths (E2, E5's FFT), `M<n>` for sequence
+lengths (E6). Three experiments deviate, each for a stated reason in its own
+README:
+
+- **E3** has one bitstream running two workloads, so it has one design folder
+  rather than one per results row.
+- **E5** changes only how a fixed design is compiled -- the generated C++ is
+  byte identical in all three modes -- so its `generated/` points at E1's and
+  E2's rather than duplicating them.
+- **E7** builds nothing; it counts source lines, so it keeps count records and
+  a manifest instead of source/generated/report.
+
+Where a framework is hand-written rather than generated (HP-FFT's HLS,
+FEATHER's RTL), `generated/` holds a note saying so rather than a copy of the
+source. Where generated code exists but was not kept by the original runs, it
+was re-staged from the same entry point the measured builds used, and the
+README says how it was checked -- E2 and E4 match their `results.csv` role
+counts at every size. **E6 is the one gap**: its variants are separate drivers
+rather than one registry design, so its `generated/` is empty and says why.
 
 | Folder | What it holds |
 |---|---|
@@ -17,9 +50,11 @@ one folder holding the numbers themselves.
 
 ## What is not here
 
-The tool reports themselves, meaning the Vivado utilisation and timing reports,
-the simulation waveforms and the build logs each row was read from. They are
-752 MB and live on brg-zhang-xcel at
+The reports each table is read from are now here, selected rather than
+mirrored: 24 MB across the seven experiments, against 752 MB of full build
+trees. What was left behind is named in each README -- multi-megabyte bus
+traces, cosimulation `hls.log` files, tile dumps, and superseded attempts. The
+full trees remain on brg-zhang-xcel at
 `/scratch/hc676/spmw_eval_remaining_2026-09-06`, under each package's
 `reports/` and `validation/`. Every row in a `results.csv` names its report
 directory in the `report_paths` column, so a number can be traced back to the
