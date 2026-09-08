@@ -14,6 +14,7 @@ array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_be
 8x8,autosa,AutoSA,8^3,wide,512,512,130,202,15343,25536,64,23,0.738,2.595,385,kernel
 16x16,spmw_mesh,SPMW mesh,16^3,streams,,,52,,9026,18048,256,0,0.428,2.905,344,array
 16x16,spmw_kernel,SPMW kernel,16^3,512b,512,512,133,152,32756,40732,256,0,0.541,2.792,358,kernel
+16x16,gemmini,Gemmini OS mesh,16^3,streams,,,,,116055,32162,0,0,0.032,3.301,303,array
 16x16,gemmini,Gemmini WS mesh,16^3,streams,,,,,26847,17024,0,0,0.306,3.027,330,array
 16x16,allo,Allo,16^3,narrow,32,32,,,,,256,,,,,kernel
 16x16,autosa,AutoSA,16^3,narrow,128,32,782,859,47390,81265,256,9,0.41,2.923,342,kernel

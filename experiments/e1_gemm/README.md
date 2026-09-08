@@ -135,12 +135,13 @@ four 32-bit variable shifts and round-to-nearest per PE:
 
 The weight-stationary PE contains no shift at all. Barrel shifters on 32 bits
 are expensive in fabric, and that is the whole of the difference between
-Gemmini's own two modes: 1,592 against 7,235 lookup tables at 4x4 and 6,457
-against 28,982 at 8x8, a factor of 4.5 both times. SPMW requantises on the
+Gemmini's own two modes, and it is near-constant with size: 1,592 against
+7,235 lookup tables at 4x4, 6,457 against 28,982 at 8x8, 26,847 against 116,055
+at 16x16 -- 4.54x, 4.49x, 4.32x. SPMW requantises on the
 host (E3 records this), so charging Gemmini's OS rows against SPMW would bill
 it for arithmetic SPMW never performs -- and would turn a 2.9x gap into 12.9x.
 The OS rows are kept because they say what that mode costs, not as a
-comparison. 16x16 and 32x32 OS are still building.
+comparison. 32x32 OS is still building.
 
 **Cycles are not measured for Gemmini.** Its shipped `MeshWithDelaysUnitTest`
 does not compile against its own HEAD -- it drives `io.s`, `io.tag_in`,
