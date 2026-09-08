@@ -40,7 +40,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | 4x4 | SPMW mesh | streams | 16 | | 560 | 1,021 | 16 | 0 | +1.167 ns | 462 MHz |
 | | SPMW kernel | 512/512 | 47 | 66 | 1,867 | 2,516 | 16 | 0 | +1.301 ns | 492 MHz |
 | | AutoSA | 32/32 | 78 | 148 | 4,974 | 8,171 | 16 | 3 | +0.512 ns | 354 MHz |
-| | Allo | 32/32 | | 136 | 3,693 | 4,459 | 16 | 3 | +0.625 ns | 369 MHz |
+| | Allo | 32/32 | 118 | 167 | 3,693 | 4,459 | 16 | 3 | +0.625 ns | 369 MHz |
 | 8x8 | SPMW mesh | streams | 28 | | 2,225 | 4,301 | 64 | 0 | +0.996 ns | 428 MHz |
 | | SPMW kernel | 512/512 | 82 | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
 | | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
@@ -63,10 +63,22 @@ count from first input token to last output token, which is the same idea one
 level in. Blank cells are builds still running or, for Allo, a cosimulation
 that does not complete in this tool version; none is an estimate.
 
-**Allo's cycles have not been re-measured this way.** Its rows still carry only
-what its own flow reports, so they are not directly comparable with the two
-columns beside them and are marked as such. The waveform method used for
-AutoSA applies to Allo unchanged and is the next thing to run.
+**Allo, re-measured.** Its rows now carry the same definition, from the same
+waveform method, at the two sizes where its cosimulation completes at all;
+16x16 and 32x32 produce synthesis reports and no cosimulation report in this
+tool version, so those cells stay empty.
+
+Two differences had to be removed to get there, and both had been inflating
+Allo's standing in the earlier table:
+
+- Its testbench runs **three seeds per launch**, and the shipped figure was the
+  *minimum* of the three (min 136, avg 146, max 167 at 4x4), where SPMW and
+  AutoSA each report a single launch. Later launches are faster because the
+  cosimulation's memory model is warm. The measurement build runs one seed;
+  4x4's flow-reported figure is therefore 167 rather than the 136 previously
+  recorded. The three-seed run remains the correctness evidence.
+- First beat to last across three launches is not the quantity the other two
+  report, so the window had to come from a single-launch build regardless.
 
 ## The element is identical in all four
 
