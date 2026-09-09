@@ -1,0 +1,45 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Tue Sep  8 01:59:37 2026
+# Process ID: 1889622
+# Current directory: /scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/xsim.log
+# Journal file: /scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 21, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -testplusarg vecdir=/scratch/hc676/agentstudy/task/vectors/steady -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+STUDY VALUES 768 checked, 0 wrong
+STUDY PRODUCT 0 first_in 5 last_out 37 latency 32
+STUDY PRODUCT 1 first_in 18 last_out 50 latency 32
+STUDY PRODUCT 2 first_in 31 last_out 63 latency 32
+STUDY PRODUCT 3 first_in 44 last_out 76 latency 32
+STUDY PRODUCT 4 first_in 57 last_out 89 latency 32
+STUDY PRODUCT 5 first_in 70 last_out 102 latency 32
+STUDY PRODUCT 6 first_in 83 last_out 115 latency 32
+STUDY PRODUCT 7 first_in 96 last_out 128 latency 32
+STUDY PRODUCT 8 first_in 109 last_out 141 latency 32
+STUDY PRODUCT 9 first_in 122 last_out 154 latency 32
+STUDY PRODUCT 10 first_in 135 last_out 167 latency 32
+STUDY PRODUCT 11 first_in 148 last_out 180 latency 32
+STUDY INTERVAL 1 13
+STUDY INTERVAL 2 13
+STUDY INTERVAL 3 13
+STUDY INTERVAL 4 13
+STUDY INTERVAL 5 13
+STUDY INTERVAL 6 13
+STUDY INTERVAL 7 13
+STUDY INTERVAL 8 13
+STUDY INTERVAL 9 13
+STUDY INTERVAL 10 13
+STUDY INTERVAL 11 13
+STUDY RESULT CORRECT
+$finish called at time : 746 ns : File "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/tb_study.sv" Line 123
+exit
+INFO: [Common 17-206] Exiting xsim at Tue Sep  8 01:59:41 2026...

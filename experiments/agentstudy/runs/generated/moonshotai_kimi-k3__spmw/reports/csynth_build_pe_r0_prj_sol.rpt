@@ -1,0 +1,125 @@
+
+
+================================================================
+== Synthesis Summary Report of 'pe_r0_0'
+================================================================
++ General Information: 
+    * Date:           Mon Sep  7 21:31:52 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        prj
+    * Solution:       sol (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +-------------------------------------+--------+-------+---------+--------+----------+---------+------+----------+------+---------+-----------+-----------+-----+
+    |               Modules               |  Issue |       | Latency | Latency| Iteration|         | Trip |          |      |         |           |           |     |
+    |               & Loops               |  Type  | Slack | (cycles)|  (ns)  |  Latency | Interval| Count| Pipelined| BRAM |   DSP   |     FF    |    LUT    | URAM|
+    +-------------------------------------+--------+-------+---------+--------+----------+---------+------+----------+------+---------+-----------+-----------+-----+
+    |+ pe_r0_0                            |  Timing|  -0.00|        -|       -|         -|        -|     -|        no|     -|  1 (~0%)|  172 (~0%)|  418 (~0%)|    -|
+    | + pe_r0_0_Pipeline_l_S_k_0_k        |  Timing|  -0.00|       13|  43.290|         -|       13|     -|        no|     -|  1 (~0%)|   97 (~0%)|  152 (~0%)|    -|
+    |  o l_S__k_0__k                      |       -|   2.43|       11|  36.630|         5|        1|     8|       yes|     -|        -|          -|          -|    -|
+    | + pe_r0_0_Pipeline_VITIS_LOOP_58_1  |  Timing|  -0.00|        -|       -|         -|        -|     -|        no|     -|        -|   34 (~0%)|  137 (~0%)|    -|
+    |  o VITIS_LOOP_58_1                  |       -|   2.43|        -|       -|         2|        1|     -|       yes|     -|        -|          -|          -|    -|
+    +-------------------------------------+--------+-------+---------+--------+----------+---------+------+----------+------+---------+-----------+-----------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* AP_FIFO
++-----------+-----------+------------+
+| Interface | Direction | Data Width |
++-----------+-----------+------------+
+| v0        | out       | 32         |
+| v1        | out       | 8          |
+| v2        | out       | 8          |
+| v3        | out       | 8          |
+| v4        | out       | 8          |
+| v5        | out       | 32         |
+| v6        | out       | 32         |
++-----------+-----------+------------+
+
+* TOP LEVEL CONTROL
++-----------+--------------+--------+
+| Interface | Type         | Ports  |
++-----------+--------------+--------+
+| ap_clk    | clock        | ap_clk |
+| ap_rst    | reset        | ap_rst |
+| ap_ctrl   | ap_ctrl_none |        |
++-----------+--------------+--------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+-------------------------+
+| Argument | Direction | Datatype                |
++----------+-----------+-------------------------+
+| v0       | in        | stream<int, 0>&         |
+| v1       | in        | stream<signed char, 0>& |
+| v2       | in        | stream<signed char, 0>& |
+| v3       | out       | stream<signed char, 0>& |
+| v4       | out       | stream<signed char, 0>& |
+| v5       | in        | stream<int, 0>&         |
+| v6       | out       | stream<int, 0>&         |
++----------+-----------+-------------------------+
+
+* SW-to-HW Mapping
++----------+--------------+-----------+
+| Argument | HW Interface | HW Type   |
++----------+--------------+-----------+
+| v0       | v0           | interface |
+| v1       | v1           | interface |
+| v2       | v2           | interface |
+| v3       | v3           | interface |
+| v4       | v4           | interface |
+| v5       | v5           | interface |
+| v6       | v6           | interface |
++----------+--------------+-----------+
+
+
+================================================================
+== Bind Op Report
+================================================================
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+| Name                                | DSP | Pragma | Variable | Op  | Impl      | Latency |
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+| + pe_r0_0                           | 1   |        |          |     |           |         |
+|  + pe_r0_0_Pipeline_l_S_k_0_k       | 1   |        |          |     |           |         |
+|    p_k_2_fu_108_p2                  |     |        | p_k_2    | add | fabric    | 0       |
+|    mac_muladd_8s_8s_19s_19_4_1_U1   | 1   |        | v26      | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_19s_19_4_1_U1   | 1   |        | v30      | add | dsp_slice | 3       |
+|  + pe_r0_0_Pipeline_VITIS_LOOP_58_1 | 0   |        |          |     |           |         |
+|    add_ln58_fu_76_p2                |     |        | add_ln58 | add | fabric    | 0       |
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
+  No bind storage info in design
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+--------------------------+-------------------------------+
+| Type      | Options                  | Location                      |
++-----------+--------------------------+-------------------------------+
+| dataflow  |                          | kernel.cpp:70 in top          |
+| stream    | variable=v38 depth=2     | kernel.cpp:72 in top, v38     |
+| stream    | variable=v39 depth=2     | kernel.cpp:74 in top, v39     |
+| stream    | variable=v40 depth=2     | kernel.cpp:76 in top, v40     |
+| stream    | variable=v41 depth=2     | kernel.cpp:78 in top, v41     |
+| stream    | variable=v42 depth=2     | kernel.cpp:80 in top, v42     |
+| stream    | variable=v43 depth=2     | kernel.cpp:82 in top, v43     |
+| stream    | variable=v44 depth=1     | kernel.cpp:84 in top, v44     |
+| interface | ap_ctrl_none port=return | run.tcl:15 in pe_r0_0, return |
++-----------+--------------------------+-------------------------------+
+
+

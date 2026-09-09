@@ -1,0 +1,45 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Tue Sep  8 02:07:46 2026
+# Process ID: 1893268
+# Current directory: /scratch/hc676/agentstudy/steady/deepseek_deepseek-v4-pro__hls/sim
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/agentstudy/steady/deepseek_deepseek-v4-pro__hls/sim/xsim.log
+# Journal file: /scratch/hc676/agentstudy/steady/deepseek_deepseek-v4-pro__hls/sim/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 24, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -testplusarg vecdir=/scratch/hc676/agentstudy/task/vectors/steady -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+STUDY VALUES 768 checked, 0 wrong
+STUDY PRODUCT 0 first_in 3 last_out 42 latency 39
+STUDY PRODUCT 1 first_in 11 last_out 66 latency 55
+STUDY PRODUCT 2 first_in 21 last_out 90 latency 69
+STUDY PRODUCT 3 first_in 35 last_out 114 latency 79
+STUDY PRODUCT 4 first_in 55 last_out 138 latency 83
+STUDY PRODUCT 5 first_in 79 last_out 162 latency 83
+STUDY PRODUCT 6 first_in 103 last_out 186 latency 83
+STUDY PRODUCT 7 first_in 127 last_out 210 latency 83
+STUDY PRODUCT 8 first_in 151 last_out 234 latency 83
+STUDY PRODUCT 9 first_in 175 last_out 258 latency 83
+STUDY PRODUCT 10 first_in 199 last_out 282 latency 83
+STUDY PRODUCT 11 first_in 223 last_out 306 latency 83
+STUDY INTERVAL 1 8
+STUDY INTERVAL 2 10
+STUDY INTERVAL 3 14
+STUDY INTERVAL 4 20
+STUDY INTERVAL 5 24
+STUDY INTERVAL 6 24
+STUDY INTERVAL 7 24
+STUDY INTERVAL 8 24
+STUDY INTERVAL 9 24
+STUDY INTERVAL 10 24
+STUDY INTERVAL 11 24
+STUDY RESULT CORRECT
+$finish called at time : 1250 ns : File "/scratch/hc676/agentstudy/steady/deepseek_deepseek-v4-pro__hls/sim/tb_study.sv" Line 123
+exit
+INFO: [Common 17-206] Exiting xsim at Tue Sep  8 02:07:50 2026...

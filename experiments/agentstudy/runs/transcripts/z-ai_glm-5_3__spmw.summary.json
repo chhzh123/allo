@@ -1,0 +1,99 @@
+{
+ "arm": "spmw",
+ "model": "z-ai/glm-5.3",
+ "trial": "/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__spmw",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 20867,
+   "model_seconds": 151.0,
+   "tool_seconds": 123.7,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.36,
+    "synthesise": 82.51,
+    "assemble": 23.18,
+    "wrap": 0.0,
+    "compile": 3.45,
+    "elaborate_rtl": 6.26,
+    "simulate": 5.55
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen"
+  },
+  {
+   "build": 2,
+   "tokens": 17912,
+   "model_seconds": 112.7,
+   "tool_seconds": 1.5,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 0.18
+   },
+   "verdict": "STUDY BUILD FAIL generate"
+  },
+  {
+   "build": 3,
+   "tokens": 16240,
+   "model_seconds": 22.2,
+   "tool_seconds": 124.6,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.27,
+    "synthesise": 83.36,
+    "assemble": 23.76,
+    "wrap": 0.0,
+    "compile": 3.5,
+    "elaborate_rtl": 6.41,
+    "simulate": 5.15
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 4,
+   "tokens": 80714,
+   "model_seconds": 1114.7,
+   "tool_seconds": 139.6,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.62,
+    "synthesise": 94.69,
+    "assemble": 25.59,
+    "wrap": 0.01,
+    "compile": 3.78,
+    "elaborate_rtl": 6.87,
+    "simulate": 5.51
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 5,
+   "tokens": 46991,
+   "model_seconds": 448.4,
+   "tool_seconds": 130.6,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.14,
+    "synthesise": 86.35,
+    "assemble": 24.44,
+    "wrap": 0.0,
+    "compile": 3.59,
+    "elaborate_rtl": 6.49,
+    "simulate": 7.09
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  }
+ ],
+ "stopped_by": "submit",
+ "tokens": 205076,
+ "builds": 5,
+ "routes": 3,
+ "submitted": true,
+ "model_seconds": 1865.1,
+ "tool_seconds": 1816.9,
+ "wall_seconds": 3682.0
+}

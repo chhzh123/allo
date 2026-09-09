@@ -1,0 +1,25 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Tue Sep  8 00:52:21 2026
+# Process ID: 1604263
+# Current directory: /scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/xsim.log
+# Journal file: /scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 23, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -testplusarg vecdir=/scratch/hc676/agentstudy/task/vectors/visible -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+STUDY VALUES 128 checked, 0 wrong
+STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
+STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
+STUDY INTERVAL 1 8
+STUDY RESULT CORRECT
+$finish called at time : 182 ns : File "/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/tb_study.sv" Line 123
+exit
+INFO: [Common 17-206] Exiting xsim at Tue Sep  8 00:52:25 2026...

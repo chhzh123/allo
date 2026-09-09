@@ -1,0 +1,26 @@
+{
+ "arm": "rtl",
+ "model": "z-ai/glm-5.3",
+ "trial": "/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__rtl",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 178477,
+   "model_seconds": 2803.0,
+   "tool_seconds": 11.0,
+   "stages": {
+    "elaborate": 1788829085.43,
+    "simulate": 1788829090.7
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  }
+ ],
+ "stopped_by": "submit",
+ "tokens": 200466,
+ "builds": 1,
+ "routes": 1,
+ "submitted": true,
+ "model_seconds": 2811.0,
+ "tool_seconds": 314.0,
+ "wall_seconds": 3125.1
+}

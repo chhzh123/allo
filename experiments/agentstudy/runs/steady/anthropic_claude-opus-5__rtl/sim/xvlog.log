@@ -1,0 +1,6 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__rtl/sim/design.sv" into library work
+INFO: [VRFC 10-311] analyzing module mm_in_port
+INFO: [VRFC 10-311] analyzing module mm_pe
+INFO: [VRFC 10-311] analyzing module dut_norm
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__rtl/sim/tb_study.sv" into library work
+INFO: [VRFC 10-311] analyzing module tb

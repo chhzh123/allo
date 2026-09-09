@@ -1,0 +1,45 @@
+===== anthropic_claude-opus-5__hls
+PNR_UNROUTED 0
+PNR LUT 7894 FF 9933 DSP 64 WNS 0.819
+===== anthropic_claude-opus-5__rtl
+PNR_UNROUTED 0
+PNR LUT 1391 FF 5591 DSP 64 WNS 2.061
+===== anthropic_claude-opus-5__spmw
+PNR_UNROUTED 0
+PNR LUT 8294 FF 11048 DSP 64 WNS 1.364
+===== deepseek_deepseek-v4-pro__hls
+PNR_UNROUTED 0
+PNR LUT 6360 FF 10193 DSP 64 WNS 1.031
+===== deepseek_deepseek-v4-pro__rtl
+PNR_UNROUTED 0
+PNR LUT 9364 FF 8529 DSP 0 WNS 1.050
+===== deepseek_deepseek-v4-pro__spmw
+PNR_UNROUTED 0
+PNR LUT 7308 FF 8488 DSP 64 WNS 1.399
+===== moonshotai_kimi-k3__hls
+PNR_UNROUTED 0
+PNR LUT 7113 FF 12649 DSP 64 WNS 1.448
+===== moonshotai_kimi-k3__rtl
+PNR_UNROUTED 0
+PNR LUT 1237 FF 3284 DSP 64 WNS 2.004
+===== moonshotai_kimi-k3__spmw
+PNR_UNROUTED 0
+PNR LUT 7303 FF 8488 DSP 64 WNS 1.274
+===== openai_gpt-5_6-sol__hls
+  no RTL: the design did not build
+===== openai_gpt-5_6-sol__rtl
+PNR_UNROUTED 0
+PNR LUT 7481 FF 7412 DSP 64 WNS 1.331
+===== openai_gpt-5_6-sol__spmw
+PNR_UNROUTED 0
+PNR LUT 8378 FF 10992 DSP 64 WNS 1.288
+===== z-ai_glm-5_3__hls
+PNR_UNROUTED 0
+PNR LUT 9104 FF 17013 DSP 64 WNS 1.054
+===== z-ai_glm-5_3__rtl
+PNR_UNROUTED 0
+PNR LUT 3768 FF 5252 DSP 64 WNS 1.763
+===== z-ai_glm-5_3__spmw
+PNR_UNROUTED 0
+PNR LUT 3875 FF 6408 DSP 64 WNS 1.259
+GRADE_ALL_DONE

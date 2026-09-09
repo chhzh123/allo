@@ -1,0 +1,51 @@
+{
+ "arm": "spmw",
+ "model": "openai/gpt-5.6-sol",
+ "trial": "/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__spmw",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 13617,
+   "model_seconds": 63.7,
+   "tool_seconds": 125.4,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.37,
+    "synthesise": 83.36,
+    "assemble": 23.5,
+    "wrap": 0.0,
+    "compile": 3.58,
+    "elaborate_rtl": 6.66,
+    "simulate": 5.64
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 2,
+   "tokens": 15502,
+   "model_seconds": 60.9,
+   "tool_seconds": 127.3,
+   "stages": {
+    "import": 0.01,
+    "elaborate": 0.0,
+    "generate": 1.33,
+    "synthesise": 84.6,
+    "assemble": 24.05,
+    "wrap": 0.0,
+    "compile": 3.58,
+    "elaborate_rtl": 6.72,
+    "simulate": 5.68
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  }
+ ],
+ "stopped_by": "submit",
+ "tokens": 44014,
+ "builds": 2,
+ "routes": 1,
+ "submitted": true,
+ "model_seconds": 156.6,
+ "tool_seconds": 694.1,
+ "wall_seconds": 850.7
+}

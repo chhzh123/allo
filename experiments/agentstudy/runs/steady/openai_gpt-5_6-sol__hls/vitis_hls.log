@@ -1,0 +1,49 @@
+
+****** Vitis HLS - High-Level Synthesis from C, C++ and OpenCL v2023.2 (64-bit)
+  **** SW Build 4023990 on Oct 11 2023
+  **** IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+  **** SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /opt/xilinx/Vitis_HLS/2023.2/scripts/vitis_hls/hls.tcl -notrace
+INFO: [HLS 200-10] Running '/opt/xilinx/Vitis_HLS/2023.2/bin/unwrapped/lnx64.o/vitis_hls'
+INFO: [HLS 200-10] For user 'hc676' on host 'en-ec-brg-zhang-xcel.coecis.cornell.edu' (Linux_x86_64 version 5.14.0-162.23.1.el9_1.x86_64) on Tue Sep 08 02:14:15 EDT 2026
+INFO: [HLS 200-10] On os "Red Hat Enterprise Linux 9.8 (Plow)"
+INFO: [HLS 200-10] In directory '/scratch/hc676/agentstudy/steady/openai_gpt-5_6-sol__hls'
+INFO: [HLS 200-2053] The vitis_hls executable is being deprecated. Consider using vitis-run --mode hls --tcl
+Sourcing Tcl script 'run.tcl'
+INFO: [HLS 200-1510] Running: open_project prj 
+INFO: [HLS 200-10] Creating and opening project '/scratch/hc676/agentstudy/steady/openai_gpt-5_6-sol__hls/prj'.
+INFO: [HLS 200-1510] Running: set_top gemm_tile 
+INFO: [HLS 200-1510] Running: add_files design.cpp 
+INFO: [HLS 200-10] Adding design file 'design.cpp' to the project
+INFO: [HLS 200-1510] Running: open_solution sol 
+INFO: [HLS 200-10] Creating and opening solution '/scratch/hc676/agentstudy/steady/openai_gpt-5_6-sol__hls/prj/sol'.
+INFO: [HLS 200-1505] Using default flow_target 'vivado'
+Resolution: For help on HLS 200-1505 see docs.xilinx.com/access/sources/dita/topic?Doc_Version=2023.2%20English&url=ug1448-hls-guidance&resourceid=200-1505.html
+INFO: [HLS 200-1510] Running: set_part xcu280-fsvh2892-2L-e 
+INFO: [HLS 200-1611] Setting target device to 'xcu280-fsvh2892-2L-e'
+INFO: [HLS 200-1510] Running: create_clock -period 3.33 -name default 
+INFO: [SYN 201-201] Setting up clock 'default' with a period of 3.33ns.
+INFO: [HLS 200-1510] Running: config_interface -clock_enable=0 
+INFO: [HLS 200-1510] Running: config_rtl -reset_level low 
+INFO: [HLS 200-1510] Running: config_op mul -impl dsp 
+INFO: [HLS 200-1445] Configure operator 'mul' with implementation style 'dsp'.
+INFO: [HLS 200-1510] Running: csynth_design 
+INFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.08 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.09 seconds; current allocated memory: 260.188 MB.
+INFO: [HLS 200-10] Analyzing design file 'design.cpp' ... 
+ERROR: [HLS 207-1186] expected expression (design.cpp:71:13)
+ERROR: [HLS 207-1186] expected expression (design.cpp:77:13)
+ERROR: [HLS 207-1186] expected expression (design.cpp:83:13)
+ERROR: [HLS 207-1186] expected expression (design.cpp:89:13)
+INFO: [HLS 200-111] Finished Command csynth_design CPU user time: 0.68 seconds. CPU system time: 0.2 seconds. Elapsed time: 0.89 seconds; current allocated memory: 1.480 MB.
+ 
+    while executing
+"source run.tcl"
+    ("uplevel" body line 1)
+    invoked from within
+"uplevel \#0 [list source $tclfile] "
+
+INFO: [HLS 200-112] Total CPU user time: 2.72 seconds. Total CPU system time: 0.44 seconds. Total elapsed time: 2.96 seconds; peak allocated memory: 261.668 MB.
+INFO: [Common 17-206] Exiting vitis_hls at Tue Sep  8 02:14:17 2026...

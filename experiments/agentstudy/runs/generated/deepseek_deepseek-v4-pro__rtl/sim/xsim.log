@@ -1,0 +1,33 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Mon Sep  7 21:23:00 2026
+# Process ID: 759246
+# Current directory: /scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__rtl/sim
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__rtl/sim/xsim.log
+# Journal file: /scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__rtl/sim/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 22, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -testplusarg vecdir=/scratch/hc676/agentstudy/task/vectors/visible -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+MISMATCH product 0 c_out_0[0]: got 0 want 24937
+MISMATCH product 0 c_out_0[1]: got 0 want 187
+MISMATCH product 0 c_out_1[0]: got 0 want 4229
+MISMATCH product 0 c_out_0[2]: got 0 want 16888
+MISMATCH product 0 c_out_1[1]: got 0 want 23938
+MISMATCH product 0 c_out_2[0]: got 0 want -8210
+MISMATCH product 0 c_out_0[3]: got 0 want -8862
+MISMATCH product 0 c_out_1[2]: got 0 want 8359
+STUDY VALUES 128 checked, 130 wrong
+STUDY PRODUCT 0 first_in 1 last_out 34 latency 33
+STUDY PRODUCT 1 first_in 9 last_out 42 latency 33
+STUDY INTERVAL 1 8
+STUDY RESULT   WRONG
+$finish called at time : 194 ns : File "/scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__rtl/sim/tb_study.sv" Line 123
+exit
+INFO: [Common 17-206] Exiting xsim at Mon Sep  7 21:23:04 2026...

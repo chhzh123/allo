@@ -1,0 +1,276 @@
+Vivado Simulator v2023.2
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: /opt/xilinx/Vivado/2023.2/bin/unwrapped/lnx64.o/xelab tb -s tbsim --timescale 1ns/1ps --generic_top NPROD=2 -L unisims_ver -L unimacro_ver -L secureip 
+Multi-threading is on. Using 46 slave threads.
+Starting static elaboration
+Pass Through NonSizing Optimizer
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_fifo_w8_d2_S.v:49]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_fifo_w32_d2_S.v:49]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_2_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_9_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_3_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_10_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_4_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_11_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_5_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_12_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_6_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_13_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_7_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_14_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_8_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_15_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_16_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_17_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_18_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_19_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_20_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_21_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_22_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_23_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_24_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_25_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_26_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_27_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_28_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_29_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_30_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_31_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_32_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_33_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_34_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_35_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_36_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_37_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_38_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_39_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_40_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_41_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_42_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_43_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_44_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_45_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_46_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_47_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_48_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_49_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_50_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_51_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_52_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_53_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_54_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_55_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_56_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_57_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_58_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_59_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_60_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_61_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_62_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_63_U0.v:46]
+WARNING: [VRFC 10-5021] port 'reset' is not connected on this instance [/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/sim/gemm_tile_start_for_pe_U0.v:46]
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module work.gemm_tile_mac_muladd_8s_8s_32s_3...
+Compiling module work.gemm_tile_mac_muladd_8s_8s_32s_3...
+Compiling module work.gemm_tile_pe_1
+Compiling module work.gemm_tile_pe_2
+Compiling module work.gemm_tile_pe_3
+Compiling module work.gemm_tile_pe_4
+Compiling module work.gemm_tile_pe_5
+Compiling module work.gemm_tile_pe_6
+Compiling module work.gemm_tile_pe_7
+Compiling module work.gemm_tile_pe_8
+Compiling module work.gemm_tile_pe_9
+Compiling module work.gemm_tile_pe_10
+Compiling module work.gemm_tile_pe_11
+Compiling module work.gemm_tile_pe_12
+Compiling module work.gemm_tile_pe_13
+Compiling module work.gemm_tile_pe_14
+Compiling module work.gemm_tile_pe_15
+Compiling module work.gemm_tile_pe_16
+Compiling module work.gemm_tile_pe_17
+Compiling module work.gemm_tile_pe_18
+Compiling module work.gemm_tile_pe_19
+Compiling module work.gemm_tile_pe_20
+Compiling module work.gemm_tile_pe_21
+Compiling module work.gemm_tile_pe_22
+Compiling module work.gemm_tile_pe_23
+Compiling module work.gemm_tile_pe_24
+Compiling module work.gemm_tile_pe_25
+Compiling module work.gemm_tile_pe_26
+Compiling module work.gemm_tile_pe_27
+Compiling module work.gemm_tile_pe_28
+Compiling module work.gemm_tile_pe_29
+Compiling module work.gemm_tile_pe_30
+Compiling module work.gemm_tile_pe_31
+Compiling module work.gemm_tile_pe_32
+Compiling module work.gemm_tile_pe_33
+Compiling module work.gemm_tile_pe_34
+Compiling module work.gemm_tile_pe_35
+Compiling module work.gemm_tile_pe_36
+Compiling module work.gemm_tile_pe_37
+Compiling module work.gemm_tile_pe_38
+Compiling module work.gemm_tile_pe_39
+Compiling module work.gemm_tile_pe_40
+Compiling module work.gemm_tile_pe_41
+Compiling module work.gemm_tile_pe_42
+Compiling module work.gemm_tile_pe_43
+Compiling module work.gemm_tile_pe_44
+Compiling module work.gemm_tile_pe_45
+Compiling module work.gemm_tile_pe_46
+Compiling module work.gemm_tile_pe_47
+Compiling module work.gemm_tile_pe_48
+Compiling module work.gemm_tile_pe_49
+Compiling module work.gemm_tile_pe_50
+Compiling module work.gemm_tile_pe_51
+Compiling module work.gemm_tile_pe_52
+Compiling module work.gemm_tile_pe_53
+Compiling module work.gemm_tile_pe_54
+Compiling module work.gemm_tile_pe_55
+Compiling module work.gemm_tile_pe_56
+Compiling module work.gemm_tile_pe_57
+Compiling module work.gemm_tile_pe_58
+Compiling module work.gemm_tile_pe_59
+Compiling module work.gemm_tile_pe_60
+Compiling module work.gemm_tile_pe_61
+Compiling module work.gemm_tile_pe_62
+Compiling module work.gemm_tile_pe_63
+Compiling module work.gemm_tile_pe
+Compiling module work.gemm_tile_fifo_w8_d2_S_ShiftReg
+Compiling module work.gemm_tile_fifo_w8_d2_S
+Compiling module work.gemm_tile_fifo_w32_d2_S_ShiftReg
+Compiling module work.gemm_tile_fifo_w32_d2_S
+Compiling module work.gemm_tile_start_for_pe_2_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_2_U0
+Compiling module work.gemm_tile_start_for_pe_9_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_9_U0
+Compiling module work.gemm_tile_start_for_pe_3_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_3_U0
+Compiling module work.gemm_tile_start_for_pe_10_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_10_U0
+Compiling module work.gemm_tile_start_for_pe_4_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_4_U0
+Compiling module work.gemm_tile_start_for_pe_11_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_11_U0
+Compiling module work.gemm_tile_start_for_pe_5_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_5_U0
+Compiling module work.gemm_tile_start_for_pe_12_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_12_U0
+Compiling module work.gemm_tile_start_for_pe_6_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_6_U0
+Compiling module work.gemm_tile_start_for_pe_13_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_13_U0
+Compiling module work.gemm_tile_start_for_pe_7_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_7_U0
+Compiling module work.gemm_tile_start_for_pe_14_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_14_U0
+Compiling module work.gemm_tile_start_for_pe_8_U0_Shif...
+Compiling module work.gemm_tile_start_for_pe_8_U0
+Compiling module work.gemm_tile_start_for_pe_15_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_15_U0
+Compiling module work.gemm_tile_start_for_pe_16_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_16_U0
+Compiling module work.gemm_tile_start_for_pe_17_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_17_U0
+Compiling module work.gemm_tile_start_for_pe_18_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_18_U0
+Compiling module work.gemm_tile_start_for_pe_19_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_19_U0
+Compiling module work.gemm_tile_start_for_pe_20_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_20_U0
+Compiling module work.gemm_tile_start_for_pe_21_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_21_U0
+Compiling module work.gemm_tile_start_for_pe_22_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_22_U0
+Compiling module work.gemm_tile_start_for_pe_23_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_23_U0
+Compiling module work.gemm_tile_start_for_pe_24_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_24_U0
+Compiling module work.gemm_tile_start_for_pe_25_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_25_U0
+Compiling module work.gemm_tile_start_for_pe_26_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_26_U0
+Compiling module work.gemm_tile_start_for_pe_27_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_27_U0
+Compiling module work.gemm_tile_start_for_pe_28_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_28_U0
+Compiling module work.gemm_tile_start_for_pe_29_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_29_U0
+Compiling module work.gemm_tile_start_for_pe_30_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_30_U0
+Compiling module work.gemm_tile_start_for_pe_31_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_31_U0
+Compiling module work.gemm_tile_start_for_pe_32_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_32_U0
+Compiling module work.gemm_tile_start_for_pe_33_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_33_U0
+Compiling module work.gemm_tile_start_for_pe_34_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_34_U0
+Compiling module work.gemm_tile_start_for_pe_35_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_35_U0
+Compiling module work.gemm_tile_start_for_pe_36_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_36_U0
+Compiling module work.gemm_tile_start_for_pe_37_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_37_U0
+Compiling module work.gemm_tile_start_for_pe_38_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_38_U0
+Compiling module work.gemm_tile_start_for_pe_39_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_39_U0
+Compiling module work.gemm_tile_start_for_pe_40_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_40_U0
+Compiling module work.gemm_tile_start_for_pe_41_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_41_U0
+Compiling module work.gemm_tile_start_for_pe_42_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_42_U0
+Compiling module work.gemm_tile_start_for_pe_43_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_43_U0
+Compiling module work.gemm_tile_start_for_pe_44_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_44_U0
+Compiling module work.gemm_tile_start_for_pe_45_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_45_U0
+Compiling module work.gemm_tile_start_for_pe_46_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_46_U0
+Compiling module work.gemm_tile_start_for_pe_47_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_47_U0
+Compiling module work.gemm_tile_start_for_pe_48_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_48_U0
+Compiling module work.gemm_tile_start_for_pe_49_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_49_U0
+Compiling module work.gemm_tile_start_for_pe_50_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_50_U0
+Compiling module work.gemm_tile_start_for_pe_51_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_51_U0
+Compiling module work.gemm_tile_start_for_pe_52_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_52_U0
+Compiling module work.gemm_tile_start_for_pe_53_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_53_U0
+Compiling module work.gemm_tile_start_for_pe_54_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_54_U0
+Compiling module work.gemm_tile_start_for_pe_55_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_55_U0
+Compiling module work.gemm_tile_start_for_pe_56_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_56_U0
+Compiling module work.gemm_tile_start_for_pe_57_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_57_U0
+Compiling module work.gemm_tile_start_for_pe_58_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_58_U0
+Compiling module work.gemm_tile_start_for_pe_59_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_59_U0
+Compiling module work.gemm_tile_start_for_pe_60_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_60_U0
+Compiling module work.gemm_tile_start_for_pe_61_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_61_U0
+Compiling module work.gemm_tile_start_for_pe_62_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_62_U0
+Compiling module work.gemm_tile_start_for_pe_63_U0_Shi...
+Compiling module work.gemm_tile_start_for_pe_63_U0
+Compiling module work.gemm_tile_start_for_pe_U0_ShiftR...
+Compiling module work.gemm_tile_start_for_pe_U0
+Compiling module work.gemm_tile
+Compiling module work.dut_norm
+Compiling module work.tb
+Built simulation snapshot tbsim

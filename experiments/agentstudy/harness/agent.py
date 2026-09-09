@@ -51,6 +51,7 @@ class Trial:
         self.log = open(self.record_path, "a", encoding="utf-8")
         self.tokens = 0
         self.builds = 0
+        self.revision = 0
         self.started = time.time()
         self.model_seconds = 0.0
         self.tool_seconds = 0.0
@@ -80,6 +81,15 @@ class Trial:
         if name in ("tb_study.sv", "TASK.md", "REFERENCE.md"):
             return f"refused: `{name}` belongs to the harness"
         with open(os.path.join(self.dir, name), "w", encoding="utf-8") as handle:
+            handle.write(content)
+        # Keep every revision. The working copy is overwritten in place, and the
+        # transcript truncates tool arguments, so without this the code a round
+        # actually built is gone once the next round writes.
+        self.revision += 1
+        archive = os.path.join(self.dir.rstrip("/") + ".rounds",
+                               f"r{self.revision:02d}_b{self.builds:02d}_{name}")
+        os.makedirs(os.path.dirname(archive), exist_ok=True)
+        with open(archive, "w", encoding="utf-8") as handle:
             handle.write(content)
         return f"wrote {name}, {len(content.splitlines())} lines"
 
@@ -308,6 +318,8 @@ def main():
         for index, (name, arguments) in enumerate(calls):
             result = (trial.write_file(arguments.get("path"), arguments.get("content", ""))
                       if name == "write_file" else trial.run(arguments.get("command")))
+            # write_file content is archived in full beside the trial; the
+            # transcript keeps a prefix so it stays readable.
             trial.record("tool_result", name=name,
                          args={k: (v[:200] if isinstance(v, str) else v)
                                for k, v in arguments.items()},

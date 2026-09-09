@@ -1,0 +1,2205 @@
+
+****** Vivado v2023.2 (64-bit)
+  **** SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+  **** IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+  **** SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pnr.tcl
+# set files [glob -nocomplain /scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/*.v /scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/*.sv]
+# foreach f $files { if {[string match *tb_study* $f]} { continue }
+#   if {[string match *.sv $f]} { read_verilog -sv $f } else { read_verilog $f } }
+read_verilog: Time (s): cpu = 00:00:08 ; elapsed = 00:00:08 . Memory (MB): peak = 1557.793 ; gain = 0.023 ; free physical = 82755 ; free virtual = 165146
+# synth_design -top dut_norm -part xcu280-fsvh2892-2L-e -mode out_of_context
+Command: synth_design -top dut_norm -part xcu280-fsvh2892-2L-e -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xcu280'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xcu280'
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 4 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 1461409
+---------------------------------------------------------------------------------
+Starting Synthesize : Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 1976.445 ; gain = 415.676 ; free physical = 81939 ; free virtual = 164356
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'dut_norm' [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:64]
+INFO: [Synth 8-6157] synthesizing module 'dut_norm_pe' [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:1]
+INFO: [Synth 8-6155] done synthesizing module 'dut_norm_pe' (0#1) [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:1]
+INFO: [Synth 8-6155] done synthesizing module 'dut_norm' (0#1) [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:64]
+WARNING: [Synth 8-3917] design dut_norm has port a_in_0_read driven by constant 1
+WARNING: [Synth 8-3917] design dut_norm has port b_in_0_read driven by constant 1
+---------------------------------------------------------------------------------
+Finished Synthesize : Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 2060.383 ; gain = 499.613 ; free physical = 81773 ; free virtual = 164186
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 2075.227 ; gain = 514.457 ; free physical = 81762 ; free virtual = 164175
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xcu280-fsvh2892-2L-e
+INFO: [Device 21-403] Loading part xcu280-fsvh2892-2L-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 2092.137 ; gain = 531.367 ; free physical = 81753 ; free virtual = 164167
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:08 ; elapsed = 00:00:08 . Memory (MB): peak = 2092.137 ; gain = 531.367 ; free physical = 81207 ; free virtual = 163623
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input    4 Bit       Adders := 1     
+	   2 Input    3 Bit       Adders := 16    
+	   2 Input    2 Bit       Adders := 8     
+	   3 Input    2 Bit       Adders := 8     
++---Registers : 
+	               32 Bit    Registers := 192   
+	               16 Bit    Registers := 64    
+	                8 Bit    Registers := 128   
+	                4 Bit    Registers := 1     
+	                3 Bit    Registers := 16    
+	                2 Bit    Registers := 8     
+	                1 Bit    Registers := 600   
++---Muxes : 
+	   2 Input   32 Bit        Muxes := 200   
+	   2 Input    3 Bit        Muxes := 8     
+	   2 Input    2 Bit        Muxes := 8     
+	   2 Input    1 Bit        Muxes := 192   
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 9024 (col length:94)
+BRAMs: 4032 (col length: RAMB18 288 RAMB36 144)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-7080] Parallel synthesis criteria is not met
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+DSP Report: Generating DSP accumulator_reg, operation Mode is: (0 or P)+(A*B)'.
+DSP Report: register accumulator_reg is absorbed into DSP accumulator_reg.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulator_reg.
+DSP Report: operator accumulated_value is absorbed into DSP accumulator_reg.
+DSP Report: operator multiplier_value is absorbed into DSP accumulator_reg.
+DSP Report: Generating DSP accumulated_value, operation Mode is: PCIN+(A*B)'.
+DSP Report: register product_pipe_reg is absorbed into DSP accumulated_value.
+DSP Report: operator multiplier_value is absorbed into DSP accumulated_value.
+DSP Report: operator accumulated_value is absorbed into DSP accumulated_value.
+WARNING: [Synth 8-3917] design dut_norm has port a_in_0_read driven by constant 1
+WARNING: [Synth 8-3917] design dut_norm has port b_in_0_read driven by constant 1
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:23 ; elapsed = 00:00:23 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 86684 ; free virtual = 169116
+---------------------------------------------------------------------------------
+ Sort Area is  accumulator_reg_0 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_0 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_10 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_10 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_11 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_11 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_12 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_12 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_13 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_13 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_14 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_14 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_15 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_15 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_16 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_16 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_17 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_17 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_18 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_18 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_19 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_19 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1a : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1a : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1b : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1b : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1c : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1c : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1d : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1d : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1e : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1e : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1f : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_1f : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_20 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_20 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_21 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_21 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_22 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_22 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_23 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_23 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_24 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_24 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_25 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_25 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_26 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_26 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_27 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_27 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_28 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_28 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_29 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_29 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2a : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2a : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2b : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2b : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2c : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2c : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2d : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2d : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2e : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2e : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2f : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_2f : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_30 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_30 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_31 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_31 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_32 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_32 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_33 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_33 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_34 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_34 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_35 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_35 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_36 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_36 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_37 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_37 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_38 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_38 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_39 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_39 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3a : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3a : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3b : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3b : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3c : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3c : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3d : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3d : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3e : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3e : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3f : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_3f : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_4 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_4 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_40 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_40 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_41 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_41 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_5 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_5 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_6 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_6 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_7 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_7 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_8 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_8 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_9 : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_9 : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_a : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_a : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_b : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_b : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_c : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_c : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_d : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_d : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_e : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_e : 0 1 : 582 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_f : 0 0 : 646 1228 : Used 1 time 100
+ Sort Area is  accumulator_reg_f : 0 1 : 582 1228 : Used 1 time 100
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+DSP: Preliminary Mapping Report (see note below. The ' indicates corresponding REG is set)
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping     | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | (0 or P)+(A*B)' | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B)'     | 8      | 8      | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+Note: The table above is a preliminary report that shows the DSPs inferred at the current stage of the synthesis flow. Some DSP may be reimplemented as non DSP primitives later in the synthesis flow. Multiple instantiated DSPs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:24 ; elapsed = 00:00:25 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95975 ; free virtual = 178409
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:27 ; elapsed = 00:00:28 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95952 ; free virtual = 178387
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:32 ; elapsed = 00:00:33 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95317 ; free virtual = 177761
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:32 ; elapsed = 00:00:33 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95320 ; free virtual = 177764
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:33 ; elapsed = 00:00:34 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95202 ; free virtual = 177647
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:33 ; elapsed = 00:00:34 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95199 ; free virtual = 177644
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:34 ; elapsed = 00:00:34 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95194 ; free virtual = 177640
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:34 ; elapsed = 00:00:35 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95160 ; free virtual = 177606
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+DSP Final Report (the ' indicates corresponding REG is set)
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping     | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|dut_norm_pe | PCIN+(A*B)'     | 30     | 18     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B)'    | 30     | 18     | -      | -      | 32     | 1    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B)'   | 30     | 18     | -      | -      | 32     | 2    | 0    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B')'    | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B')'   | 30     | 18     | -      | -      | 32     | 1    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B')'  | 30     | 18     | -      | -      | 32     | 2    | 1    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A*B'')'   | 30     | 18     | -      | -      | 32     | 0    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A'*B'')'  | 30     | 18     | -      | -      | 32     | 1    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
+|dut_norm_pe | PCIN+(A''*B'')' | 30     | 18     | -      | -      | 32     | 2    | 2    | -    | -    | -     | 1    | 0    | 
+|dut_norm_pe | Dynamic         | -      | -      | -      | -      | 32     | -    | -    | -    | -    | -     | 1    | 1    | 
++------------+-----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+----------------+------+
+|      |Cell            |Count |
++------+----------------+------+
+|1     |DSP48E2         |     2|
+|2     |DSP_ALU         |   126|
+|3     |DSP_A_B_DATA    |   126|
+|4     |DSP_C_DATA      |   126|
+|5     |DSP_MULTIPLIER  |   126|
+|6     |DSP_M_DATA      |   126|
+|7     |DSP_OUTPUT      |   126|
+|8     |DSP_PREADD      |   126|
+|9     |DSP_PREADD_DATA |   126|
+|10    |LUT1            |    82|
+|11    |LUT2            |    84|
+|12    |LUT3            |   293|
+|13    |LUT4            |   532|
+|14    |LUT5            |  3628|
+|15    |LUT6            |   168|
+|16    |FDRE            |  5364|
++------+----------------+------+
+
+Report Instance Areas: 
++------+------------------------------+-------------------------------------------------------+------+
+|      |Instance                      |Module                                                 |Cells |
++------+------------------------------+-------------------------------------------------------+------+
+|1     |top                           |                                                       | 11161|
+|2     |  \row[0].col[0].middle.pe    |dut_norm_pe                                            |   195|
+|3     |  \row[0].col[1].middle.pe    |dut_norm_pe_0                                          |   174|
+|4     |    accumulated_value         |\row[0].col[1].middle.pe/accumulated_value_funnel      |     8|
+|5     |    accumulator_reg           |\row[0].col[1].middle.pe/accumulator_reg_funnel        |     8|
+|6     |  \row[0].col[2].middle.pe    |dut_norm_pe_1                                          |   174|
+|7     |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel__3   |     8|
+|8     |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel        |     8|
+|9     |  \row[0].col[3].middle.pe    |dut_norm_pe_2                                          |   174|
+|10    |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel__5   |     8|
+|11    |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel__5     |     8|
+|12    |  \row[0].col[4].middle.pe    |dut_norm_pe_3                                          |   174|
+|13    |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel      |     8|
+|14    |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel__1     |     8|
+|15    |  \row[0].col[5].middle.pe    |dut_norm_pe_4                                          |   166|
+|16    |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel__1   |     8|
+|17    |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel__4     |     8|
+|18    |  \row[0].col[6].middle.pe    |dut_norm_pe_5                                          |   166|
+|19    |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel__2   |     8|
+|20    |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel__2     |     8|
+|21    |  \row[0].col[7].eastmost.pe  |dut_norm_pe_6                                          |   169|
+|22    |    accumulated_value         |\row[0].col[4].middle.pe/accumulated_value_funnel__4   |     8|
+|23    |    accumulator_reg           |\row[0].col[2].middle.pe/accumulator_reg_funnel__3     |     8|
+|24    |  \row[1].col[0].middle.pe    |dut_norm_pe_7                                          |   209|
+|25    |    accumulated_value         |\row[1].col[0].middle.pe/accumulated_value_funnel      |     8|
+|26    |    accumulator_reg           |\row[1].col[0].middle.pe/accumulator_reg_funnel        |     8|
+|27    |  \row[1].col[1].middle.pe    |dut_norm_pe_8                                          |   173|
+|28    |    accumulated_value         |\row[1].col[1].middle.pe/accumulated_value_funnel      |     8|
+|29    |    accumulator_reg           |\row[1].col[1].middle.pe/accumulator_reg_funnel        |     8|
+|30    |  \row[1].col[2].middle.pe    |dut_norm_pe_9                                          |   173|
+|31    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel__4   |     8|
+|32    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel__5     |     8|
+|33    |  \row[1].col[3].middle.pe    |dut_norm_pe_10                                         |   173|
+|34    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel      |     8|
+|35    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel__4     |     8|
+|36    |  \row[1].col[4].middle.pe    |dut_norm_pe_11                                         |   173|
+|37    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel__1   |     8|
+|38    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel__3     |     8|
+|39    |  \row[1].col[5].middle.pe    |dut_norm_pe_12                                         |   165|
+|40    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel__5   |     8|
+|41    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel        |     8|
+|42    |  \row[1].col[6].middle.pe    |dut_norm_pe_13                                         |   165|
+|43    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel__2   |     8|
+|44    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel__1     |     8|
+|45    |  \row[1].col[7].eastmost.pe  |dut_norm_pe_14                                         |   168|
+|46    |    accumulated_value         |\row[1].col[3].middle.pe/accumulated_value_funnel__3   |     8|
+|47    |    accumulator_reg           |\row[1].col[5].middle.pe/accumulator_reg_funnel__2     |     8|
+|48    |  \row[2].col[0].middle.pe    |dut_norm_pe_15                                         |   209|
+|49    |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel__5   |     8|
+|50    |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel__2     |     8|
+|51    |  \row[2].col[1].middle.pe    |dut_norm_pe_16                                         |   173|
+|52    |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel__4   |     8|
+|53    |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel        |     8|
+|54    |  \row[2].col[2].middle.pe    |dut_norm_pe_17                                         |   173|
+|55    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__12  |     8|
+|56    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__15    |     8|
+|57    |  \row[2].col[3].middle.pe    |dut_norm_pe_18                                         |   173|
+|58    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__16  |     8|
+|59    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__26    |     8|
+|60    |  \row[2].col[4].middle.pe    |dut_norm_pe_19                                         |   173|
+|61    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__4   |     8|
+|62    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__5     |     8|
+|63    |  \row[2].col[5].middle.pe    |dut_norm_pe_20                                         |   165|
+|64    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__27  |     8|
+|65    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__11    |     8|
+|66    |  \row[2].col[6].middle.pe    |dut_norm_pe_21                                         |   165|
+|67    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__35  |     8|
+|68    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel        |     8|
+|69    |  \row[2].col[7].eastmost.pe  |dut_norm_pe_22                                         |   168|
+|70    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__25  |     8|
+|71    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__2     |     8|
+|72    |  \row[3].col[0].middle.pe    |dut_norm_pe_23                                         |   209|
+|73    |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel__2   |     8|
+|74    |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel__5     |     8|
+|75    |  \row[3].col[1].middle.pe    |dut_norm_pe_24                                         |   173|
+|76    |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel__2   |     8|
+|77    |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel__3     |     8|
+|78    |  \row[3].col[2].middle.pe    |dut_norm_pe_25                                         |   173|
+|79    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__30  |     8|
+|80    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__21    |     8|
+|81    |  \row[3].col[3].middle.pe    |dut_norm_pe_26                                         |   173|
+|82    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__29  |     8|
+|83    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__13    |     8|
+|84    |  \row[3].col[4].middle.pe    |dut_norm_pe_27                                         |   173|
+|85    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__15  |     8|
+|86    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__31    |     8|
+|87    |  \row[3].col[5].middle.pe    |dut_norm_pe_28                                         |   165|
+|88    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__33  |     8|
+|89    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__14    |     8|
+|90    |  \row[3].col[6].middle.pe    |dut_norm_pe_29                                         |   165|
+|91    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__24  |     8|
+|92    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__25    |     8|
+|93    |  \row[3].col[7].eastmost.pe  |dut_norm_pe_30                                         |   168|
+|94    |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__18  |     8|
+|95    |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__16    |     8|
+|96    |  \row[4].col[0].middle.pe    |dut_norm_pe_31                                         |   209|
+|97    |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel__4   |     8|
+|98    |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel__1     |     8|
+|99    |  \row[4].col[1].middle.pe    |dut_norm_pe_32                                         |   173|
+|100   |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel__1   |     8|
+|101   |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel__4     |     8|
+|102   |  \row[4].col[2].middle.pe    |dut_norm_pe_33                                         |   173|
+|103   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__2   |     8|
+|104   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__33    |     8|
+|105   |  \row[4].col[3].middle.pe    |dut_norm_pe_34                                         |   173|
+|106   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__22  |     8|
+|107   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__6     |     8|
+|108   |  \row[4].col[4].middle.pe    |dut_norm_pe_35                                         |   174|
+|109   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__9   |     8|
+|110   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__18    |     8|
+|111   |  \row[4].col[5].middle.pe    |dut_norm_pe_36                                         |   165|
+|112   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__26  |     8|
+|113   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__8     |     8|
+|114   |  \row[4].col[6].middle.pe    |dut_norm_pe_37                                         |   165|
+|115   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__34  |     8|
+|116   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__7     |     8|
+|117   |  \row[4].col[7].eastmost.pe  |dut_norm_pe_38                                         |   168|
+|118   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__21  |     8|
+|119   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__20    |     8|
+|120   |  \row[5].col[0].middle.pe    |dut_norm_pe_39                                         |   201|
+|121   |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel      |     8|
+|122   |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel        |     8|
+|123   |  \row[5].col[1].middle.pe    |dut_norm_pe_40                                         |   165|
+|124   |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel      |     8|
+|125   |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel__2     |     8|
+|126   |  \row[5].col[2].middle.pe    |dut_norm_pe_41                                         |   165|
+|127   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__17  |     8|
+|128   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__28    |     8|
+|129   |  \row[5].col[3].middle.pe    |dut_norm_pe_42                                         |   165|
+|130   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel      |     8|
+|131   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__29    |     8|
+|132   |  \row[5].col[4].middle.pe    |dut_norm_pe_43                                         |   165|
+|133   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__32  |     8|
+|134   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__35    |     8|
+|135   |  \row[5].col[5].middle.pe    |dut_norm_pe_44                                         |   157|
+|136   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__20  |     8|
+|137   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__19    |     8|
+|138   |  \row[5].col[6].middle.pe    |dut_norm_pe_45                                         |   157|
+|139   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__10  |     8|
+|140   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__10    |     8|
+|141   |  \row[5].col[7].eastmost.pe  |dut_norm_pe_46                                         |   160|
+|142   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__23  |     8|
+|143   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__1     |     8|
+|144   |  \row[6].col[0].middle.pe    |dut_norm_pe_47                                         |   201|
+|145   |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel__3   |     8|
+|146   |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel__3     |     8|
+|147   |  \row[6].col[1].middle.pe    |dut_norm_pe_48                                         |   165|
+|148   |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel__3   |     8|
+|149   |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel__1     |     8|
+|150   |  \row[6].col[2].middle.pe    |dut_norm_pe_49                                         |   165|
+|151   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__19  |     8|
+|152   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__24    |     8|
+|153   |  \row[6].col[3].middle.pe    |dut_norm_pe_50                                         |   165|
+|154   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__8   |     8|
+|155   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__17    |     8|
+|156   |  \row[6].col[4].middle.pe    |dut_norm_pe_51                                         |   165|
+|157   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__3   |     8|
+|158   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__23    |     8|
+|159   |  \row[6].col[5].middle.pe    |dut_norm_pe_52                                         |   157|
+|160   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__14  |     8|
+|161   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__27    |     8|
+|162   |  \row[6].col[6].middle.pe    |dut_norm_pe_53                                         |   157|
+|163   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__31  |     8|
+|164   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__4     |     8|
+|165   |  \row[6].col[7].eastmost.pe  |dut_norm_pe_54                                         |   160|
+|166   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__6   |     8|
+|167   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__3     |     8|
+|168   |  \row[7].col[0].middle.pe    |dut_norm_pe_55                                         |   199|
+|169   |    accumulated_value         |\row[5].col[0].middle.pe/accumulated_value_funnel__1   |     8|
+|170   |    accumulator_reg           |\row[5].col[0].middle.pe/accumulator_reg_funnel__4     |     8|
+|171   |  \row[7].col[1].middle.pe    |dut_norm_pe_56                                         |   164|
+|172   |    accumulated_value         |\row[5].col[1].middle.pe/accumulated_value_funnel__5   |     8|
+|173   |    accumulator_reg           |\row[2].col[1].middle.pe/accumulator_reg_funnel__5     |     8|
+|174   |  \row[7].col[2].middle.pe    |dut_norm_pe_57                                         |   164|
+|175   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__5   |     8|
+|176   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__9     |     8|
+|177   |  \row[7].col[3].middle.pe    |dut_norm_pe_58                                         |   164|
+|178   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__7   |     8|
+|179   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__12    |     8|
+|180   |  \row[7].col[4].middle.pe    |dut_norm_pe_59                                         |   164|
+|181   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__28  |     8|
+|182   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__30    |     8|
+|183   |  \row[7].col[5].middle.pe    |dut_norm_pe_60                                         |   156|
+|184   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__11  |     8|
+|185   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__32    |     8|
+|186   |  \row[7].col[6].middle.pe    |dut_norm_pe_61                                         |   156|
+|187   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__1   |     8|
+|188   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__34    |     8|
+|189   |  \row[7].col[7].eastmost.pe  |dut_norm_pe_62                                         |   159|
+|190   |    accumulated_value         |\row[5].col[3].middle.pe/accumulated_value_funnel__13  |     8|
+|191   |    accumulator_reg           |\row[2].col[6].middle.pe/accumulator_reg_funnel__22    |     8|
++------+------------------------------+-------------------------------------------------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:34 ; elapsed = 00:00:35 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95161 ; free virtual = 177607
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 5 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:34 ; elapsed = 00:00:35 . Memory (MB): peak = 3276.512 ; gain = 1715.742 ; free physical = 95161 ; free virtual = 177608
+Synthesis Optimization Complete : Time (s): cpu = 00:00:34 ; elapsed = 00:00:35 . Memory (MB): peak = 3276.520 ; gain = 1715.742 ; free physical = 95159 ; free virtual = 177605
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.14 . Memory (MB): peak = 3288.480 ; gain = 0.000 ; free physical = 95247 ; free virtual = 177989
+INFO: [Netlist 29-17] Analyzing 128 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 1 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3480.914 ; gain = 0.000 ; free physical = 91701 ; free virtual = 174446
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 128 instances were transformed.
+  DSP48E2 => DSP48E2 (DSP_ALU, DSP_A_B_DATA, DSP_C_DATA, DSP_MULTIPLIER, DSP_M_DATA, DSP_OUTPUT, DSP_PREADD, DSP_PREADD_DATA): 128 instances
+
+Synth Design complete | Checksum: 90bd13af
+INFO: [Common 17-83] Releasing license: Synthesis
+17 Infos, 5 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:44 ; elapsed = 00:01:02 . Memory (MB): peak = 3480.949 ; gain = 1923.156 ; free physical = 89776 ; free virtual = 172523
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 2579.599; main = 2387.878; forked = 340.855
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 4889.820; main = 3480.918; forked = 1613.305
+# create_clock -period 3.333 -name ap_clk [get_ports ap_clk]
+create_clock: Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 3480.949 ; gain = 0.000 ; free physical = 89268 ; free virtual = 172019
+# opt_design
+Command: opt_design
+Attempting to get a license for feature 'Implementation' and/or device 'xcu280'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu280'
+Running DRC as a precondition to command opt_design
+
+Starting DRC Task
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Project 1-461] DRC finished with 0 Errors
+INFO: [Project 1-462] Please refer to the DRC report (report_drc) for more information.
+
+Time (s): cpu = 00:00:03 ; elapsed = 00:00:01 . Memory (MB): peak = 3544.945 ; gain = 63.996 ; free physical = 89224 ; free virtual = 171975
+
+Starting Cache Timing Information Task
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+Ending Cache Timing Information Task | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:15 ; elapsed = 00:00:04 . Memory (MB): peak = 3701.445 ; gain = 156.500 ; free physical = 88997 ; free virtual = 171582
+
+Starting Logic Optimization Task
+
+Phase 1 Initialization
+
+Phase 1.1 Core Generation And Design Setup
+Phase 1.1 Core Generation And Design Setup | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88578 ; free virtual = 171165
+
+Phase 1.2 Setup Constraints And Sort Netlist
+Phase 1.2 Setup Constraints And Sort Netlist | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88578 ; free virtual = 171165
+Phase 1 Initialization | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88577 ; free virtual = 171165
+
+Phase 2 Timer Update And Timing Data Collection
+
+Phase 2.1 Timer Update
+Phase 2.1 Timer Update | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:04 ; elapsed = 00:00:00.9 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88484 ; free virtual = 171073
+
+Phase 2.2 Timing Data Collection
+Phase 2.2 Timing Data Collection | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:04 ; elapsed = 00:00:00.94 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88462 ; free virtual = 171051
+Phase 2 Timer Update And Timing Data Collection | Checksum: 17cebd88e
+
+Time (s): cpu = 00:00:04 ; elapsed = 00:00:00.94 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88461 ; free virtual = 171049
+
+Phase 3 Retarget
+INFO: [Opt 31-138] Pushed 65 inverter(s) to 5804 load pin(s).
+INFO: [Opt 31-49] Retargeted 0 cell(s).
+Phase 3 Retarget | Checksum: 68fba5ad
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:02 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88317 ; free virtual = 170907
+Retarget | Checksum: 68fba5ad
+INFO: [Opt 31-389] Phase Retarget created 0 cells and removed 65 cells
+
+Phase 4 Constant propagation
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Phase 4 Constant propagation | Checksum: 68fba5ad
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:02 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88307 ; free virtual = 170898
+Constant propagation | Checksum: 68fba5ad
+INFO: [Opt 31-389] Phase Constant propagation created 0 cells and removed 0 cells
+
+Phase 5 Sweep
+Phase 5 Sweep | Checksum: 3ff13774
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3946.352 ; gain = 0.000 ; free physical = 88245 ; free virtual = 170836
+Sweep | Checksum: 3ff13774
+INFO: [Opt 31-389] Phase Sweep created 0 cells and removed 0 cells
+
+Phase 6 BUFG optimization
+INFO: [Opt 31-1077] Phase BUFG optimization inserted 0 global clock buffer(s) for CLOCK_LOW_FANOUT.
+Phase 6 BUFG optimization | Checksum: 3ff13774
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88247 ; free virtual = 170838
+BUFG optimization | Checksum: 3ff13774
+INFO: [Opt 31-662] Phase BUFG optimization created 0 cells of which 0 are BUFGs and removed 0 cells.
+
+Phase 7 Shift Register Optimization
+INFO: [Opt 31-1064] SRL Remap converted 0 SRLs to 0 registers and converted 0 registers of register chains to 0 SRLs
+Phase 7 Shift Register Optimization | Checksum: 3ff13774
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88245 ; free virtual = 170836
+Shift Register Optimization | Checksum: 3ff13774
+INFO: [Opt 31-389] Phase Shift Register Optimization created 0 cells and removed 0 cells
+
+Phase 8 Post Processing Netlist
+Phase 8 Post Processing Netlist | Checksum: 3ff13774
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88136 ; free virtual = 170727
+Post Processing Netlist | Checksum: 3ff13774
+INFO: [Opt 31-389] Phase Post Processing Netlist created 0 cells and removed 0 cells
+
+Phase 9 Finalization
+
+Phase 9.1 Finalizing Design Cores and Updating Shapes
+Phase 9.1 Finalizing Design Cores and Updating Shapes | Checksum: badca38d
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88127 ; free virtual = 170718
+
+Phase 9.2 Verifying Netlist Connectivity
+
+Starting Connectivity Check Task
+
+Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88124 ; free virtual = 170715
+Phase 9.2 Verifying Netlist Connectivity | Checksum: badca38d
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88124 ; free virtual = 170715
+Phase 9 Finalization | Checksum: badca38d
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88124 ; free virtual = 170715
+Opt_design Change Summary
+=========================
+
+
+-------------------------------------------------------------------------------------------------------------------------
+|  Phase                        |  #Cells created  |  #Cells Removed  |  #Constrained objects preventing optimizations  |
+-------------------------------------------------------------------------------------------------------------------------
+|  Retarget                     |               0  |              65  |                                              0  |
+|  Constant propagation         |               0  |               0  |                                              0  |
+|  Sweep                        |               0  |               0  |                                              0  |
+|  BUFG optimization            |               0  |               0  |                                              0  |
+|  Shift Register Optimization  |               0  |               0  |                                              0  |
+|  Post Processing Netlist      |               0  |               0  |                                              0  |
+-------------------------------------------------------------------------------------------------------------------------
+
+
+Ending Logic Optimization Task | Checksum: badca38d
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3978.367 ; gain = 32.016 ; free physical = 88124 ; free virtual = 170715
+INFO: [Constraints 18-11670] Building netlist checker database with flags, 0x8
+Done building netlist checker database: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88246 ; free virtual = 170838
+
+Starting Power Optimization Task
+INFO: [Pwropt 34-132] Skipping clock gating for clocks with a period < 2.00 ns.
+Ending Power Optimization Task | Checksum: badca38d
+
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88203 ; free virtual = 170794
+
+Starting Final Cleanup Task
+Ending Final Cleanup Task | Checksum: badca38d
+
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88199 ; free virtual = 170790
+
+Starting Netlist Obfuscation Task
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88194 ; free virtual = 170786
+Ending Netlist Obfuscation Task | Checksum: badca38d
+
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3978.367 ; gain = 0.000 ; free physical = 88193 ; free virtual = 170785
+INFO: [Common 17-83] Releasing license: Implementation
+19 Infos, 0 Warnings, 0 Critical Warnings and 0 Errors encountered.
+opt_design completed successfully
+opt_design: Time (s): cpu = 00:00:26 ; elapsed = 00:00:11 . Memory (MB): peak = 3978.367 ; gain = 497.418 ; free physical = 88188 ; free virtual = 170780
+# place_design
+Command: place_design
+Attempting to get a license for feature 'Implementation' and/or device 'xcu280'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu280'
+INFO: [Common 17-83] Releasing license: Implementation
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+Running DRC as a precondition to command place_design
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+INFO: [Place 30-611] Multithreading enabled for place_design using a maximum of 8 CPUs
+
+Starting Placer Task
+
+Phase 1 Placer Initialization
+
+Phase 1.1 Placer Initialization Netlist Sorting
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 4010.383 ; gain = 0.000 ; free physical = 87946 ; free virtual = 170538
+Phase 1.1 Placer Initialization Netlist Sorting | Checksum: 0f0ea018
+
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 4010.383 ; gain = 0.000 ; free physical = 87946 ; free virtual = 170538
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 4010.383 ; gain = 0.000 ; free physical = 87941 ; free virtual = 170534
+
+Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device | Checksum: 8ae08569
+
+Time (s): cpu = 00:00:46 ; elapsed = 00:00:36 . Memory (MB): peak = 4729.672 ; gain = 719.289 ; free physical = 88982 ; free virtual = 171641
+
+Phase 1.3 Build Placer Netlist Model
+Phase 1.3 Build Placer Netlist Model | Checksum: 164e22ab8
+
+Time (s): cpu = 00:01:03 ; elapsed = 00:00:45 . Memory (MB): peak = 5136.262 ; gain = 1125.879 ; free physical = 88479 ; free virtual = 171155
+
+Phase 1.4 Constrain Clocks/Macros
+Phase 1.4 Constrain Clocks/Macros | Checksum: 164e22ab8
+
+Time (s): cpu = 00:01:03 ; elapsed = 00:00:45 . Memory (MB): peak = 5136.262 ; gain = 1125.879 ; free physical = 88479 ; free virtual = 171155
+Phase 1 Placer Initialization | Checksum: 164e22ab8
+
+Time (s): cpu = 00:01:03 ; elapsed = 00:00:45 . Memory (MB): peak = 5136.262 ; gain = 1125.879 ; free physical = 88478 ; free virtual = 171154
+
+Phase 2 Global Placement
+
+Phase 2.1 Floorplanning
+
+Phase 2.1.1 Partition Driven Placement
+
+Phase 2.1.1.1 PBP: Partition Driven Placement
+Phase 2.1.1.1 PBP: Partition Driven Placement | Checksum: 92410110
+
+Time (s): cpu = 00:01:10 ; elapsed = 00:00:48 . Memory (MB): peak = 5136.262 ; gain = 1125.879 ; free physical = 88478 ; free virtual = 171160
+
+Phase 2.1.1.2 PBP: Clock Region Placement
+INFO: [Place 30-3164] Check ILP status : ILP-based clock placer is skipped.
+Phase 2.1.1.2 PBP: Clock Region Placement | Checksum: 92410110
+
+Time (s): cpu = 00:01:10 ; elapsed = 00:00:48 . Memory (MB): peak = 5136.262 ; gain = 1125.879 ; free physical = 88477 ; free virtual = 171159
+
+Phase 2.1.1.3 PBP: Compute Congestion
+Phase 2.1.1.3 PBP: Compute Congestion | Checksum: 92410110
+
+Time (s): cpu = 00:01:42 ; elapsed = 00:00:59 . Memory (MB): peak = 5595.246 ; gain = 1584.863 ; free physical = 87378 ; free virtual = 170078
+
+Phase 2.1.1.4 PBP: UpdateTiming
+Phase 2.1.1.4 PBP: UpdateTiming | Checksum: 14280c431
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87353 ; free virtual = 170054
+
+Phase 2.1.1.5 PBP: Add part constraints
+Phase 2.1.1.5 PBP: Add part constraints | Checksum: 14280c431
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87353 ; free virtual = 170054
+Phase 2.1.1 Partition Driven Placement | Checksum: 14280c431
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87353 ; free virtual = 170053
+Phase 2.1 Floorplanning | Checksum: b8477e93
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87353 ; free virtual = 170054
+
+Phase 2.2 Physical Synthesis After Floorplan
+INFO: [Physopt 32-670] No setup violation found.  PSIP Post Floorplan SLR Replication was not performed.
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 5627.262 ; gain = 0.000 ; free physical = 87371 ; free virtual = 170072
+
+Summary of Physical Synthesis Optimizations
+============================================
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization                         |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+-----------------------------------------------------------------------------------------------------------------------------------------------
+|  PSIP Post Floorplan SLR Replication  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Total                                |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Phase 2.2 Physical Synthesis After Floorplan | Checksum: b8477e93
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87371 ; free virtual = 170072
+
+Phase 2.3 Update Timing before SLR Path Opt
+Phase 2.3 Update Timing before SLR Path Opt | Checksum: b8477e93
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87370 ; free virtual = 170071
+
+Phase 2.4 Post-Processing in Floorplanning
+Phase 2.4 Post-Processing in Floorplanning | Checksum: b8477e93
+
+Time (s): cpu = 00:01:43 ; elapsed = 00:00:59 . Memory (MB): peak = 5627.262 ; gain = 1616.879 ; free physical = 87369 ; free virtual = 170070
+
+Phase 2.5 Global Placement Core
+
+Phase 2.5.1 UpdateTiming Before Physical Synthesis
+Phase 2.5.1 UpdateTiming Before Physical Synthesis | Checksum: 1a4469cda
+
+Time (s): cpu = 00:03:22 ; elapsed = 00:01:41 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 84825 ; free virtual = 167494
+
+Phase 2.5.2 Physical Synthesis In Placer
+INFO: [Physopt 32-1035] Found 0 LUTNM shape to break, 37 LUT instances to create LUTNM shape
+INFO: [Physopt 32-1044] Break lutnm for timing: one critical 0, two critical 0, total 0, new lutff created 0
+INFO: [Physopt 32-1138] End 1 Pass. Optimized 16 nets or LUTs. Breaked 0 LUT, combined 16 existing LUTs and moved 0 existing LUT
+INFO: [Physopt 32-69] No nets found for rewiring optimization.
+INFO: [Physopt 32-661] Optimized 0 net.  Re-placed 0 instance.
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-65] No nets found for high-fanout optimization.
+INFO: [Physopt 32-232] Optimized 0 net. Created 0 new instance.
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-670] No setup violation found.  DSP Register Optimization was not performed.
+INFO: [Physopt 32-670] No setup violation found.  Shift Register to Pipeline Optimization was not performed.
+INFO: [Physopt 32-670] No setup violation found.  Shift Register Optimization was not performed.
+INFO: [Physopt 32-670] No setup violation found.  BRAM Register Optimization was not performed.
+INFO: [Physopt 32-670] No setup violation found.  URAM Register Optimization was not performed.
+INFO: [Physopt 32-949] No candidate nets found for dynamic/static region interface net replication
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 6208.297 ; gain = 0.000 ; free physical = 83668 ; free virtual = 166338
+
+Summary of Physical Synthesis Optimizations
+============================================
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization                                     |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+|  LUT Combining                                    |            0  |             16  |                    16  |           0  |           1  |  00:00:00  |
+|  Retime                                           |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Equivalent Driver Rewiring                       |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Very High Fanout                                 |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  DSP Register                                     |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Shift Register to Pipeline                       |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Shift Register                                   |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  BRAM Register                                    |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  URAM Register                                    |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Dynamic/Static Region Interface Net Replication  |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Total                                            |            0  |             16  |                    16  |           0  |           5  |  00:00:00  |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Phase 2.5.2 Physical Synthesis In Placer | Checksum: 1e44e1358
+
+Time (s): cpu = 00:03:24 ; elapsed = 00:01:44 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 82484 ; free virtual = 165157
+Phase 2.5 Global Placement Core | Checksum: 261dc0fab
+
+Time (s): cpu = 00:04:35 ; elapsed = 00:02:07 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 81075 ; free virtual = 163800
+Phase 2 Global Placement | Checksum: 261dc0fab
+
+Time (s): cpu = 00:04:35 ; elapsed = 00:02:07 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 81072 ; free virtual = 163797
+
+Phase 3 Detail Placement
+
+Phase 3.1 Commit Multi Column Macros
+Phase 3.1 Commit Multi Column Macros | Checksum: 22bffa126
+
+Time (s): cpu = 00:05:10 ; elapsed = 00:02:19 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 80528 ; free virtual = 163284
+
+Phase 3.2 Commit Most Macros & LUTRAMs
+Phase 3.2 Commit Most Macros & LUTRAMs | Checksum: 2238a7c64
+
+Time (s): cpu = 00:05:11 ; elapsed = 00:02:19 . Memory (MB): peak = 6208.297 ; gain = 2197.914 ; free physical = 80475 ; free virtual = 163231
+
+Phase 3.3 Small Shape DP
+
+Phase 3.3.1 Small Shape Clustering
+Phase 3.3.1 Small Shape Clustering | Checksum: 2da2f72f5
+
+Time (s): cpu = 00:05:45 ; elapsed = 00:02:30 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80469 ; free virtual = 163233
+
+Phase 3.3.2 Slice Area Swap
+
+Phase 3.3.2.1 Slice Area Swap Initial
+Phase 3.3.2.1 Slice Area Swap Initial | Checksum: 218c46718
+
+Time (s): cpu = 00:05:46 ; elapsed = 00:02:31 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80464 ; free virtual = 163229
+Phase 3.3.2 Slice Area Swap | Checksum: 264f150d6
+
+Time (s): cpu = 00:05:47 ; elapsed = 00:02:33 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80332 ; free virtual = 163098
+Phase 3.3 Small Shape DP | Checksum: 17d37dcd1
+
+Time (s): cpu = 00:05:50 ; elapsed = 00:02:34 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80336 ; free virtual = 163104
+
+Phase 3.4 Re-assign LUT pins
+Phase 3.4 Re-assign LUT pins | Checksum: 1e51329ad
+
+Time (s): cpu = 00:05:51 ; elapsed = 00:02:34 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80245 ; free virtual = 163013
+
+Phase 3.5 Pipeline Register Optimization
+Phase 3.5 Pipeline Register Optimization | Checksum: 286b40fc9
+
+Time (s): cpu = 00:05:51 ; elapsed = 00:02:35 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 80086 ; free virtual = 162855
+Phase 3 Detail Placement | Checksum: 286b40fc9
+
+Time (s): cpu = 00:05:51 ; elapsed = 00:02:35 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79961 ; free virtual = 162729
+
+Phase 4 Post Placement Optimization and Clean-Up
+
+Phase 4.1 Post Commit Optimization
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+
+Phase 4.1.1 Post Placement Optimization
+Post Placement Optimization Initialization | Checksum: 1b6dd692c
+
+Phase 4.1.1.1 BUFG Insertion
+
+Starting Physical Synthesis Task
+
+Phase 1 Physical Synthesis Initialization
+INFO: [Physopt 32-721] Multithreading enabled for phys_opt_design using a maximum of 8 CPUs
+INFO: [Physopt 32-619] Estimated Timing Summary | WNS=1.506 | TNS=0.000 |
+Phase 1 Physical Synthesis Initialization | Checksum: 1a2c9d08b
+
+Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.63 . Memory (MB): peak = 6216.297 ; gain = 0.000 ; free physical = 79890 ; free virtual = 162675
+INFO: [Place 46-56] BUFG insertion identified 0 candidate nets. Inserted BUFG: 0, Replicated BUFG Driver: 0, Skipped due to Placement/Routing Conflicts: 0, Skipped due to Timing Degradation: 0, Skipped due to netlist editing failed: 0.
+Ending Physical Synthesis Task | Checksum: 1a2c9d08b
+
+Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 6216.297 ; gain = 0.000 ; free physical = 79889 ; free virtual = 162674
+Phase 4.1.1.1 BUFG Insertion | Checksum: 1b6dd692c
+
+Time (s): cpu = 00:06:48 ; elapsed = 00:02:52 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79888 ; free virtual = 162674
+
+Phase 4.1.1.2 BUFG Replication
+INFO: [Place 46-63] BUFG replication identified 0 candidate nets: Replicated nets: 0, Replicated BUFGs: 0, Replicated BUFG Driver: 0, moved BUFGs: 0, Skipped due to Placement / Routing Conflict: 0, Skipped due to Timing: 0, Skipped due to constraints: 0
+Phase 4.1.1.2 BUFG Replication | Checksum: 1b6dd692c
+
+Time (s): cpu = 00:06:48 ; elapsed = 00:02:53 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79888 ; free virtual = 162674
+
+Phase 4.1.1.3 Post Placement Timing Optimization
+INFO: [Place 30-746] Post Placement Timing Summary WNS=1.506. For the most accurate timing information please run report_timing.
+Phase 4.1.1.3 Post Placement Timing Optimization | Checksum: 1e32ee504
+
+Time (s): cpu = 00:06:49 ; elapsed = 00:02:53 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79888 ; free virtual = 162673
+
+Phase 4.1.1.4 Replication
+INFO: [Place 46-19] Post Replication Timing Summary WNS=1.506. For the most accurate timing information please run report_timing.
+Phase 4.1.1.4 Replication | Checksum: 1e32ee504
+
+Time (s): cpu = 00:06:50 ; elapsed = 00:02:53 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79887 ; free virtual = 162673
+
+Time (s): cpu = 00:06:50 ; elapsed = 00:02:53 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79887 ; free virtual = 162673
+Phase 4.1 Post Commit Optimization | Checksum: 1e32ee504
+
+Time (s): cpu = 00:06:50 ; elapsed = 00:02:53 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 79886 ; free virtual = 162672
+
+Phase 4.2 Post Placement Cleanup
+Phase 4.2 Post Placement Cleanup | Checksum: 1e32ee504
+
+Time (s): cpu = 00:07:56 ; elapsed = 00:03:37 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81469 ; free virtual = 164300
+
+Phase 4.3 Placer Reporting
+
+Phase 4.3.1 Print Estimated Congestion
+INFO: [Place 30-612] Post-Placement Estimated Congestion 
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                2x2|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+
+SLR0:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                2x2|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+
+SLR1:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+
+SLR2:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+
+Phase 4.3.1 Print Estimated Congestion | Checksum: 1e32ee504
+
+Time (s): cpu = 00:07:56 ; elapsed = 00:03:37 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81414 ; free virtual = 164244
+Phase 4.3 Placer Reporting | Checksum: 1e32ee504
+
+Time (s): cpu = 00:07:56 ; elapsed = 00:03:37 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81397 ; free virtual = 164228
+
+Phase 4.4 Final Placement Cleanup
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 6216.297 ; gain = 0.000 ; free physical = 81397 ; free virtual = 164227
+
+Time (s): cpu = 00:07:56 ; elapsed = 00:03:37 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81397 ; free virtual = 164227
+Phase 4 Post Placement Optimization and Clean-Up | Checksum: 1a6fd863c
+
+Time (s): cpu = 00:07:56 ; elapsed = 00:03:38 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81394 ; free virtual = 164225
+Ending Placer Task | Checksum: baca6e4e
+
+Time (s): cpu = 00:07:57 ; elapsed = 00:03:38 . Memory (MB): peak = 6216.297 ; gain = 2205.914 ; free physical = 81393 ; free virtual = 164225
+36 Infos, 0 Warnings, 0 Critical Warnings and 0 Errors encountered.
+place_design completed successfully
+place_design: Time (s): cpu = 00:08:01 ; elapsed = 00:03:39 . Memory (MB): peak = 6216.297 ; gain = 2237.930 ; free physical = 81393 ; free virtual = 164225
+# phys_opt_design
+Command: phys_opt_design
+Attempting to get a license for feature 'Implementation' and/or device 'xcu280'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu280'
+
+Starting Initial Update Timing Task
+WARNING: [Timing 38-242] The property HD.CLK_SRC of clock port "ap_clk" is not set. In out-of-context mode, this prevents timing estimation for clock delay/skew
+Resolution: Set the HD.CLK_SRC property of the out-of-context port to the location of the clock buffer instance in the top-level design
+
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:02 . Memory (MB): peak = 6216.297 ; gain = 0.000 ; free physical = 80919 ; free virtual = 163758
+INFO: [Vivado_Tcl 4-383] Design worst setup slack (WNS) is greater than or equal to 0.000 ns. Skipping all physical synthesis optimizations.
+INFO: [Vivado_Tcl 4-232] No setup violation found. The netlist was not modified.
+INFO: [Common 17-83] Releasing license: Implementation
+4 Infos, 1 Warnings, 0 Critical Warnings and 0 Errors encountered.
+phys_opt_design completed successfully
+# route_design
+Command: route_design
+Attempting to get a license for feature 'Implementation' and/or device 'xcu280'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu280'
+Running DRC as a precondition to command route_design
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+
+
+Starting Routing Task
+INFO: [Route 35-254] Multithreading enabled for route_design using a maximum of 8 CPUs
+
+Phase 1 Build RT Design
+Checksum: PlaceDB: 92d8ae61 ConstDB: 0 ShapeSum: 27f1bfed RouteDB: 0
+Nodegraph reading from file.  Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 6280.328 ; gain = 0.000 ; free physical = 80764 ; free virtual = 163607
+WARNING: [Route 35-197] Clock port "ap_clk" does not have an associated HD.CLK_SRC. Without this constraint, timing analysis may not be accurate and upstream checks cannot be done to ensure correct clock placement.
+WARNING: [Route 35-198] Port "ap_rst_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "ap_rst_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "c_out_1_full_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "c_out_1_full_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_5_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_5_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_1_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_1_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_1_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_1_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_3_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_3_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_0_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_0_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "c_out_2_full_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "c_out_2_full_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[7]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[7]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[6]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[6]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[3]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[3]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[2]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[2]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_4_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_4_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[5]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[5]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[4]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[4]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[1]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[1]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "a_in_2_dout[0]" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "a_in_2_dout[0]". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_2_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_2_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_3_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_3_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_6_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_6_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "c_out_3_full_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "c_out_3_full_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+WARNING: [Route 35-198] Port "b_in_7_empty_n" does not have an associated HD.PARTPIN_LOCS, which will prevent the partial routing of the signal "b_in_7_empty_n". Without this partial route, timing analysis to/from this port will not be accurate, and no routing information for this port can be exported.
+INFO: [Common 17-14] Message 'Route 35-198' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+Post Restoration Checksum: NetGraph: 8b3282c6 | NumContArr: 153c43d9 | Constraints: c2a8fa9d | Timing: c2a8fa9d
+Phase 1 Build RT Design | Checksum: 225c0bbd9
+
+Time (s): cpu = 00:00:22 ; elapsed = 00:00:14 . Memory (MB): peak = 6280.328 ; gain = 0.000 ; free physical = 81351 ; free virtual = 164213
+
+Phase 2 Router Initialization
+
+Phase 2.1 Fix Topology Constraints
+Phase 2.1 Fix Topology Constraints | Checksum: 225c0bbd9
+
+Time (s): cpu = 00:00:22 ; elapsed = 00:00:14 . Memory (MB): peak = 6280.328 ; gain = 0.000 ; free physical = 81371 ; free virtual = 164232
+
+Phase 2.2 Pre Route Cleanup
+Phase 2.2 Pre Route Cleanup | Checksum: 225c0bbd9
+
+Time (s): cpu = 00:00:22 ; elapsed = 00:00:14 . Memory (MB): peak = 6280.328 ; gain = 0.000 ; free physical = 81370 ; free virtual = 164232
+
+Phase 2.3 Global Clock Net Routing
+Phase 2.3 Global Clock Net Routing | Checksum: 225c0bbd9
+
+Time (s): cpu = 00:00:31 ; elapsed = 00:00:17 . Memory (MB): peak = 6544.188 ; gain = 263.859 ; free physical = 81020 ; free virtual = 163884
+
+Phase 2.4 Update Timing
+Phase 2.4 Update Timing | Checksum: 18b2ff858
+
+Time (s): cpu = 00:00:36 ; elapsed = 00:00:18 . Memory (MB): peak = 6544.188 ; gain = 263.859 ; free physical = 80976 ; free virtual = 163841
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.507  | TNS=0.000  | WHS=0.018  | THS=0.000  |
+
+
+Router Utilization Summary
+  Global Vertical Routing Utilization    = 0 %
+  Global Horizontal Routing Utilization  = 0 %
+  Routable Net Status*
+  *Does not include unroutable nets such as driverless and loadless.
+  Run report_route_status for detailed report.
+  Number of Failed Nets               = 10757
+    (Failed Nets is the sum of unrouted and partially routed nets)
+  Number of Unrouted Nets             = 10545
+  Number of Partially Routed Nets     = 212
+  Number of Node Overlaps             = 0
+
+Phase 2 Router Initialization | Checksum: 197793c05
+
+Time (s): cpu = 00:00:56 ; elapsed = 00:00:23 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84477 ; free virtual = 167352
+
+Phase 3 Initial Routing
+
+Phase 3.1 Global Routing
+Phase 3.1 Global Routing | Checksum: 197793c05
+
+Time (s): cpu = 00:00:56 ; elapsed = 00:00:24 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84473 ; free virtual = 167349
+
+Phase 3.2 Initial Net Routing
+Phase 3.2 Initial Net Routing | Checksum: 2a40cebb0
+
+Time (s): cpu = 00:01:11 ; elapsed = 00:00:28 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84450 ; free virtual = 167339
+Phase 3 Initial Routing | Checksum: 263c50828
+
+Time (s): cpu = 00:01:12 ; elapsed = 00:00:28 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84450 ; free virtual = 167339
+
+Phase 4 Rip-up And Reroute
+
+Phase 4.1 Global Iteration 0
+ Number of Nodes with overlaps = 635
+ Number of Nodes with overlaps = 5
+ Number of Nodes with overlaps = 0
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.144  | TNS=0.000  | WHS=0.023  | THS=0.000  |
+
+Phase 4.1 Global Iteration 0 | Checksum: 2706fd5e5
+
+Time (s): cpu = 00:01:26 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84066 ; free virtual = 166960
+
+Phase 4.2 Additional Iteration for Hold
+Phase 4.2 Additional Iteration for Hold | Checksum: 2d93ec4a2
+
+Time (s): cpu = 00:01:27 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84055 ; free virtual = 166949
+Phase 4 Rip-up And Reroute | Checksum: 2d93ec4a2
+
+Time (s): cpu = 00:01:27 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84052 ; free virtual = 166946
+
+Phase 5 Delay and Skew Optimization
+
+Phase 5.1 Delay CleanUp
+Phase 5.1 Delay CleanUp | Checksum: 2d93ec4a2
+
+Time (s): cpu = 00:01:27 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84032 ; free virtual = 166927
+
+Phase 5.2 Clock Skew Optimization
+Phase 5.2 Clock Skew Optimization | Checksum: 2d93ec4a2
+
+Time (s): cpu = 00:01:27 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84029 ; free virtual = 166924
+Phase 5 Delay and Skew Optimization | Checksum: 2d93ec4a2
+
+Time (s): cpu = 00:01:27 ; elapsed = 00:00:33 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 84024 ; free virtual = 166918
+
+Phase 6 Post Hold Fix
+
+Phase 6.1 Hold Fix Iter
+
+Phase 6.1.1 Update Timing
+Phase 6.1.1 Update Timing | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:31 ; elapsed = 00:00:34 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83808 ; free virtual = 166703
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.144  | TNS=0.000  | WHS=0.023  | THS=0.000  |
+
+Phase 6.1 Hold Fix Iter | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:31 ; elapsed = 00:00:34 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83803 ; free virtual = 166698
+Phase 6 Post Hold Fix | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:31 ; elapsed = 00:00:34 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83800 ; free virtual = 166695
+
+Phase 7 Route finalize
+
+Router Utilization Summary
+  Global Vertical Routing Utilization    = 0.0580842 %
+  Global Horizontal Routing Utilization  = 0.0865089 %
+  Routable Net Status*
+  *Does not include unroutable nets such as driverless and loadless.
+  Run report_route_status for detailed report.
+  Number of Failed Nets               = 0
+    (Failed Nets is the sum of unrouted and partially routed nets)
+  Number of Unrouted Nets             = 0
+  Number of Partially Routed Nets     = 0
+  Number of Node Overlaps             = 0
+
+Phase 7 Route finalize | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:36 ; elapsed = 00:00:35 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83637 ; free virtual = 166533
+
+Phase 8 Verifying routed nets
+
+ Verification completed successfully
+Phase 8 Verifying routed nets | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:36 ; elapsed = 00:00:35 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83596 ; free virtual = 166492
+
+Phase 9 Depositing Routes
+Phase 9 Depositing Routes | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:37 ; elapsed = 00:00:36 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83531 ; free virtual = 166429
+
+Phase 10 Resolve XTalk
+Phase 10 Resolve XTalk | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:38 ; elapsed = 00:00:37 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83508 ; free virtual = 166404
+
+Phase 11 Post Router Timing
+INFO: [Route 35-57] Estimated Timing Summary | WNS=1.144  | TNS=0.000  | WHS=0.023  | THS=0.000  |
+
+INFO: [Route 35-327] The final timing numbers are based on the router estimated timing analysis. For a complete and accurate timing signoff, please run report_timing_summary.
+Phase 11 Post Router Timing | Checksum: 2712248b6
+
+Time (s): cpu = 00:01:41 ; elapsed = 00:00:37 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83636 ; free virtual = 166430
+INFO: [Route 35-16] Router Completed Successfully
+
+Phase 12 Post-Route Event Processing
+Phase 12 Post-Route Event Processing | Checksum: cc9a37d8
+
+Time (s): cpu = 00:01:42 ; elapsed = 00:00:38 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83668 ; free virtual = 166411
+Ending Routing Task | Checksum: cc9a37d8
+
+Time (s): cpu = 00:01:42 ; elapsed = 00:00:38 . Memory (MB): peak = 6577.062 ; gain = 296.734 ; free physical = 83617 ; free virtual = 166359
+
+Routing Is Done.
+INFO: [Common 17-83] Releasing license: Implementation
+13 Infos, 101 Warnings, 0 Critical Warnings and 0 Errors encountered.
+route_design completed successfully
+route_design: Time (s): cpu = 00:01:49 ; elapsed = 00:00:40 . Memory (MB): peak = 6577.062 ; gain = 360.766 ; free physical = 83620 ; free virtual = 166363
+# report_utilization -file util.rpt
+# report_timing_summary -file timing.rpt
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2L, Temperature grade: E, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+WARNING: [Timing 38-242] The property HD.CLK_SRC of clock port "ap_clk" is not set. In out-of-context mode, this prevents timing estimation for clock delay/skew
+Resolution: Set the HD.CLK_SRC property of the out-of-context port to the location of the clock buffer instance in the top-level design
+# puts "PNR_UNROUTED [llength [get_nets -filter {ROUTE_STATUS == UNROUTED} -quiet]]"
+PNR_UNROUTED 0
+INFO: [Common 17-206] Exiting Vivado at Tue Sep  8 00:51:20 2026...

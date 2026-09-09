@@ -1,0 +1,78 @@
+Vivado Simulator v2023.2
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: /opt/xilinx/Vivado/2023.2/bin/unwrapped/lnx64.o/xelab tb -s tbsim --timescale 1ns/1ps --generic_top NPROD=2 -L unisims_ver -L unimacro_ver -L secureip 
+Multi-threading is on. Using 46 slave threads.
+Starting static elaboration
+Pass Through NonSizing Optimizer
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module work.pe
+Compiling module work.pe(J=1)
+Compiling module work.pe(J=2)
+Compiling module work.pe(J=3)
+Compiling module work.pe(J=4)
+Compiling module work.pe(J=5)
+Compiling module work.pe(J=6)
+Compiling module work.pe(J=7)
+Compiling module work.pe(I=1)
+Compiling module work.pe(I=1,J=1)
+Compiling module work.pe(I=1,J=2)
+Compiling module work.pe(I=1,J=3)
+Compiling module work.pe(I=1,J=4)
+Compiling module work.pe(I=1,J=5)
+Compiling module work.pe(I=1,J=6)
+Compiling module work.pe(I=1,J=7)
+Compiling module work.pe(I=2)
+Compiling module work.pe(I=2,J=1)
+Compiling module work.pe(I=2,J=2)
+Compiling module work.pe(I=2,J=3)
+Compiling module work.pe(I=2,J=4)
+Compiling module work.pe(I=2,J=5)
+Compiling module work.pe(I=2,J=6)
+Compiling module work.pe(I=2,J=7)
+Compiling module work.pe(I=3)
+Compiling module work.pe(I=3,J=1)
+Compiling module work.pe(I=3,J=2)
+Compiling module work.pe(I=3,J=3)
+Compiling module work.pe(I=3,J=4)
+Compiling module work.pe(I=3,J=5)
+Compiling module work.pe(I=3,J=6)
+Compiling module work.pe(I=3,J=7)
+Compiling module work.pe(I=4)
+Compiling module work.pe(I=4,J=1)
+Compiling module work.pe(I=4,J=2)
+Compiling module work.pe(I=4,J=3)
+Compiling module work.pe(I=4,J=4)
+Compiling module work.pe(I=4,J=5)
+Compiling module work.pe(I=4,J=6)
+Compiling module work.pe(I=4,J=7)
+Compiling module work.pe(I=5)
+Compiling module work.pe(I=5,J=1)
+Compiling module work.pe(I=5,J=2)
+Compiling module work.pe(I=5,J=3)
+Compiling module work.pe(I=5,J=4)
+Compiling module work.pe(I=5,J=5)
+Compiling module work.pe(I=5,J=6)
+Compiling module work.pe(I=5,J=7)
+Compiling module work.pe(I=6)
+Compiling module work.pe(I=6,J=1)
+Compiling module work.pe(I=6,J=2)
+Compiling module work.pe(I=6,J=3)
+Compiling module work.pe(I=6,J=4)
+Compiling module work.pe(I=6,J=5)
+Compiling module work.pe(I=6,J=6)
+Compiling module work.pe(I=6,J=7)
+Compiling module work.pe(I=7)
+Compiling module work.pe(I=7,J=1)
+Compiling module work.pe(I=7,J=2)
+Compiling module work.pe(I=7,J=3)
+Compiling module work.pe(I=7,J=4)
+Compiling module work.pe(I=7,J=5)
+Compiling module work.pe(I=7,J=6)
+Compiling module work.pe(I=7,J=7)
+Compiling module work.dut_norm_default
+Compiling module work.tb
+Built simulation snapshot tbsim

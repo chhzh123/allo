@@ -1,0 +1,70 @@
+{
+ "arm": "rtl",
+ "model": "z-ai/glm-5.3",
+ "trial": "/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__rtl",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 32711,
+   "model_seconds": 142.3,
+   "tool_seconds": 13.8,
+   "stages": {
+    "elaborate": 1788841764.7,
+    "simulate": 1788841770.53
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 16 of 128 outputs seen"
+  },
+  {
+   "build": 2,
+   "tokens": 99584,
+   "model_seconds": 592.4,
+   "tool_seconds": 13.8,
+   "stages": {
+    "elaborate": 1788842371.19,
+    "simulate": 1788842376.67
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 3,
+   "tokens": 60686,
+   "model_seconds": 21.6,
+   "tool_seconds": 14.0,
+   "stages": {
+    "elaborate": 1788842788.95,
+    "simulate": 1788842794.39
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 4,
+   "tokens": 74685,
+   "model_seconds": 25.2,
+   "tool_seconds": 14.5,
+   "stages": {
+    "elaborate": 1788843188.38,
+    "simulate": 1788843193.93
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 5,
+   "tokens": 94114,
+   "model_seconds": 810.0,
+   "tool_seconds": 14.3,
+   "stages": {
+    "elaborate": 1788844374.75,
+    "simulate": 1788844380.45
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  }
+ ],
+ "stopped_by": "tokens",
+ "tokens": 527420,
+ "builds": 5,
+ "routes": 3,
+ "submitted": false,
+ "model_seconds": 2667.6,
+ "tool_seconds": 1174.5,
+ "wall_seconds": 3842.1
+}

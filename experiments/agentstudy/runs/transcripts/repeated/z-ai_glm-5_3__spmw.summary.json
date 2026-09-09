@@ -1,0 +1,14 @@
+{
+ "arm": "spmw",
+ "model": "z-ai/glm-5.3",
+ "trial": "/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__spmw",
+ "segments": [],
+ "stopped_by": "tokens",
+ "tokens": 615613,
+ "builds": 0,
+ "routes": 0,
+ "submitted": false,
+ "model_seconds": 8547.2,
+ "tool_seconds": 0.0,
+ "wall_seconds": 8547.2
+}

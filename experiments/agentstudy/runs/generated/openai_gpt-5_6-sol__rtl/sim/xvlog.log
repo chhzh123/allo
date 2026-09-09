@@ -1,0 +1,5 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv" into library work
+INFO: [VRFC 10-311] analyzing module dut_norm_pe
+INFO: [VRFC 10-311] analyzing module dut_norm
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/tb_study.sv" into library work
+INFO: [VRFC 10-311] analyzing module tb

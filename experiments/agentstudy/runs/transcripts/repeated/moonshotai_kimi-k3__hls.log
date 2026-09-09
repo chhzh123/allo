@@ -1,0 +1,6 @@
+    return self._read_chunked(amt)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/scratch/hc676/allo-agent/lib/python3.12/http/client.py", line 614, in _read_chunked
+    raise IncompleteRead(b''.join(value)) from exc
+http.client.IncompleteRead: IncompleteRead(2299 bytes read)
+TRIAL_DONE moonshotai_kimi-k3__hls

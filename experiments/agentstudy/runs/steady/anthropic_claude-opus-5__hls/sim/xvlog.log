@@ -1,0 +1,906 @@
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_fifo_w32_d2_S.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_fifo_w32_d2_S
+INFO: [VRFC 10-311] analyzing module gemm_tile_fifo_w32_d2_S_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_fifo_w8_d2_S.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_fifo_w8_d2_S
+INFO: [VRFC 10-311] analyzing module gemm_tile_fifo_w8_d2_S_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_flow_control_loop_pipe_sequential_init.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_flow_control_loop_pipe_sequential_init
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_mac_muladd_8s_8s_19s_19_4_1.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_mac_muladd_8s_8s_19s_19_4_1_DSP48_0
+INFO: [VRFC 10-311] analyzing module gemm_tile_mac_muladd_8s_8s_19s_19_4_1
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_c.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_c
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_c_Pipeline_VITIS_LOOP_116_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_c_Pipeline_VITIS_LOOP_116_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_111.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_111
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_111_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_111_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_112.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_112
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_112_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_112_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_113.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_113
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_113_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_113_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_114.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_114
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_114_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_114_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_115.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_115
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_115_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_115_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_116.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_116
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_116_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_116_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_e_Pipeline_VITIS_LOOP_96_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_e_Pipeline_VITIS_LOOP_96_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_1.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_1
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_100.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_100
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_100_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_100_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_101.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_101
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_101_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_101_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_102.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_102
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_102_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_102_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_17.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_17
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_17_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_17_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_18.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_18
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_18_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_18_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_19.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_19
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_19_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_19_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_1_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_1_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_20.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_20
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_20_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_20_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_21.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_21
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_21_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_21_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_22.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_22
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_22_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_22_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_23.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_23
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_23_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_23_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_2_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_2_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_3.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_3
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_33.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_33
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_33_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_33_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_34.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_34
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_34_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_34_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_35.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_35
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_35_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_35_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_36.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_36
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_36_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_36_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_37.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_37
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_37_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_37_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_38.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_38
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_38_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_38_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_39.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_39
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_39_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_39_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_3_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_3_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_4.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_4
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_49.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_49
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_49_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_49_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_4_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_4_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_5.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_5
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_50.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_50
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_50_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_50_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_51.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_51
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_51_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_51_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_52.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_52
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_52_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_52_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_53.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_53
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_53_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_53_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_54.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_54
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_54_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_54_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_55.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_55
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_55_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_55_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_5_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_5_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_6.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_6
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_65.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_65
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_65_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_65_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_66.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_66
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_66_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_66_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_67.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_67
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_67_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_67_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_68.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_68
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_68_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_68_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_69.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_69
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_69_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_69_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_6_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_6_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_7.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_7
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_70.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_70
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_70_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_70_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_71.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_71
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_71_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_71_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_7_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_7_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_81.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_81
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_81_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_81_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_82.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_82
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_82_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_82_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_83.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_83
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_83_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_83_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_84.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_84
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_84_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_84_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_85.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_85
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_85_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_85_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_86.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_86
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_86_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_86_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_87.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_87
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_87_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_87_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_97.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_97
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_97_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_97_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_98.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_98
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_98_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_98_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_99.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_99
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_99_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_99_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_es_Pipeline_VITIS_LOOP_55_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_es_Pipeline_VITIS_LOOP_55_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_24.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_24
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_24_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_24_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_40.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_40
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_40_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_40_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_56.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_56
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_56_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_56_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_72.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_72
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_72_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_72_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_8.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_8
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_88.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_88
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_88_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_88_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_8_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_8_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_mac_s_Pipeline_VITIS_LOOP_76_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_mac_s_Pipeline_VITIS_LOOP_76_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_10.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_10
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_104.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_104
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_104_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_104_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_105.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_105
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_105_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_105_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_106.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_106
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_106_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_106_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_107.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_107
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_107_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_107_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_108.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_108
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_108_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_108_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_109.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_109
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_109_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_109_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_10_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_10_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_11.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_11
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_110.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_110
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_110_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_110_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_117.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_117
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_117_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_117_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_118.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_118
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_118_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_118_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_119.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_119
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_119_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_119_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_11_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_11_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_12.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_12
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_120.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_120
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_120_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_120_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_121.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_121
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_121_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_121_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_122.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_122
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_122_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_122_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_12_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_12_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_13.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_13
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_13_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_13_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_14.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_14
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_14_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_14_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_15.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_15
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_15_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_15_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_16.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_16
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_16_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_16_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_26.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_26
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_26_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_26_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_27.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_27
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_27_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_27_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_28.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_28
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_28_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_28_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_29.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_29
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_29_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_29_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_30.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_30
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_30_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_30_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_31.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_31
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_31_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_31_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_32.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_32
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_32_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_32_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_42.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_42
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_42_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_42_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_43.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_43
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_43_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_43_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_44.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_44
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_44_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_44_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_45.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_45
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_45_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_45_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_46.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_46
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_46_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_46_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_47.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_47
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_47_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_47_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_48.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_48
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_48_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_48_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_58.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_58
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_58_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_58_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_59.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_59
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_59_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_59_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_60.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_60
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_60_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_60_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_61.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_61
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_61_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_61_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_62.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_62
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_62_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_62_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_63.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_63
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_63_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_63_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_64.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_64
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_64_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_64_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_74.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_74
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_74_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_74_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_75.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_75
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_75_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_75_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_76.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_76
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_76_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_76_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_77.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_77
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_77_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_77_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_78.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_78
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_78_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_78_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_79.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_79
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_79_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_79_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_80.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_80
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_80_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_80_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_90.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_90
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_90_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_90_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_91.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_91
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_91_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_91_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_92.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_92
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_92_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_92_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_93.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_93
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_93_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_93_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_94.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_94
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_94_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_94_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_95.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_95
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_95_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_95_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_96.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_96
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_96_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_96_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_Pipeline_VITIS_LOOP_146_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_Pipeline_VITIS_LOOP_146_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_103.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_103
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_103_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_103_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_25.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_25
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_25_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_25_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_41.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_41
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_41_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_41_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_57.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_57
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_57_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_57_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_73.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_73
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_73_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_73_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_89.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_89
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_89_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_89_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_9.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_9
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_9_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_9_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_pe_res_w_Pipeline_VITIS_LOOP_135_2.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_pe_res_w_Pipeline_VITIS_LOOP_135_2
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_c_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_c_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_c_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_111_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_111_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_111_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_112_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_112_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_112_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_113_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_113_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_113_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_114_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_114_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_114_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_115_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_115_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_115_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_116_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_116_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_116_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_e_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_e_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_100_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_100_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_100_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_101_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_101_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_101_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_102_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_102_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_102_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_17_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_17_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_17_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_18_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_18_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_18_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_19_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_19_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_19_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_20_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_20_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_20_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_21_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_21_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_21_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_22_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_22_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_22_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_23_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_23_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_23_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_2_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_2_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_2_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_33_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_33_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_33_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_34_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_34_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_34_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_35_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_35_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_35_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_36_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_36_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_36_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_37_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_37_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_37_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_38_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_38_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_38_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_39_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_39_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_39_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_3_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_3_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_3_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_49_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_49_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_49_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_4_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_4_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_4_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_50_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_50_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_50_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_51_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_51_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_51_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_52_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_52_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_52_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_53_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_53_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_53_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_54_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_54_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_54_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_55_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_55_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_55_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_5_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_5_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_5_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_65_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_65_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_65_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_66_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_66_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_66_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_67_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_67_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_67_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_68_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_68_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_68_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_69_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_69_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_69_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_6_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_6_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_6_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_70_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_70_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_70_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_71_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_71_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_71_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_7_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_7_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_7_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_81_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_81_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_81_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_82_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_82_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_82_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_83_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_83_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_83_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_84_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_84_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_84_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_85_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_85_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_85_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_86_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_86_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_86_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_87_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_87_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_87_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_97_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_97_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_97_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_98_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_98_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_98_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_99_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_99_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_99_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_es_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_es_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_24_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_24_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_24_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_40_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_40_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_40_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_56_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_56_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_56_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_72_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_72_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_72_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_88_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_88_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_88_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_8_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_8_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_8_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_mac_s_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_mac_s_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_104_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_104_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_104_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_105_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_105_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_105_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_106_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_106_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_106_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_107_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_107_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_107_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_108_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_108_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_108_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_109_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_109_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_109_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_10_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_10_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_10_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_110_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_110_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_110_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_117_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_117_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_117_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_118_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_118_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_118_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_119_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_119_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_119_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_11_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_11_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_11_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_120_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_120_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_120_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_121_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_121_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_121_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_122_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_122_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_122_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_12_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_12_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_12_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_13_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_13_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_13_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_14_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_14_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_14_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_15_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_15_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_15_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_16_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_16_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_16_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_26_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_26_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_26_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_27_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_27_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_27_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_28_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_28_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_28_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_29_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_29_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_29_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_30_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_30_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_30_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_31_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_31_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_31_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_32_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_32_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_32_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_42_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_42_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_42_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_43_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_43_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_43_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_44_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_44_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_44_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_45_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_45_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_45_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_46_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_46_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_46_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_47_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_47_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_47_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_48_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_48_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_48_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_58_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_58_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_58_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_59_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_59_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_59_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_60_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_60_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_60_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_61_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_61_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_61_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_62_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_62_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_62_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_63_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_63_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_63_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_64_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_64_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_64_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_74_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_74_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_74_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_75_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_75_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_75_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_76_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_76_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_76_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_77_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_77_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_77_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_78_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_78_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_78_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_79_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_79_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_79_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_80_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_80_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_80_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_90_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_90_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_90_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_91_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_91_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_91_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_92_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_92_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_92_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_93_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_93_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_93_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_94_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_94_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_94_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_95_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_95_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_95_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_96_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_96_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_96_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_103_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_103_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_103_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_25_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_25_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_25_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_41_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_41_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_41_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_57_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_57_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_57_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_73_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_73_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_73_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_89_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_89_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_89_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_9_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_9_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_9_U0_ShiftReg
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/agentstudy/steady/anthropic_claude-opus-5__hls/sim/gemm_tile_start_for_pe_res_w_U0.v" into library work
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_U0
+INFO: [VRFC 10-311] analyzing module gemm_tile_start_for_pe_res_w_U0_ShiftReg

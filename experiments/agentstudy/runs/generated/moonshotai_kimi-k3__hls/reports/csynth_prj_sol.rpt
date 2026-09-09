@@ -1,0 +1,720 @@
+
+
+================================================================
+== Synthesis Summary Report of 'gemm_tile'
+================================================================
++ General Information: 
+    * Date:           Tue Sep  8 00:19:15 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        prj
+    * Solution:       sol (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +---------------------+------+------+---------+--------+----------+---------+------+----------+------+----------+-------------+------------+-----+
+    |       Modules       | Issue|      | Latency | Latency| Iteration|         | Trip |          |      |          |             |            |     |
+    |       & Loops       | Type | Slack| (cycles)|  (ns)  |  Latency | Interval| Count| Pipelined| BRAM |    DSP   |      FF     |     LUT    | URAM|
+    +---------------------+------+------+---------+--------+----------+---------+------+----------+------+----------+-------------+------------+-----+
+    |+ gemm_tile*         |     -|  0.22|        -|       -|         -|        -|     -|  dataflow|     -|  64 (~0%)|  12316 (~0%)|  17364 (1%)|    -|
+    | + pe_1              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_2              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_9              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_3              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_10             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_17             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_4              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_11             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_18             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_25             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_5              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_12             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_19             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_26             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_33             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_6              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_13             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_20             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_27             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_34             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_41             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_7              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_14             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_21             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_28             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_35             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_42             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_49             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     70 (~0%)|   147 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_8              |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_15             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_22             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_29             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_36             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_43             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_50             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_57             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     63 (~0%)|   129 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_16             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_23             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_30             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_37             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_44             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_51             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   226 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_58             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_24             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_31             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_38             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_45             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_52             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_59             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_32             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_39             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_46             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_53             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   217 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_60             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   199 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_40             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_47             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_54             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   229 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_61             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   199 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_48             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_55             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|    104 (~0%)|   227 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_62             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   211 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_56             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   208 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe_63             |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     97 (~0%)|   209 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    | + pe                |     -|  0.22|        -|       -|         -|        -|     -|        no|     -|   1 (~0%)|     86 (~0%)|   188 (~0%)|    -|
+    |  o VITIS_LOOP_26_1  |    II|  2.43|        -|       -|         4|        2|     -|       yes|     -|         -|            -|           -|    -|
+    +---------------------+------+------+---------+--------+----------+---------+------+----------+------+----------+-------------+------------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* AP_FIFO
++-----------+-----------+------------+
+| Interface | Direction | Data Width |
++-----------+-----------+------------+
+| a_in_0    | out       | 8          |
+| a_in_1    | out       | 8          |
+| a_in_2    | out       | 8          |
+| a_in_3    | out       | 8          |
+| a_in_4    | out       | 8          |
+| a_in_5    | out       | 8          |
+| a_in_6    | out       | 8          |
+| a_in_7    | out       | 8          |
+| b_in_0    | out       | 8          |
+| b_in_1    | out       | 8          |
+| b_in_2    | out       | 8          |
+| b_in_3    | out       | 8          |
+| b_in_4    | out       | 8          |
+| b_in_5    | out       | 8          |
+| b_in_6    | out       | 8          |
+| b_in_7    | out       | 8          |
+| c_out_0   | out       | 32         |
+| c_out_1   | out       | 32         |
+| c_out_2   | out       | 32         |
+| c_out_3   | out       | 32         |
+| c_out_4   | out       | 32         |
+| c_out_5   | out       | 32         |
+| c_out_6   | out       | 32         |
+| c_out_7   | out       | 32         |
++-----------+-----------+------------+
+
+* TOP LEVEL CONTROL
++-----------+--------------+----------+
+| Interface | Type         | Ports    |
++-----------+--------------+----------+
+| ap_clk    | clock        | ap_clk   |
+| ap_rst_n  | reset        | ap_rst_n |
+| ap_ctrl   | ap_ctrl_none |          |
++-----------+--------------+----------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+------------------------+
+| Argument | Direction | Datatype               |
++----------+-----------+------------------------+
+| a_in_0   | in        | stream<ap_int<8>, 0>&  |
+| a_in_1   | in        | stream<ap_int<8>, 0>&  |
+| a_in_2   | in        | stream<ap_int<8>, 0>&  |
+| a_in_3   | in        | stream<ap_int<8>, 0>&  |
+| a_in_4   | in        | stream<ap_int<8>, 0>&  |
+| a_in_5   | in        | stream<ap_int<8>, 0>&  |
+| a_in_6   | in        | stream<ap_int<8>, 0>&  |
+| a_in_7   | in        | stream<ap_int<8>, 0>&  |
+| b_in_0   | in        | stream<ap_int<8>, 0>&  |
+| b_in_1   | in        | stream<ap_int<8>, 0>&  |
+| b_in_2   | in        | stream<ap_int<8>, 0>&  |
+| b_in_3   | in        | stream<ap_int<8>, 0>&  |
+| b_in_4   | in        | stream<ap_int<8>, 0>&  |
+| b_in_5   | in        | stream<ap_int<8>, 0>&  |
+| b_in_6   | in        | stream<ap_int<8>, 0>&  |
+| b_in_7   | in        | stream<ap_int<8>, 0>&  |
+| c_out_0  | out       | stream<ap_int<32>, 0>& |
+| c_out_1  | out       | stream<ap_int<32>, 0>& |
+| c_out_2  | out       | stream<ap_int<32>, 0>& |
+| c_out_3  | out       | stream<ap_int<32>, 0>& |
+| c_out_4  | out       | stream<ap_int<32>, 0>& |
+| c_out_5  | out       | stream<ap_int<32>, 0>& |
+| c_out_6  | out       | stream<ap_int<32>, 0>& |
+| c_out_7  | out       | stream<ap_int<32>, 0>& |
++----------+-----------+------------------------+
+
+* SW-to-HW Mapping
++----------+--------------+-----------+
+| Argument | HW Interface | HW Type   |
++----------+--------------+-----------+
+| a_in_0   | a_in_0       | interface |
+| a_in_1   | a_in_1       | interface |
+| a_in_2   | a_in_2       | interface |
+| a_in_3   | a_in_3       | interface |
+| a_in_4   | a_in_4       | interface |
+| a_in_5   | a_in_5       | interface |
+| a_in_6   | a_in_6       | interface |
+| a_in_7   | a_in_7       | interface |
+| b_in_0   | b_in_0       | interface |
+| b_in_1   | b_in_1       | interface |
+| b_in_2   | b_in_2       | interface |
+| b_in_3   | b_in_3       | interface |
+| b_in_4   | b_in_4       | interface |
+| b_in_5   | b_in_5       | interface |
+| b_in_6   | b_in_6       | interface |
+| b_in_7   | b_in_7       | interface |
+| c_out_0  | c_out_0      | interface |
+| c_out_1  | c_out_1      | interface |
+| c_out_2  | c_out_2      | interface |
+| c_out_3  | c_out_3      | interface |
+| c_out_4  | c_out_4      | interface |
+| c_out_5  | c_out_5      | interface |
+| c_out_6  | c_out_6      | interface |
+| c_out_7  | c_out_7      | interface |
++----------+--------------+-----------+
+
+
+================================================================
+== Bind Op Report
+================================================================
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+| Name                                | DSP | Pragma | Variable | Op  | Impl      | Latency |
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+| + gemm_tile                         | 64  |        |          |     |           |         |
+|  + pe_1                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U1   | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U1   | 1   |        | acc_175  | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_2                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U8   | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U8   | 1   |        | acc_145  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_9                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U56  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U56  | 1   |        | acc_1    | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_3                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U15  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U15  | 1   |        | acc_114  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_10                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U62  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U62  | 1   |        | acc_173  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_17                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U110 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U110 | 1   |        | acc_153  | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_4                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U22  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U22  | 1   |        | acc_83   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_11                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U69  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U69  | 1   |        | acc_170  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_18                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U116 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U116 | 1   |        | acc_151  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_25                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U164 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U164 | 1   |        | acc_128  | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_5                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U29  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U29  | 1   |        | acc_54   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_12                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U76  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U76  | 1   |        | acc_167  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_19                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U123 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U123 | 1   |        | acc_148  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_26                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U170 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U170 | 1   |        | acc_126  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_33                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U218 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U218 | 1   |        | acc_103  | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_6                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U36  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U36  | 1   |        | acc_23   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_13                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U83  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U83  | 1   |        | acc_164  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_20                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U130 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U130 | 1   |        | acc_142  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_27                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U177 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U177 | 1   |        | acc_123  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_34                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U224 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U224 | 1   |        | acc_101  | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_41                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U272 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U272 | 1   |        | acc_78   | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_7                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U43  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U43  | 1   |        | acc_6    | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_14                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U90  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U90  | 1   |        | acc_161  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_21                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U137 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U137 | 1   |        | acc_139  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_28                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U184 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U184 | 1   |        | acc_120  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_35                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U231 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U231 | 1   |        | acc_98   | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_42                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U278 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U278 | 1   |        | acc_76   | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_49                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U326 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U326 | 1   |        | acc_56   | add | dsp_slice | 3       |
+|    t_fu_188_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_8                             | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U50  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U50  | 1   |        | acc_3    | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_15                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U97  | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U97  | 1   |        | acc_158  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_22                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U144 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U144 | 1   |        | acc_136  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_29                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U191 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U191 | 1   |        | acc_117  | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_36                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U238 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U238 | 1   |        | acc_95   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_43                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U285 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U285 | 1   |        | acc_73   | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_50                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U332 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U332 | 1   |        | acc_51   | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_57                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U380 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U380 | 1   |        | acc_31   | add | dsp_slice | 3       |
+|    t_fu_171_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_16                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U104 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U104 | 1   |        | acc_155  | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_23                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U151 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U151 | 1   |        | acc_133  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_30                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U198 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U198 | 1   |        | acc_111  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_37                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U245 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U245 | 1   |        | acc_92   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_44                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U292 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U292 | 1   |        | acc_70   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_51                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U339 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U339 | 1   |        | acc_48   | add | dsp_slice | 3       |
+|    t_fu_236_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_58                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U385 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U385 | 1   |        | acc_29   | add | dsp_slice | 3       |
+|    t_fu_219_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_24                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U158 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U158 | 1   |        | acc_130  | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_31                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U205 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U205 | 1   |        | acc_108  | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_38                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U252 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U252 | 1   |        | acc_89   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_45                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U299 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U299 | 1   |        | acc_67   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_52                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U346 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U346 | 1   |        | acc_45   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_59                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U391 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U391 | 1   |        | acc_26   | add | dsp_slice | 3       |
+|    t_fu_219_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_32                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U212 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U212 | 1   |        | acc_105  | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_39                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U259 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U259 | 1   |        | acc_86   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_46                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U306 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U306 | 1   |        | acc_64   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_53                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U353 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U353 | 1   |        | acc_42   | add | dsp_slice | 3       |
+|    t_fu_224_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_60                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U397 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U397 | 1   |        | acc_20   | add | dsp_slice | 3       |
+|    t_fu_207_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_40                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U266 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U266 | 1   |        | acc_80   | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_47                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U313 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U313 | 1   |        | acc_61   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_54                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U360 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U360 | 1   |        | acc_39   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_61                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U403 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U403 | 1   |        | acc_17   | add | dsp_slice | 3       |
+|    t_fu_207_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_48                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U320 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U320 | 1   |        | acc_58   | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_55                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U367 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U367 | 1   |        | acc_36   | add | dsp_slice | 3       |
+|    t_fu_222_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_62                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U409 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U409 | 1   |        | acc_14   | add | dsp_slice | 3       |
+|    t_fu_205_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_56                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U374 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U374 | 1   |        | acc_33   | add | dsp_slice | 3       |
+|    t_fu_197_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe_63                            | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U415 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U415 | 1   |        | acc_11   | add | dsp_slice | 3       |
+|    t_fu_205_p2                      |     |        | t        | add | fabric    | 0       |
+|  + pe                               | 1   |        |          |     |           |         |
+|    mac_muladd_8s_8s_32s_32_4_1_U421 | 1   | yes    | p        | mul | dsp_slice | 3       |
+|    mac_muladd_8s_8s_32s_32_4_1_U421 | 1   |        | acc_177  | add | dsp_slice | 3       |
+|    t_fu_176_p2                      |     |        | t        | add | fabric    | 0       |
++-------------------------------------+-----+--------+----------+-----+-----------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
++-------------+--------------+--------+------+------+--------+----------+------+---------+------------------+
+| Name        | Usage        | Type   | BRAM | URAM | Pragma | Variable | Impl | Latency | Bitwidth, Depth, |
+|             |              |        |      |      |        |          |      |         | Banks            |
++-------------+--------------+--------+------+------+--------+----------+------+---------+------------------+
+| + gemm_tile |              |        | 0    | 0    |        |          |      |         |                  |
+|   a_e_U     | fifo channel | stream |      |      |        | a_e      | srl  | 0       | 8, 2, 1          |
+|   b_s_U     | fifo channel | stream |      |      |        | b_s      | srl  | 0       | 8, 2, 1          |
+|   d_e_U     | fifo channel | stream |      |      |        | d_e      | srl  | 0       | 32, 2, 1         |
+|   a_e_1_U   | fifo channel | stream |      |      |        | a_e_1    | srl  | 0       | 8, 2, 1          |
+|   b_s_1_U   | fifo channel | stream |      |      |        | b_s_1    | srl  | 0       | 8, 2, 1          |
+|   d_e_1_U   | fifo channel | stream |      |      |        | d_e_1    | srl  | 0       | 32, 2, 1         |
+|   a_e_2_U   | fifo channel | stream |      |      |        | a_e_2    | srl  | 0       | 8, 2, 1          |
+|   b_s_2_U   | fifo channel | stream |      |      |        | b_s_2    | srl  | 0       | 8, 2, 1          |
+|   d_e_2_U   | fifo channel | stream |      |      |        | d_e_2    | srl  | 0       | 32, 2, 1         |
+|   a_e_3_U   | fifo channel | stream |      |      |        | a_e_3    | srl  | 0       | 8, 2, 1          |
+|   b_s_3_U   | fifo channel | stream |      |      |        | b_s_3    | srl  | 0       | 8, 2, 1          |
+|   d_e_3_U   | fifo channel | stream |      |      |        | d_e_3    | srl  | 0       | 32, 2, 1         |
+|   a_e_4_U   | fifo channel | stream |      |      |        | a_e_4    | srl  | 0       | 8, 2, 1          |
+|   b_s_4_U   | fifo channel | stream |      |      |        | b_s_4    | srl  | 0       | 8, 2, 1          |
+|   d_e_4_U   | fifo channel | stream |      |      |        | d_e_4    | srl  | 0       | 32, 2, 1         |
+|   a_e_5_U   | fifo channel | stream |      |      |        | a_e_5    | srl  | 0       | 8, 2, 1          |
+|   b_s_5_U   | fifo channel | stream |      |      |        | b_s_5    | srl  | 0       | 8, 2, 1          |
+|   d_e_5_U   | fifo channel | stream |      |      |        | d_e_5    | srl  | 0       | 32, 2, 1         |
+|   a_e_6_U   | fifo channel | stream |      |      |        | a_e_6    | srl  | 0       | 8, 2, 1          |
+|   b_s_6_U   | fifo channel | stream |      |      |        | b_s_6    | srl  | 0       | 8, 2, 1          |
+|   d_e_6_U   | fifo channel | stream |      |      |        | d_e_6    | srl  | 0       | 32, 2, 1         |
+|   b_s_7_U   | fifo channel | stream |      |      |        | b_s_7    | srl  | 0       | 8, 2, 1          |
+|   a_e_7_U   | fifo channel | stream |      |      |        | a_e_7    | srl  | 0       | 8, 2, 1          |
+|   b_s_8_U   | fifo channel | stream |      |      |        | b_s_8    | srl  | 0       | 8, 2, 1          |
+|   d_e_7_U   | fifo channel | stream |      |      |        | d_e_7    | srl  | 0       | 32, 2, 1         |
+|   a_e_8_U   | fifo channel | stream |      |      |        | a_e_8    | srl  | 0       | 8, 2, 1          |
+|   b_s_9_U   | fifo channel | stream |      |      |        | b_s_9    | srl  | 0       | 8, 2, 1          |
+|   d_e_8_U   | fifo channel | stream |      |      |        | d_e_8    | srl  | 0       | 32, 2, 1         |
+|   a_e_9_U   | fifo channel | stream |      |      |        | a_e_9    | srl  | 0       | 8, 2, 1          |
+|   b_s_10_U  | fifo channel | stream |      |      |        | b_s_10   | srl  | 0       | 8, 2, 1          |
+|   d_e_9_U   | fifo channel | stream |      |      |        | d_e_9    | srl  | 0       | 32, 2, 1         |
+|   a_e_10_U  | fifo channel | stream |      |      |        | a_e_10   | srl  | 0       | 8, 2, 1          |
+|   b_s_11_U  | fifo channel | stream |      |      |        | b_s_11   | srl  | 0       | 8, 2, 1          |
+|   d_e_10_U  | fifo channel | stream |      |      |        | d_e_10   | srl  | 0       | 32, 2, 1         |
+|   a_e_11_U  | fifo channel | stream |      |      |        | a_e_11   | srl  | 0       | 8, 2, 1          |
+|   b_s_12_U  | fifo channel | stream |      |      |        | b_s_12   | srl  | 0       | 8, 2, 1          |
+|   d_e_11_U  | fifo channel | stream |      |      |        | d_e_11   | srl  | 0       | 32, 2, 1         |
+|   a_e_12_U  | fifo channel | stream |      |      |        | a_e_12   | srl  | 0       | 8, 2, 1          |
+|   b_s_13_U  | fifo channel | stream |      |      |        | b_s_13   | srl  | 0       | 8, 2, 1          |
+|   d_e_12_U  | fifo channel | stream |      |      |        | d_e_12   | srl  | 0       | 32, 2, 1         |
+|   a_e_13_U  | fifo channel | stream |      |      |        | a_e_13   | srl  | 0       | 8, 2, 1          |
+|   b_s_14_U  | fifo channel | stream |      |      |        | b_s_14   | srl  | 0       | 8, 2, 1          |
+|   d_e_13_U  | fifo channel | stream |      |      |        | d_e_13   | srl  | 0       | 32, 2, 1         |
+|   b_s_15_U  | fifo channel | stream |      |      |        | b_s_15   | srl  | 0       | 8, 2, 1          |
+|   a_e_14_U  | fifo channel | stream |      |      |        | a_e_14   | srl  | 0       | 8, 2, 1          |
+|   b_s_16_U  | fifo channel | stream |      |      |        | b_s_16   | srl  | 0       | 8, 2, 1          |
+|   d_e_14_U  | fifo channel | stream |      |      |        | d_e_14   | srl  | 0       | 32, 2, 1         |
+|   a_e_15_U  | fifo channel | stream |      |      |        | a_e_15   | srl  | 0       | 8, 2, 1          |
+|   b_s_17_U  | fifo channel | stream |      |      |        | b_s_17   | srl  | 0       | 8, 2, 1          |
+|   d_e_15_U  | fifo channel | stream |      |      |        | d_e_15   | srl  | 0       | 32, 2, 1         |
+|   a_e_16_U  | fifo channel | stream |      |      |        | a_e_16   | srl  | 0       | 8, 2, 1          |
+|   b_s_18_U  | fifo channel | stream |      |      |        | b_s_18   | srl  | 0       | 8, 2, 1          |
+|   d_e_16_U  | fifo channel | stream |      |      |        | d_e_16   | srl  | 0       | 32, 2, 1         |
+|   a_e_17_U  | fifo channel | stream |      |      |        | a_e_17   | srl  | 0       | 8, 2, 1          |
+|   b_s_19_U  | fifo channel | stream |      |      |        | b_s_19   | srl  | 0       | 8, 2, 1          |
+|   d_e_17_U  | fifo channel | stream |      |      |        | d_e_17   | srl  | 0       | 32, 2, 1         |
+|   a_e_18_U  | fifo channel | stream |      |      |        | a_e_18   | srl  | 0       | 8, 2, 1          |
+|   b_s_20_U  | fifo channel | stream |      |      |        | b_s_20   | srl  | 0       | 8, 2, 1          |
+|   d_e_18_U  | fifo channel | stream |      |      |        | d_e_18   | srl  | 0       | 32, 2, 1         |
+|   a_e_19_U  | fifo channel | stream |      |      |        | a_e_19   | srl  | 0       | 8, 2, 1          |
+|   b_s_21_U  | fifo channel | stream |      |      |        | b_s_21   | srl  | 0       | 8, 2, 1          |
+|   d_e_19_U  | fifo channel | stream |      |      |        | d_e_19   | srl  | 0       | 32, 2, 1         |
+|   a_e_20_U  | fifo channel | stream |      |      |        | a_e_20   | srl  | 0       | 8, 2, 1          |
+|   b_s_22_U  | fifo channel | stream |      |      |        | b_s_22   | srl  | 0       | 8, 2, 1          |
+|   d_e_20_U  | fifo channel | stream |      |      |        | d_e_20   | srl  | 0       | 32, 2, 1         |
+|   b_s_23_U  | fifo channel | stream |      |      |        | b_s_23   | srl  | 0       | 8, 2, 1          |
+|   a_e_21_U  | fifo channel | stream |      |      |        | a_e_21   | srl  | 0       | 8, 2, 1          |
+|   b_s_24_U  | fifo channel | stream |      |      |        | b_s_24   | srl  | 0       | 8, 2, 1          |
+|   d_e_21_U  | fifo channel | stream |      |      |        | d_e_21   | srl  | 0       | 32, 2, 1         |
+|   a_e_22_U  | fifo channel | stream |      |      |        | a_e_22   | srl  | 0       | 8, 2, 1          |
+|   b_s_25_U  | fifo channel | stream |      |      |        | b_s_25   | srl  | 0       | 8, 2, 1          |
+|   d_e_22_U  | fifo channel | stream |      |      |        | d_e_22   | srl  | 0       | 32, 2, 1         |
+|   a_e_23_U  | fifo channel | stream |      |      |        | a_e_23   | srl  | 0       | 8, 2, 1          |
+|   b_s_26_U  | fifo channel | stream |      |      |        | b_s_26   | srl  | 0       | 8, 2, 1          |
+|   d_e_23_U  | fifo channel | stream |      |      |        | d_e_23   | srl  | 0       | 32, 2, 1         |
+|   a_e_24_U  | fifo channel | stream |      |      |        | a_e_24   | srl  | 0       | 8, 2, 1          |
+|   b_s_27_U  | fifo channel | stream |      |      |        | b_s_27   | srl  | 0       | 8, 2, 1          |
+|   d_e_24_U  | fifo channel | stream |      |      |        | d_e_24   | srl  | 0       | 32, 2, 1         |
+|   a_e_25_U  | fifo channel | stream |      |      |        | a_e_25   | srl  | 0       | 8, 2, 1          |
+|   b_s_28_U  | fifo channel | stream |      |      |        | b_s_28   | srl  | 0       | 8, 2, 1          |
+|   d_e_25_U  | fifo channel | stream |      |      |        | d_e_25   | srl  | 0       | 32, 2, 1         |
+|   a_e_26_U  | fifo channel | stream |      |      |        | a_e_26   | srl  | 0       | 8, 2, 1          |
+|   b_s_29_U  | fifo channel | stream |      |      |        | b_s_29   | srl  | 0       | 8, 2, 1          |
+|   d_e_26_U  | fifo channel | stream |      |      |        | d_e_26   | srl  | 0       | 32, 2, 1         |
+|   a_e_27_U  | fifo channel | stream |      |      |        | a_e_27   | srl  | 0       | 8, 2, 1          |
+|   b_s_30_U  | fifo channel | stream |      |      |        | b_s_30   | srl  | 0       | 8, 2, 1          |
+|   d_e_27_U  | fifo channel | stream |      |      |        | d_e_27   | srl  | 0       | 32, 2, 1         |
+|   b_s_31_U  | fifo channel | stream |      |      |        | b_s_31   | srl  | 0       | 8, 2, 1          |
+|   a_e_28_U  | fifo channel | stream |      |      |        | a_e_28   | srl  | 0       | 8, 2, 1          |
+|   b_s_32_U  | fifo channel | stream |      |      |        | b_s_32   | srl  | 0       | 8, 2, 1          |
+|   d_e_28_U  | fifo channel | stream |      |      |        | d_e_28   | srl  | 0       | 32, 2, 1         |
+|   a_e_29_U  | fifo channel | stream |      |      |        | a_e_29   | srl  | 0       | 8, 2, 1          |
+|   b_s_33_U  | fifo channel | stream |      |      |        | b_s_33   | srl  | 0       | 8, 2, 1          |
+|   d_e_29_U  | fifo channel | stream |      |      |        | d_e_29   | srl  | 0       | 32, 2, 1         |
+|   a_e_30_U  | fifo channel | stream |      |      |        | a_e_30   | srl  | 0       | 8, 2, 1          |
+|   b_s_34_U  | fifo channel | stream |      |      |        | b_s_34   | srl  | 0       | 8, 2, 1          |
+|   d_e_30_U  | fifo channel | stream |      |      |        | d_e_30   | srl  | 0       | 32, 2, 1         |
+|   a_e_31_U  | fifo channel | stream |      |      |        | a_e_31   | srl  | 0       | 8, 2, 1          |
+|   b_s_35_U  | fifo channel | stream |      |      |        | b_s_35   | srl  | 0       | 8, 2, 1          |
+|   d_e_31_U  | fifo channel | stream |      |      |        | d_e_31   | srl  | 0       | 32, 2, 1         |
+|   a_e_32_U  | fifo channel | stream |      |      |        | a_e_32   | srl  | 0       | 8, 2, 1          |
+|   b_s_36_U  | fifo channel | stream |      |      |        | b_s_36   | srl  | 0       | 8, 2, 1          |
+|   d_e_32_U  | fifo channel | stream |      |      |        | d_e_32   | srl  | 0       | 32, 2, 1         |
+|   a_e_33_U  | fifo channel | stream |      |      |        | a_e_33   | srl  | 0       | 8, 2, 1          |
+|   b_s_37_U  | fifo channel | stream |      |      |        | b_s_37   | srl  | 0       | 8, 2, 1          |
+|   d_e_33_U  | fifo channel | stream |      |      |        | d_e_33   | srl  | 0       | 32, 2, 1         |
+|   a_e_34_U  | fifo channel | stream |      |      |        | a_e_34   | srl  | 0       | 8, 2, 1          |
+|   b_s_38_U  | fifo channel | stream |      |      |        | b_s_38   | srl  | 0       | 8, 2, 1          |
+|   d_e_34_U  | fifo channel | stream |      |      |        | d_e_34   | srl  | 0       | 32, 2, 1         |
+|   b_s_39_U  | fifo channel | stream |      |      |        | b_s_39   | srl  | 0       | 8, 2, 1          |
+|   a_e_35_U  | fifo channel | stream |      |      |        | a_e_35   | srl  | 0       | 8, 2, 1          |
+|   b_s_40_U  | fifo channel | stream |      |      |        | b_s_40   | srl  | 0       | 8, 2, 1          |
+|   d_e_35_U  | fifo channel | stream |      |      |        | d_e_35   | srl  | 0       | 32, 2, 1         |
+|   a_e_36_U  | fifo channel | stream |      |      |        | a_e_36   | srl  | 0       | 8, 2, 1          |
+|   b_s_41_U  | fifo channel | stream |      |      |        | b_s_41   | srl  | 0       | 8, 2, 1          |
+|   d_e_36_U  | fifo channel | stream |      |      |        | d_e_36   | srl  | 0       | 32, 2, 1         |
+|   a_e_37_U  | fifo channel | stream |      |      |        | a_e_37   | srl  | 0       | 8, 2, 1          |
+|   b_s_42_U  | fifo channel | stream |      |      |        | b_s_42   | srl  | 0       | 8, 2, 1          |
+|   d_e_37_U  | fifo channel | stream |      |      |        | d_e_37   | srl  | 0       | 32, 2, 1         |
+|   a_e_38_U  | fifo channel | stream |      |      |        | a_e_38   | srl  | 0       | 8, 2, 1          |
+|   b_s_43_U  | fifo channel | stream |      |      |        | b_s_43   | srl  | 0       | 8, 2, 1          |
+|   d_e_38_U  | fifo channel | stream |      |      |        | d_e_38   | srl  | 0       | 32, 2, 1         |
+|   a_e_39_U  | fifo channel | stream |      |      |        | a_e_39   | srl  | 0       | 8, 2, 1          |
+|   b_s_44_U  | fifo channel | stream |      |      |        | b_s_44   | srl  | 0       | 8, 2, 1          |
+|   d_e_39_U  | fifo channel | stream |      |      |        | d_e_39   | srl  | 0       | 32, 2, 1         |
+|   a_e_40_U  | fifo channel | stream |      |      |        | a_e_40   | srl  | 0       | 8, 2, 1          |
+|   b_s_45_U  | fifo channel | stream |      |      |        | b_s_45   | srl  | 0       | 8, 2, 1          |
+|   d_e_40_U  | fifo channel | stream |      |      |        | d_e_40   | srl  | 0       | 32, 2, 1         |
+|   a_e_41_U  | fifo channel | stream |      |      |        | a_e_41   | srl  | 0       | 8, 2, 1          |
+|   b_s_46_U  | fifo channel | stream |      |      |        | b_s_46   | srl  | 0       | 8, 2, 1          |
+|   d_e_41_U  | fifo channel | stream |      |      |        | d_e_41   | srl  | 0       | 32, 2, 1         |
+|   b_s_47_U  | fifo channel | stream |      |      |        | b_s_47   | srl  | 0       | 8, 2, 1          |
+|   a_e_42_U  | fifo channel | stream |      |      |        | a_e_42   | srl  | 0       | 8, 2, 1          |
+|   b_s_48_U  | fifo channel | stream |      |      |        | b_s_48   | srl  | 0       | 8, 2, 1          |
+|   d_e_42_U  | fifo channel | stream |      |      |        | d_e_42   | srl  | 0       | 32, 2, 1         |
+|   a_e_43_U  | fifo channel | stream |      |      |        | a_e_43   | srl  | 0       | 8, 2, 1          |
+|   b_s_49_U  | fifo channel | stream |      |      |        | b_s_49   | srl  | 0       | 8, 2, 1          |
+|   d_e_43_U  | fifo channel | stream |      |      |        | d_e_43   | srl  | 0       | 32, 2, 1         |
+|   a_e_44_U  | fifo channel | stream |      |      |        | a_e_44   | srl  | 0       | 8, 2, 1          |
+|   b_s_50_U  | fifo channel | stream |      |      |        | b_s_50   | srl  | 0       | 8, 2, 1          |
+|   d_e_44_U  | fifo channel | stream |      |      |        | d_e_44   | srl  | 0       | 32, 2, 1         |
+|   a_e_45_U  | fifo channel | stream |      |      |        | a_e_45   | srl  | 0       | 8, 2, 1          |
+|   b_s_51_U  | fifo channel | stream |      |      |        | b_s_51   | srl  | 0       | 8, 2, 1          |
+|   d_e_45_U  | fifo channel | stream |      |      |        | d_e_45   | srl  | 0       | 32, 2, 1         |
+|   a_e_46_U  | fifo channel | stream |      |      |        | a_e_46   | srl  | 0       | 8, 2, 1          |
+|   b_s_52_U  | fifo channel | stream |      |      |        | b_s_52   | srl  | 0       | 8, 2, 1          |
+|   d_e_46_U  | fifo channel | stream |      |      |        | d_e_46   | srl  | 0       | 32, 2, 1         |
+|   a_e_47_U  | fifo channel | stream |      |      |        | a_e_47   | srl  | 0       | 8, 2, 1          |
+|   b_s_53_U  | fifo channel | stream |      |      |        | b_s_53   | srl  | 0       | 8, 2, 1          |
+|   d_e_47_U  | fifo channel | stream |      |      |        | d_e_47   | srl  | 0       | 32, 2, 1         |
+|   a_e_48_U  | fifo channel | stream |      |      |        | a_e_48   | srl  | 0       | 8, 2, 1          |
+|   b_s_54_U  | fifo channel | stream |      |      |        | b_s_54   | srl  | 0       | 8, 2, 1          |
+|   d_e_48_U  | fifo channel | stream |      |      |        | d_e_48   | srl  | 0       | 32, 2, 1         |
+|   b_s_55_U  | fifo channel | stream |      |      |        | b_s_55   | srl  | 0       | 8, 2, 1          |
+|   a_e_49_U  | fifo channel | stream |      |      |        | a_e_49   | srl  | 0       | 8, 2, 1          |
+|   d_e_49_U  | fifo channel | stream |      |      |        | d_e_49   | srl  | 0       | 32, 2, 1         |
+|   a_e_50_U  | fifo channel | stream |      |      |        | a_e_50   | srl  | 0       | 8, 2, 1          |
+|   d_e_50_U  | fifo channel | stream |      |      |        | d_e_50   | srl  | 0       | 32, 2, 1         |
+|   a_e_51_U  | fifo channel | stream |      |      |        | a_e_51   | srl  | 0       | 8, 2, 1          |
+|   d_e_51_U  | fifo channel | stream |      |      |        | d_e_51   | srl  | 0       | 32, 2, 1         |
+|   a_e_52_U  | fifo channel | stream |      |      |        | a_e_52   | srl  | 0       | 8, 2, 1          |
+|   d_e_52_U  | fifo channel | stream |      |      |        | d_e_52   | srl  | 0       | 32, 2, 1         |
+|   a_e_53_U  | fifo channel | stream |      |      |        | a_e_53   | srl  | 0       | 8, 2, 1          |
+|   d_e_53_U  | fifo channel | stream |      |      |        | d_e_53   | srl  | 0       | 32, 2, 1         |
+|   a_e_54_U  | fifo channel | stream |      |      |        | a_e_54   | srl  | 0       | 8, 2, 1          |
+|   d_e_54_U  | fifo channel | stream |      |      |        | d_e_54   | srl  | 0       | 32, 2, 1         |
+|   a_e_55_U  | fifo channel | stream |      |      |        | a_e_55   | srl  | 0       | 8, 2, 1          |
+|   d_e_55_U  | fifo channel | stream |      |      |        | d_e_55   | srl  | 0       | 32, 2, 1         |
++-------------+--------------+--------+------+------+--------+----------+------+---------+------------------+
+
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+----------------------------+------------------------------------+
+| Type      | Options                    | Location                           |
++-----------+----------------------------+------------------------------------+
+| inline    | off                        | design.cpp:20 in pe                |
+| bind_op   | variable=p op=mul impl=dsp | design.cpp:23 in pe, p             |
+| pipeline  | II=1                       | design.cpp:27 in pe                |
+| interface | ap_ctrl_none port=return   | design.cpp:84 in gemm_tile, return |
+| dataflow  |                            | design.cpp:85 in gemm_tile         |
++-----------+----------------------------+------------------------------------+
+
+

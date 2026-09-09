@@ -1,0 +1,75 @@
+===== deepseek_deepseek-v4-pro__hls
+STUDY STAGE synthesise 1788826382.653808491 - 1788826239.805280216
+| + gemm_tile                           | 64  |        |               |     |        |         |
+--
+STUDY STAGE compile 1788826386.529112234 - 1788826382.739284018
+STUDY STAGE elaborate 1788826395.802942085 - 1788826386.531163484
+STUDY STAGE simulate 1788826402.189077475 - 1788826395.805554470
+STUDY VALUES 128 checked, 0 wrong
+STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
+===== deepseek_deepseek-v4-pro__rtl
+STUDY BUILD FAIL compile
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_data is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:339]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_valid is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:340]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_valid is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:349]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_data is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:367]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_valid is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:368]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_data is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:371]
+ERROR: [VRFC 10-1280] procedural assignment to a non-register r_valid is not permitted, left-hand side should be reg/integer/time/genvar [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:372]
+ERROR: [VRFC 10-8530] module 'dut_norm' is ignored due to previous errors [/scratch/hc676/agentstudy/salvage/deepseek_deepseek-v4-pro__rtl/sim/design.sv:5]
+===== deepseek_deepseek-v4-pro__spmw
+STUDY STAGE import 0.01
+STUDY STAGE elaborate 0.00
+STUDY STAGE generate 1.50
+STUDY STAGE synthesise 0.00
+STUDY BUILD FAIL synthesise
+FileNotFoundError: [Errno 2] No such file or directory: 'vitis_hls'
+===== moonshotai_kimi-k3__hls
+STUDY STAGE synthesise 1788826411.486289646 - 1788826406.787523083
+STUDY BUILD FAIL synthesis
+ERROR: [HLS 207-2359] conditional expression is ambiguous; 'ap_int<32>' can be converted to 'ap_int<33 aka 33>' and vice versa (design.cpp:45:31)
+ERROR: [HLS 207-2359] conditional expression is ambiguous; 'ap_uint<3>' can be converted to 'typename ap_int_base<3, false>::RType<_AP_SIZE_int, true>::plus' (aka 'ap_int<33>') and vice versa (design.cpp:69:34)
+ERROR: [HLS 207-3339] no matching function for call to 'drain_pe' (design.cpp:187:2)
+===== moonshotai_kimi-k3__rtl
+STUDY STAGE elaborate 1788826416.495143633 - 1788826411.554172477
+STUDY STAGE simulate 1788826422.275609229 - 1788826416.496904668
+STUDY VALUES 128 checked, 0 wrong
+STUDY PRODUCT 0 first_in 1 last_out 33 latency 32
+STUDY PRODUCT 1 first_in 17 last_out 49 latency 32
+STUDY INTERVAL 1 16
+STUDY RESULT CORRECT
+===== moonshotai_kimi-k3__spmw
+STUDY STAGE import 0.01
+STUDY STAGE elaborate 0.00
+STUDY STAGE generate 1.52
+STUDY STAGE synthesise 0.00
+STUDY BUILD FAIL synthesise
+FileNotFoundError: [Errno 2] No such file or directory: 'vitis_hls'
+===== z-ai_glm-5_3__hls
+STUDY STAGE elaborate 1788826480.798916200 - 1788826475.272745462
+STUDY STAGE simulate 1788826486.620399967 - 1788826480.801136459
+MISMATCH product 0 c_out_0[1]: got 16888 want 187
+MISMATCH product 0 c_out_1[1]: got 8359 want 23938
+MISMATCH product 0 c_out_2[1]: got 1269 want -11391
+MISMATCH product 0 c_out_0[2]: got 9941 want 16888
+MISMATCH product 0 c_out_3[1]: got -17663 want 26322
+MISMATCH product 0 c_out_1[2]: got 11178 want 8359
+MISMATCH product 0 c_out_4[1]: got -653 want 5688
+MISMATCH product 0 c_out_2[2]: got 18584 want 1269
+STUDY VALUES 128 checked, 29 wrong
+STUDY RESULT TIMEOUT after 20001 cycles, 37 of 128 outputs seen
+===== z-ai_glm-5_3__rtl
+STUDY BUILD FAIL compile
+ERROR: [VRFC 10-4982] syntax error near 'edge' [/scratch/hc676/agentstudy/salvage/z-ai_glm-5_3__rtl/sim/design.sv:281]
+ERROR: [VRFC 10-8549] SystemVerilog keyword 'edge' used in incorrect context [/scratch/hc676/agentstudy/salvage/z-ai_glm-5_3__rtl/sim/design.sv:281]
+ERROR: [VRFC 10-4982] syntax error near 'end' [/scratch/hc676/agentstudy/salvage/z-ai_glm-5_3__rtl/sim/design.sv:288]
+ERROR: [VRFC 10-8549] SystemVerilog keyword 'end' used in incorrect context [/scratch/hc676/agentstudy/salvage/z-ai_glm-5_3__rtl/sim/design.sv:288]
+ERROR: [VRFC 10-8530] module 'dut_norm' is ignored due to previous errors [/scratch/hc676/agentstudy/salvage/z-ai_glm-5_3__rtl/sim/design.sv:129]
+===== z-ai_glm-5_3__spmw
+STUDY STAGE import 0.01
+STUDY STAGE elaborate 0.00
+STUDY STAGE generate 1.58
+STUDY STAGE synthesise 0.00
+STUDY BUILD FAIL synthesise
+FileNotFoundError: [Errno 2] No such file or directory: 'vitis_hls'
+SALVAGE_DONE

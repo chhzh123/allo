@@ -1,0 +1,16 @@
+===== launching z-ai/glm-5.3  2026-09-07T20:10:36  load 3.78
+===== launching moonshotai/kimi-k3  2026-09-07T20:11:36  load 3.52
+===== launching deepseek/deepseek-v4-pro  2026-09-07T20:12:36  load 3.37
+===== z-ai/glm-5.3
+  spmw  no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__spmw/summary.json'
+  hls   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__hls/summary.json'
+  rtl   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/z-ai_glm-5_3__rtl/summary.json'
+===== moonshotai/kimi-k3
+  spmw  no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__spmw/summary.json'
+  hls   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls/summary.json'
+  rtl   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__rtl/summary.json'
+===== deepseek/deepseek-v4-pro
+  spmw  no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__spmw/summary.json'
+  hls   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__hls/summary.json'
+  rtl   no summary: [Errno 2] No such file or directory: '/scratch/hc676/agentstudy/trials/deepseek_deepseek-v4-pro__rtl/summary.json'
+ALL_TRIALS_DONE 2026-09-08T00:01:44

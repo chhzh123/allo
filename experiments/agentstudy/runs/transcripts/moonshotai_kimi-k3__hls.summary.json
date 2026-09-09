@@ -1,0 +1,110 @@
+{
+ "arm": "hls",
+ "model": "moonshotai/kimi-k3",
+ "trial": "/scratch/hc676/agentstudy/trials/moonshotai_kimi-k3__hls",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 29073,
+   "model_seconds": 319.4,
+   "tool_seconds": 4.6,
+   "stages": {
+    "synthesise": 1788839592.58
+   },
+   "verdict": "STUDY BUILD FAIL synthesis"
+  },
+  {
+   "build": 2,
+   "tokens": 30682,
+   "model_seconds": 316.3,
+   "tool_seconds": 106.1,
+   "stages": {
+    "synthesise": 1788839996.58,
+    "compile": 1788840000.41,
+    "elaborate": 1788840009.26,
+    "simulate": 1788840014.96
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen"
+  },
+  {
+   "build": 3,
+   "tokens": 50096,
+   "model_seconds": 327.7,
+   "tool_seconds": 4.7,
+   "stages": {
+    "synthesise": 1788840347.32
+   },
+   "verdict": "STUDY BUILD FAIL synthesis"
+  },
+  {
+   "build": 4,
+   "tokens": 32122,
+   "model_seconds": 44.1,
+   "tool_seconds": 108.9,
+   "stages": {
+    "synthesise": 1788840482.16,
+    "compile": 1788840485.95,
+    "elaborate": 1788840494.72,
+    "simulate": 1788840500.37
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen"
+  },
+  {
+   "build": 5,
+   "tokens": 36200,
+   "model_seconds": 45.4,
+   "tool_seconds": 124.7,
+   "stages": {
+    "synthesise": 1788840648.76,
+    "compile": 1788840652.64,
+    "elaborate": 1788840661.95,
+    "simulate": 1788840670.46
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 8 of 128 outputs seen"
+  },
+  {
+   "build": 6,
+   "tokens": 40392,
+   "model_seconds": 48.0,
+   "tool_seconds": 122.3,
+   "stages": {
+    "synthesise": 1788840821.97,
+    "compile": 1788840825.84,
+    "elaborate": 1788840835.22,
+    "simulate": 1788840840.71
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  },
+  {
+   "build": 7,
+   "tokens": 50503,
+   "model_seconds": 211.8,
+   "tool_seconds": 4.9,
+   "stages": {
+    "synthesise": 1788841057.39
+   },
+   "verdict": "STUDY BUILD FAIL synthesis"
+  },
+  {
+   "build": 8,
+   "tokens": 48312,
+   "model_seconds": 40.8,
+   "tool_seconds": 114.7,
+   "stages": {
+    "synthesise": 1788841194.84,
+    "compile": 1788841198.66,
+    "elaborate": 1788841207.76,
+    "simulate": 1788841212.86
+   },
+   "verdict": "STUDY RESULT CORRECT"
+  }
+ ],
+ "stopped_by": "builds",
+ "tokens": 317380,
+ "builds": 8,
+ "routes": 0,
+ "submitted": false,
+ "model_seconds": 1353.4,
+ "tool_seconds": 590.9,
+ "wall_seconds": 1944.3
+}

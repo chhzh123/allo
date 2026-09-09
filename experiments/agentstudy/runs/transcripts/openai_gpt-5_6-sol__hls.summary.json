@@ -1,0 +1,116 @@
+{
+ "arm": "hls",
+ "model": "openai/gpt-5.6-sol",
+ "trial": "/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__hls",
+ "segments": [
+  {
+   "build": 1,
+   "tokens": 21990,
+   "model_seconds": 158.0,
+   "tool_seconds": 140.9,
+   "stages": {
+    "synthesise": 1788841817.99,
+    "compile": 1788841822.05,
+    "elaborate": 1788841831.86,
+    "simulate": 1788841837.75
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen"
+  },
+  {
+   "build": 2,
+   "tokens": 23109,
+   "model_seconds": 56.9,
+   "tool_seconds": 142.7,
+   "stages": {
+    "synthesise": 1788842017.86,
+    "compile": 1788842021.88,
+    "elaborate": 1788842031.37,
+    "simulate": 1788842037.35
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen"
+  },
+  {
+   "build": 3,
+   "tokens": 28942,
+   "model_seconds": 52.2,
+   "tool_seconds": 319.0,
+   "stages": {
+    "synthesise": 1788842384.76,
+    "compile": 1788842389.38,
+    "elaborate": 1788842401.5,
+    "simulate": 1788842408.59
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 36 of 128 outputs seen"
+  },
+  {
+   "build": 4,
+   "tokens": 33756,
+   "model_seconds": 44.0,
+   "tool_seconds": 329.2,
+   "stages": {
+    "synthesise": 1788842758.99,
+    "compile": 1788842763.44,
+    "elaborate": 1788842775.19,
+    "simulate": 1788842781.77
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen"
+  },
+  {
+   "build": 5,
+   "tokens": 38844,
+   "model_seconds": 25.5,
+   "tool_seconds": 240.7,
+   "stages": {
+    "synthesise": 1788843024.8,
+    "compile": 1788843029.17,
+    "elaborate": 1788843041.25,
+    "simulate": 1788843048.01
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen"
+  },
+  {
+   "build": 6,
+   "tokens": 44480,
+   "model_seconds": 25.3,
+   "tool_seconds": 240.5,
+   "stages": {
+    "synthesise": 1788843289.84,
+    "compile": 1788843294.29,
+    "elaborate": 1788843306.68,
+    "simulate": 1788843313.8
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 17 of 128 outputs seen"
+  },
+  {
+   "build": 7,
+   "tokens": 49968,
+   "model_seconds": 25.4,
+   "tool_seconds": 210.9,
+   "stages": {
+    "synthesise": 1788843527.87,
+    "compile": 1788843532.1,
+    "elaborate": 1788843543.39,
+    "simulate": 1788843550.08
+   },
+   "verdict": "STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen"
+  },
+  {
+   "build": 8,
+   "tokens": 55474,
+   "model_seconds": 26.9,
+   "tool_seconds": 5.1,
+   "stages": {
+    "synthesise": 1788843582.07
+   },
+   "verdict": "STUDY BUILD FAIL synthesis"
+  }
+ ],
+ "stopped_by": "builds",
+ "tokens": 296563,
+ "builds": 8,
+ "routes": 0,
+ "submitted": false,
+ "model_seconds": 414.2,
+ "tool_seconds": 1629.0,
+ "wall_seconds": 2043.2
+}
