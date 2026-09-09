@@ -1,0 +1,30 @@
+{
+ "warning_codes": {
+  "HLS 207-5292": 10,
+  "HLS 207-5573": 4,
+  "HLS 214-111": 12,
+  "HLS 214-114": 3,
+  "HLS 200-471": 1,
+  "HLS 214-366": 6,
+  "HLS 214-392": 1,
+  "HLS 200-805": 1,
+  "SYN 201-103": 9,
+  "HLS 200-871": 9,
+  "HLS 200-1016": 9,
+  "HLS 200-656": 8
+ },
+ "warning_samples": {
+  "HLS 207-5292": "unused parameter 'data_type' (/opt/xilinx/Vitis_HLS/2023.2/common/technology/autopilot/hls_fft.h:97:77)",
+  "HLS 207-5573": "performance pragma is ignored, because it is not in a loop  (./FFT.cpp:54:9)",
+  "HLS 214-111": "Static scalars and arrays declared inside a dataflow region will be treated like local variables (./FFT.cpp:83:27)",
+  "HLS 214-114": "Since the only kind of statements allowed in a canonical dataflow region are variable declarations and function calls, the compiler may not be able to correctly handle the region (./FFT.cpp:93:9)",
+  "HLS 200-471": "Dataflow form checks found 15 issue(s) in file ./FFT.cpp",
+  "HLS 214-366": "Duplicating function 'std::complex<float>::complex(float, float) (.25.28)' as different function signatures were detected between this call site and other call site(s). This may impact the resources u",
+  "HLS 214-392": "Cannot apply performance pragma target_ti=512 cycles for loop 'R_Pair_loop' (./FFT.cpp:245:9) in function 'FFT_stage_spatial_unroll<2>'. The target requires a pipeline II less than the minimal achieva",
+  "HLS 200-805": "An internal stream 'reverse_in_stream_vector' with default size can result in deadlock. Please consider resizing the stream using the directive 'set_directive_stream' or the 'HLS stream' pragma.",
+  "SYN 201-103": "Legalizing function name 'FFT_stage_spatial_unroll<2>' to 'FFT_stage_spatial_unroll_2_s'.",
+  "HLS 200-871": "Estimated clock period (2.615 ns) exceeds the target (target clock period: 3.333 ns, clock uncertainty: 0.900 ns, effective delay budget: 2.433 ns).",
+  "HLS 200-1016": "The critical path in module 'reverse_input_stream_UF1_Loop_FROM_BLOCK_TO_CYCLIC_proc' consists of the following:",
+  "HLS 200-656": "Deadlocks can occur since process reverse_input_stream_UF1_Loop_READ_STREAM_INPUT_proc1 is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind "
+ }
+}

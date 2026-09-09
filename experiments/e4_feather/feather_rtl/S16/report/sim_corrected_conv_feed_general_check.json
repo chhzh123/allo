@@ -1,0 +1,101 @@
+{
+ "status": "pass",
+ "tiles": 4096,
+ "tiles_ok": 4096,
+ "bad_elements": 0,
+ "first_bad": null,
+ "A0": 12,
+ "F0": 20,
+ "G": 8,
+ "offsets": [
+  0
+ ],
+ "toggles": [
+  [
+   1,
+   4116,
+   1
+  ],
+  [
+   2,
+   8212,
+   0
+  ],
+  [
+   3,
+   12308,
+   1
+  ],
+  [
+   4,
+   16404,
+   0
+  ],
+  [
+   5,
+   20500,
+   1
+  ],
+  [
+   6,
+   24596,
+   0
+  ],
+  [
+   512,
+   2097172,
+   0
+  ],
+  [
+   1024,
+   4194324,
+   0
+  ]
+ ],
+ "toggle_count": 14,
+ "buffers": {},
+ "end_cycle": 16777289,
+ "signed_equals_rtl": true,
+ "tile_done_cycles_rel_F0": [
+  4141,
+  8237,
+  12333,
+  16429,
+  20525,
+  24621,
+  28717,
+  32813,
+  16748589,
+  16752685,
+  16756781,
+  16760877,
+  16764973,
+  16769069,
+  16773165,
+  16777261
+ ],
+ "first_output_cycles": 4141,
+ "completion_cycles": 16777261,
+ "steady_interval_cycles": {
+  "min": 4096,
+  "median": 4096.0,
+  "max": 4096,
+  "mean": 4096.0
+ },
+ "steady_interval_last32": 4096.0,
+ "feed_cycles_between_toggles": [
+  4096,
+  2072576,
+  2097152
+ ],
+ "first_toggle_rel_F0": 4096,
+ "drain_cycles_after_last_toggle": 44,
+ "host_check": "pass",
+ "host_bad": 0,
+ "gen_s": 18.7,
+ "build_s": 17.4,
+ "sim_s": 9106.8,
+ "xsim_rc": 0,
+ "build": "/scratch/hc676/e4_rtl_runs/builds/e4_feather_fixed_N16_T4096_M0_7d28d0c9f0",
+ "rtl": "/scratch/hc676/e4_feather_fixed/RTL"
+}

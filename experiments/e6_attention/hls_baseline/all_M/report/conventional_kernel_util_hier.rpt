@@ -1,0 +1,37 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Mon Sep  7 00:19:30 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 1 -file util_hier.rpt
+| Design       : attention_pv
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------+----------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|         Instance        |           Module           | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------+----------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| attention_pv            |                      (top) |       9411 |       6893 |       0 | 2518 | 9671 |      0 |      5 |    0 |         16 |
+|   (attention_pv)        |                      (top) |         24 |          9 |       0 |   15 |  639 |      0 |      0 |    0 |          0 |
+|   control_s_axi_U       | attention_pv_control_s_axi |        409 |        409 |       0 |    0 |  410 |      0 |      0 |    0 |          0 |
+|   gmem0_m_axi_U         |   attention_pv_gmem0_m_axi |        865 |        586 |       0 |  279 |  864 |      0 |      1 |    0 |          0 |
+|   gmem1_m_axi_U         |   attention_pv_gmem1_m_axi |        810 |        611 |       0 |  199 |  799 |      0 |      1 |    0 |          0 |
+|   gmem2_m_axi_U         |   attention_pv_gmem2_m_axi |        857 |        581 |       0 |  276 |  859 |      0 |      1 |    0 |          0 |
+|   gmem3_m_axi_U         |   attention_pv_gmem3_m_axi |       1033 |        696 |       0 |  337 | 1104 |      0 |      1 |    0 |          0 |
+|   gmem4_m_axi_U         |   attention_pv_gmem4_m_axi |       1045 |        705 |       0 |  340 | 1107 |      0 |      1 |    0 |          0 |
+|   grp_array_pass_fu_206 |    attention_pv_array_pass |       4373 |       3301 |       0 | 1072 | 3889 |      0 |      0 |    0 |         16 |
++-------------------------+----------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

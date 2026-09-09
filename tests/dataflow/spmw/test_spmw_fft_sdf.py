@@ -179,6 +179,11 @@ def fft_sdf_of(n, batch, name=None):
     # iterations still in flight and the last stage is short by its depth
     # (17 of 4,352 tokens at N=128).
     engine.spmw_pipeline_style = "flp"
+    # One transform is `n` output samples, so the cosim can report each
+    # transform's completion cycle and not only the whole launch's. HP-FFT's
+    # own harness reports a single transform, and comparing its figure with a
+    # 33-transform launch is a factor of thirty error.
+    engine.spmw_tokens_per_transform = n
     return engine
 
 

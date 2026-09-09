@@ -1,0 +1,579 @@
+{
+  "meta": {
+    "counter_path": "/scratch/hc676/allo/scripts/spmw_loc2.py",
+    "counter_version": "spmw_loc2 2026-09-06",
+    "counter_sha256": "fea0ba570ece6b7694b43e3edb747e5761cc0daa83088f7227b48fea18568c56",
+    "manifest_path": "/scratch/hc676/spmw_eval_remaining_2026-09-06/e7_loc/fft_folded/manifest.json",
+    "manifest_sha256": "69e5322bdc40da120f4cb7ae5a6fc63e7f28d35145db21d85c7fae4352634010",
+    "roots": {
+      "allo": "/scratch/hc676/allo",
+      "hpfft": "/scratch/hc676/HP-FFT-HLS"
+    },
+    "python": "3.9.25",
+    "provenance": [
+      "Counted on brg-zhang-xcel with scripts/spmw_loc2.py as black-formatted there (sha256 fea0ba570ece6b7694b43e3edb747e5761cc0daa83088f7227b48fea18568c56; the E7 archive's 68a47ad0... is the same program before black), over /scratch/hc676/allo (the worktree's rsync) and /scratch/hc676/HP-FFT-HLS at c4611b8."
+    ]
+  },
+  "summary": [
+    {
+      "id": "fft_folded",
+      "title": "Folded radix-2 FFT (HP-FFT n256/UF1, one sample per cycle, vs the SPMW single-path delay-feedback pipeline)",
+      "kind": "design",
+      "table": true,
+      "hls_status": "counted",
+      "spmw_status": "counted",
+      "hls_design": 299,
+      "hls_config": 26,
+      "hls_workload": 0,
+      "hls_generated": 0,
+      "hls_test": 57,
+      "spmw_design": 106,
+      "spmw_config": 5,
+      "spmw_workload": 0,
+      "spmw_generated": 0,
+      "spmw_test": 41,
+      "ratio_design": 2.82,
+      "ratio_design_plus_config": 2.93,
+      "archived_hls": 407,
+      "archived_spmw": null,
+      "archived_ratio": null,
+      "archived_note": "The archived 407 was HP-FFT n1024/UF32 (a 32-samples-per-cycle unrolled variant) counted with the C rule on the whole file; the architecture comparable to the SPMW SDF pipeline is UF1 (one sample per cycle), n256 and n1024 differ by 6 lines.",
+      "adaptation": null
+    }
+  ],
+  "designs": [
+    {
+      "id": "fft_folded",
+      "title": "Folded radix-2 FFT (HP-FFT n256/UF1, one sample per cycle, vs the SPMW single-path delay-feedback pipeline)",
+      "kind": "design",
+      "table": true,
+      "archived": {
+        "hls": 407,
+        "spmw": null,
+        "note": "The archived 407 was HP-FFT n1024/UF32 (a 32-samples-per-cycle unrolled variant) counted with the C rule on the whole file; the architecture comparable to the SPMW SDF pipeline is UF1 (one sample per cycle), n256 and n1024 differ by 6 lines."
+      },
+      "notes": [
+        "HLS: HP-FFT-HLS commit c4611b8, n256/UF1/FFT.cpp: the double-buffered butterfly, the input bit-reversal stream, the stage functions (spatially unrolled per stage, pipelined), the vector-stream stage-1 form, the DIT driver and FFT_TOP; FFT.h holds includes, sizes (FFT_NUM, EXP2_FFT, UF) and the top's declaration (3 lines, counted as config with the header).",
+        "SPMW: tests/dataflow/spmw/test_spmw_fft_sdf.py fft_sdf_of(n, batch): StageIO/ReorderIO, the chain topology, the stage unit (delay line + butterfly + twiddle), the reorder unit (double buffer, bit-reversal ROM) and the engine fabric; twiddles and bitrev are the ROM contents (design). csample is a type alias (config)."
+      ],
+      "sides": {
+        "hls": {
+          "label": "Vitis HLS C++ (HP-FFT UF1)",
+          "status": "counted",
+          "parts": [
+            {
+              "part": 0,
+              "label": "",
+              "category": "design",
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/FFT.cpp",
+              "file_spec": "hpfft:n256/UF1/FFT.cpp",
+              "listing": null,
+              "language": "cpp",
+              "selectors": {
+                "symbols": {
+                  "revIdxTab": [
+                    4,
+                    4
+                  ],
+                  "twiddles": [
+                    5,
+                    5
+                  ],
+                  "RADIX2_BFLY_double_buffer_quarter_CY": [
+                    7,
+                    49
+                  ],
+                  "output_result_array_to_stream": [
+                    52,
+                    64
+                  ],
+                  "bit_reverse": [
+                    67,
+                    75
+                  ],
+                  "reverse_input_stream_UF1": [
+                    78,
+                    198
+                  ],
+                  "FFT_stage_spatial_unroll": [
+                    205,
+                    262
+                  ],
+                  "RADIX2_BFLY_double_buffer_quarter_onlycompute": [
+                    265,
+                    318
+                  ],
+                  "FFT_Stage1_vectorstream_parameterize": [
+                    322,
+                    344
+                  ],
+                  "FFT_DIT_spatial_unroll_CY_stream_vector": [
+                    378,
+                    420
+                  ],
+                  "FFT_TOP": [
+                    423,
+                    443
+                  ]
+                },
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {}
+              },
+              "ranges": [
+                [
+                  4,
+                  5
+                ],
+                [
+                  7,
+                  49
+                ],
+                [
+                  52,
+                  64
+                ],
+                [
+                  67,
+                  75
+                ],
+                [
+                  78,
+                  198
+                ],
+                [
+                  205,
+                  262
+                ],
+                [
+                  265,
+                  318
+                ],
+                [
+                  322,
+                  344
+                ],
+                [
+                  378,
+                  420
+                ],
+                [
+                  423,
+                  443
+                ]
+              ],
+              "selected_lines": 387,
+              "count": 299,
+              "sha256_selected": "5592b6c2ef244c3e85a43ac872acb4606460ab68c48b24b32cabecfad4b29c55",
+              "sha256_file": "2983ddc097d4346059d1d5adc10e74b9fd0c503f1b49fbc6a7d7ee93d24acf36",
+              "note": "every function and the two global tables of the design file"
+            },
+            {
+              "part": 1,
+              "label": "",
+              "category": "config",
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/FFT.cpp",
+              "file_spec": "hpfft:n256/UF1/FFT.cpp",
+              "listing": null,
+              "language": "cpp",
+              "selectors": {
+                "symbols": {},
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {
+                  "^#include": [
+                    [
+                      1,
+                      1
+                    ]
+                  ]
+                }
+              },
+              "ranges": [
+                [
+                  1,
+                  1
+                ]
+              ],
+              "selected_lines": 1,
+              "count": 1,
+              "sha256_selected": "c88c0740297853a3ca662c4de5230a36f8d8c5abad126a37e719a4693959a6ab",
+              "sha256_file": "2983ddc097d4346059d1d5adc10e74b9fd0c503f1b49fbc6a7d7ee93d24acf36",
+              "note": ""
+            },
+            {
+              "part": 2,
+              "label": "",
+              "category": "config",
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/FFT.h",
+              "file_spec": "hpfft:n256/UF1/FFT.h",
+              "listing": null,
+              "language": "cpp",
+              "selectors": {
+                "symbols": {},
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {},
+                "all": true
+              },
+              "ranges": [
+                [
+                  1,
+                  33
+                ]
+              ],
+              "selected_lines": 33,
+              "count": 25,
+              "sha256_selected": "9d8a158e3a2967b3f085738ff3dd00855bdfad6b4f09d5ef22969a3033b636dc",
+              "sha256_file": "c00e9660aa288d61bf50e9ad3f1b111359457dad29b3f3567c85f4c55f991b69",
+              "note": "includes, sizes, the top's declaration"
+            },
+            {
+              "part": 3,
+              "label": "",
+              "category": "test",
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/testbench.cpp",
+              "file_spec": "hpfft:n256/UF1/testbench.cpp",
+              "listing": null,
+              "language": "cpp",
+              "selectors": {
+                "symbols": {},
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {},
+                "all": true
+              },
+              "ranges": [
+                [
+                  1,
+                  73
+                ]
+              ],
+              "selected_lines": 73,
+              "count": 57,
+              "sha256_selected": "c16739fe60f5bf43f31dc1607aa908db4bd128226a70873c9c1ba7e26c069754",
+              "sha256_file": "7327a57b61076f245ec0a3c756cb6adef3f1109dea0059d3ec71a16801146fed",
+              "note": ""
+            }
+          ],
+          "remainder": [
+            {
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/FFT.cpp",
+              "listing": null,
+              "category": "test",
+              "count": 0,
+              "ranges": [
+                [
+                  2,
+                  3
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  50,
+                  51
+                ],
+                [
+                  65,
+                  66
+                ],
+                [
+                  76,
+                  77
+                ],
+                [
+                  199,
+                  204
+                ],
+                [
+                  263,
+                  264
+                ],
+                [
+                  319,
+                  321
+                ],
+                [
+                  345,
+                  377
+                ],
+                [
+                  421,
+                  422
+                ]
+              ],
+              "sha256_selected": "1c1c883dbe1815c2e2a3da49aaceceaecb42e709633ce2988262a54107129971",
+              "whole_file_count": 300,
+              "whole_file_lines": 443
+            },
+            {
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/FFT.h",
+              "listing": null,
+              "category": "test",
+              "count": 0,
+              "ranges": [],
+              "sha256_selected": "",
+              "whole_file_count": 25,
+              "whole_file_lines": 33
+            },
+            {
+              "file": "/scratch/hc676/HP-FFT-HLS/n256/UF1/testbench.cpp",
+              "listing": null,
+              "category": "test",
+              "count": 0,
+              "ranges": [],
+              "sha256_selected": "",
+              "whole_file_count": 57,
+              "whole_file_lines": 73
+            }
+          ],
+          "totals": {
+            "design": 299,
+            "config": 26,
+            "workload": 0,
+            "generated": 0,
+            "test": 57,
+            "remainder": 0,
+            "remainder_category": "test",
+            "design_plus_config": 325
+          },
+          "note": ""
+        },
+        "spmw": {
+          "label": "SPMW (Python)",
+          "status": "counted",
+          "parts": [
+            {
+              "part": 0,
+              "label": "",
+              "category": "design",
+              "file": "/scratch/hc676/allo/tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "file_spec": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "listing": null,
+              "language": "python",
+              "selectors": {
+                "symbols": {
+                  "twiddles": [
+                    30,
+                    34
+                  ],
+                  "bitrev": [
+                    37,
+                    42
+                  ],
+                  "fft_sdf_of": [
+                    45,
+                    177
+                  ]
+                },
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {}
+              },
+              "ranges": [
+                [
+                  30,
+                  34
+                ],
+                [
+                  37,
+                  42
+                ],
+                [
+                  45,
+                  177
+                ]
+              ],
+              "selected_lines": 144,
+              "count": 106,
+              "sha256_selected": "26fab86f103896608a0395fd9dc9de0b804a6aacce9762d2c8ad31b1a169a480",
+              "sha256_file": "eae8d0873ea0d8e47baab9909a11ef6fb1d4c9c434265375e64a695e98db6f07",
+              "note": ""
+            },
+            {
+              "part": 1,
+              "label": "",
+              "category": "config",
+              "file": "/scratch/hc676/allo/tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "file_spec": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "listing": null,
+              "language": "python",
+              "selectors": {
+                "symbols": {
+                  "csample": [
+                    27,
+                    27
+                  ]
+                },
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {
+                  "^import": [
+                    [
+                      21,
+                      22
+                    ],
+                    [
+                      24,
+                      24
+                    ]
+                  ],
+                  "^from": [
+                    [
+                      25,
+                      25
+                    ]
+                  ]
+                }
+              },
+              "ranges": [
+                [
+                  21,
+                  22
+                ],
+                [
+                  24,
+                  25
+                ],
+                [
+                  27,
+                  27
+                ]
+              ],
+              "selected_lines": 5,
+              "count": 5,
+              "sha256_selected": "7185e87690e21787da6784a7c292996d1fd747e7b4100e078c2f592c8b91ef5d",
+              "sha256_file": "eae8d0873ea0d8e47baab9909a11ef6fb1d4c9c434265375e64a695e98db6f07",
+              "note": ""
+            },
+            {
+              "part": 2,
+              "label": "",
+              "category": "test",
+              "file": "/scratch/hc676/allo/tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "file_spec": "allo:tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "listing": null,
+              "language": "python",
+              "selectors": {
+                "symbols": {
+                  "operands": [
+                    180,
+                    188
+                  ],
+                  "check": [
+                    191,
+                    197
+                  ],
+                  "test_sdf_matches_numpy": [
+                    200,
+                    208
+                  ],
+                  "test_sdf_impulses_and_tone": [
+                    211,
+                    224
+                  ]
+                },
+                "symbol_pattern": {},
+                "lines": [],
+                "match": {}
+              },
+              "ranges": [
+                [
+                  180,
+                  188
+                ],
+                [
+                  191,
+                  197
+                ],
+                [
+                  200,
+                  208
+                ],
+                [
+                  211,
+                  224
+                ]
+              ],
+              "selected_lines": 39,
+              "count": 39,
+              "sha256_selected": "64b46e36dd3a5ccfd9bc550ea6577320446464cbd4bde4c4239c85e2af5758a8",
+              "sha256_file": "eae8d0873ea0d8e47baab9909a11ef6fb1d4c9c434265375e64a695e98db6f07",
+              "note": ""
+            }
+          ],
+          "remainder": [
+            {
+              "file": "/scratch/hc676/allo/tests/dataflow/spmw/test_spmw_fft_sdf.py",
+              "listing": null,
+              "category": "test",
+              "count": 2,
+              "ranges": [
+                [
+                  1,
+                  20
+                ],
+                [
+                  23,
+                  23
+                ],
+                [
+                  26,
+                  26
+                ],
+                [
+                  28,
+                  29
+                ],
+                [
+                  35,
+                  36
+                ],
+                [
+                  43,
+                  44
+                ],
+                [
+                  178,
+                  179
+                ],
+                [
+                  189,
+                  190
+                ],
+                [
+                  198,
+                  199
+                ],
+                [
+                  209,
+                  210
+                ],
+                [
+                  225,
+                  228
+                ]
+              ],
+              "sha256_selected": "d8aba5bec32339cd81b87a217d8f5fe32cec72ac9bc4fd785f7d7f7655f25246",
+              "whole_file_count": 152,
+              "whole_file_lines": 228
+            }
+          ],
+          "totals": {
+            "design": 106,
+            "config": 5,
+            "workload": 0,
+            "generated": 0,
+            "test": 39,
+            "remainder": 2,
+            "remainder_category": "test",
+            "design_plus_config": 111
+          },
+          "note": ""
+        }
+      }
+    }
+  ]
+}

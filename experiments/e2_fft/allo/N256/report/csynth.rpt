@@ -1,0 +1,229 @@
+
+
+================================================================
+== Synthesis Summary Report of 'fft'
+================================================================
++ General Information: 
+    * Date:           Sun Sep  6 21:07:30 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        out.prj
+    * Solution:       solution1 (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +-----------------------------------+--------+-------+---------+---------+----------+---------+------+----------+----------+----------+------------+------------+-----+
+    |              Modules              |  Issue |       | Latency | Latency | Iteration|         | Trip |          |          |          |            |            |     |
+    |              & Loops              |  Type  | Slack | (cycles)|   (ns)  |  Latency | Interval| Count| Pipelined|   BRAM   |    DSP   |     FF     |     LUT    | URAM|
+    +-----------------------------------+--------+-------+---------+---------+----------+---------+------+----------+----------+----------+------------+------------+-----+
+    |+ fft                              |  Timing|  -0.00|        -|        -|         -|        -|     -|        no|  10 (~0%)|  16 (~0%)|  7756 (~0%)|  6562 (~0%)|    -|
+    | + load_buf0_1                     |  Timing|  -0.00|      266|  885.780|         -|      256|     -|    rewind|         -|         -|   446 (~0%)|   234 (~0%)|    -|
+    |  o l_S_load_buf0_load_buf0_l_0    |       -|   2.43|      265|  882.450|        11|        1|   256|       yes|         -|         -|           -|           -|    -|
+    | + load_buf1_1                     |  Timing|  -0.00|      266|  885.780|         -|      256|     -|    rewind|         -|         -|   446 (~0%)|   234 (~0%)|    -|
+    |  o l_S_load_buf1_load_buf1_l_0    |       -|   2.43|      265|  882.450|        11|        1|   256|       yes|         -|         -|           -|           -|    -|
+    | + load_buf2_1                     |  Timing|  -0.00|      138|  459.540|         -|      128|     -|    rewind|         -|         -|   444 (~0%)|   232 (~0%)|    -|
+    |  o l_S_load_buf2_load_buf2_l_0    |       -|   2.43|      137|  456.210|        11|        1|   128|       yes|         -|         -|           -|           -|    -|
+    | + load_buf3_1                     |  Timing|  -0.00|      138|  459.540|         -|      128|     -|    rewind|         -|         -|   444 (~0%)|   232 (~0%)|    -|
+    |  o l_S_load_buf3_load_buf3_l_0    |       -|   2.43|      137|  456.210|        11|        1|   128|       yes|         -|         -|           -|           -|    -|
+    | + store_res0_1                    |  Timing|  -0.00|      263|  875.790|         -|      256|     -|    rewind|         -|         -|   379 (~0%)|   215 (~0%)|    -|
+    |  o l_S_store_res0_store_res0_l_0  |       -|   2.43|      262|  872.460|         8|        1|   256|       yes|         -|         -|           -|           -|    -|
+    | + store_res1_1                    |  Timing|  -0.00|      263|  875.790|         -|      256|     -|    rewind|         -|         -|   379 (~0%)|   215 (~0%)|    -|
+    |  o l_S_store_res1_store_res1_l_0  |       -|   2.43|      262|  872.460|         8|        1|   256|       yes|         -|         -|           -|           -|    -|
+    | o VITIS_LOOP_117_1                |       -|   2.43|        -|        -|         -|        -|     -|        no|         -|         -|           -|           -|    -|
+    |  + fft_Pipeline_VITIS_LOOP_123_2  |       -|   0.09|        -|        -|         -|        -|     -|        no|         -|  16 (~0%)|  1716 (~0%)|  1183 (~0%)|    -|
+    |   o VITIS_LOOP_123_2              |      II|   2.43|        -|        -|        25|       25|     -|       yes|         -|         -|           -|           -|    -|
+    +-----------------------------------+--------+-------+---------+---------+----------+---------+------+----------+----------+----------+------------+------------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* M_AXI
++-------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+| Interface   | Data Width | Address Width | Latency | Offset | Register | Max Widen | Max Read     | Max Write    | Num Read    | Num Write   | Resource Estimate |
+|             | (SW->HW)   |               |         |        |          | Bitwidth  | Burst Length | Burst Length | Outstanding | Outstanding |                   |
++-------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+| m_axi_gmem0 | 32 -> 32   | 64            | 0       | slave  | 0        | 0         | 16           | 16           | 16          | 16          | BRAM=2            |
+| m_axi_gmem1 | 32 -> 32   | 64            | 0       | slave  | 0        | 0         | 16           | 16           | 16          | 16          | BRAM=2            |
+| m_axi_gmem2 | 32 -> 32   | 64            | 0       | slave  | 0        | 0         | 16           | 16           | 16          | 16          | BRAM=2            |
+| m_axi_gmem3 | 32 -> 32   | 64            | 0       | slave  | 0        | 0         | 16           | 16           | 16          | 16          | BRAM=2            |
++-------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+
+* S_AXILITE Interfaces
++---------------+------------+---------------+--------+----------+
+| Interface     | Data Width | Address Width | Offset | Register |
++---------------+------------+---------------+--------+----------+
+| s_axi_control | 32         | 6             | 16     | 0        |
++---------------+------------+---------------+--------+----------+
+
+* S_AXILITE Registers
++---------------+----------+--------+-------+--------+--------------------+
+| Interface     | Register | Offset | Width | Access | Description        |
++---------------+----------+--------+-------+--------+--------------------+
+| s_axi_control | v24_1    | 0x10   | 32    | W      | Data signal of v24 |
+| s_axi_control | v24_2    | 0x14   | 32    | W      | Data signal of v24 |
+| s_axi_control | v25_1    | 0x1c   | 32    | W      | Data signal of v25 |
+| s_axi_control | v25_2    | 0x20   | 32    | W      | Data signal of v25 |
+| s_axi_control | v26_1    | 0x28   | 32    | W      | Data signal of v26 |
+| s_axi_control | v26_2    | 0x2c   | 32    | W      | Data signal of v26 |
+| s_axi_control | v27_1    | 0x34   | 32    | W      | Data signal of v27 |
+| s_axi_control | v27_2    | 0x38   | 32    | W      | Data signal of v27 |
++---------------+----------+--------+-------+--------+--------------------+
+
+* TOP LEVEL CONTROL
++-----------+------------+-----------------------------------+
+| Interface | Type       | Ports                             |
++-----------+------------+-----------------------------------+
+| ap_clk    | clock      | ap_clk                            |
+| ap_rst_n  | reset      | ap_rst_n                          |
+| ap_ctrl   | ap_ctrl_hs | ap_done ap_idle ap_ready ap_start |
++-----------+------------+-----------------------------------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+----------+
+| Argument | Direction | Datatype |
++----------+-----------+----------+
+| v24      | inout     | float*   |
+| v25      | inout     | float*   |
+| v26      | in        | float*   |
+| v27      | in        | float*   |
++----------+-----------+----------+
+
+* SW-to-HW Mapping
++----------+---------------+-----------+----------+---------------------------------+
+| Argument | HW Interface  | HW Type   | HW Usage | HW Info                         |
++----------+---------------+-----------+----------+---------------------------------+
+| v24      | m_axi_gmem0   | interface |          |                                 |
+| v24      | s_axi_control | register  | offset   | name=v24_1 offset=0x10 range=32 |
+| v24      | s_axi_control | register  | offset   | name=v24_2 offset=0x14 range=32 |
+| v25      | m_axi_gmem1   | interface |          |                                 |
+| v25      | s_axi_control | register  | offset   | name=v25_1 offset=0x1c range=32 |
+| v25      | s_axi_control | register  | offset   | name=v25_2 offset=0x20 range=32 |
+| v26      | m_axi_gmem2   | interface |          |                                 |
+| v26      | s_axi_control | register  | offset   | name=v26_1 offset=0x28 range=32 |
+| v26      | s_axi_control | register  | offset   | name=v26_2 offset=0x2c range=32 |
+| v27      | m_axi_gmem3   | interface |          |                                 |
+| v27      | s_axi_control | register  | offset   | name=v27_1 offset=0x34 range=32 |
+| v27      | s_axi_control | register  | offset   | name=v27_2 offset=0x38 range=32 |
++----------+---------------+-----------+----------+---------------------------------+
+
+
+================================================================
+== M_AXI Burst Information
+================================================================
+ Note: All burst requests might be further partitioned into multiple requests during RTL generation based on max_read_burst_length or max_write_burst_length settings.
+
+* Inferred Burst Summary
++--------------+-----------+--------+-------+-------------------------------+------------------+
+| HW Interface | Direction | Length | Width | Loop                          | Loop Location    |
++--------------+-----------+--------+-------+-------------------------------+------------------+
+| m_axi_gmem0  | read      | 256    | 32    | l_S_load_buf0_load_buf0_l_0   | kernel.cpp:24:32 |
+| m_axi_gmem0  | write     | 256    | 32    | l_S_store_res0_store_res0_l_0 | kernel.cpp:68:34 |
+| m_axi_gmem1  | read      | 256    | 32    | l_S_load_buf1_load_buf1_l_0   | kernel.cpp:35:32 |
+| m_axi_gmem1  | write     | 256    | 32    | l_S_store_res1_store_res1_l_0 | kernel.cpp:79:34 |
+| m_axi_gmem2  | read      | 128    | 32    | l_S_load_buf2_load_buf2_l_0   | kernel.cpp:46:32 |
+| m_axi_gmem3  | read      | 128    | 32    | l_S_load_buf3_load_buf3_l_0   | kernel.cpp:57:32 |
++--------------+-----------+--------+-------+-------------------------------+------------------+
+
+* All M_AXI Variable Accesses
++--------------+----------+------------------+-----------+--------------+--------+-------------------------------+------------------+------------+---------------------------------------------------------------------------------------------------------+
+| HW Interface | Variable | Access Location  | Direction | Burst Status | Length | Loop                          | Loop Location    | Resolution | Problem                                                                                                 |
++--------------+----------+------------------+-----------+--------------+--------+-------------------------------+------------------+------------+---------------------------------------------------------------------------------------------------------+
+| m_axi_gmem0  | v0       | kernel.cpp:26:13 | read      | Widen Fail   |        | l_S_load_buf0_load_buf0_l_0   | kernel.cpp:24:32 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
+| m_axi_gmem0  | v0       | kernel.cpp:26:13 | read      | Inferred     | 256    | l_S_load_buf0_load_buf0_l_0   | kernel.cpp:24:32 |            |                                                                                                         |
+| m_axi_gmem0  | v17      | kernel.cpp:71:25 | write     | Widen Fail   |        | l_S_store_res0_store_res0_l_0 | kernel.cpp:68:34 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
+| m_axi_gmem0  | v17      | kernel.cpp:71:25 | write     | Inferred     | 256    | l_S_store_res0_store_res0_l_0 | kernel.cpp:68:34 |            |                                                                                                         |
+| m_axi_gmem1  | v4       | kernel.cpp:26:13 | read      | Inferred     | 256    | l_S_load_buf1_load_buf1_l_0   | kernel.cpp:35:32 |            |                                                                                                         |
+| m_axi_gmem1  | v4       | kernel.cpp:37:13 | read      | Widen Fail   |        | l_S_load_buf1_load_buf1_l_0   | kernel.cpp:35:32 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
+| m_axi_gmem1  | v21      | kernel.cpp:71:25 | write     | Inferred     | 256    | l_S_store_res1_store_res1_l_0 | kernel.cpp:79:34 |            |                                                                                                         |
+| m_axi_gmem1  | v21      | kernel.cpp:82:25 | write     | Widen Fail   |        | l_S_store_res1_store_res1_l_0 | kernel.cpp:79:34 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
+| m_axi_gmem2  | v8       | kernel.cpp:26:13 | read      | Inferred     | 128    | l_S_load_buf2_load_buf2_l_0   | kernel.cpp:46:32 |            |                                                                                                         |
+| m_axi_gmem2  | v8       | kernel.cpp:48:14 | read      | Widen Fail   |        | l_S_load_buf2_load_buf2_l_0   | kernel.cpp:46:32 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
+| m_axi_gmem3  | v12      | kernel.cpp:26:13 | read      | Inferred     | 128    | l_S_load_buf3_load_buf3_l_0   | kernel.cpp:57:32 |            |                                                                                                         |
+| m_axi_gmem3  | v12      | kernel.cpp:59:14 | read      | Widen Fail   |        | l_S_load_buf3_load_buf3_l_0   | kernel.cpp:57:32 | 214-353    | Could not widen since type float size is greater than or equal to the max_widen_bitwidth threshold of 0 |
++--------------+----------+------------------+-----------+--------------+--------+-------------------------------+------------------+------------+---------------------------------------------------------------------------------------------------------+
+
+    * Resolution URL: docs.xilinx.com/access/sources/dita/topic?Doc_Version=2023.2%20English&url=ug1448-hls-guidance&resourceid=XXX-YYY.html (replace XXX-YYY with column value)
+
+================================================================
+== Bind Op Report
+================================================================
++-------------------------------------------+-----+--------+----------------+------+---------+---------+
+| Name                                      | DSP | Pragma | Variable       | Op   | Impl    | Latency |
++-------------------------------------------+-----+--------+----------------+------+---------+---------+
+| + fft                                     | 16  |        |                |      |         |         |
+|   v125_fu_238_p2                          |     |        | v125           | add  | fabric  | 0       |
+|  + load_buf0_1                            | 0   |        |                |      |         |         |
+|    load_buf0_l_0_fu_162_p2                |     |        | load_buf0_l_0  | add  | fabric  | 0       |
+|  + load_buf1_1                            | 0   |        |                |      |         |         |
+|    load_buf1_l_0_fu_162_p2                |     |        | load_buf1_l_0  | add  | fabric  | 0       |
+|  + load_buf2_1                            | 0   |        |                |      |         |         |
+|    load_buf2_l_0_fu_162_p2                |     |        | load_buf2_l_0  | add  | fabric  | 0       |
+|  + load_buf3_1                            | 0   |        |                |      |         |         |
+|    load_buf3_l_0_fu_162_p2                |     |        | load_buf3_l_0  | add  | fabric  | 0       |
+|  + store_res0_1                           | 0   |        |                |      |         |         |
+|    store_res0_l_0_fu_178_p2               |     |        | store_res0_l_0 | add  | fabric  | 0       |
+|  + store_res1_1                           | 0   |        |                |      |         |         |
+|    store_res1_l_0_fu_178_p2               |     |        | store_res1_l_0 | add  | fabric  | 0       |
+|  + fft_Pipeline_VITIS_LOOP_123_2          | 16  |        |                |      |         |         |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U13 | 2   |        | v55            | fsub | fulldsp | 6       |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U13 | 2   |        | v62            | fsub | fulldsp | 6       |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U14 | 2   |        | v72            | fsub | fulldsp | 6       |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U14 | 2   |        | v79            | fsub | fulldsp | 6       |
+|    fmul_32ns_32ns_32_4_max_dsp_1_U15      | 3   |        | v97            | fmul | maxdsp  | 3       |
+|    fmul_32ns_32ns_32_4_max_dsp_1_U16      | 3   |        | v100           | fmul | maxdsp  | 3       |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U13 | 2   |        | v101           | fsub | fulldsp | 6       |
+|    fmul_32ns_32ns_32_4_max_dsp_1_U17      | 3   |        | v108           | fmul | maxdsp  | 3       |
+|    fmul_32ns_32ns_32_4_max_dsp_1_U18      | 3   |        | v111           | fmul | maxdsp  | 3       |
+|    faddfsub_32ns_32ns_32_7_full_dsp_1_U14 | 2   |        | v112           | fsub | fulldsp | 6       |
+|    v119_fu_282_p2                         |     |        | v119           | add  | fabric  | 0       |
++-------------------------------------------+-----+--------+----------------+------+---------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
++-------------------+---------------+-----------+------+------+--------+----------+------+---------+------------------+
+| Name              | Usage         | Type      | BRAM | URAM | Pragma | Variable | Impl | Latency | Bitwidth, Depth, |
+|                   |               |           |      |      |        |          |      |         | Banks            |
++-------------------+---------------+-----------+------+------+--------+----------+------+---------+------------------+
+| + fft             |               |           | 10   | 0    |        |          |      |         |                  |
+|   control_s_axi_U | interface     | s_axilite |      |      |        |          |      |         |                  |
+|   gmem0_m_axi_U   | interface     | m_axi     | 2    |      |        |          |      |         |                  |
+|   gmem1_m_axi_U   | interface     | m_axi     | 2    |      |        |          |      |         |                  |
+|   gmem2_m_axi_U   | interface     | m_axi     | 2    |      |        |          |      |         |                  |
+|   gmem3_m_axi_U   | interface     | m_axi     | 2    |      |        |          |      |         |                  |
+|   buf0_U          | ram_t2p array |           | 1    |      |        | buf0     | auto | 1       | 32, 256, 1       |
+|   buf1_U          | ram_t2p array |           | 1    |      |        | buf1     | auto | 1       | 32, 256, 1       |
+|   buf2_U          | ram_1p array  |           |      |      |        | buf2     | auto | 1       | 32, 128, 1       |
+|   buf3_U          | ram_1p array  |           |      |      |        | buf3     | auto | 1       | 32, 128, 1       |
++-------------------+---------------+-----------+------+------+--------+----------+------+---------+------------------+
+
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+----------------------------------------------------+-----------------------------+
+| Type      | Options                                            | Location                    |
++-----------+----------------------------------------------------+-----------------------------+
+| pipeline  | II=1 rewind                                        | kernel.cpp:25 in load_buf0  |
+| pipeline  | II=1 rewind                                        | kernel.cpp:36 in load_buf1  |
+| pipeline  | II=1 rewind                                        | kernel.cpp:47 in load_buf2  |
+| pipeline  | II=1 rewind                                        | kernel.cpp:58 in load_buf3  |
+| pipeline  | II=1 rewind                                        | kernel.cpp:69 in store_res0 |
+| pipeline  | II=1 rewind                                        | kernel.cpp:80 in store_res1 |
+| interface | m_axi port=v24 offset=slave bundle=gmem0 depth=256 | kernel.cpp:93 in fft, v24   |
+| interface | m_axi port=v25 offset=slave bundle=gmem1 depth=256 | kernel.cpp:94 in fft, v25   |
+| interface | m_axi port=v26 offset=slave bundle=gmem2 depth=128 | kernel.cpp:95 in fft, v26   |
+| interface | m_axi port=v27 offset=slave bundle=gmem3 depth=128 | kernel.cpp:96 in fft, v27   |
++-----------+----------------------------------------------------+-----------------------------+
+
+

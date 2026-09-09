@@ -1,0 +1,211 @@
+{
+ "dir": "/scratch/hc676/e2_hpfft/n512/UF1",
+ "hls_done": {
+  "rc": "0",
+  "hls_wall_s": "51",
+  "start": "1788741645",
+  "end": "1788741696"
+ },
+ "metrics": {
+  "latency_best": "2718",
+  "latency_worst": "2718",
+  "interval": "275",
+  "pipeline_type": "dataflow",
+  "timing_target": "3.33",
+  "timing_uncertainty": "0.90",
+  "timing_estimate": "2.642",
+  "bram_18k": "44",
+  "dsp": "84",
+  "ff": "30159",
+  "lut": "28854",
+  "uram": "0"
+ },
+ "rtl_ports": [
+  "in_r_dout",
+  "in_r_empty_n",
+  "in_r_read",
+  "out_r_din",
+  "out_r_full_n",
+  "out_r_write",
+  "ap_clk",
+  "ap_rst",
+  "ap_start",
+  "ap_done",
+  "ap_ready",
+  "ap_idle"
+ ],
+ "interfaces": {
+  "in_r": {
+   "type": "ap_fifo",
+   "busTypeName": "acc_fifo_read",
+   "mode": "master",
+   "dataWidth": "128",
+   "portPrefix": "in_r_",
+   "portMap": {
+    "in_r_dout": "RD_DATA",
+    "in_r_empty_n": "EMPTY_N",
+    "in_r_read": "RD_EN"
+   },
+   "ports": [
+    "in_r_dout",
+    "in_r_empty_n",
+    "in_r_read"
+   ],
+   "constraints": [
+    {
+     "constraint_type": "pragma interface",
+     "mode": "ap_fifo",
+     "register_option": "0",
+     "argName": "in"
+    }
+   ]
+  },
+  "out_r": {
+   "type": "ap_fifo",
+   "busTypeName": "acc_fifo_write",
+   "mode": "master",
+   "dataWidth": "128",
+   "portPrefix": "out_r_",
+   "portMap": {
+    "out_r_din": "WR_DATA",
+    "out_r_full_n": "FULL_N",
+    "out_r_write": "WR_EN"
+   },
+   "ports": [
+    "out_r_din",
+    "out_r_full_n",
+    "out_r_write"
+   ],
+   "constraints": [
+    {
+     "constraint_type": "pragma interface",
+     "mode": "ap_fifo",
+     "register_option": "0",
+     "argName": "out"
+    }
+   ]
+  },
+  "ap_clk": {
+   "type": "clock",
+   "busTypeName": "clock",
+   "mode": "slave",
+   "busParams": {
+    "ASSOCIATED_RESET": "ap_rst"
+   },
+   "portMap": {
+    "ap_clk": "CLK"
+   },
+   "ports": [
+    "ap_clk"
+   ]
+  },
+  "ap_rst": {
+   "type": "reset",
+   "busTypeName": "reset",
+   "mode": "slave",
+   "busParams": {
+    "POLARITY": "ACTIVE_HIGH"
+   },
+   "portMap": {
+    "ap_rst": "RST"
+   },
+   "ports": [
+    "ap_rst"
+   ]
+  },
+  "ap_ctrl": {
+   "type": "ap_ctrl",
+   "busTypeName": "acc_handshake",
+   "mode": "slave",
+   "portMap": {
+    "ap_start": "start",
+    "ap_done": "done",
+    "ap_ready": "ready",
+    "ap_idle": "idle"
+   },
+   "ports": [
+    "ap_done",
+    "ap_idle",
+    "ap_ready",
+    "ap_start"
+   ]
+  }
+ },
+ "warning_codes": {
+  "WARNING HLS 207-5292": 10,
+  "WARNING HLS 207-5573": 4,
+  "WARNING HLS 214-111": 11,
+  "WARNING HLS 214-114": 3,
+  "WARNING HLS 200-471": 1,
+  "WARNING HLS 214-366": 6,
+  "WARNING HLS 214-392": 1,
+  "WARNING HLS 200-805": 1,
+  "WARNING SYN 201-103": 8,
+  "WARNING HLS 200-871": 8,
+  "WARNING HLS 200-1016": 8,
+  "WARNING HLS 200-656": 8
+ },
+ "warning_samples": {
+  "WARNING HLS 207-5292": "unused parameter 'data_type' (/opt/xilinx/Vitis_HLS/2023.2/common/technology/autopilot/hls_fft.h:97:77)",
+  "WARNING HLS 207-5573": "performance pragma is ignored, because it is not in a loop  (./FFT.cpp:54:9)",
+  "WARNING HLS 214-111": "Static scalars and arrays declared inside a dataflow region will be treated like local variables (./FFT.cpp:83:27)",
+  "WARNING HLS 214-114": "Since the only kind of statements allowed in a canonical dataflow region are variable declarations and function calls, the compiler may not be able to correctly handle the region (./FFT.cpp:93:9)",
+  "WARNING HLS 200-471": "Dataflow form checks found 14 issue(s) in file ./FFT.cpp",
+  "WARNING HLS 214-366": "Duplicating function 'std::complex<float>::complex(float, float) (.25.28)' as different function signatures were detected between this call site and other call site(s). This may impact the resources used in the design. (",
+  "WARNING HLS 214-392": "Cannot apply performance pragma target_ti=256 cycles for loop 'R_Pair_loop' (./FFT.cpp:245:9) in function 'FFT_stage_spatial_unroll<2>'. The target requires a pipeline II less than the minimal achievable II of 2 determin",
+  "WARNING HLS 200-805": "An internal stream 'reverse_in_stream_vector' with default size can result in deadlock. Please consider resizing the stream using the directive 'set_directive_stream' or the 'HLS stream' pragma.",
+  "WARNING SYN 201-103": "Legalizing function name 'FFT_stage_spatial_unroll<2>' to 'FFT_stage_spatial_unroll_2_s'.",
+  "WARNING HLS 200-871": "Estimated clock period (2.601 ns) exceeds the target (target clock period: 3.333 ns, clock uncertainty: 0.900 ns, effective delay budget: 2.433 ns).",
+  "WARNING HLS 200-1016": "The critical path in module 'reverse_input_stream_UF1_Loop_FROM_BLOCK_TO_CYCLIC_proc' consists of the following:",
+  "WARNING HLS 200-656": "Deadlocks can occur since process reverse_input_stream_UF1_Loop_READ_STREAM_INPUT_proc1 is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind pipeline."
+ },
+ "csim_pass": true,
+ "perf_pragma_misses": [],
+ "perf_pragma_rows": [
+  "|+ FFT_TOP*                                                     |         -|           -|      -|         -|           -|      -|",
+  "| + FFT_DIT_spatial_unroll_CY_stream_vector*                    |         -|           -|      -|         -|           -|      -|",
+  "|  + reverse_input_stream_UF1*                                  |         -|           -|      -|         -|           -|      -|",
+  "|   + reverse_input_stream_UF1_Loop_READ_STREAM_INPUT_proc1     |         -|           -|      -|         -|           -|      -|",
+  "|    o READ_STREAM_INPUT                                        |         -|           -|      -|         -|           -|      -|",
+  "|   + reverse_input_stream_UF1_Loop_FROM_BLOCK_TO_CYCLIC_proc   |         -|           -|      -|         -|           -|      -|",
+  "|    o FROM_BLOCK_TO_CYCLIC                                     |         -|           -|      -|         -|           -|      -|",
+  "|   + reverse_input_stream_UF1_Loop_STREAM_OUT_REVERSE_proc2    |         -|           -|      -|         -|           -|      -|",
+  "|    o STREAM_OUT_REVERSE                                       |         -|           -|      -|         -|           -|      -|",
+  "|  + FFT_Stage1_vectorstream_parameterize*                      |         -|           -|      -|         -|           -|      -|",
+  "|   + FFT_Stage1_vectorstream_parameterize_Block_entry10_proc3  |         -|           -|      -|         -|           -|      -|",
+  "|    o FFT_Stage1                                               |       256|         256|    yes|         -|           -|      -|"
+ ],
+ "hw_interfaces": [
+  "| Interface | Direction | Data Width |",
+  "| in_r      | out       | 128        |",
+  "| out_r     | out       | 128        |",
+  "| Interface | Type       | Ports                             |",
+  "| ap_clk    | clock      | ap_clk                            |",
+  "| ap_rst    | reset      | ap_rst                            |",
+  "| ap_ctrl   | ap_ctrl_hs | ap_done ap_idle ap_ready ap_start |",
+  "| Argument | Direction | Datatype                                        |",
+  "| in       | in        | stream<hls::vector<std::complex<float>, 2>, 0>& |",
+  "| out      | out       | stream<hls::vector<std::complex<float>, 2>, 0>& |",
+  "| Argument | HW Interface | HW Type   |",
+  "| in       | in_r         | interface |",
+  "| out      | out_r        | interface |",
+  "| Name                                                          | DSP | Pragma | Variable    | Op   | Impl   | Latency |",
+  "| + FFT_TOP                                                     | 84  |        |             |      |        |         |",
+  "|  + FFT_DIT_spatial_unroll_CY_stream_vector                    | 84  |        |             |      |        |         |",
+  "|   + reverse_input_stream_UF1                                  | 0   |        |             |      |        |         |",
+  "|    + reverse_input_stream_UF1_Loop_READ_STREAM_INPUT_proc1    | 0   |        |             |      |        |         |",
+  "|      i_3_fu_136_p2                                            |     |        | i_3         | add  | fabric | 0       |",
+  "|    + reverse_input_stream_UF1_Loop_FROM_BLOCK_TO_CYCLIC_proc  | 0   |        |             |      |        |         |",
+  "|      add_ln139_fu_170_p2                                      |     |        | add_ln139   | add  | fabric | 0       |",
+  "|    + reverse_input_stream_UF1_Loop_STREAM_OUT_REVERSE_proc2   | 0   |        |             |      |        |         |",
+  "|      add_ln189_fu_121_p2                                      |     |        | add_ln189   | add  | fabric | 0       |",
+  "|   + FFT_Stage1_vectorstream_parameterize                      | 0   |        |             |      |        |         |",
+  "|    + FFT_Stage1_vectorstream_parameterize_Block_entry10_proc3 | 0   |        |             |      |        |         |",
+  "|      fsub_32ns_32ns_32_5_no_dsp_1_U19                         |     | yes    | d3_real     | fsub | fabric | 4       |",
+  "|      fadd_32ns_32ns_32_5_no_dsp_1_U20                         |     | yes    | d2_real     | fadd | fabric | 4       |",
+  "|      fsub_32ns_32ns_32_5_no_dsp_1_U21                         |     | yes    | d3_imag     | fsub | fabric | 4       |",
+  "|      fadd_32ns_32ns_32_5_no_dsp_1_U22                         |     | yes    | d2_imag     | fadd | fabric | 4       |",
+  "|      add_ln328_fu_208_p2                                      |     |        | add_ln328   | add  | fabric | 0       |"
+ ],
+ "csynth_top_row": "|+ FFT_TOP*                                                     |  Timing|  -0.21|     2718|  9.059e+03|         -|      275|     -|  dataflow|  44 (1%)|  84 (~0%)|  30159 (1%)|  28854 (2%)|    -|"
+}

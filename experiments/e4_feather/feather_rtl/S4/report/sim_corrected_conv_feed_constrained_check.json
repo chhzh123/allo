@@ -1,0 +1,101 @@
+{
+ "status": "pass",
+ "tiles": 196608,
+ "tiles_ok": 196608,
+ "bad_elements": 0,
+ "first_bad": null,
+ "A0": 12,
+ "F0": 20,
+ "G": 8,
+ "offsets": [
+  0
+ ],
+ "toggles": [
+  [
+   1,
+   84,
+   1
+  ],
+  [
+   2,
+   148,
+   0
+  ],
+  [
+   3,
+   212,
+   1
+  ],
+  [
+   4,
+   276,
+   0
+  ],
+  [
+   5,
+   340,
+   1
+  ],
+  [
+   6,
+   404,
+   0
+  ],
+  [
+   512,
+   32788,
+   0
+  ],
+  [
+   1024,
+   65556,
+   0
+  ]
+ ],
+ "toggle_count": 390,
+ "buffers": {},
+ "end_cycle": 12582957,
+ "signed_equals_rtl": true,
+ "tile_done_cycles_rel_F0": [
+  81,
+  145,
+  209,
+  273,
+  337,
+  401,
+  465,
+  529,
+  12582481,
+  12582545,
+  12582609,
+  12582673,
+  12582737,
+  12582801,
+  12582865,
+  12582929
+ ],
+ "first_output_cycles": 81,
+ "completion_cycles": 12582929,
+ "steady_interval_cycles": {
+  "min": 64,
+  "median": 64.0,
+  "max": 64,
+  "mean": 64.0
+ },
+ "steady_interval_last32": 64.0,
+ "feed_cycles_between_toggles": [
+  64,
+  32384,
+  32768
+ ],
+ "first_toggle_rel_F0": 64,
+ "drain_cycles_after_last_toggle": 16,
+ "host_check": "pass",
+ "host_bad": 0,
+ "gen_s": 64.5,
+ "build_s": 12.6,
+ "sim_s": 1091.7,
+ "xsim_rc": 0,
+ "build": "/scratch/hc676/e4_rtl_runs/builds/e4_feather_fixed_N4_T196608_M0_a46a40f54b",
+ "rtl": "/scratch/hc676/e4_feather_fixed/RTL"
+}

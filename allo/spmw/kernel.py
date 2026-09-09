@@ -272,12 +272,17 @@ endmodule
 """
 
 
-def feeder_tcl(fam, part, period):
+def feeder_tcl(fam, part, period, widen=512):
     """The HLS run for one family's DMA.
 
     ``-offset direct`` puts the address on a port instead of in a register map
     of its own: this feeder is not the kernel, it is one master inside it, and
     the kernel's own slave supplies the pointer.
+
+    ``widen`` is the ceiling Vitis may widen a burst to. It decides how many
+    elements a feeder fetches per memory beat, so a comparison against another
+    system has to set it to that system's port width or measure a different
+    memory interface rather than a different array.
     """
     total = beats_of(fam)
     return f"""open_project prj
@@ -286,7 +291,7 @@ add_files kernel.cpp
 open_solution sol
 set_part {part}
 create_clock -period {period:.3f} -name default
-config_interface -clock_enable=0 -m_axi_max_widen_bitwidth 512
+config_interface -clock_enable=0 -m_axi_max_widen_bitwidth {widen}
 set_directive_interface -mode m_axi -offset direct -depth {total} \
 "{_dma_name(fam)}" {'src' if fam['reads'] else 'dst'}
 csynth_design
@@ -788,6 +793,26 @@ def kernel_testbench(
         "    end",
         "  endtask",
         "",
+        "  // Cycles the kernel spends moving data: the first beat any master",
+        "  // moves to the last. The control writes, the start bit and the",
+        "  // polling that follows all sit outside it, so this is the same",
+        "  // quantity another flow reads off a waveform rather than the",
+        "  // number its own testbench reports.",
+        "  integer data_cyc = 0; integer first_beat = -1; integer last_beat = -1;",
+        "  always @(posedge ap_clk) if (ap_rst_n) begin",
+        "    data_cyc = data_cyc + 1;",
+    ]
+    for _i, _fam in enumerate(fams):
+        _sig = "RVALID && u_ram%d.RREADY" % _i if _fam["reads"] else "WVALID && u_ram%d.WREADY" % _i
+        lines += [
+            "    if (u_ram%d.%s) begin" % (_i, _sig),
+            "      if (first_beat < 0) first_beat = data_cyc;",
+            "      last_beat = data_cyc;",
+            "    end",
+        ]
+    lines += [
+        "  end",
+        "",
         "  initial begin",
         "    awvalid = 0; wvalid = 0; bready = 0; arvalid = 0; rready = 0;",
         "    awaddr = 0; wdata = 0; araddr = 0;",
@@ -835,6 +860,8 @@ def kernel_testbench(
         "      $finish;",
         "    end",
         '    $display("SPMW TB: done after %0d poll(s) at %0t", i, $time);',
+        '    $display("SPMW TB DATA first_beat %0d last_beat %0d cycles %0d",',
+        "             first_beat, last_beat, last_beat - first_beat + 1);",
         "    begin : compare",
         "      integer bad;",
         "      bad = 0;",

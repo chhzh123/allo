@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module pe_r1 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  input  wire [15:0] x_dout,
+  input  wire x_empty_n,
+  output wire x_read,
+  input  wire [127:0] w_dout,
+  input  wire w_empty_n,
+  output wire w_read,
+  input  wire [31:0] p0_in_dout,
+  input  wire p0_in_empty_n,
+  output wire p0_in_read,
+  input  wire [31:0] p1_in_dout,
+  input  wire p1_in_empty_n,
+  output wire p1_in_read,
+  output wire [31:0] p0_out_din,
+  input  wire p0_out_full_n,
+  output wire p0_out_write,
+  output wire [31:0] p1_out_din,
+  input  wire p1_out_full_n,
+  output wire p1_out_write
+);
+  pe_r1_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_dout(x_dout),
+      .v0_empty_n(x_empty_n),
+      .v0_read(x_read),
+      .v1_dout(w_dout),
+      .v1_empty_n(w_empty_n),
+      .v1_read(w_read),
+      .v2_dout(p0_in_dout),
+      .v2_empty_n(p0_in_empty_n),
+      .v2_read(p0_in_read),
+      .v3_dout(p1_in_dout),
+      .v3_empty_n(p1_in_empty_n),
+      .v3_read(p1_in_read),
+      .v4_din(p0_out_din),
+      .v4_full_n(p0_out_full_n),
+      .v4_write(p0_out_write),
+      .v5_din(p1_out_din),
+      .v5_full_n(p1_out_full_n),
+      .v5_write(p1_out_write));
+endmodule

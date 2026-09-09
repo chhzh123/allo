@@ -1,0 +1,21 @@
+{
+ "cost": {
+  "roles": 9,
+  "instances": 16,
+  "fifos": 32,
+  "streams": 24
+ },
+ "hls_seconds": {
+  "pe_r4": 41.6,
+  "pe_r7": 41.6,
+  "pe_r5": 41.7,
+  "pe_r2": 42.1,
+  "pe_r3": 42.2,
+  "pe_r1": 42.2,
+  "pe_r6": 42.3,
+  "pe_r0": 42.4,
+  "pe_r8": 39.2
+ },
+ "hls_wall_seconds": 80.8,
+ "vivado_seconds": 316.1
+}

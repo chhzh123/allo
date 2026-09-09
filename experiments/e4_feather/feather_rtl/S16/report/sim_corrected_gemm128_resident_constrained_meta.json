@@ -1,0 +1,36 @@
+{
+ "N": 16,
+ "T": 512,
+ "MODE": 1,
+ "WA": 12,
+ "IA": 15,
+ "A_BASE": 4104,
+ "A_STRIDE": 16,
+ "G": 8,
+ "zpa": 0,
+ "zpw": 0,
+ "seed": 0,
+ "pattern": "mid",
+ "workload": "gemm",
+ "program": "gemm",
+ "gemm": [
+  128,
+  128,
+  128
+ ],
+ "conv": [
+  64,
+  16,
+  16,
+  64
+ ],
+ "swap_arl": true,
+ "signed_equals_rtl": true,
+ "host_dims": [
+  128,
+  128,
+  128
+ ],
+ "conv_geom": null,
+ "weight_rows": 4096
+}

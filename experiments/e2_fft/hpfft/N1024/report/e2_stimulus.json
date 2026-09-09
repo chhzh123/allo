@@ -1,0 +1,1 @@
+{"N": 1024, "NT": 33, "seeds": [0, 1, 2], "seed_of_transform": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], "transforms_per_seed": {"0": 11, "1": 11, "2": 11}, "distribution": "re, im ~ Uniform[-1,1) as float32: numpy.random.RandomState(seed).uniform(-1,1,(count,N,2)).astype(float32)"}

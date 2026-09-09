@@ -1,0 +1,138 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Sep  6 23:33:05 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 1 -file util_hier.rpt
+| Design       : attention_pv_array_pass
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------------------------+-----------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|             Instance            |                  Module                 | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++---------------------------------+-----------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| attention_pv_array_pass         |                                   (top) |       4422 |       3350 |       0 | 1072 | 3889 |      0 |      0 |    0 |         16 |
+|   (attention_pv_array_pass)     |                                   (top) |          0 |          0 |       0 |    0 |    3 |      0 |      0 |    0 |          0 |
+|   Y_c_U                         |             attention_pv_fifo_w64_d10_S |         44 |         12 |       0 |   32 |    7 |      0 |      0 |    0 |          0 |
+|   Zout_c_U                      |           attention_pv_fifo_w64_d10_S_0 |         44 |         12 |       0 |   32 |    7 |      0 |      0 |    0 |          0 |
+|   a_10_U                        |              attention_pv_fifo_w8_d32_S |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_11_U                        |            attention_pv_fifo_w8_d32_S_1 |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_12_U                        |            attention_pv_fifo_w8_d32_S_2 |         19 |         11 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_13_U                        |            attention_pv_fifo_w8_d32_S_3 |         19 |         11 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_14_U                        |            attention_pv_fifo_w8_d32_S_4 |         19 |         11 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_15_U                        |            attention_pv_fifo_w8_d32_S_5 |         19 |         11 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_1_U                         |            attention_pv_fifo_w8_d32_S_6 |         22 |         14 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_2_U                         |            attention_pv_fifo_w8_d32_S_7 |         21 |         13 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_3_U                         |            attention_pv_fifo_w8_d32_S_8 |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_4_U                         |            attention_pv_fifo_w8_d32_S_9 |         20 |         12 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_5_U                         |           attention_pv_fifo_w8_d32_S_10 |         20 |         12 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_6_U                         |           attention_pv_fifo_w8_d32_S_11 |         20 |         12 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_7_U                         |           attention_pv_fifo_w8_d32_S_12 |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_8_U                         |           attention_pv_fifo_w8_d32_S_13 |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_9_U                         |           attention_pv_fifo_w8_d32_S_14 |         18 |         10 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   a_U                           |           attention_pv_fifo_w8_d32_S_15 |         21 |         13 |       0 |    8 |    8 |      0 |      0 |    0 |          0 |
+|   d_0_U                         |             attention_pv_fifo_w32_d32_S |         61 |         29 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   d_1_U                         |          attention_pv_fifo_w32_d32_S_16 |         60 |         28 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   d_2_U                         |          attention_pv_fifo_w32_d32_S_17 |         60 |         28 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   d_3_U                         |          attention_pv_fifo_w32_d32_S_18 |         60 |         28 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   drain_U0                      |                      attention_pv_drain |        230 |        230 |       0 |    0 |  461 |      0 |      0 |    0 |          0 |
+|   entry_proc_U0                 |                 attention_pv_entry_proc |         21 |         21 |       0 |    0 |    1 |      0 |      0 |    0 |          0 |
+|   feed_a_U0                     |                     attention_pv_feed_a |        163 |        163 |       0 |    0 |  174 |      0 |      0 |    0 |          0 |
+|   p_0_0_U                       |          attention_pv_fifo_w32_d32_S_19 |         45 |         13 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_0_1_U                       |          attention_pv_fifo_w32_d32_S_20 |         43 |         11 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_0_2_U                       |          attention_pv_fifo_w32_d32_S_21 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_0_3_U                       |          attention_pv_fifo_w32_d32_S_22 |         45 |         13 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_1_0_U                       |          attention_pv_fifo_w32_d32_S_23 |         45 |         13 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_1_1_U                       |          attention_pv_fifo_w32_d32_S_24 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_1_2_U                       |          attention_pv_fifo_w32_d32_S_25 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_1_3_U                       |          attention_pv_fifo_w32_d32_S_26 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_2_0_U                       |          attention_pv_fifo_w32_d32_S_27 |         45 |         13 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_2_1_U                       |          attention_pv_fifo_w32_d32_S_28 |         43 |         11 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_2_2_U                       |          attention_pv_fifo_w32_d32_S_29 |         43 |         11 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_2_3_U                       |          attention_pv_fifo_w32_d32_S_30 |         43 |         11 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_3_0_U                       |          attention_pv_fifo_w32_d32_S_31 |         44 |         12 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_3_1_U                       |          attention_pv_fifo_w32_d32_S_32 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_3_2_U                       |          attention_pv_fifo_w32_d32_S_33 |         42 |         10 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_3_3_U                       |          attention_pv_fifo_w32_d32_S_34 |         43 |         11 |       0 |   32 |    8 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_0_0_c_U |               attention_pv_fifo_w8_d3_S |         20 |         12 |       0 |    8 |    5 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_0_1_c_U |               attention_pv_fifo_w8_d4_S |         15 |          7 |       0 |    8 |    5 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_0_2_c_U |               attention_pv_fifo_w8_d5_S |         19 |         11 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_0_3_c_U |               attention_pv_fifo_w8_d6_S |         19 |         11 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_1_0_c_U |            attention_pv_fifo_w8_d4_S_35 |         18 |         10 |       0 |    8 |    5 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_1_1_c_U |            attention_pv_fifo_w8_d5_S_36 |         20 |         12 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_1_2_c_U |            attention_pv_fifo_w8_d6_S_37 |         17 |          9 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_1_3_c_U |               attention_pv_fifo_w8_d7_S |         18 |         10 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_2_0_c_U |            attention_pv_fifo_w8_d5_S_38 |         21 |         13 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_2_1_c_U |            attention_pv_fifo_w8_d6_S_39 |         22 |         14 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_2_2_c_U |            attention_pv_fifo_w8_d7_S_40 |         17 |          9 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_2_3_c_U |               attention_pv_fifo_w8_d8_S |         19 |         11 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_3_0_c_U |            attention_pv_fifo_w8_d6_S_41 |         18 |         10 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_3_1_c_U |            attention_pv_fifo_w8_d7_S_42 |         19 |         11 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_3_2_c_U |            attention_pv_fifo_w8_d8_S_43 |         19 |         11 |       0 |    8 |    6 |      0 |      0 |    0 |          0 |
+|   p_ZZ12attention_pvE1w_3_3_c_U |               attention_pv_fifo_w8_d9_S |         20 |         12 |       0 |    8 |    7 |      0 |      0 |    0 |          0 |
+|   pe_edge_12_U0                 |                 attention_pv_pe_edge_12 |         84 |         83 |       0 |    1 |  114 |      0 |      0 |    0 |          1 |
+|   pe_edge_4_U0                  |                  attention_pv_pe_edge_4 |         84 |         83 |       0 |    1 |  114 |      0 |      0 |    0 |          1 |
+|   pe_edge_8_U0                  |                  attention_pv_pe_edge_8 |         85 |         84 |       0 |    1 |  114 |      0 |      0 |    0 |          1 |
+|   pe_edge_U0                    |                    attention_pv_pe_edge |         83 |         82 |       0 |    1 |   82 |      0 |      0 |    0 |          1 |
+|   pe_forward_10_U0              |              attention_pv_pe_forward_10 |         93 |         84 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_11_U0              |              attention_pv_pe_forward_11 |         92 |         83 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_13_U0              |              attention_pv_pe_forward_13 |         92 |         83 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_14_U0              |              attention_pv_pe_forward_14 |         92 |         83 |       0 |    9 |   92 |      0 |      0 |    0 |          1 |
+|   pe_forward_1_U0               |               attention_pv_pe_forward_1 |         94 |         85 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_2_U0               |               attention_pv_pe_forward_2 |         93 |         84 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_3_U0               |               attention_pv_pe_forward_3 |         92 |         83 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_5_U0               |               attention_pv_pe_forward_5 |         94 |         85 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_6_U0               |               attention_pv_pe_forward_6 |         93 |         84 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_7_U0               |               attention_pv_pe_forward_7 |         92 |         83 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_9_U0               |               attention_pv_pe_forward_9 |         94 |         85 |       0 |    9 |  122 |      0 |      0 |    0 |          1 |
+|   pe_forward_U0                 |                 attention_pv_pe_forward |         91 |         82 |       0 |    9 |   90 |      0 |      0 |    0 |          1 |
+|   seed_p_U0                     |                     attention_pv_seed_p |        170 |        170 |       0 |    0 |  273 |      0 |      0 |    0 |          0 |
+|   start_for_drain_U0_U          |         attention_pv_start_for_drain_U0 |          9 |          9 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|   start_for_pe_edge_12_U0_U     |    attention_pv_start_for_pe_edge_12_U0 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_edge_4_U0_U      |     attention_pv_start_for_pe_edge_4_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_edge_8_U0_U      |     attention_pv_start_for_pe_edge_8_U0 |          8 |          8 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_edge_U0_U        |       attention_pv_start_for_pe_edge_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_10_U0_U  | attention_pv_start_for_pe_forward_10_U0 |          5 |          5 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_11_U0_U  | attention_pv_start_for_pe_forward_11_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_13_U0_U  | attention_pv_start_for_pe_forward_13_U0 |          7 |          7 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_14_U0_U  | attention_pv_start_for_pe_forward_14_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_1_U0_U   |  attention_pv_start_for_pe_forward_1_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_2_U0_U   |  attention_pv_start_for_pe_forward_2_U0 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_3_U0_U   |  attention_pv_start_for_pe_forward_3_U0 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_5_U0_U   |  attention_pv_start_for_pe_forward_5_U0 |          5 |          5 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_6_U0_U   |  attention_pv_start_for_pe_forward_6_U0 |          8 |          8 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_7_U0_U   |  attention_pv_start_for_pe_forward_7_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_9_U0_U   |  attention_pv_start_for_pe_forward_9_U0 |          6 |          6 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_pe_forward_U0_U     |    attention_pv_start_for_pe_forward_U0 |          6 |          6 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   steps_c41_U                   |              attention_pv_fifo_w32_d2_S |         38 |         38 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   steps_c42_U                   |           attention_pv_fifo_w32_d2_S_44 |         39 |         39 |       0 |    0 |   67 |      0 |      0 |    0 |          0 |
+|   steps_c43_U                   |           attention_pv_fifo_w32_d2_S_45 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c44_U                   |           attention_pv_fifo_w32_d2_S_46 |         38 |         38 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   steps_c45_U                   |           attention_pv_fifo_w32_d2_S_47 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c46_U                   |           attention_pv_fifo_w32_d2_S_48 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c47_U                   |           attention_pv_fifo_w32_d2_S_49 |         39 |         39 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c48_U                   |           attention_pv_fifo_w32_d2_S_50 |         37 |         37 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   steps_c49_U                   |           attention_pv_fifo_w32_d2_S_51 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c50_U                   |           attention_pv_fifo_w32_d2_S_52 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c51_U                   |           attention_pv_fifo_w32_d2_S_53 |         39 |         39 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c52_U                   |           attention_pv_fifo_w32_d2_S_54 |         37 |         37 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   steps_c53_U                   |           attention_pv_fifo_w32_d2_S_55 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c54_U                   |           attention_pv_fifo_w32_d2_S_56 |         38 |         38 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c55_U                   |           attention_pv_fifo_w32_d2_S_57 |         39 |         39 |       0 |    0 |   37 |      0 |      0 |    0 |          0 |
+|   steps_c56_U                   |           attention_pv_fifo_w32_d2_S_58 |         39 |         39 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   steps_c_U                     |           attention_pv_fifo_w32_d2_S_59 |         70 |         70 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
++---------------------------------+-----------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

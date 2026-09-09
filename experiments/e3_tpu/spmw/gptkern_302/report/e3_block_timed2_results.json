@@ -1,0 +1,614 @@
+{
+ "model": "gpt2-medium",
+ "shape": {
+  "seq": 128,
+  "hid": 1024,
+  "heads": 16,
+  "head": 64,
+  "ffn": 4096,
+  "norm": "layernorm",
+  "rope": false,
+  "gate": false
+ },
+ "seed": 0,
+ "device": "/scratch/hc676/gptkern_302/spmw_kernel.xclbin",
+ "semantics": " (synthetic weights, seed `--seed`):\n\n    x0        int8 [128, 1024] ~ U[-8, 8)\n    weights   int8 ~ U[-4, 4): Wq Wk Wv Wo [1024, 1024], W1 [1024, 4096], W2 [4096, 1024]\n    LN        float32 over the hidden axis, eps 1e-5, gamma 1, beta 0, then\n              clip(rint(y * 32)) -> int8\n    proj      clip8((X @ W) >> 4)                     (device: `proj`, 16 launches a matrix)\n    scores    clip8((K_h @ Q_h^T) >> QUANT_SCORE)     (device: `score`, 2 launches a head)\n    mask      causal: score[key, query] = -128 for key > query   (host)\n    softmax   the engine's three passes per (head, 16-query group): row max\n              (floored at 0), exp2(clamp(EXP_BASE + ((s - max) >> EXP_SHIFT), 0, 30)),\n              sum, then (exp * ((1 << RCP_BITS) // sum)) >> (RCP_BITS - PROB_BITS),\n              clip8                                   (device: 3 x 128 launches)\n    context   clip8((P_h @ V_h) >> PROB_BITS)         (device: `ctx`, 1 launch a head)\n    out proj  clip8((attn @ Wo) >> 4); r1 = clip8(x0 + o)\n    FFN1      clip8((LN(r1) @ W1) >> 4) -> GELU (tanh form) on v = q / 16, back as\n              clip(rint(g * 16)) -> int8              (device: `proj`, 64 launches)\n    FFN2      clip8((g @ W2) >> 4)                    (device: `ffn2`, 64 launches)\n    output    clip8(r1 + f2)                          int8 [128, 1024]\n\n    /scratch/hc676/allo-agent/bin/python3 scripts/spmw_gpt_block.py \\\n        --xclbin gptkern_302/spmw_kernel.xclbin --args gptkern_302/args.json \\\n        --out DIR [--seed 0] [--reps 3] [--device 0] [--no-device]\n",
+ "reps": [
+  {
+   "rep": 0,
+   "launches": 624,
+   "wall_s": 11.825487613677979,
+   "kernel_s": 0.07226700000000001,
+   "transfer_s": 0.3515109999999999,
+   "pack_s": 4.294084787368774,
+   "host_math_s": 0.05228781700134277,
+   "mismatched_values": 0,
+   "mismatch_by_stage": {},
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.001909017562866211
+    },
+    "Q": {
+     "launches": 16,
+     "pack_s": 0.22796273231506348,
+     "load_s": 0.006364999999999999,
+     "kernel_s": 0.003636,
+     "read_s": 0.004103,
+     "host_s": 0.0
+    },
+    "K": {
+     "launches": 16,
+     "pack_s": 0.11722707748413086,
+     "load_s": 0.006679000000000001,
+     "kernel_s": 0.0034979999999999994,
+     "read_s": 0.0036629999999999996,
+     "host_s": 0.0
+    },
+    "V": {
+     "launches": 16,
+     "pack_s": 0.10650372505187988,
+     "load_s": 0.0060859999999999985,
+     "kernel_s": 0.0033869999999999994,
+     "read_s": 0.003118,
+     "host_s": 0.0
+    },
+    "score": {
+     "launches": 32,
+     "pack_s": 0.2145555019378662,
+     "load_s": 0.012160000000000002,
+     "kernel_s": 0.003364,
+     "read_s": 0.006109999999999999,
+     "host_s": 0.0
+    },
+    "mask": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0014278888702392578
+    },
+    "smax": {
+     "launches": 128,
+     "pack_s": 0.8564677238464355,
+     "load_s": 0.04827999999999998,
+     "kernel_s": 0.00843500000000001,
+     "read_s": 0.021789999999999997,
+     "host_s": 0.0
+    },
+    "ssum": {
+     "launches": 128,
+     "pack_s": 0.8370912075042725,
+     "load_s": 0.04833399999999998,
+     "kernel_s": 0.009548,
+     "read_s": 0.02147200000000001,
+     "host_s": 0.0
+    },
+    "snorm": {
+     "launches": 128,
+     "pack_s": 0.846583366394043,
+     "load_s": 0.04808699999999998,
+     "kernel_s": 0.009854,
+     "read_s": 0.02136800000000001,
+     "host_s": 0.0
+    },
+    "ctx": {
+     "launches": 16,
+     "pack_s": 0.10555458068847656,
+     "load_s": 0.006099999999999999,
+     "kernel_s": 0.001834,
+     "read_s": 0.002974,
+     "host_s": 0.0
+    },
+    "O": {
+     "launches": 16,
+     "pack_s": 0.10372805595397949,
+     "load_s": 0.005901999999999998,
+     "kernel_s": 0.003267,
+     "read_s": 0.002903999999999999,
+     "host_s": 0.0
+    },
+    "res1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0003056526184082031
+    },
+    "ln2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0008330345153808594
+    },
+    "FFN1": {
+     "launches": 64,
+     "pack_s": 0.42778849601745605,
+     "load_s": 0.025485999999999998,
+     "kernel_s": 0.013433999999999996,
+     "read_s": 0.014111999999999998,
+     "host_s": 0.0
+    },
+    "gelu": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.04757285118103027
+    },
+    "FFN2": {
+     "launches": 64,
+     "pack_s": 0.4506223201751709,
+     "load_s": 0.024598999999999996,
+     "kernel_s": 0.012010000000000002,
+     "read_s": 0.011819000000000003,
+     "host_s": 0.0
+    },
+    "res2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.00023937225341796875
+    }
+   }
+  },
+  {
+   "rep": 1,
+   "launches": 624,
+   "wall_s": 13.109919786453247,
+   "kernel_s": 0.072654,
+   "transfer_s": 0.376075,
+   "pack_s": 4.53294563293457,
+   "host_math_s": 0.0518651008605957,
+   "mismatched_values": 0,
+   "mismatch_by_stage": {},
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0013592243194580078
+    },
+    "Q": {
+     "launches": 16,
+     "pack_s": 0.15037322044372559,
+     "load_s": 0.006796,
+     "kernel_s": 0.0034109999999999995,
+     "read_s": 0.0036550000000000007,
+     "host_s": 0.0
+    },
+    "K": {
+     "launches": 16,
+     "pack_s": 0.1187894344329834,
+     "load_s": 0.00711,
+     "kernel_s": 0.0034,
+     "read_s": 0.0036839999999999998,
+     "host_s": 0.0
+    },
+    "V": {
+     "launches": 16,
+     "pack_s": 0.10464644432067871,
+     "load_s": 0.006667,
+     "kernel_s": 0.003371999999999999,
+     "read_s": 0.0035890000000000006,
+     "host_s": 0.0
+    },
+    "score": {
+     "launches": 32,
+     "pack_s": 0.22332000732421875,
+     "load_s": 0.012646999999999999,
+     "kernel_s": 0.0030550000000000004,
+     "read_s": 0.006161,
+     "host_s": 0.0
+    },
+    "mask": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0013630390167236328
+    },
+    "smax": {
+     "launches": 128,
+     "pack_s": 0.905010461807251,
+     "load_s": 0.05046600000000001,
+     "kernel_s": 0.008515000000000003,
+     "read_s": 0.02337800000000001,
+     "host_s": 0.0
+    },
+    "ssum": {
+     "launches": 128,
+     "pack_s": 0.9040725231170654,
+     "load_s": 0.050796999999999995,
+     "kernel_s": 0.009705999999999994,
+     "read_s": 0.022585000000000004,
+     "host_s": 0.0
+    },
+    "snorm": {
+     "launches": 128,
+     "pack_s": 0.901104211807251,
+     "load_s": 0.05150399999999998,
+     "kernel_s": 0.010394,
+     "read_s": 0.023067,
+     "host_s": 0.0
+    },
+    "ctx": {
+     "launches": 16,
+     "pack_s": 0.10941433906555176,
+     "load_s": 0.006483,
+     "kernel_s": 0.0016559999999999997,
+     "read_s": 0.003075,
+     "host_s": 0.0
+    },
+    "O": {
+     "launches": 16,
+     "pack_s": 0.10445880889892578,
+     "load_s": 0.006809000000000001,
+     "kernel_s": 0.003426,
+     "read_s": 0.0035380000000000003,
+     "host_s": 0.0
+    },
+    "res1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.00026154518127441406
+    },
+    "ln2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0008208751678466797
+    },
+    "FFN1": {
+     "launches": 64,
+     "pack_s": 0.4835488796234131,
+     "load_s": 0.027292999999999987,
+     "kernel_s": 0.013689999999999996,
+     "read_s": 0.015297000000000003,
+     "host_s": 0.0
+    },
+    "gelu": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.04771018028259277
+    },
+    "FFN2": {
+     "launches": 64,
+     "pack_s": 0.5282073020935059,
+     "load_s": 0.02752899999999999,
+     "kernel_s": 0.012029000000000005,
+     "read_s": 0.013944999999999996,
+     "host_s": 0.0
+    },
+    "res2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0003502368927001953
+    }
+   }
+  },
+  {
+   "rep": 2,
+   "launches": 624,
+   "wall_s": 13.585871934890747,
+   "kernel_s": 0.072787,
+   "transfer_s": 0.37491699999999994,
+   "pack_s": 4.717959880828857,
+   "host_math_s": 0.051264286041259766,
+   "mismatched_values": 0,
+   "mismatch_by_stage": {},
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.001359701156616211
+    },
+    "Q": {
+     "launches": 16,
+     "pack_s": 0.12884044647216797,
+     "load_s": 0.0070409999999999995,
+     "kernel_s": 0.0034719999999999994,
+     "read_s": 0.003788,
+     "host_s": 0.0
+    },
+    "K": {
+     "launches": 16,
+     "pack_s": 0.12474179267883301,
+     "load_s": 0.00689,
+     "kernel_s": 0.003444,
+     "read_s": 0.003780000000000001,
+     "host_s": 0.0
+    },
+    "V": {
+     "launches": 16,
+     "pack_s": 0.13586950302124023,
+     "load_s": 0.006833999999999999,
+     "kernel_s": 0.003519,
+     "read_s": 0.003878,
+     "host_s": 0.0
+    },
+    "score": {
+     "launches": 32,
+     "pack_s": 0.23714351654052734,
+     "load_s": 0.012772,
+     "kernel_s": 0.003094000000000001,
+     "read_s": 0.006659000000000001,
+     "host_s": 0.0
+    },
+    "mask": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0013175010681152344
+    },
+    "smax": {
+     "launches": 128,
+     "pack_s": 0.944732666015625,
+     "load_s": 0.05104999999999999,
+     "kernel_s": 0.008623000000000002,
+     "read_s": 0.024460999999999983,
+     "host_s": 0.0
+    },
+    "ssum": {
+     "launches": 128,
+     "pack_s": 0.948035478591919,
+     "load_s": 0.05105000000000002,
+     "kernel_s": 0.009813000000000004,
+     "read_s": 0.023368999999999994,
+     "host_s": 0.0
+    },
+    "snorm": {
+     "launches": 128,
+     "pack_s": 0.9498796463012695,
+     "load_s": 0.050984999999999996,
+     "kernel_s": 0.010269999999999994,
+     "read_s": 0.023820999999999988,
+     "host_s": 0.0
+    },
+    "ctx": {
+     "launches": 16,
+     "pack_s": 0.12068843841552734,
+     "load_s": 0.006282,
+     "kernel_s": 0.0016779999999999998,
+     "read_s": 0.003237,
+     "host_s": 0.0
+    },
+    "O": {
+     "launches": 16,
+     "pack_s": 0.10594987869262695,
+     "load_s": 0.006183,
+     "kernel_s": 0.0033439999999999998,
+     "read_s": 0.0033950000000000004,
+     "host_s": 0.0
+    },
+    "res1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.00032711029052734375
+    },
+    "ln2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0009856224060058594
+    },
+    "FFN1": {
+     "launches": 64,
+     "pack_s": 0.4747037887573242,
+     "load_s": 0.026264999999999997,
+     "kernel_s": 0.013737999999999998,
+     "read_s": 0.013689,
+     "host_s": 0.0
+    },
+    "gelu": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.046922922134399414
+    },
+    "FFN2": {
+     "launches": 64,
+     "pack_s": 0.5473747253417969,
+     "load_s": 0.026598999999999998,
+     "kernel_s": 0.011792,
+     "read_s": 0.012889000000000001,
+     "host_s": 0.0
+    },
+    "res2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0003514289855957031
+    }
+   }
+  },
+  {
+   "rep": 3,
+   "launches": 624,
+   "wall_s": 13.779870986938477,
+   "kernel_s": 0.07318599999999999,
+   "transfer_s": 0.38466799999999995,
+   "pack_s": 5.029144048690796,
+   "host_math_s": 0.05639505386352539,
+   "mismatched_values": 0,
+   "mismatch_by_stage": {},
+   "stages": {
+    "ln1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0011942386627197266
+    },
+    "Q": {
+     "launches": 16,
+     "pack_s": 0.17831993103027344,
+     "load_s": 0.007338,
+     "kernel_s": 0.003539,
+     "read_s": 0.00425,
+     "host_s": 0.0
+    },
+    "K": {
+     "launches": 16,
+     "pack_s": 0.16327214241027832,
+     "load_s": 0.007009,
+     "kernel_s": 0.003484,
+     "read_s": 0.0037749999999999993,
+     "host_s": 0.0
+    },
+    "V": {
+     "launches": 16,
+     "pack_s": 0.15396595001220703,
+     "load_s": 0.007255,
+     "kernel_s": 0.003542000000000001,
+     "read_s": 0.004267,
+     "host_s": 0.0
+    },
+    "score": {
+     "launches": 32,
+     "pack_s": 0.27472662925720215,
+     "load_s": 0.013241999999999999,
+     "kernel_s": 0.003155000000000001,
+     "read_s": 0.007356999999999999,
+     "host_s": 0.0
+    },
+    "mask": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0015769004821777344
+    },
+    "smax": {
+     "launches": 128,
+     "pack_s": 1.0327587127685547,
+     "load_s": 0.05239699999999999,
+     "kernel_s": 0.008694999999999998,
+     "read_s": 0.024075,
+     "host_s": 0.0
+    },
+    "ssum": {
+     "launches": 128,
+     "pack_s": 1.0356154441833496,
+     "load_s": 0.05288699999999999,
+     "kernel_s": 0.010005999999999994,
+     "read_s": 0.02444900000000001,
+     "host_s": 0.0
+    },
+    "snorm": {
+     "launches": 128,
+     "pack_s": 1.0345211029052734,
+     "load_s": 0.052730999999999986,
+     "kernel_s": 0.010332,
+     "read_s": 0.024221,
+     "host_s": 0.0
+    },
+    "ctx": {
+     "launches": 16,
+     "pack_s": 0.13890409469604492,
+     "load_s": 0.006523000000000001,
+     "kernel_s": 0.0017189999999999998,
+     "read_s": 0.0033299999999999996,
+     "host_s": 0.0
+    },
+    "O": {
+     "launches": 16,
+     "pack_s": 0.11713862419128418,
+     "load_s": 0.006706,
+     "kernel_s": 0.0034110000000000004,
+     "read_s": 0.003468,
+     "host_s": 0.0
+    },
+    "res1": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.00029277801513671875
+    },
+    "ln2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.0009336471557617188
+    },
+    "FFN1": {
+     "launches": 64,
+     "pack_s": 0.457686185836792,
+     "load_s": 0.02751499999999999,
+     "kernel_s": 0.013701999999999997,
+     "read_s": 0.015022000000000002,
+     "host_s": 0.0
+    },
+    "gelu": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.052130699157714844
+    },
+    "FFN2": {
+     "launches": 64,
+     "pack_s": 0.44223523139953613,
+     "load_s": 0.025159,
+     "kernel_s": 0.011600999999999998,
+     "read_s": 0.011692000000000003,
+     "host_s": 0.0
+    },
+    "res2": {
+     "launches": 0,
+     "pack_s": 0.0,
+     "load_s": 0.0,
+     "kernel_s": 0.0,
+     "read_s": 0.0,
+     "host_s": 0.00026679039001464844
+    }
+   }
+  }
+ ]
+}

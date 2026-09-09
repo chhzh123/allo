@@ -1,0 +1,343 @@
+{
+ "design": "capacity_4x2",
+ "seq": 4096,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "part": "xcu280-fsvh2892-2L-e",
+ "frequency": 300.0,
+ "tools": "Vitis HLS / Vivado 2023.2",
+ "out": "/scratch/hc676/e6_work/cap42_4096_pnr",
+ "command": "/scratch/hc676/e6_work/e6_build.py --design capacity_4x2 --seq 4096 --out /scratch/hc676/e6_work/cap42_4096_pnr --pnr --jobs 8",
+ "started": "2026-09-06T21:35:10",
+ "cost": {
+  "roles": 7,
+  "instances": 10,
+  "fifos": 18,
+  "streams": 14
+ },
+ "passes": 1,
+ "stage_s": 1.5,
+ "roles": [
+  "mac_r0",
+  "mac_r1",
+  "mac_r2",
+  "mac_r3",
+  "mac_r4",
+  "mac_r5",
+  "act_r0"
+ ],
+ "hls_wall_s": 67.7,
+ "hls_seconds": {
+  "act_r0": 56.9,
+  "mac_r3": 63.2,
+  "mac_r2": 64.1,
+  "mac_r5": 64.1,
+  "mac_r0": 64.1,
+  "mac_r4": 65.2,
+  "mac_r1": 67.7
+ },
+ "pnr": {
+  "vivado_wall_s": 421.4,
+  "ok": true,
+  "stages": {
+   "synth": 109.66,
+   "opt": 7.138,
+   "place": 223.22,
+   "physopt": 0.555,
+   "route": 39.133
+  },
+  "wns_ns": 1.437,
+  "unrouted": 0,
+  "lut": 529,
+  "ff": 1065,
+  "dsp": 8,
+  "bram_tiles": 0,
+  "bram_18k_equiv": 0,
+  "uram": 0,
+  "wns_ns_report": 1.437,
+  "tns_ns": 0.0,
+  "failing_endpoints": 0,
+  "total_endpoints": 3592,
+  "hier": {
+   "spmw_harness": {
+    "Module": "(top)",
+    "Total LUTs": "529",
+    "Logic LUTs": "475",
+    "LUTRAMs": "0",
+    "FFs": "1065",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "8"
+   },
+   "(spmw_harness)": {
+    "Module": "(top)",
+    "Total LUTs": "48",
+    "Logic LUTs": "24",
+    "LUTRAMs": "0",
+    "FFs": "165",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "dut": {
+    "Module": "spmw_top",
+    "Total LUTs": "481",
+    "Logic LUTs": "451",
+    "LUTRAMs": "0",
+    "FFs": "900",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "8"
+   },
+   "g_act_z_in_bind[0].u": {
+    "Module": "spmw_fifo__parameterized0",
+    "Total LUTs": "8",
+    "Logic LUTs": "8",
+    "LUTRAMs": "0",
+    "FFs": "20",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_act_z_in_bind[1].u": {
+    "Module": "spmw_fifo__parameterized0_0",
+    "Total LUTs": "8",
+    "Logic LUTs": "8",
+    "LUTRAMs": "0",
+    "FFs": "20",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_a_out_a_in[1].u": {
+    "Module": "spmw_fifo",
+    "Total LUTs": "6",
+    "Logic LUTs": "6",
+    "LUTRAMs": "0",
+    "FFs": "10",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_a_out_a_in[3].u": {
+    "Module": "spmw_fifo_1",
+    "Total LUTs": "6",
+    "Logic LUTs": "6",
+    "LUTRAMs": "0",
+    "FFs": "10",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_a_out_a_in[5].u": {
+    "Module": "spmw_fifo_2",
+    "Total LUTs": "6",
+    "Logic LUTs": "6",
+    "LUTRAMs": "0",
+    "FFs": "10",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_a_out_a_in[7].u": {
+    "Module": "spmw_fifo_3",
+    "Total LUTs": "6",
+    "Logic LUTs": "6",
+    "LUTRAMs": "0",
+    "FFs": "10",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[2].u": {
+    "Module": "spmw_fifo__parameterized0_4",
+    "Total LUTs": "10",
+    "Logic LUTs": "10",
+    "LUTRAMs": "0",
+    "FFs": "34",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[3].u": {
+    "Module": "spmw_fifo__parameterized0_5",
+    "Total LUTs": "10",
+    "Logic LUTs": "10",
+    "LUTRAMs": "0",
+    "FFs": "34",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[4].u": {
+    "Module": "spmw_fifo__parameterized0_6",
+    "Total LUTs": "18",
+    "Logic LUTs": "18",
+    "LUTRAMs": "0",
+    "FFs": "66",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[5].u": {
+    "Module": "spmw_fifo__parameterized0_7",
+    "Total LUTs": "18",
+    "Logic LUTs": "18",
+    "LUTRAMs": "0",
+    "FFs": "66",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[6].u": {
+    "Module": "spmw_fifo__parameterized0_8",
+    "Total LUTs": "18",
+    "Logic LUTs": "18",
+    "LUTRAMs": "0",
+    "FFs": "66",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "g_mac_p_out_p_in[7].u": {
+    "Module": "spmw_fifo__parameterized0_9",
+    "Total LUTs": "18",
+    "Logic LUTs": "18",
+    "LUTRAMs": "0",
+    "FFs": "66",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "u_act_r0_0": {
+    "Module": "act_r0",
+    "Total LUTs": "31",
+    "Logic LUTs": "31",
+    "LUTRAMs": "0",
+    "FFs": "24",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "u_act_r0_1": {
+    "Module": "act_r0_10",
+    "Total LUTs": "24",
+    "Logic LUTs": "24",
+    "LUTRAMs": "0",
+    "FFs": "24",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "0"
+   },
+   "u_mac_r0_1_1": {
+    "Module": "mac_r0",
+    "Total LUTs": "36",
+    "Logic LUTs": "35",
+    "LUTRAMs": "0",
+    "FFs": "48",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r0_2_1": {
+    "Module": "mac_r0_11",
+    "Total LUTs": "36",
+    "Logic LUTs": "35",
+    "LUTRAMs": "0",
+    "FFs": "64",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r1_1_0": {
+    "Module": "mac_r1",
+    "Total LUTs": "40",
+    "Logic LUTs": "31",
+    "LUTRAMs": "0",
+    "FFs": "56",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r1_2_0": {
+    "Module": "mac_r1_12",
+    "Total LUTs": "39",
+    "Logic LUTs": "30",
+    "LUTRAMs": "0",
+    "FFs": "72",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r2_3_1": {
+    "Module": "mac_r2",
+    "Total LUTs": "36",
+    "Logic LUTs": "35",
+    "LUTRAMs": "0",
+    "FFs": "64",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r3_0_1": {
+    "Module": "mac_r3",
+    "Total LUTs": "33",
+    "Logic LUTs": "33",
+    "LUTRAMs": "0",
+    "FFs": "24",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r4_3_0": {
+    "Module": "mac_r4",
+    "Total LUTs": "41",
+    "Logic LUTs": "32",
+    "LUTRAMs": "0",
+    "FFs": "72",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   },
+   "u_mac_r5_0_0": {
+    "Module": "mac_r5",
+    "Total LUTs": "33",
+    "Logic LUTs": "33",
+    "LUTRAMs": "0",
+    "FFs": "40",
+    "RAMB36": "0",
+    "RAMB18": "0",
+    "URAM": "0",
+    "DSP Blocks": "1"
+   }
+  }
+ },
+ "total_wall_s": 490.6
+}

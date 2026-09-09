@@ -1,0 +1,271 @@
+{
+ "design": "conventional",
+ "seq": 6,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "part": "xcu280-fsvh2892-2L-e",
+ "frequency": 300.0,
+ "tools": "Vitis HLS / Vivado 2023.2",
+ "out": "/scratch/hc676/e6_work/conv_6",
+ "command": "/scratch/hc676/e6_work/e6_build.py --design conventional --seq 6 --out /scratch/hc676/e6_work/conv_6 --cosim --jobs 8",
+ "started": "2026-09-06T21:00:57",
+ "cost": {
+  "roles": 10,
+  "instances": 20,
+  "fifos": 36,
+  "streams": 32
+ },
+ "passes": 2,
+ "stage_s": 1.5,
+ "roles": [
+  "mac_r0",
+  "mac_r1",
+  "mac_r2",
+  "mac_r3",
+  "mac_r4",
+  "mac_r5",
+  "mac_r6",
+  "mac_r7",
+  "mac_r8",
+  "drain_r0"
+ ],
+ "hls_wall_s": 119.4,
+ "hls_seconds": {
+  "mac_r6": 53.7,
+  "mac_r3": 54.5,
+  "mac_r4": 54.6,
+  "mac_r2": 54.6,
+  "mac_r1": 55.0,
+  "mac_r7": 56.0,
+  "mac_r5": 56.1,
+  "mac_r0": 56.7,
+  "drain_r0": 57.3,
+  "mac_r8": 65.7
+ },
+ "genip_s": 37.4,
+ "cosim": {
+  "0": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s0_p0",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 13.9,
+     "xsim_s": 8.6,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    },
+    {
+     "pass": 1,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s0_p1",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 13.2,
+     "xsim_s": 7.1,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 76,
+   "useful_completion_cycles": 60,
+   "first_output_cycles": 59,
+   "useful_first_output_cycles": 51,
+   "row_done": [
+    55,
+    56,
+    57,
+    58,
+    59,
+    60
+   ]
+  },
+  "1": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s1_p0",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 13.7,
+     "xsim_s": 9.1,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    },
+    {
+     "pass": 1,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s1_p1",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 14.3,
+     "xsim_s": 9.0,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 76,
+   "useful_completion_cycles": 60,
+   "first_output_cycles": 59,
+   "useful_first_output_cycles": 51,
+   "row_done": [
+    55,
+    56,
+    57,
+    58,
+    59,
+    60
+   ]
+  },
+  "2": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s2_p0",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 15.6,
+     "xsim_s": 8.0,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    },
+    {
+     "pass": 1,
+     "sim_dir": "/scratch/hc676/e6_work/conv_6/sim_s2_p1",
+     "harness": "SPMW COSIM PASS (48/48 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 38,
+     "useful_total": 30,
+     "first_out": 21,
+     "traced_tokens": {
+      "Zout": 24,
+      "Y": 24
+     },
+     "trace_last_cycle": 38,
+     "compile_s": 12.8,
+     "xsim_s": 7.2,
+     "row_done_in_pass": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 76,
+   "useful_completion_cycles": 60,
+   "first_output_cycles": 59,
+   "useful_first_output_cycles": 51,
+   "row_done": [
+    55,
+    56,
+    57,
+    58,
+    59,
+    60
+   ]
+  }
+ },
+ "total_wall_s": 291.0
+}

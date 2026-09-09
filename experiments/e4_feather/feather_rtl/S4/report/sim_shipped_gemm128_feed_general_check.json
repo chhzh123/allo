@@ -1,0 +1,78 @@
+{
+ "status": "fail",
+ "tiles": 32768,
+ "tiles_ok": 0,
+ "bad_elements": 524276,
+ "first_bad": {
+  "tile": 0,
+  "expected_row0": [
+   234757,
+   118355,
+   93188,
+   120797
+  ],
+  "got_row0": [
+   44302,
+   22590,
+   20660,
+   24182
+  ],
+  "bad_elements": 16
+ },
+ "A0": 12,
+ "F0": 20,
+ "G": 8,
+ "offsets": [],
+ "toggles": [
+  [
+   1,
+   36,
+   1
+  ],
+  [
+   2,
+   52,
+   0
+  ],
+  [
+   3,
+   68,
+   1
+  ],
+  [
+   4,
+   84,
+   0
+  ],
+  [
+   5,
+   100,
+   1
+  ],
+  [
+   6,
+   116,
+   0
+  ],
+  [
+   512,
+   8212,
+   0
+  ],
+  [
+   1024,
+   16404,
+   0
+  ]
+ ],
+ "toggle_count": 262,
+ "buffers": {},
+ "end_cycle": 2097197,
+ "signed_equals_rtl": true,
+ "gen_s": 15.3,
+ "build_s": 12.9,
+ "sim_s": 107.1,
+ "xsim_rc": 0,
+ "build": "/scratch/hc676/e4_rtl_runs/builds/FEATHER_RTL_N4_T32768_M0_342009cee3",
+ "rtl": "/scratch/hc676/feather_ref/FEATHER_RTL/RTL"
+}

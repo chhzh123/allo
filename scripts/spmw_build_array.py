@@ -823,7 +823,7 @@ generate_target {{simulation}} [get_ips]
 """
 
 
-def cosim(graph, out, part, arrays, names, tolerance=None):
+def cosim(graph, out, part, arrays, names, tolerance=None, per_transform=None):
     """Simulate the assembled array and compare against the reference.
 
     Elaborating is not computing, so this is the check that the mixed path is
@@ -831,7 +831,9 @@ def cosim(graph, out, part, arrays, names, tolerance=None):
     """
     _write(
         os.path.join(out, "tb.sv"),
-        render_testbench(graph, arrays, arrays, tolerance=tolerance),
+        render_testbench(
+            graph, arrays, arrays, tolerance=tolerance, per_transform=per_transform
+        ),
     )
 
     # The exported IPs instantiate Xilinx FP cores; xsim needs their generated
@@ -893,7 +895,12 @@ def cosim(graph, out, part, arrays, names, tolerance=None):
     )
     done = _run(["xsim", "tbsim", "-runall"], sim, check=False)
     for line in done.stdout.splitlines():
-        if "SPMW COSIM" in line or "SPMW CYCLES" in line or "MISMATCH" in line:
+        if (
+            "SPMW COSIM" in line
+            or "SPMW CYCLES" in line
+            or "SPMW XFORM" in line
+            or "MISMATCH" in line
+        ):
             print("  " + line.strip())
     if "SPMW COSIM PASS" not in done.stdout:
         raise SystemExit(f"cosim did not pass; see {sim}/xsim.log")
@@ -1175,6 +1182,7 @@ def main():
             operands(fabric, graph),
             names,
             tolerance=getattr(fabric, "spmw_tolerance", None),
+            per_transform=getattr(fabric, "spmw_tokens_per_transform", None),
         )
     _write(
         os.path.join(args.out, "cost.json"),

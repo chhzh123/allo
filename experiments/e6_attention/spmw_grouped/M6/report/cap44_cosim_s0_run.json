@@ -1,0 +1,178 @@
+{
+ "design": "capacity_4x4",
+ "seq": 6,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "part": "xcu280-fsvh2892-2L-e",
+ "frequency": 300.0,
+ "tools": "Vitis HLS / Vivado 2023.2",
+ "out": "/scratch/hc676/e6_work/cap44_6",
+ "command": "/scratch/hc676/e6_work/e6_build.py --design capacity_4x4 --seq 6 --out /scratch/hc676/e6_work/cap44_6 --cosim --jobs 8",
+ "started": "2026-09-06T21:13:55",
+ "cost": {
+  "roles": 7,
+  "instances": 18,
+  "fifos": 32,
+  "streams": 26
+ },
+ "passes": 1,
+ "stage_s": 1.5,
+ "roles": [
+  "mac_r0",
+  "mac_r1",
+  "mac_r2",
+  "mac_r3",
+  "mac_r4",
+  "mac_r5",
+  "act_r0"
+ ],
+ "hls_wall_s": 80.6,
+ "hls_seconds": {
+  "mac_r5": 70.9,
+  "act_r0": 72.9,
+  "mac_r3": 78.2,
+  "mac_r0": 78.4,
+  "mac_r4": 78.6,
+  "mac_r2": 78.8,
+  "mac_r1": 80.6
+ },
+ "genip_s": 39.4,
+ "cosim": {
+  "0": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/cap44_6/sim_s0_p0",
+     "harness": "SPMW COSIM PASS (12/12 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 45,
+     "useful_total": 45,
+     "first_out": 36,
+     "traced_tokens": {
+      "Y": 12
+     },
+     "trace_last_cycle": 45,
+     "compile_s": 13.0,
+     "xsim_s": 7.8,
+     "row_done_in_pass": [
+      40,
+      41,
+      42,
+      43,
+      44,
+      45
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 45,
+   "useful_completion_cycles": 45,
+   "first_output_cycles": 36,
+   "useful_first_output_cycles": 36,
+   "row_done": [
+    40,
+    41,
+    42,
+    43,
+    44,
+    45
+   ]
+  },
+  "1": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/cap44_6/sim_s1_p0",
+     "harness": "SPMW COSIM PASS (12/12 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 45,
+     "useful_total": 45,
+     "first_out": 36,
+     "traced_tokens": {
+      "Y": 12
+     },
+     "trace_last_cycle": 45,
+     "compile_s": 12.0,
+     "xsim_s": 8.0,
+     "row_done_in_pass": [
+      40,
+      41,
+      42,
+      43,
+      44,
+      45
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 45,
+   "useful_completion_cycles": 45,
+   "first_output_cycles": 36,
+   "useful_first_output_cycles": 36,
+   "row_done": [
+    40,
+    41,
+    42,
+    43,
+    44,
+    45
+   ]
+  },
+  "2": {
+   "passes": [
+    {
+     "pass": 0,
+     "sim_dir": "/scratch/hc676/e6_work/cap44_6/sim_s2_p0",
+     "harness": "SPMW COSIM PASS (12/12 tokens, 0 errors)",
+     "cosim_pass": true,
+     "mismatches": 0,
+     "extra_tokens": 0,
+     "rtl_equals_ref": true,
+     "ref_equals_numpy": true,
+     "total": 45,
+     "useful_total": 45,
+     "first_out": 36,
+     "traced_tokens": {
+      "Y": 12
+     },
+     "trace_last_cycle": 45,
+     "compile_s": 15.6,
+     "xsim_s": 10.7,
+     "row_done_in_pass": [
+      40,
+      41,
+      42,
+      43,
+      44,
+      45
+     ]
+    }
+   ],
+   "validation_pass": true,
+   "completion_cycles": 45,
+   "useful_completion_cycles": 45,
+   "first_output_cycles": 36,
+   "useful_first_output_cycles": 36,
+   "row_done": [
+    40,
+    41,
+    42,
+    43,
+    44,
+    45
+   ]
+  }
+ },
+ "total_wall_s": 188.5
+}

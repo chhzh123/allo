@@ -1,0 +1,441 @@
+{
+ "set_dir": "/scratch/hc676/e4_rtl_runs/matrix/orig_N8_orig",
+ "runs": {
+  "tile_gemm_small_zp0-0_s0": {
+   "status": "fail",
+   "tiles": 1,
+   "tiles_ok": 0,
+   "bad_elements": 63,
+   "first_bad": {
+    "tile": 0,
+    "expected_row0": [
+     147,
+     167,
+     241,
+     77,
+     102,
+     202,
+     156,
+     121
+    ],
+    "got_row0": [
+     61,
+     69,
+     103,
+     28,
+     34,
+     113,
+     76,
+     70
+    ],
+    "bad_elements": 63
+   },
+   "A0": 12,
+   "F0": 20,
+   "G": 8,
+   "offsets": [],
+   "toggles": [
+    [
+     1,
+     84,
+     1
+    ],
+    [
+     2,
+     148,
+     0
+    ],
+    [
+     3,
+     212,
+     1
+    ],
+    [
+     4,
+     276,
+     0
+    ],
+    [
+     5,
+     340,
+     1
+    ],
+    [
+     6,
+     404,
+     0
+    ]
+   ],
+   "toggle_count": 6,
+   "buffers": {
+    "0": [
+     64,
+     8
+    ],
+    "1": [
+     9,
+     64
+    ],
+    "2": [
+     64,
+     7
+    ],
+    "3": [
+     7,
+     64
+    ],
+    "4": [
+     64,
+     10
+    ],
+    "5": [
+     6,
+     64
+    ],
+    "6": [
+     64,
+     11
+    ],
+    "7": [
+     7,
+     64
+    ]
+   },
+   "end_cycle": 567,
+   "signed_equals_rtl": true,
+   "gen_s": 0.5,
+   "build_s": 19.6,
+   "sim_s": 9.1,
+   "xsim_rc": 0,
+   "build": "/scratch/hc676/e4_rtl_runs/builds/FEATHER_RTL_N8_T1_M1_3b6e9d78ce",
+   "rtl": "/scratch/hc676/feather_ref/FEATHER_RTL/RTL"
+  },
+  "tile_gemm_small_zp0-0_s1": {
+   "status": "fail",
+   "tiles": 1,
+   "tiles_ok": 0,
+   "bad_elements": 64,
+   "first_bad": {
+    "tile": 0,
+    "expected_row0": [
+     92,
+     269,
+     165,
+     113,
+     143,
+     143,
+     214,
+     78
+    ],
+    "got_row0": [
+     18,
+     133,
+     70,
+     41,
+     75,
+     47,
+     110,
+     26
+    ],
+    "bad_elements": 64
+   },
+   "A0": 12,
+   "F0": 20,
+   "G": 8,
+   "offsets": [],
+   "toggles": [
+    [
+     1,
+     84,
+     1
+    ],
+    [
+     2,
+     148,
+     0
+    ],
+    [
+     3,
+     212,
+     1
+    ],
+    [
+     4,
+     276,
+     0
+    ],
+    [
+     5,
+     340,
+     1
+    ],
+    [
+     6,
+     404,
+     0
+    ]
+   ],
+   "toggle_count": 6,
+   "buffers": {
+    "0": [
+     64,
+     9
+    ],
+    "1": [
+     10,
+     64
+    ],
+    "2": [
+     64,
+     6
+    ],
+    "3": [
+     6,
+     64
+    ],
+    "4": [
+     64,
+     7
+    ],
+    "5": [
+     7,
+     64
+    ],
+    "6": [
+     64,
+     4
+    ],
+    "7": [
+     10,
+     64
+    ]
+   },
+   "end_cycle": 567,
+   "signed_equals_rtl": true,
+   "gen_s": 0.3,
+   "build_s": 0.0,
+   "sim_s": 9.1,
+   "xsim_rc": 0,
+   "build": "/scratch/hc676/e4_rtl_runs/builds/FEATHER_RTL_N8_T1_M1_3b6e9d78ce",
+   "rtl": "/scratch/hc676/feather_ref/FEATHER_RTL/RTL"
+  },
+  "tile_gemm_small_zp0-0_s2": {
+   "status": "fail",
+   "tiles": 1,
+   "tiles_ok": 0,
+   "bad_elements": 64,
+   "first_bad": {
+    "tile": 0,
+    "expected_row0": [
+     84,
+     149,
+     203,
+     43,
+     150,
+     180,
+     226,
+     83
+    ],
+    "got_row0": [
+     58,
+     80,
+     153,
+     29,
+     65,
+     93,
+     111,
+     40
+    ],
+    "bad_elements": 64
+   },
+   "A0": 12,
+   "F0": 20,
+   "G": 8,
+   "offsets": [],
+   "toggles": [
+    [
+     1,
+     84,
+     1
+    ],
+    [
+     2,
+     148,
+     0
+    ],
+    [
+     3,
+     212,
+     1
+    ],
+    [
+     4,
+     276,
+     0
+    ],
+    [
+     5,
+     340,
+     1
+    ],
+    [
+     6,
+     404,
+     0
+    ]
+   ],
+   "toggle_count": 6,
+   "buffers": {
+    "0": [
+     64,
+     10
+    ],
+    "1": [
+     13,
+     64
+    ],
+    "2": [
+     64,
+     8
+    ],
+    "3": [
+     9,
+     64
+    ],
+    "4": [
+     64,
+     8
+    ],
+    "5": [
+     9,
+     64
+    ],
+    "6": [
+     64,
+     7
+    ],
+    "7": [
+     4,
+     64
+    ]
+   },
+   "end_cycle": 567,
+   "signed_equals_rtl": true,
+   "gen_s": 0.3,
+   "build_s": 0.0,
+   "sim_s": 10.6,
+   "xsim_rc": 0,
+   "build": "/scratch/hc676/e4_rtl_runs/builds/FEATHER_RTL_N8_T1_M1_3b6e9d78ce",
+   "rtl": "/scratch/hc676/feather_ref/FEATHER_RTL/RTL"
+  },
+  "tile_gemm_small_zp7-5_s0": {
+   "status": "fail",
+   "tiles": 1,
+   "tiles_ok": 0,
+   "bad_elements": 64,
+   "first_bad": {
+    "tile": 0,
+    "expected_row0": [
+     147,
+     167,
+     241,
+     77,
+     102,
+     202,
+     156,
+     121
+    ],
+    "got_row0": [
+     7159,
+     13251,
+     14299,
+     5098,
+     6625,
+     17351,
+     10216,
+     9703
+    ],
+    "bad_elements": 64
+   },
+   "A0": 12,
+   "F0": 20,
+   "G": 8,
+   "offsets": [],
+   "toggles": [
+    [
+     1,
+     84,
+     1
+    ],
+    [
+     2,
+     148,
+     0
+    ],
+    [
+     3,
+     212,
+     1
+    ],
+    [
+     4,
+     276,
+     0
+    ],
+    [
+     5,
+     340,
+     1
+    ],
+    [
+     6,
+     404,
+     0
+    ]
+   ],
+   "toggle_count": 6,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     0,
+     64
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     0,
+     64
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     0,
+     64
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     0,
+     64
+    ]
+   },
+   "end_cycle": 567,
+   "signed_equals_rtl": true,
+   "gen_s": 0.5,
+   "build_s": 0.0,
+   "sim_s": 10.4,
+   "xsim_rc": 0,
+   "build": "/scratch/hc676/e4_rtl_runs/builds/FEATHER_RTL_N8_T1_M1_3b6e9d78ce",
+   "rtl": "/scratch/hc676/feather_ref/FEATHER_RTL/RTL"
+  }
+ }
+}

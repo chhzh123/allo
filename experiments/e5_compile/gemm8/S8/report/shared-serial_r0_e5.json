@@ -1,0 +1,28 @@
+{
+ "design": "gemm8",
+ "size": 8,
+ "mode": "shared-serial",
+ "jobs": 1,
+ "roles": 9,
+ "instances": 64,
+ "projects": 9,
+ "completed_jobs": 9,
+ "frontend_s": 1.18,
+ "hls_wall_s": 371.5,
+ "hls_sum_job_elapsed_s": 371.4,
+ "cpu_user_s": 232.2,
+ "cpu_sys_s": 19.7,
+ "load_start": 15.0,
+ "load_end": 9.0,
+ "job_elapsed_s": {
+  "pe_r0": 41.7,
+  "pe_r1": 41.1,
+  "pe_r2": 41.5,
+  "pe_r3": 41.2,
+  "pe_r4": 41.8,
+  "pe_r5": 41.3,
+  "pe_r6": 41.7,
+  "pe_r7": 40.4,
+  "pe_r8": 40.7
+ }
+}
