@@ -1,9 +1,9 @@
 # Agentic design across three hardware representations: interim results
 
-**Status: all fifteen trials have run, been re-measured over twelve unseen
-products, and been routed on the device. The architecture review covers nine of
-fifteen.** The six unreviewed designs could still be demoted, and nothing else
-is outstanding.
+**Status: complete.** All fifteen trials have run, been re-measured over twelve
+unseen products, been routed on the device, and been read against the
+architecture specification. Fifteen of fifteen conform, so no design is
+demoted and the graded table below is final.
 
 ## The question
 
@@ -118,7 +118,7 @@ A design passes only if it clears every bar.
 | GLM 5.3 | HLS | 8 | 478,484 | 44 | 15 | 64 | +1.054 | **yes** | |
 | DeepSeek | HLS | 2 | 187,897 | 39 | 24 | 64 | +1.031 | no | interval |
 | Kimi K3 | HLS | 8 | 317,380 | 74 | 32 | 64 | +1.448 | no | latency, interval |
-| GPT-5.6 Sol | HLS | 8 | 296,563 | — | — | — | — | no | never correct |
+| GPT-5.6 Sol | HLS | 8 | 296,563 | — | — | — | — | no | correctness |
 
 | Arm | Passes | Median tokens | Median builds |
 |---|---|---:|---:|
@@ -169,25 +169,49 @@ without ever submitting.
 
 ## Architecture review
 
-Done for the four designs that showed an interval of 8. **All four conform**:
-64 elements each with one multiplier and one accumulator, operands arriving only
-from a neighbour or an edge port, A east and B south one element per cycle,
-results leaving through a per-row chain, and the grid instantiated rather than
-written out. The three SystemVerilog ones reach interval 8 by double-buffering
-the result register, which is legitimate and is exactly the technique the
-failing SPMW designs lack.
+All fifteen designs have now been read against the five questions in
+`task/CONFORMANCE.md`, and **all fifteen conform**: 64 elements each with one
+multiplier and one accumulator, operands arriving only from a neighbour or an
+edge port, A east and B south one element per cycle, and results leaving
+through a per-row chain. Every failure in the table above is a measured bar,
+not an architecture the specification forbids. The per-design verdicts and
+their evidence are in `results/CONFORMANCE.md`.
 
-Eleven designs remain to review, including every SPMW design.
+Two things the review adds that the cycle counts do not show.
 
-## What is still missing
+**The SPMW interval split is visible in the topology, not in a loop body.**
+The two passing designs declare two meshes and place two units, a multiply
+mesh and a separate drain mesh. The three failing ones declare one mesh that
+carries the result link alongside the operand links, so the drain shares the
+element's single thread of control. Both are conforming systolic arrays; only
+the first pipelines. Opus wrote the same two-part split in its HLS entry,
+which also passed.
 
-1. Architecture review for six of the fifteen designs: the four fastest and the
-   five SPMW ones have been read, the rest have not. A design that computes the
-   right answer without being systolic would still be counted as a pass in the
-   table above.
-2. `openai/gpt-5.6-sol` in the HLS arm is recorded as never correct. Its final
-   design fails to build on the twelve-product set, and the cause has not been
-   separated from the eight failures it had during the trial.
+**Reaching interval 8 in SystemVerilog is a technique, not a language
+property.** The three that got there double-buffer the result register, which
+is exactly what the failing SPMW designs lack.
+
+## GPT-5.6 Sol in the HLS arm, classified
+
+Recorded earlier as "never correct" with the cause unseparated. There are two
+failures, both the model's.
+
+Builds 1 to 7 compiled and ran, and every one deadlocked: `STUDY RESULT
+TIMEOUT after 20001 cycles`, having emitted 0, 0, 36, 64, 64, 17 and 64 of the
+128 expected outputs. The design never drained a full product set.
+
+Build 8, its last, does not compile. Four functions open a loop and put the
+pragma on the same line, `while(1) { #pragma HLS pipeline II=1`, which is a
+plain C++ syntax error rather than an HLS one; `clang++ -fsyntax-only` gives
+four `error: expected expression` at lines 71, 77, 83 and 89. That build failed
+in 5.1 seconds against 140 to 330 for the ones that ran, and it exhausted the
+build budget, so the file left on disk is the broken one and that is what the
+re-measurement graded. The trial was stopped by builds, not tokens: about
+200,000 of its 500,000 were never spent.
+
+The syntax error decided which artifact was graded but not the outcome, since
+no build in the trial ever produced 128 correct outputs. It is counted as a
+failure on correctness, as before.
 
 ## Honesty about the harness
 

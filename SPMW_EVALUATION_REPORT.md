@@ -1,9 +1,14 @@
 # SPMW evaluation: the remaining experiments
 
 All seven experiments of `SPMW_REMAINING_EXPERIMENTS.md` ran on brg-zhang-xcel.
-Six are complete; one baseline is short two array sizes because the vendor tool
-cannot cosimulate them. Every number below was measured on hardware or in RTL
-simulation, and nothing is extrapolated.
+Every number below was measured on hardware or in RTL simulation, and nothing
+is extrapolated.
+
+**E1 and E2 have been re-measured since the first version of this report, and
+their sections say so where a figure changed.** E1's four systems were computing
+different amounts of work; they now all compute the same S-cubed problem on one
+cycle definition, and Gemmini joins as a second RTL baseline. E2's SPMW interval
+was computed by a formula that was wrong twice. Sections E3 to E7 are unchanged.
 
 | | |
 |---|---|
@@ -14,8 +19,8 @@ simulation, and nothing is extrapolated.
 
 | | Experiment | State |
 |---|---|---|
-| E1 | Output-stationary int8 GEMM at four array sizes: SPMW, AutoSA, Allo | Allo short two sizes |
-| E2 | Radix-2 FFT, 128 to 1,024 points: SPMW, HP-FFT, Allo | complete |
+| E1 | Output-stationary int8 GEMM at four array sizes: SPMW, AutoSA, Allo, Gemmini | re-measured; two cells open |
+| E2 | Radix-2 FFT, 128 to 1,024 points: SPMW, HP-FFT, Allo | re-measured, complete |
 | E3 | Complete GPT-2 medium and LLaMA-7B blocks on the board | complete |
 | E4 | FEATHER with general weights: the port against the original RTL | complete |
 | E5 | Compilation time with the hardware held fixed | complete |
@@ -26,67 +31,80 @@ simulation, and nothing is extrapolated.
 
 ## E1. Output-stationary GEMM
 
-Every design in this comparison places exactly one multiplier per processing
-element, so the arithmetic is identical and any difference is in the logic
-around it. Comparing like scopes at 32x32, the SPMW kernel uses 19% fewer
-lookup tables and 37% fewer registers than AutoSA, with ten times the slack.
+**These numbers supersede the first version of this section.** That version
+compared launches that did different amounts of work: AutoSA was given a fixed
+16-cubed problem while the others computed one S-cubed tile, so at 4x4 its
+launch did sixty-four times the arithmetic of the row beside it. Every design
+here now computes the same thing -- `C = A B`, int8 in and int32 out, with
+M = N = K = S on an S x S array holding one multiplier per element -- and every
+cycle figure is on one definition: **first memory beat to last memory beat**,
+with control writes, the start bit and each flow's own polling outside it. The
+package is `experiments/e1_gemm/`.
 
 ### Routed, out of context at 3.333 ns
 
-| Array | Design | LUT | FF | DSP | BRAM18 | Slack |
-|---|---|---:|---:|---:|---:|---:|
-| 4x4 | SPMW mesh | 560 | 1,021 | 16 | 0 | +1.167 ns |
-| | SPMW kernel | 1,867 | 2,516 | 16 | 0 | +1.301 ns |
-| | AutoSA | 8,129 | 17,481 | 16 | 9 | +0.536 ns |
-| | Allo | 3,693 | 4,459 | 16 | 3 | +0.625 ns |
-| 8x8 | SPMW mesh | 2,225 | 4,301 | 64 | 0 | +0.996 ns |
-| | SPMW kernel | 8,015 | 10,220 | 64 | 0 | +1.232 ns |
-| | AutoSA | 19,755 | 38,762 | 64 | 9 | +0.331 ns |
-| | Allo | 8,419 | -- | 64 | -- | +0.598 ns |
-| 16x16 | SPMW mesh | 9,026 | 18,048 | 256 | 0 | +0.428 ns |
-| | SPMW kernel | 32,756 | 40,732 | 256 | 0 | +0.541 ns |
-| | AutoSA | 47,434 | 81,265 | 256 | 9 | +0.455 ns |
-| | Allo | cosimulation stalls | | | | |
-| 32x32 | SPMW mesh | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns |
-| | SPMW kernel | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns |
-| | AutoSA | 169,841 | 262,017 | 1,024 | 11 | +0.048 ns |
-| | Allo | cosimulation stalls | | | | |
+| Array | Design | Port in/out | Cycles | (flow reports) | LUT | FF | DSP | Slack | Clock |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | SPMW mesh | streams | 16 | | 560 | 1,021 | 16 | +1.167 ns | 462 MHz |
+| | SPMW kernel | 512/512 | 47 | 66 | 1,867 | 2,516 | 16 | +1.301 ns | 492 MHz |
+| | AutoSA | 32/32 | 78 | 148 | 4,974 | 8,171 | 16 | +0.512 ns | 354 MHz |
+| | Allo | 32/32 | 118 | 167 | 3,693 | 4,459 | 16 | +0.625 ns | 369 MHz |
+| | Gemmini WS mesh | streams | 17 | | 1,592 | 1,064 | **0** | +0.590 ns | 365 MHz |
+| 8x8 | SPMW mesh | streams | 28 | | 2,225 | 4,301 | 64 | +0.996 ns | 428 MHz |
+| | SPMW kernel | 512/512 | 82 | 100 | 8,015 | 10,220 | 64 | +1.232 ns | 476 MHz |
+| | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | +0.690 ns | 378 MHz |
+| | AutoSA, wide | 512/512 | 130 | 202 | 15,343 | 25,536 | 64 | +0.738 ns | 385 MHz |
+| | Allo | 32/32 | 288 | 337 | 8,419 | 8,220 | 64 | +0.598 ns | 366 MHz |
+| | Gemmini WS mesh | streams | 33 | | 6,457 | 4,128 | **0** | +0.418 ns | 343 MHz |
+| 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | +0.428 ns | 344 MHz |
+| | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | +0.541 ns | 358 MHz |
+| | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | +0.410 ns | 342 MHz |
+| | AutoSA, wide | 512/512 | 374 | 445 | 48,957 | 84,062 | 256 | +0.380 ns | 339 MHz |
+| | Allo | 32/32 | 928 | 977 | -- | -- | 256 | -- | -- |
+| | Gemmini WS mesh | streams | -- | | 26,847 | 17,024 | **0** | +0.306 ns | 330 MHz |
+| 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | +0.431 ns | 345 MHz |
+| | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | +0.529 ns | 357 MHz |
+| | AutoSA | 256/32 | 2,990 | 3,064 | 185,634 | 317,967 | 1,024 | +0.111 ns | 310 MHz |
+| | AutoSA, wide | 512/512 | 1,222 | 1,300 | 186,369 | 320,772 | 1,024 | +0.101 ns | 309 MHz |
+| | Allo | 32/32 | 3,408 | 3,457 | -- | -- | 1,024 | -- | -- |
+| | Gemmini WS mesh | streams | -- | | 111,787 | 71,380 | **0** | +0.083 ns | 308 MHz |
 
-No unrouted nets anywhere. *Mesh* is the array with its boundary buffers;
-*kernel* is the same array with its memory loaders and drain, which is the
-scope AutoSA and Allo also report.
+No unrouted nets anywhere. *Mesh* is the array with its boundary buffers, the
+only array-scope row; every other row is kernel scope and includes that
+system's own memory interface. Port width is read off each design's synthesised
+RTL, never assumed from the source. Allo's routed resources at 16x16 and 32x32,
+and Gemmini's cycles at those two sizes, were still measuring when this was
+written.
 
-### Cycles, against the work each launch does
+### Two things to keep attached to this table
 
-The three flows do not launch the same thing, so their cycle counts are not
-directly comparable and each row names its workload. One SPMW launch computes a
-single tile; AutoSA and Allo fold the tiles of a fixed problem inside the launch.
+**Do not read the lookup-table column without the DSP column.** Gemmini routes
+with **zero** DSP blocks at every size, and so does FEATHER in E4: Vivado leaves
+a signed 8x8 multiply written in plain RTL below its inference threshold, while
+the HLS path binds it to a DSP. So SPMW's lookup-table advantage over the RTL
+baselines is substantially a mapping difference, not a logic-efficiency
+difference. What supports the "same array, different mapping" reading is that
+the register counts agree within 6 per cent at every size (1.04, 0.96, 0.94,
+0.95) while the lookup-table ratio stays near constant (2.84, 2.90, 2.97, 2.95).
+Against AutoSA and Allo, which do use DSPs, the comparison is like for like: at
+32x32 the SPMW kernel uses 26% fewer lookup tables and 48% fewer registers than
+AutoSA, with 4.8 times the slack.
 
-| Array | System | First out | Completion | Workload of one launch |
-|---|---|---:|---:|---|
-| 4x4 | SPMW | 10 | 66 | one 4^3 tile |
-| | AutoSA | 63 | 788 | 16^3, 16 tiles folded |
-| | Allo | 112 | 136 | one 4^3 tile |
-| | Allo | 316,471 | 334,909 | 128^3, 1,024 tiles folded |
-| 8x8 | SPMW | 14 | 100 | one 8^3 tile |
-| | AutoSA | 69 | 795 | 16^3, 4 tiles folded |
-| | Allo | -- | 306 | one 8^3 tile |
-| | Allo | 106,807 | 125,245 | 128^3, 256 tiles folded |
-| 16x16 | SPMW | 22 | 152 | one 16^3 tile |
-| | AutoSA | 71 | 797 | 16^3, one tile |
-| 32x32 | SPMW | 38 | 298 | one 32^3 tile |
-| | AutoSA | 87 | 2,989 | 32x32x16, one tile |
-
-SPMW figures are the packaged kernel against a behavioural AXI memory, start bit
-to last drain beat. Its cost per tile grows as roughly 2S, so the abstraction
-adds no term that scales with the array.
+**Gemmini's output-stationary rows are not comparable to SPMW's** and are
+excluded above. Its OS element performs per-PE output requantisation -- four
+32-bit variable shifts and round-to-nearest -- that neither its own WS element
+nor SPMW's array contains; SPMW requantises on the host. That single difference
+accounts for 4.2x to 4.5x of area at every size, and it costs the clock: the OS
+mesh misses timing at 32x32 at -0.065 ns where the WS mesh still closes.
+Gemmini's WS figures are also a single-matmul latency from a driver written for
+this experiment, which issues preload and compute serially where Gemmini's own
+controller can overlap them, so they understate its back-to-back throughput.
 
 ### Three findings about the baselines
 
 - **AutoSA cannot build a 32x32 array for a 16-cubed problem.** It silently
-  clamps the partition and emits a byte-identical 16x16 design, so that row uses
-  a 32x32x16 problem instead. The clamped attempts are kept as unsupported rows
-  with the diff as evidence.
+  clamps the partition and emits a byte-identical 16x16 design. The clamped
+  attempts are kept as unsupported rows with the diff as evidence.
 - **Its kernel as specified is functionally wrong.** With no accumulator reset in
   the scope, 4x4 fails 240 of 256 outputs. The measured rows use AutoSA's own
   documented corrected form.
@@ -95,48 +113,71 @@ adds no term that scales with the array.
   measures the testbench's control transactions rather than the kernel. Both were
   replaced with a checking testbench and waveform analysis.
 
-### Where Allo stops
+### Where Allo stopped, and what unblocked it
 
 Its library systolic array simulates and synthesises correctly at every size,
-but from 16x16 up, Vitis stops writing files inside RTL testbench generation and
-spins at full processor load indefinitely. Two 32x32 builds held for twelve hours
-with no output before being stopped; a watchdog now catches the condition in 35
-minutes. Synthesis before it succeeds normally, in 423 seconds at 16x16, so this
-is a limit on cosimulating a 256-process design rather than a property of the
-design. Implementation-only retries were still running when this was written.
+but from 16x16 up Vitis stopped writing files inside RTL testbench generation
+and spun at full processor load indefinitely; two 32x32 builds held twelve
+hours before being stopped. Synthesis itself succeeds normally, in 423 seconds
+at 16x16, so this is a limit on cosimulating a 256-process design rather than a
+property of the design. Cycle counts at both sizes were recovered afterwards
+and are in the table; the routed resources at those sizes are still missing.
+
+One further correction: Allo's 4x4 and 8x8 cycle figures in the first version
+of this section, 136 and 306, were the minimum over three launches rather than
+a representative one. The figures above, 167 and 337, are on the same
+first-beat-to-last-beat definition as every other row.
 
 ---
 
 ## E2. Radix-2 FFT
 
-The folded single-path delay-feedback pipeline sustains an interval of exactly N
-plus 0.09 cycles per transform at every size from 128 to 1,024 points. Its cost
-grows with the logarithm of N, because a size doubling adds one stage unit:
-twenty more multipliers and about 1,500 more lookup tables.
+**These numbers supersede the first version of this section**, which reported
+SPMW's interval as 132.1 cycles at 128 points (96.9% of ideal) rising to
+1,056.1 at 1,024. That came from `(launch total - first output) / 32`, which is
+wrong twice: it starts at the first *output* beat, so the pipeline fill sits
+inside the interval, and it divides by 32 where 33 transforms are emitted. The
+HP-FFT column was not affected by either error; only SPMW's was.
 
-| Points | System | Latency | Interval | LUT | FF | DSP | BRAM18 | Slack |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 128 | SPMW | 522 | 132 | 10,930 | 25,425 | 139 | 12 | +0.461 ns |
-| | HP-FFT | 679 | 76 | 19,874 | 19,159 | 60 | 68 | +0.313 ns |
-| | Allo | 11,586 | 11,545 | -- | -- | 16 | 8 | -- |
-| 256 | SPMW | 1,035 | 264 | 12,361 | 28,865 | 159 | 18 | +0.388 ns |
-| | HP-FFT | 1,400 | 143 | 22,403 | 22,244 | 72 | 82 | +0.283 ns |
-| | Allo | 26,261 | 26,220 | -- | -- | 16 | 10 | -- |
-| 512 | SPMW | 2,059 | 528 | 13,864 | 32,222 | 179 | 24 | +0.129 ns |
-| | HP-FFT | 2,953 | 269 | 25,881 | 25,518 | 84 | 92 | +0.179 ns |
-| | Allo | 58,808 | 58,767 | -- | -- | 16 | -- | -- |
-| 1,024 | SPMW | 4,107 | 1,056 | 15,423 | 35,587 | 199 | 31 | +0.431 ns |
-| | HP-FFT | 6,298 | 529 | 29,316 | 28,835 | 96 | 104 | +0.261 ns |
-| | Allo | 130,299 | 130,258 | -- | -- | 16 | 14 | -- |
+Measured properly -- the median of consecutive per-transform completions, which
+the cosimulation now reports directly -- the folded single-path delay-feedback
+pipeline sustains an interval of **exactly N**, one complex sample per cycle,
+100.0% of ideal at every size. Its cost grows with the logarithm of N, because
+a size doubling adds one stage unit: twenty more multipliers and about 1,500
+more lookup tables.
 
-Complex FP32. Latency is one transform; interval is the steady-state spacing
-when transforms stream back to back. **HP-FFT carries two samples per beat**, so
-its interval near N/2 is the same one-sample-per-cycle rate at twice the port
-width. Allo runs one transform per call, so its interval is its latency, and its
-resources are synthesis estimates.
+| Points | System | Samples/cyc | Latency | Interval | Of ideal | LUT | FF | DSP | BRAM18 | Slack |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 | SPMW | 1 | **581** | 128.0 | **100.0%** | 10,930 | 25,425 | 139 | 12 | +0.461 ns |
+| | HP-FFT UF1 | 2 | 742 | 76.0 | 84.2% | 19,874 | 19,159 | 60 | 68 | +0.313 ns |
+| | Allo | -- | 11,545 | 11,545 | -- | 4,340 | 7,622 | 16 | 10 | +0.697 ns |
+| 256 | SPMW | 1 | **1,158** | 256.0 | **100.0%** | 12,361 | 28,865 | 159 | 18 | +0.388 ns |
+| | HP-FFT UF1 | 2 | 1,527 | 140.5 | 91.1% | 22,403 | 22,244 | 72 | 82 | +0.283 ns |
+| | Allo | -- | 26,220 | 26,220 | -- | 4,422 | 7,646 | 16 | 10 | +0.671 ns |
+| 512 | SPMW | 1 | **2,310** | 512.0 | **100.0%** | 13,864 | 32,222 | 179 | 24 | +0.129 ns |
+| | HP-FFT UF1 | 2 | 3,208 | 269.0 | 95.2% | 25,881 | 25,518 | 84 | 92 | +0.179 ns |
+| | Allo | -- | 58,767 | 58,767 | -- | 4,316 | 7,542 | 16 | 12 | +0.694 ns |
+| 1,024 | SPMW | 1 | **4,614** | 1,024.0 | **100.0%** | 15,423 | 35,587 | 199 | 31 | +0.431 ns |
+| | HP-FFT UF1 | 2 | 6,809 | 525.5 | 97.4% | 29,316 | 28,835 | 96 | 104 | +0.261 ns |
+| | Allo | -- | 130,258 | 130,258 | -- | 4,320 | 7,561 | 16 | 12 | +0.438 ns |
+
+Complex FP32. Both flows are read on one definition, the one HP-FFT's own
+harness uses: cycles are rising clock edges relative to the launch's first
+input beat, a transform's latency is its last output beat minus that, and the
+interval is the median of consecutive completion differences.
+
+**The two systems are not at the same port width, and this one cannot be
+flagged away.** SPMW's boundary carries one complex sample a beat; HP-FFT's
+narrowest shipped configuration, UF1, carries two, so their ideal intervals
+differ by 2x by construction. HP-FFT is the faster streamer in absolute terms
+and SPMW is the closer to its own boundary's limit; the "of ideal" column is
+what makes those two statements comparable. SPMW's latency is lower at every
+size, 581 against 742 up to 4,614 against 6,809. Allo runs one transform per
+call, so its interval is its latency.
 
 Every SPMW cosimulation matched the reference on every token: 4,224 tokens at
 128 points through 33,792 at 1,024.
+
 
 ### Four defects this design surfaced
 
