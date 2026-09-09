@@ -2,17 +2,16 @@
 
 Model `deepseek/deepseek-v4-pro`, arm **hls**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 187,897 tokens, 2228.2 s wall.
+Outcome: **submitted**, stopped by `submit`, 187,897 tokens, 2228.2 s wall (1394.4 s model, 833.8 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.cpp`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.cpp`. The final design is in `../generated/deepseek_deepseek-v4-pro__hls/`.
 
 
-### t=2.92s — model turn (899 tokens cumulative 899)
+### t=2.92s — model turn (899 tokens this turn, 899 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -85,7 +84,7 @@ a function, call it once per position inside a dataflo
 ```
 
 
-### t=7.68s — model turn (4595 tokens cumulative 5494)
+### t=7.68s — model turn (4595 tokens this turn, 5,494 cumulative)
 
 **ran** `cat design.cpp`
 
@@ -142,7 +141,7 @@ design.cpp
 ```
 
 
-### t=589.95s — model turn (43567 tokens cumulative 49061)
+### t=589.95s — model turn (43567 tokens this turn, 49,061 cumulative)
 
 Let me start by reading the existing files and then building the initial
 design.
@@ -191,7 +190,7 @@ void gemm_tile(
 ```
 
 
-### t=1076.66s — model turn (38695 tokens cumulative 87756)
+### t=1076.66s — model turn (38695 tokens this turn, 87,756 cumulative)
 
 Now I understand the task. Let me design the 8×8 systolic array with output-
 stationary PEs, A traveling east, B traveling south, and results draining
@@ -199,7 +198,7 @@ along rows. I need input skewing so that A and B meet at the right PEs at
 the right times. Let me write the complete
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 #include <hls_stream.h>
@@ -216,7 +215,7 @@ void pe(
 ```
 
 
-### t=1172.55s — model turn (17190 tokens cumulative 104946)
+### t=1172.55s — model turn (17190 tokens this turn, 104,946 cumulative)
 
 Let me build this initial design to see how it performs
 
@@ -224,14 +223,10 @@ Let me build this initial design to see how it performs
 **ran** `build`
 
 
-*(segment: 104946 tokens, 1172.5 s model, 21.3 s tools)*
+*(segment: 104,946 tokens, 1172.5 s model, 21.3 s tools)*
 
 
-## Build 1 — t=1193.81s
-
-
-
-*result of* `build`:
+## Build 1 — t=1193.81s, 104,946 tokens spent
 
 ```
 STUDY BUILD FAIL synthesis
@@ -244,18 +239,18 @@ ERROR: [HLS 200-970] Internal stream 'c_h.45' (design.cpp:114) failed dataflow c
 ERROR: [HLS 200-970] Internal stream 'c_h.54' (design.cpp:114) failed dataflow checking: it must be produced and consumed exactly once.
 ERROR: [HLS 200-970] Internal stream 'c_h.63' (design.cpp:114) failed dataflow checking: it must be produced and consumed exactly once.
 ERROR: [HLS 200-1715] Encountered problem during source synthesis
-ERROR: [HLS 200-70] Pre
+ERROR: [HLS 200-70] Pre-synthesis failed.
 ```
 
 
-### t=1374.35s — model turn (23115 tokens cumulative 128061)
+### t=1374.35s — model turn (23115 tokens this turn, 128,061 cumulative)
 
 The issue is that `c_h[i][0]` has a writer (dummy) but the PE at col=0 never
 reads from `c_in` (loop runs 0 times). I need to restructure: use two PE
 variants so every stream has exactly one reader and one
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 #include <hls_stream.h>
@@ -272,19 +267,15 @@ static void pe_left(
 ```
 
 
-### t=1377.06s — model turn (19222 tokens cumulative 147283)
+### t=1377.06s — model turn (19222 tokens this turn, 147,283 cumulative)
 
 **ran** `build`
 
 
-*(segment: 147283 tokens, 183.2 s model, 389.7 s tools)*
+*(segment: 147,283 tokens, 183.2 s model, 389.7 s tools)*
 
 
-## Build 2 — t=1766.78s
-
-
-
-*result of* `build`:
+## Build 2 — t=1766.78s, 147,283 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -292,12 +283,10 @@ STUDY PRODUCT 0 first_in 3 last_out 42 latency 39
 STUDY PRODUCT 1 first_in 11 last_out 66 latency 55
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 352717 tokens, 6 builds.
 ```
 
 
-### t=1798.07s — model turn (20900 tokens cumulative 168183)
+### t=1798.07s — model turn (20900 tokens this turn, 168,183 cumulative)
 
 The build passes with 0 wrong values, latency 39 (within 22-64), and
 interval 8 (≤16). Let me now route to check resource usage.
@@ -314,17 +303,7 @@ PNR LUT 6360 FF 10193 DSP 64 WNS 1.031
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 6360 FF 10193 DSP 64 WNS 1.031
-
-Routing runs left: 2.
-```
-
-
-### t=2228.17s — model turn (19714 tokens cumulative 187897)
+### t=2228.17s — model turn (19714 tokens this turn, 187,897 cumulative)
 
 All requirements are met: - **Correctness**: 0 wrong values - **Latency**:
 39 cycles (within 22–64) - **Throughput**: interval 8 (≤16) - **DSP**:

@@ -2,17 +2,16 @@
 
 Model `moonshotai/kimi-k3`, arm **hls**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **did not submit**, stopped by `builds`, 317,380 tokens, 1944.3 s wall.
+Outcome: **did not submit**, stopped by `builds`, 317,380 tokens, 1944.3 s wall (1353.4 s model, 590.9 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.cpp`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.cpp`. The final design is in `../generated/moonshotai_kimi-k3__hls/`.
 
 
-### t=2.71s — model turn (760 tokens cumulative 760)
+### t=2.71s — model turn (760 tokens this turn, 760 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -63,7 +62,7 @@ design.cpp
 ```
 
 
-### t=3.43s — model turn (2468 tokens cumulative 3228)
+### t=3.43s — model turn (2468 tokens this turn, 3,228 cumulative)
 
 **ran** `cat REFERENCE.md`
 
@@ -142,7 +141,7 @@ void gemm_tile(
 ```
 
 
-### t=317.08s — model turn (19276 tokens cumulative 22504)
+### t=317.08s — model turn (19276 tokens this turn, 22,504 cumulative)
 
 I've read the task and reference. This is an output-stationary 8×8 systolic
 array: I'll build 64 PE processes in a dataflow region, connected by point-
@@ -152,7 +151,7 @@ alternates 8 accumulation iterations with drain iterations (forwarding west
 values first, then appending its own accumulator, preserving output order).
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -166,19 +165,15 @@ static void pe(hls::stream<ap_int<
 ```
 
 
-### t=319.4s — model turn (6569 tokens cumulative 29073)
+### t=319.4s — model turn (6569 tokens this turn, 29,073 cumulative)
 
 **ran** `build`
 
 
-*(segment: 29073 tokens, 319.4 s model, 4.6 s tools)*
+*(segment: 29,073 tokens, 319.4 s model, 4.6 s tools)*
 
 
-## Build 1 — t=323.98s
-
-
-
-*result of* `build`:
+## Build 1 — t=323.98s, 29,073 tokens spent
 
 ```
 STUDY BUILD FAIL synthesis
@@ -200,11 +195,12 @@ ERROR: [HLS 207-1186] expected expression (design.cpp:101:2187)
 ERROR: [HLS 207-1186] expected expression (design.cpp:101:2377)
 ERROR: [HLS 207-1186] expected expression (design.cpp:102:73)
 ERROR: [HLS 207-1186] expected expression (design.cpp:102:263)
-ERROR: [HLS 207-1186] expected expression (design.cp
+ERROR: [HLS 207-1186] expected expression (design.cpp:102:375)
+ERROR: [HLS 207-59] too many errors emitted, stopping now
 ```
 
 
-### t=637.83s — model turn (19046 tokens cumulative 48119)
+### t=637.83s — model turn (19046 tokens this turn, 48,119 cumulative)
 
 The macro approach broke parsing — missing separators plus fragile token-
 pasting. I'll write all 64 instantiations explicitly (foolproof, and also
@@ -212,7 +208,7 @@ clearer for the structure check) with uniform PE code where boundary
 writes/reads are compile-time guarded.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -224,29 +220,23 @@ writes/reads are compile-time guarded.
 ```
 
 
-### t=640.27s — model turn (11636 tokens cumulative 59755)
+### t=640.27s — model turn (11636 tokens this turn, 59,755 cumulative)
 
 **ran** `build`
 
 
-*(segment: 59755 tokens, 316.3 s model, 106.1 s tools)*
+*(segment: 59,755 tokens, 316.3 s model, 106.1 s tools)*
 
 
-## Build 2 — t=746.36s
-
-
-
-*result of* `build`:
+## Build 2 — t=746.36s, 59,755 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 440245 tokens, 6 builds.
 ```
 
 
-### t=882.41s — model turn (16839 tokens cumulative 76594)
+### t=882.41s — model turn (16839 tokens this turn, 76,594 cumulative)
 
 The design synthesized but the simulation produced no output — something is
 blocking. Let me inspect what build artifacts exist:
@@ -264,7 +254,7 @@ design.cpp
 ```
 
 
-### t=1071.64s — model turn (19589 tokens cumulative 96183)
+### t=1071.64s — model turn (19589 tokens this turn, 96,183 cumulative)
 
 No output at all — likely the dataflow region didn't split (Vitis can be
 finicky with 2-D stream arrays and templates). I'll flatten to 1-D stream
@@ -272,7 +262,7 @@ arrays, drop the template (pass `I`,`J` as plain ints), and give explicit
 stream depths:
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -284,19 +274,15 @@ stream depths:
 ```
 
 
-### t=1074.05s — model turn (13668 tokens cumulative 109851)
+### t=1074.05s — model turn (13668 tokens this turn, 109,851 cumulative)
 
 **ran** `build`
 
 
-*(segment: 109851 tokens, 327.7 s model, 4.7 s tools)*
+*(segment: 109,851 tokens, 327.7 s model, 4.7 s tools)*
 
 
-## Build 3 — t=1078.72s
-
-
-
-*result of* `build`:
+## Build 3 — t=1078.72s, 109,851 tokens spent
 
 ```
 STUDY BUILD FAIL synthesis
@@ -315,17 +301,21 @@ ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:1114)
 ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:1392)
 ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:1670)
 ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:1948)
-ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:2
+ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:111:2226)
+ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:112:280)
+ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:112:558)
+ERROR: [HLS 207-1213] expected ';' after expression (design.cpp:112:836)
+ERROR: [HLS 207-59] too many errors emitted, stopping now
 ```
 
 
-### t=1120.9s — model turn (16101 tokens cumulative 125952)
+### t=1120.9s — model turn (16101 tokens this turn, 125,952 cumulative)
 
 The macro invocations again lack terminating semicolons. I'll put the
 semicolons inside `PE_ROW`:
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -337,29 +327,23 @@ semicolons inside `PE_ROW`:
 ```
 
 
-### t=1122.84s — model turn (16021 tokens cumulative 141973)
+### t=1122.84s — model turn (16021 tokens this turn, 141,973 cumulative)
 
 **ran** `build`
 
 
-*(segment: 141973 tokens, 44.1 s model, 108.9 s tools)*
+*(segment: 141,973 tokens, 44.1 s model, 108.9 s tools)*
 
 
-## Build 4 — t=1231.77s
-
-
-
-*result of* `build`:
+## Build 4 — t=1231.77s, 141,973 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 358027 tokens, 4 builds.
 ```
 
 
-### t=1275.07s — model turn (18057 tokens cumulative 160030)
+### t=1275.07s — model turn (18057 tokens this turn, 160,030 cumulative)
 
 Same symptom: synthesis clean, but the simulation never emits output ("0 of
 128 outputs seen", "0 wrong" — vacuous). The processes are running but no
@@ -371,7 +355,7 @@ with an infinite `while(true)` region that never returns,
 condition. Also add a default stream depth:
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -383,29 +367,23 @@ condition. Also add a default stream depth:
 ```
 
 
-### t=1277.16s — model turn (18143 tokens cumulative 178173)
+### t=1277.16s — model turn (18143 tokens this turn, 178,173 cumulative)
 
 **ran** `build`
 
 
-*(segment: 178173 tokens, 45.4 s model, 124.7 s tools)*
+*(segment: 178,173 tokens, 45.4 s model, 124.7 s tools)*
 
 
-## Build 5 — t=1401.86s
-
-
-
-*result of* `build`:
+## Build 5 — t=1401.86s, 178,173 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 8 of 128 outputs seen
-
-Budget left: 321827 tokens, 3 builds.
 ```
 
 
-### t=1448.1s — model turn (20153 tokens cumulative 198326)
+### t=1448.1s — model turn (20153 tokens this turn, 198,326 cumulative)
 
 Progress — data starts flowing now, but only 8 of 128 outputs appear. With 3
 builds left I need to diagnose in my head. Let me trace the first product's
@@ -421,7 +399,7 @@ a functional bug. Let me clean up the drain logic (the J==0 case had a
 missing `full()` gate and a scrambled counter update):
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -433,19 +411,15 @@ missing `full()` gate and a scrambled counter update):
 ```
 
 
-### t=1449.83s — model turn (20239 tokens cumulative 218565)
+### t=1449.83s — model turn (20239 tokens this turn, 218,565 cumulative)
 
 **ran** `build`
 
 
-*(segment: 218565 tokens, 48.0 s model, 122.3 s tools)*
+*(segment: 218,565 tokens, 48.0 s model, 122.3 s tools)*
 
 
-## Build 6 — t=1572.11s
-
-
-
-*result of* `build`:
+## Build 6 — t=1572.11s, 218,565 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -453,12 +427,10 @@ STUDY PRODUCT 0 first_in 3 last_out 75 latency 72
 STUDY PRODUCT 1 first_in 17 last_out 107 latency 90
 STUDY INTERVAL 1 14
 STUDY RESULT CORRECT
-
-Budget left: 281435 tokens, 2 builds.
 ```
 
 
-### t=1781.78s — model turn (28254 tokens cumulative 246819)
+### t=1781.78s — model turn (28254 tokens this turn, 246,819 cumulative)
 
 **CORRECT** — values all exact, interval 14 ✓, but latency 72 exceeds the 64
 ceiling. The throughput is fine; I need to cut ~8+ cycles off the first
@@ -468,7 +440,7 @@ PE with streamless padding iterations (trivially pipelineable), narrow
 counter types, and precomputed phase registers:
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -480,35 +452,29 @@ counter types, and precomputed phase registers:
 ```
 
 
-### t=1783.91s — model turn (22249 tokens cumulative 269068)
+### t=1783.91s — model turn (22249 tokens this turn, 269,068 cumulative)
 
 **ran** `build`
 
 
-*(segment: 269068 tokens, 211.8 s model, 4.9 s tools)*
+*(segment: 269,068 tokens, 211.8 s model, 4.9 s tools)*
 
 
-## Build 7 — t=1788.79s
-
-
-
-*result of* `build`:
+## Build 7 — t=1788.79s, 269,068 tokens spent
 
 ```
 STUDY BUILD FAIL synthesis
 ERROR: [HLS 207-2359] conditional expression is ambiguous; 'ap_uint<4>' can be converted to 'typename ap_int_base<4, false>::RType<_AP_SIZE_int, true>::plus' (aka 'ap_int<33>') and vice versa (design.cpp:54:32)
-
-Budget left: 230932 tokens, 1 builds.
 ```
 
 
-### t=1827.73s — model turn (24113 tokens cumulative 293181)
+### t=1827.73s — model turn (24113 tokens this turn, 293,181 cumulative)
 
 The ternary mixing `ap_uint<4>` operands with `int` is ambiguous. Cast to
 int and use explicit increments:
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Output-stationary 8x8 systolic GEMM tile.
@@ -520,19 +486,15 @@ int and use explicit increments:
 ```
 
 
-### t=1829.55s — model turn (24199 tokens cumulative 317380)
+### t=1829.55s — model turn (24199 tokens this turn, 317,380 cumulative)
 
 **ran** `build`
 
 
-*(segment: 317380 tokens, 40.8 s model, 114.7 s tools)*
+*(segment: 317,380 tokens, 40.8 s model, 114.7 s tools)*
 
 
-## Build 8 — t=1944.26s
-
-
-
-*result of* `build`:
+## Build 8 — t=1944.26s, 317,380 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -540,6 +502,4 @@ STUDY PRODUCT 0 first_in 3 last_out 77 latency 74
 STUDY PRODUCT 1 first_in 35 last_out 109 latency 74
 STUDY INTERVAL 1 32
 STUDY RESULT CORRECT
-
-Budget left: 182620 tokens, 0 builds.
 ```

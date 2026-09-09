@@ -2,17 +2,16 @@
 
 Model `moonshotai/kimi-k3`, arm **rtl**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 122,374 tokens, 904.1 s wall.
+Outcome: **submitted**, stopped by `submit`, 122,374 tokens, 904.1 s wall (264.0 s model, 640.2 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.sv`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.sv`. The final design is in `../generated/moonshotai_kimi-k3__rtl/`.
 
 
-### t=1.55s — model turn (810 tokens cumulative 810)
+### t=1.55s — model turn (810 tokens this turn, 810 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -94,7 +93,7 @@ build an array without writing out its elements.
 ```
 
 
-### t=2.67s — model turn (4557 tokens cumulative 5367)
+### t=2.67s — model turn (4557 tokens this turn, 5,367 cumulative)
 
 **ran** `ls`
 
@@ -133,7 +132,7 @@ module dut_norm (
 ```
 
 
-### t=220.66s — model turn (39040 tokens cumulative 44407)
+### t=220.66s — model turn (39040 tokens this turn, 44,407 cumulative)
 
 I've read both files. Let me analyze the task: **Design plan (8x8 output-
 stationary systolic array):** - 64 PEs, each with one multiplier (→DSP) +
@@ -151,7 +150,7 @@ at 16n+i+25 ✓ (ordering preserved). Throughput = 16 ✓. Now writing the
 design:
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -163,19 +162,15 @@ design:
 ```
 
 
-### t=221.7s — model turn (9654 tokens cumulative 54061)
+### t=221.7s — model turn (9654 tokens this turn, 54,061 cumulative)
 
 **ran** `build`
 
 
-*(segment: 54061 tokens, 221.7 s model, 11.3 s tools)*
+*(segment: 54,061 tokens, 221.7 s model, 11.3 s tools)*
 
 
-## Build 1 — t=233.05s
-
-
-
-*result of* `build`:
+## Build 1 — t=233.05s, 54,061 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -183,12 +178,10 @@ STUDY PRODUCT 0 first_in 1 last_out 33 latency 32
 STUDY PRODUCT 1 first_in 17 last_out 49 latency 32
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 445939 tokens, 7 builds.
 ```
 
 
-### t=234.64s — model turn (9871 tokens cumulative 63932)
+### t=234.64s — model turn (9871 tokens this turn, 63,932 cumulative)
 
 **ran** `route`
 
@@ -201,19 +194,9 @@ PNR LUT 7252 FF 6612 DSP 0 WNS 1.119
 ```
 
 
-*result of* `route`:
+### t=589.04s — model turn (15870 tokens this turn, 79,802 cumulative)
 
-```
-PNR_UNROUTED 0
-PNR LUT 7252 FF 6612 DSP 0 WNS 1.119
-
-Routing runs left: 2.
-```
-
-
-### t=589.04s — model turn (15870 tokens cumulative 79802)
-
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -225,19 +208,15 @@ Routing runs left: 2.
 ```
 
 
-### t=590.1s — model turn (13813 tokens cumulative 93615)
+### t=590.1s — model turn (13813 tokens this turn, 93,615 cumulative)
 
 **ran** `build`
 
 
-*(segment: 93615 tokens, 34.9 s model, 10.9 s tools)*
+*(segment: 93,615 tokens, 34.9 s model, 10.9 s tools)*
 
 
-## Build 2 — t=600.98s
-
-
-
-*result of* `build`:
+## Build 2 — t=600.98s, 93,615 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -245,12 +224,10 @@ STUDY PRODUCT 0 first_in 1 last_out 33 latency 32
 STUDY PRODUCT 1 first_in 17 last_out 49 latency 32
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 406385 tokens, 6 builds.
 ```
 
 
-### t=602.22s — model turn (13967 tokens cumulative 107582)
+### t=602.22s — model turn (13967 tokens this turn, 107,582 cumulative)
 
 **ran** `route`
 
@@ -263,17 +240,7 @@ PNR LUT 1237 FF 3284 DSP 64 WNS 2.004
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 1237 FF 3284 DSP 64 WNS 2.004
-
-Routing runs left: 1.
-```
-
-
-### t=904.14s — model turn (14792 tokens cumulative 122374)
+### t=904.14s — model turn (14792 tokens this turn, 122,374 cumulative)
 
 All requirements are now met: | Requirement | Threshold | Achieved |
 |---|---|---| | Correctness | 0 wrong | **0 wrong** (128 values) | | Latency

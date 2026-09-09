@@ -2,17 +2,16 @@
 
 Model `anthropic/claude-opus-5`, arm **hls**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 300,414 tokens, 2330.3 s wall.
+Outcome: **submitted**, stopped by `submit`, 300,414 tokens, 2330.3 s wall (1142.1 s model, 1188.1 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.cpp`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.cpp`. The final design is in `../generated/anthropic_claude-opus-5__hls/`.
 
 
-### t=2.78s — model turn (1182 tokens cumulative 1182)
+### t=2.78s — model turn (1182 tokens this turn, 1,182 cumulative)
 
 I'll start by reading the task and reference docs.
 
@@ -66,7 +65,7 @@ design.cpp
 ```
 
 
-### t=5.2s — model turn (3549 tokens cumulative 4731)
+### t=5.2s — model turn (3549 tokens this turn, 4,731 cumulative)
 
 **ran** `cat REFERENCE.md`
 
@@ -145,12 +144,12 @@ void gemm_tile(
 ```
 
 
-### t=320.97s — model turn (33933 tokens cumulative 38664)
+### t=320.97s — model turn (33933 tokens this turn, 38,664 cumulative)
 
 Now let me look at the whole picture and write the design.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -162,29 +161,23 @@ Now let me look at the whole picture and write the design.
 ```
 
 
-### t=361.22s — model turn (17004 tokens cumulative 55668)
+### t=361.22s — model turn (17004 tokens this turn, 55,668 cumulative)
 
 **ran** `build`
 
 
-*(segment: 55668 tokens, 361.2 s model, 157.3 s tools)*
+*(segment: 55,668 tokens, 361.2 s model, 157.3 s tools)*
 
 
-## Build 1 — t=518.49s
-
-
-
-*result of* `build`:
+## Build 1 — t=518.49s, 55,668 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen
-
-Budget left: 444332 tokens, 7 builds.
 ```
 
 
-### t=901.27s — model turn (46107 tokens cumulative 101775)
+### t=901.27s — model turn (46107 tokens this turn, 101,775 cumulative)
 
 The harness feeds a finite number of products, so my design must self-flush
 (my first version needed the *next* product's inputs to drain the previous
@@ -193,7 +186,7 @@ register/forwarder, both local to the PE, so drains complete without new
 input.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -206,29 +199,23 @@ input.
 ```
 
 
-### t=920.14s — model turn (24269 tokens cumulative 126044)
+### t=920.14s — model turn (24269 tokens this turn, 126,044 cumulative)
 
 **ran** `build`
 
 
-*(segment: 126044 tokens, 401.6 s model, 178.9 s tools)*
+*(segment: 126,044 tokens, 401.6 s model, 178.9 s tools)*
 
 
-## Build 2 — t=1099.08s
-
-
-
-*result of* `build`:
+## Build 2 — t=1099.08s, 126,044 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 373956 tokens, 6 builds.
 ```
 
 
-### t=1146.77s — model turn (26628 tokens cumulative 152672)
+### t=1146.77s — model turn (26628 tokens this turn, 152,672 cumulative)
 
 **ran** `ls`
 
@@ -242,7 +229,7 @@ design.cpp
 ```
 
 
-### t=1421.5s — model turn (47230 tokens cumulative 199902)
+### t=1421.5s — model turn (47230 tokens this turn, 199,902 cumulative)
 
 My first version needed the *next* product's data to drain the previous one
 (hence 64 of 128 outputs). My second version restructured too much at once
@@ -251,7 +238,7 @@ in parallel, and only split the result register into its own process so
 draining is data-driven.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -263,19 +250,15 @@ draining is data-driven.
 ```
 
 
-### t=1424.19s — model turn (32346 tokens cumulative 232248)
+### t=1424.19s — model turn (32346 tokens this turn, 232,248 cumulative)
 
 **ran** `build`
 
 
-*(segment: 232248 tokens, 325.1 s model, 372.1 s tools)*
+*(segment: 232,248 tokens, 325.1 s model, 372.1 s tools)*
 
 
-## Build 3 — t=1796.3s
-
-
-
-*result of* `build`:
+## Build 3 — t=1796.3s, 232,248 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -283,12 +266,10 @@ STUDY PRODUCT 0 first_in 5 last_out 37 latency 32
 STUDY PRODUCT 1 first_in 18 last_out 50 latency 32
 STUDY INTERVAL 1 13
 STUDY RESULT CORRECT
-
-Budget left: 267752 tokens, 5 builds.
 ```
 
 
-### t=1833.16s — model turn (34410 tokens cumulative 266658)
+### t=1833.16s — model turn (34410 tokens this turn, 266,658 cumulative)
 
 Correct: latency 32 (needs 22–64), interval 13 (needs ≤16), all 128 values
 right. Now let me check the real device numbers.
@@ -305,17 +286,7 @@ PNR LUT 7894 FF 9933 DSP 64 WNS 0.819
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 7894 FF 9933 DSP 64 WNS 0.819
-
-Routing runs left: 2.
-```
-
-
-### t=2330.29s — model turn (33756 tokens cumulative 300414)
+### t=2330.29s — model turn (33756 tokens this turn, 300,414 cumulative)
 
 Everything passes with margin on the real device: | Requirement | Threshold
 | Achieved | |---|---|---| | Correctness | all exact | 128/128, 0 wrong | |

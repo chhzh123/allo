@@ -2,17 +2,16 @@
 
 Model `deepseek/deepseek-v4-pro`, arm **spmw**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 67,083 tokens, 1014.7 s wall.
+Outcome: **submitted**, stopped by `submit`, 67,083 tokens, 1014.7 s wall (507.5 s model, 507.2 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.py`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.py`. The final design is in `../generated/deepseek_deepseek-v4-pro__spmw/`.
 
 
-### t=3.76s — model turn (931 tokens cumulative 931)
+### t=3.76s — model turn (931 tokens this turn, 931 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -113,13 +112,13 @@ def engine(A: int8[N, N], B: int8[N, N], C: int32[N, N]):
 ```
 
 
-### t=316.66s — model turn (25608 tokens cumulative 26539)
+### t=316.66s — model turn (25608 tokens this turn, 26,539 cumulative)
 
 Let me start by reading the existing files and then writing an initial
 design.
 
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 import allo.spmw as spmw
@@ -142,7 +141,7 @@ topo = spmw.Topology(
 ```
 
 
-### t=404.31s — model turn (10753 tokens cumulative 37292)
+### t=404.31s — model turn (10753 tokens this turn, 37,292 cumulative)
 
 Let me first build the current design to see what happens
 
@@ -150,29 +149,23 @@ Let me first build the current design to see what happens
 **ran** `build`
 
 
-*(segment: 37292 tokens, 404.3 s model, 1.3 s tools)*
+*(segment: 37,292 tokens, 404.3 s model, 1.3 s tools)*
 
 
-## Build 1 — t=405.61s
-
-
-
-*result of* `build`:
+## Build 1 — t=405.61s, 37,292 tokens spent
 
 ```
 STUDY BUILD FAIL elaborate
 SPMWUnboundError: `pe.c_in` is unbound at 8 site(s) -- e.g. (0, 0) -- and no binding feeds it. Cover it with spmw.stream_in / spmw.link / spmw.scatter, or give those sites a role declaring unbound=(c_in,).
-
-Budget left: 462708 tokens, 7 builds.
 ```
 
 
-### t=422.53s — model turn (6364 tokens cumulative 43656)
+### t=422.53s — model turn (6364 tokens this turn, 43,656 cumulative)
 
 I need a role for column 0 where `c_in` is unbound. Let me fix
 
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 import allo.spmw as spmw
@@ -195,19 +188,15 @@ topo = spmw.Topology(
 ```
 
 
-### t=430.2s — model turn (6339 tokens cumulative 49995)
+### t=430.2s — model turn (6339 tokens this turn, 49,995 cumulative)
 
 **ran** `build`
 
 
-*(segment: 49995 tokens, 24.6 s model, 124.7 s tools)*
+*(segment: 49,995 tokens, 24.6 s model, 124.7 s tools)*
 
 
-## Build 2 — t=554.95s
-
-
-
-*result of* `build`:
+## Build 2 — t=554.95s, 49,995 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -215,12 +204,10 @@ STUDY PRODUCT 0 first_in 4 last_out 39 latency 35
 STUDY PRODUCT 1 first_in 18 last_out 64 latency 46
 STUDY INTERVAL 1 14
 STUDY RESULT CORRECT
-
-Budget left: 450005 tokens, 6 builds.
 ```
 
 
-### t=627.66s — model turn (10624 tokens cumulative 60619)
+### t=627.66s — model turn (10624 tokens this turn, 60,619 cumulative)
 
 The build passes with 0 wrong values, latency 35 (within 22-64), and
 interval 14 (≤16). Let me now route to check resource usage and timing.
@@ -237,17 +224,7 @@ PNR LUT 7308 FF 8488 DSP 64 WNS 1.399
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 7308 FF 8488 DSP 64 WNS 1.399
-
-Routing runs left: 2.
-```
-
-
-### t=1014.66s — model turn (6464 tokens cumulative 67083)
+### t=1014.66s — model turn (6464 tokens this turn, 67,083 cumulative)
 
 All requirements are met: - **Correctness**: 0 wrong values - **Latency**:
 35 cycles (within 22–64) - **Throughput**: interval 14 (≤16) - **DSP**:

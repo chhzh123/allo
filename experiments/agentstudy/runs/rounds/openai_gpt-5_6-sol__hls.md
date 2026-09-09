@@ -2,17 +2,16 @@
 
 Model `openai/gpt-5.6-sol`, arm **hls**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **did not submit**, stopped by `builds`, 296,563 tokens, 2043.2 s wall.
+Outcome: **did not submit**, stopped by `builds`, 296,563 tokens, 2043.2 s wall (414.2 s model, 1629.0 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.cpp`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.cpp`. The final design is in `../generated/openai_gpt-5_6-sol__hls/`.
 
 
-### t=1.63s — model turn (598 tokens cumulative 598)
+### t=1.63s — model turn (598 tokens this turn, 598 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -128,9 +127,9 @@ void gemm_tile(
 ```
 
 
-### t=156.76s — model turn (13691 tokens cumulative 14289)
+### t=156.76s — model turn (13691 tokens this turn, 14,289 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8 by 8 output-stationary systolic matrix multiply.
@@ -144,31 +143,25 @@ static void edge_delay(hls::stre
 ```
 
 
-### t=158.03s — model turn (7701 tokens cumulative 21990)
+### t=158.03s — model turn (7701 tokens this turn, 21,990 cumulative)
 
 **ran** `build`
 
 
-*(segment: 21990 tokens, 158.0 s model, 140.9 s tools)*
+*(segment: 21,990 tokens, 158.0 s model, 140.9 s tools)*
 
 
-## Build 1 — t=298.91s
-
-
-
-*result of* `build`:
+## Build 1 — t=298.91s, 21,990 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 478010 tokens, 7 builds.
 ```
 
 
-### t=354.78s — model turn (12166 tokens cumulative 34156)
+### t=354.78s — model turn (12166 tokens this turn, 34,156 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8 by 8 output-stationary systolic matrix multiply.
@@ -185,31 +178,25 @@ struct ResultPacket {
 ```
 
 
-### t=355.84s — model turn (10943 tokens cumulative 45099)
+### t=355.84s — model turn (10943 tokens this turn, 45,099 cumulative)
 
 **ran** `build`
 
 
-*(segment: 45099 tokens, 56.9 s model, 142.7 s tools)*
+*(segment: 45,099 tokens, 56.9 s model, 142.7 s tools)*
 
 
-## Build 2 — t=498.52s
-
-
-
-*result of* `build`:
+## Build 2 — t=498.52s, 45,099 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 454901 tokens, 6 builds.
 ```
 
 
-### t=549.01s — model turn (15088 tokens cumulative 60187)
+### t=549.01s — model turn (15088 tokens this turn, 60,187 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8 by 8 output-stationary systolic matrix multiply.
@@ -225,31 +212,25 @@ static void edge_delay(hls::stream<ap_int<8> > &in,
 ```
 
 
-### t=550.72s — model turn (13854 tokens cumulative 74041)
+### t=550.72s — model turn (13854 tokens this turn, 74,041 cumulative)
 
 **ran** `build`
 
 
-*(segment: 74041 tokens, 52.2 s model, 319.0 s tools)*
+*(segment: 74,041 tokens, 52.2 s model, 319.0 s tools)*
 
 
-## Build 3 — t=869.76s
-
-
-
-*result of* `build`:
+## Build 3 — t=869.76s, 74,041 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 36 of 128 outputs seen
-
-Budget left: 425959 tokens, 5 builds.
 ```
 
 
-### t=902.28s — model turn (17067 tokens cumulative 91108)
+### t=902.28s — model turn (17067 tokens this turn, 91,108 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8 by 8 output-stationary systolic matrix multiply.
@@ -263,31 +244,25 @@ templat
 ```
 
 
-### t=913.76s — model turn (16689 tokens cumulative 107797)
+### t=913.76s — model turn (16689 tokens this turn, 107,797 cumulative)
 
 **ran** `build`
 
 
-*(segment: 107797 tokens, 44.0 s model, 329.2 s tools)*
+*(segment: 107,797 tokens, 44.0 s model, 329.2 s tools)*
 
 
-## Build 4 — t=1242.94s
-
-
-
-*result of* `build`:
+## Build 4 — t=1242.94s, 107,797 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen
-
-Budget left: 392203 tokens, 4 builds.
 ```
 
 
-### t=1266.93s — model turn (19404 tokens cumulative 127201)
+### t=1266.93s — model turn (19404 tokens this turn, 127,201 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8 by 8 output-stationary systolic matrix multiply.
@@ -301,31 +276,25 @@ static void edge_delay(hls::stre
 ```
 
 
-### t=1268.44s — model turn (19440 tokens cumulative 146641)
+### t=1268.44s — model turn (19440 tokens this turn, 146,641 cumulative)
 
 **ran** `build`
 
 
-*(segment: 146641 tokens, 25.5 s model, 240.7 s tools)*
+*(segment: 146,641 tokens, 25.5 s model, 240.7 s tools)*
 
 
-## Build 5 — t=1509.18s
-
-
-
-*result of* `build`:
+## Build 5 — t=1509.18s, 146,641 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen
-
-Budget left: 353359 tokens, 3 builds.
 ```
 
 
-### t=1532.19s — model turn (22222 tokens cumulative 168863)
+### t=1532.19s — model turn (22222 tokens this turn, 168,863 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic integer GEMM tile.
@@ -342,19 +311,15 @@ struct SystolicToken {
 ```
 
 
-### t=1534.49s — model turn (22258 tokens cumulative 191121)
+### t=1534.49s — model turn (22258 tokens this turn, 191,121 cumulative)
 
 **ran** `build`
 
 
-*(segment: 191121 tokens, 25.3 s model, 240.5 s tools)*
+*(segment: 191,121 tokens, 25.3 s model, 240.5 s tools)*
 
 
-## Build 6 — t=1774.96s
-
-
-
-*result of* `build`:
+## Build 6 — t=1774.96s, 191,121 tokens spent
 
 ```
 MISMATCH product 0 c_out_1[0]: got 28275 want 4229
@@ -367,14 +332,12 @@ MISMATCH product 0 c_out_0[3]: got -3195 want -8862
 MISMATCH product 0 c_out_2[1]: got -1827 want -11391
 STUDY VALUES 128 checked, 14 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 17 of 128 outputs seen
-
-Budget left: 308879 tokens, 2 builds.
 ```
 
 
-### t=1799.07s — model turn (24966 tokens cumulative 216087)
+### t=1799.07s — model turn (24966 tokens this turn, 216,087 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic integer GEMM tile.
@@ -387,31 +350,25 @@ Budget left: 308879 tokens, 2 builds.
 ```
 
 
-### t=1800.32s — model turn (25002 tokens cumulative 241089)
+### t=1800.32s — model turn (25002 tokens this turn, 241,089 cumulative)
 
 **ran** `build`
 
 
-*(segment: 241089 tokens, 25.4 s model, 210.9 s tools)*
+*(segment: 241,089 tokens, 25.4 s model, 210.9 s tools)*
 
 
-## Build 7 — t=2011.25s
-
-
-
-*result of* `build`:
+## Build 7 — t=2011.25s, 241,089 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen
-
-Budget left: 258911 tokens, 1 builds.
 ```
 
 
-### t=2036.96s — model turn (27719 tokens cumulative 268808)
+### t=2036.96s — model turn (27719 tokens this turn, 268,808 cumulative)
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic integer GEMM tile.
@@ -424,19 +381,15 @@ Budget left: 258911 tokens, 1 builds.
 ```
 
 
-### t=2038.11s — model turn (27755 tokens cumulative 296563)
+### t=2038.11s — model turn (27755 tokens this turn, 296,563 cumulative)
 
 **ran** `build`
 
 
-*(segment: 296563 tokens, 26.9 s model, 5.1 s tools)*
+*(segment: 296,563 tokens, 26.9 s model, 5.1 s tools)*
 
 
-## Build 8 — t=2043.24s
-
-
-
-*result of* `build`:
+## Build 8 — t=2043.24s, 296,563 tokens spent
 
 ```
 STUDY BUILD FAIL synthesis
@@ -444,6 +397,4 @@ ERROR: [HLS 207-1186] expected expression (design.cpp:71:13)
 ERROR: [HLS 207-1186] expected expression (design.cpp:77:13)
 ERROR: [HLS 207-1186] expected expression (design.cpp:83:13)
 ERROR: [HLS 207-1186] expected expression (design.cpp:89:13)
-
-Budget left: 203437 tokens, 0 builds.
 ```

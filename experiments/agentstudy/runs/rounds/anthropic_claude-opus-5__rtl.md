@@ -2,17 +2,16 @@
 
 Model `anthropic/claude-opus-5`, arm **rtl**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 204,401 tokens, 965.4 s wall.
+Outcome: **submitted**, stopped by `submit`, 204,401 tokens, 965.4 s wall (588.8 s model, 376.7 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.sv`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.sv`. The final design is in `../generated/anthropic_claude-opus-5__rtl/`.
 
 
-### t=2.86s — model turn (1172 tokens cumulative 1172)
+### t=2.86s — model turn (1172 tokens this turn, 1,172 cumulative)
 
 I'll start by reading the task and reference files.
 
@@ -66,7 +65,7 @@ design.sv
 ```
 
 
-### t=5.81s — model turn (3537 tokens cumulative 4709)
+### t=5.81s — model turn (3537 tokens this turn, 4,709 cumulative)
 
 **ran** `cat REFERENCE.md`
 
@@ -136,7 +135,7 @@ module dut_norm (
 ```
 
 
-### t=337.1s — model turn (36022 tokens cumulative 40731)
+### t=337.1s — model turn (36022 tokens this turn, 40,731 cumulative)
 
 I've read both files. Let me work out the architecture before writing.
 **Timing plan:** Port `a_in_i` starts reading at cycle `i+1`, `b_in_j` at
@@ -147,7 +146,7 @@ cycle. Drain chain runs **east** with injection at PE(i,j) staggered by
 C[i][0..7].
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -159,14 +158,14 @@ C[i][0..7].
 ```
 
 
-### t=442.87s — model turn (24528 tokens cumulative 65259)
+### t=442.87s — model turn (24528 tokens this turn, 65,259 cumulative)
 
 Now let me refine the DSP attribute placement — I want it on the multiply
 result only, so the 32‑bit accumulator adder isn't also pulled into DSPs
 (which would break the "exactly 64" requirement).
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -178,7 +177,7 @@ result only, so the 32‑bit accumulator adder isn't also pulled into DSPs
 ```
 
 
-### t=479.27s — model turn (23235 tokens cumulative 88494)
+### t=479.27s — model turn (23235 tokens this turn, 88,494 cumulative)
 
 Now let me verify my cycle accounting by building.
 
@@ -186,14 +185,10 @@ Now let me verify my cycle accounting by building.
 **ran** `build`
 
 
-*(segment: 88494 tokens, 479.3 s model, 11.1 s tools)*
+*(segment: 88,494 tokens, 479.3 s model, 11.1 s tools)*
 
 
-## Build 1 — t=490.39s
-
-
-
-*result of* `build`:
+## Build 1 — t=490.39s, 88,494 tokens spent
 
 ```
 MISMATCH product 2 c_out_0[0]: got -34041 want x
@@ -209,12 +204,10 @@ STUDY PRODUCT 0 first_in 2 last_out 36 latency 34
 STUDY PRODUCT 1 first_in 10 last_out 44 latency 34
 STUDY INTERVAL 1 8
 STUDY RESULT   WRONG
-
-Budget left: 411506 tokens, 7 builds.
 ```
 
 
-### t=566.43s — model turn (29208 tokens cumulative 117702)
+### t=566.43s — model turn (29208 tokens this turn, 117,702 cumulative)
 
 Products 0 and 1 are fully correct (latency 34, interval 8 — both in range).
 The 28 wrong values are spurious extra outputs after the vectors end: my
@@ -223,7 +216,7 @@ high and keeps re-triggering the drain. I'll qualify the flags with
 validity.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // ---------------------------------------------------------------------------
@@ -235,19 +228,15 @@ validity.
 ```
 
 
-### t=568.7s — model turn (28122 tokens cumulative 145824)
+### t=568.7s — model turn (28122 tokens this turn, 145,824 cumulative)
 
 **ran** `build`
 
 
-*(segment: 145824 tokens, 78.3 s model, 11.6 s tools)*
+*(segment: 145,824 tokens, 78.3 s model, 11.6 s tools)*
 
 
-## Build 2 — t=580.26s
-
-
-
-*result of* `build`:
+## Build 2 — t=580.26s, 145,824 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -255,12 +244,10 @@ STUDY PRODUCT 0 first_in 2 last_out 36 latency 34
 STUDY PRODUCT 1 first_in 10 last_out 44 latency 34
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 354176 tokens, 6 builds.
 ```
 
 
-### t=589.67s — model turn (28697 tokens cumulative 174521)
+### t=589.67s — model turn (28697 tokens this turn, 174,521 cumulative)
 
 All 128 values correct, latency 34 (within 22–64), interval 8 (within 16).
 Let me route to confirm timing and resources.
@@ -277,17 +264,7 @@ PNR LUT 1391 FF 5591 DSP 64 WNS 2.061
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 1391 FF 5591 DSP 64 WNS 2.061
-
-Routing runs left: 2.
-```
-
-
-### t=965.45s — model turn (29880 tokens cumulative 204401)
+### t=965.45s — model turn (29880 tokens this turn, 204,401 cumulative)
 
 Routed successfully on the first attempt. Final results: | Requirement |
 Threshold | Achieved | |---|---|---| | Correctness | all exact | 128/128

@@ -2,17 +2,16 @@
 
 Model `z-ai/glm-5.3`, arm **hls**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **did not submit**, stopped by `builds`, 478,484 tokens, 4771.1 s wall.
+Outcome: **did not submit**, stopped by `builds`, 478,484 tokens, 4771.1 s wall (2916.1 s model, 1855.0 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.cpp`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.cpp`. The final design is in `../generated/z-ai_glm-5_3__hls/`.
 
 
-### t=9.13s — model turn (706 tokens cumulative 706)
+### t=9.13s — model turn (706 tokens this turn, 706 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -128,7 +127,7 @@ void gemm_tile(
 ```
 
 
-### t=1304.56s — model turn (27517 tokens cumulative 28223)
+### t=1304.56s — model turn (27517 tokens this turn, 28,223 cumulative)
 
 I've read both files. Now I'll design a systolic 8×8 PE grid: each PE is one
 dataflow process with one multiplier/accumulator, A flows east, B flows
@@ -137,7 +136,7 @@ previous product into the compute loop of the next one, giving 8-cycle
 throughput.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -149,29 +148,23 @@ throughput.
 ```
 
 
-### t=1321.65s — model turn (7403 tokens cumulative 35626)
+### t=1321.65s — model turn (7403 tokens this turn, 35,626 cumulative)
 
 **ran** `build`
 
 
-*(segment: 35626 tokens, 1321.6 s model, 147.3 s tools)*
+*(segment: 35,626 tokens, 1321.6 s model, 147.3 s tools)*
 
 
-## Build 1 — t=1468.99s
-
-
-
-*result of* `build`:
+## Build 1 — t=1468.99s, 35,626 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 64 of 128 outputs seen
-
-Budget left: 464374 tokens, 7 builds.
 ```
 
 
-### t=1499.53s — model turn (11595 tokens cumulative 47221)
+### t=1499.53s — model turn (11595 tokens this turn, 47,221 cumulative)
 
 Correct values, but the last product's results were never drained (they only
 drain during the *next* product's compute, which never comes). I'll drain in
@@ -181,7 +174,7 @@ position a template parameter so the drain conditionals are static and the
 loop pipelines at II=1.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -193,19 +186,15 @@ loop pipelines at II=1.
 ```
 
 
-### t=1500.07s — model turn (10109 tokens cumulative 57330)
+### t=1500.07s — model turn (10109 tokens this turn, 57,330 cumulative)
 
 **ran** `build`
 
 
-*(segment: 57330 tokens, 31.1 s model, 220.4 s tools)*
+*(segment: 57,330 tokens, 31.1 s model, 220.4 s tools)*
 
 
-## Build 2 — t=1720.49s
-
-
-
-*result of* `build`:
+## Build 2 — t=1720.49s, 57,330 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -213,12 +202,10 @@ STUDY PRODUCT 0 first_in 5 last_out 40 latency 35
 STUDY PRODUCT 1 first_in 29 last_out 64 latency 35
 STUDY INTERVAL 1 24
 STUDY RESULT CORRECT
-
-Budget left: 442670 tokens, 6 builds.
 ```
 
 
-### t=2083.5s — model turn (50466 tokens cumulative 107796)
+### t=2083.5s — model turn (50466 tokens this turn, 107,796 cumulative)
 
 Build 1 was correct with interval 8, but the final product's results were
 never drained (they only drain during a *following* product's compute, which
@@ -227,7 +214,7 @@ empty at the start of what would be the next product, it enters drain mode
 and forwards/emits its row's results, then idles.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -239,19 +226,15 @@ and forwards/emits its row's results, then idles.
 ```
 
 
-### t=2084.32s — model turn (13128 tokens cumulative 120924)
+### t=2084.32s — model turn (13128 tokens this turn, 120,924 cumulative)
 
 **ran** `build`
 
 
-*(segment: 120924 tokens, 363.8 s model, 181.9 s tools)*
+*(segment: 120,924 tokens, 363.8 s model, 181.9 s tools)*
 
 
-## Build 3 — t=2266.26s
-
-
-
-*result of* `build`:
+## Build 3 — t=2266.26s, 120,924 tokens spent
 
 ```
 MISMATCH product 1 c_out_0[0]: got 0 want 33001
@@ -267,12 +250,10 @@ STUDY PRODUCT 0 first_in 5 last_out 59 latency 54
 STUDY PRODUCT 1 first_in 20 last_out 74 latency 54
 STUDY INTERVAL 1 15
 STUDY RESULT   WRONG
-
-Budget left: 379076 tokens, 5 builds.
 ```
 
 
-### t=2595.5s — model turn (49780 tokens cumulative 170704)
+### t=2595.5s — model turn (49780 tokens this turn, 170,704 cumulative)
 
 Found the bug in build 3: the final-drain branch emitted `acc` (already
 reset to 0) instead of `acc_prev`, which holds the just-computed product —
@@ -284,7 +265,7 @@ first product, so reads never deadlock), port writes suppressed only during
 the first product, and a separate multiplier-free final-drain loop.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -296,29 +277,23 @@ the first product, and a separate multiplier-free final-drain loop.
 ```
 
 
-### t=2596.11s — model turn (16454 tokens cumulative 187158)
+### t=2596.11s — model turn (16454 tokens this turn, 187,158 cumulative)
 
 **ran** `build`
 
 
-*(segment: 187158 tokens, 329.8 s model, 353.7 s tools)*
+*(segment: 187,158 tokens, 329.8 s model, 353.7 s tools)*
 
 
-## Build 4 — t=2949.79s
-
-
-
-*result of* `build`:
+## Build 4 — t=2949.79s, 187,158 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 312842 tokens, 4 builds.
 ```
 
 
-### t=3048.09s — model turn (28875 tokens cumulative 216033)
+### t=3048.09s — model turn (28875 tokens this turn, 216,033 cumulative)
 
 Build 4 deadlocked entirely (0 outputs — the separate wait loop with
 `empty()` broke something fundamental, likely the dataflow split). Build 3's
@@ -328,7 +303,7 @@ completed the final drain structurally — its only flaw was emitting `acc`
 restore build 3 exactly and fix that one value.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -340,29 +315,23 @@ restore build 3 exactly and fix that one value.
 ```
 
 
-### t=3048.93s — model turn (19487 tokens cumulative 235520)
+### t=3048.93s — model turn (19487 tokens this turn, 235,520 cumulative)
 
 **ran** `build`
 
 
-*(segment: 235520 tokens, 99.1 s model, 171.6 s tools)*
+*(segment: 235,520 tokens, 99.1 s model, 171.6 s tools)*
 
 
-## Build 5 — t=3220.52s
-
-
-
-*result of* `build`:
+## Build 5 — t=3220.52s, 235,520 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 16 of 128 outputs seen
-
-Budget left: 264480 tokens, 3 builds.
 ```
 
 
-### t=3423.92s — model turn (43160 tokens cumulative 278680)
+### t=3423.92s — model turn (43160 tokens this turn, 278,680 cumulative)
 
 Build 5 regressed badly (only 16 outputs) versus build 3 (all 128). The
 single-check `a_in.empty()` at t==0 is a timing race: whether a PE sees the
@@ -377,7 +346,7 @@ times out and drains. The compute branch stays exactly as the proven build
 2.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -389,19 +358,15 @@ times out and drains. The compute branch stays exactly as the proven build
 ```
 
 
-### t=3424.56s — model turn (22729 tokens cumulative 301409)
+### t=3424.56s — model turn (22729 tokens this turn, 301,409 cumulative)
 
 **ran** `build`
 
 
-*(segment: 301409 tokens, 204.0 s model, 362.0 s tools)*
+*(segment: 301,409 tokens, 204.0 s model, 362.0 s tools)*
 
 
-## Build 6 — t=3786.52s
-
-
-
-*result of* `build`:
+## Build 6 — t=3786.52s, 301,409 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -409,12 +374,10 @@ STUDY PRODUCT 0 first_in 6 last_out 56 latency 50
 STUDY PRODUCT 1 first_in 27 last_out 97 latency 70
 STUDY INTERVAL 1 21
 STUDY RESULT CORRECT
-
-Budget left: 198591 tokens, 2 builds.
 ```
 
 
-### t=3991.3s — model turn (48771 tokens cumulative 350180)
+### t=3991.3s — model turn (48771 tokens this turn, 350,180 cumulative)
 
 Build 6 was fully correct (all 128 values, both products drained) but
 interval 21 > 16: the timeout-based wait costs ~13 cycles per product
@@ -433,7 +396,7 @@ gracefully (drains, then resumes in order); the debounce guard makes a false
 GO — the only fatal error — impossible.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -445,29 +408,23 @@ GO — the only fatal error — impossible.
 ```
 
 
-### t=3991.98s — model turn (26738 tokens cumulative 376918)
+### t=3991.98s — model turn (26738 tokens this turn, 376,918 cumulative)
 
 **ran** `build`
 
 
-*(segment: 376918 tokens, 205.5 s model, 255.1 s tools)*
+*(segment: 376,918 tokens, 205.5 s model, 255.1 s tools)*
 
 
-## Build 7 — t=4247.12s
-
-
-
-*result of* `build`:
+## Build 7 — t=4247.12s, 376,918 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 0 of 128 outputs seen
-
-Budget left: 123082 tokens, 1 builds.
 ```
 
 
-### t=4607.26s — model turn (70763 tokens cumulative 447681)
+### t=4607.26s — model turn (70763 tokens this turn, 447,681 cumulative)
 
 Build 7 (token scheme) deadlocked entirely — 0 outputs. The pattern across
 builds 3/5 is now clear: `empty()` on **internal** links is racy (stale
@@ -487,7 +444,7 @@ pipelined loop** per product (the shape that synthesized correctly in builds
 2/3/5/6), so the interval should be well under 16.
 
 
-**wrote `design.cpp`** (first 300 chars as recorded):
+**wrote `design.cpp`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary integer matrix-multiply tile.
@@ -499,19 +456,15 @@ pipelined loop** per product (the shape that synthesized correctly in builds
 ```
 
 
-### t=4608.23s — model turn (30803 tokens cumulative 478484)
+### t=4608.23s — model turn (30803 tokens this turn, 478,484 cumulative)
 
 **ran** `build`
 
 
-*(segment: 478484 tokens, 361.1 s model, 162.9 s tools)*
+*(segment: 478,484 tokens, 361.1 s model, 162.9 s tools)*
 
 
-## Build 8 — t=4771.12s
-
-
-
-*result of* `build`:
+## Build 8 — t=4771.12s, 478,484 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -519,6 +472,4 @@ STUDY PRODUCT 0 first_in 5 last_out 49 latency 44
 STUDY PRODUCT 1 first_in 20 last_out 64 latency 44
 STUDY INTERVAL 1 15
 STUDY RESULT CORRECT
-
-Budget left: 21516 tokens, 0 builds.
 ```

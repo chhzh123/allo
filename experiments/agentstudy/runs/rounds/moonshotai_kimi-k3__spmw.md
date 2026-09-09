@@ -2,17 +2,16 @@
 
 Model `moonshotai/kimi-k3`, arm **spmw**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 62,073 tokens, 5315.6 s wall.
+Outcome: **submitted**, stopped by `submit`, 62,073 tokens, 5315.6 s wall (4824.4 s model, 491.1 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.py`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.py`. The final design is in `../generated/moonshotai_kimi-k3__spmw/`.
 
 
-### t=16.0s — model turn (771 tokens cumulative 771)
+### t=16.0s — model turn (771 tokens this turn, 771 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -91,7 +90,7 @@ port declarations.
 ```
 
 
-### t=30.86s — model turn (4425 tokens cumulative 5196)
+### t=30.86s — model turn (4425 tokens this turn, 5,196 cumulative)
 
 **ran** `ls`
 
@@ -127,7 +126,7 @@ def engine(A: int8[N, N], B: int8[N, N], C: int32[N, N]):
 ```
 
 
-### t=4780.82s — model turn (36870 tokens cumulative 42066)
+### t=4780.82s — model turn (36870 tokens this turn, 42,066 cumulative)
 
 I'll start by understanding the task and reference, which I've now read. Let
 me summarize my plan: **Architecture**: An 8×8 systolic grid of PEs where: -
@@ -140,7 +139,7 @@ unbound ports (a_out at east, b_out at south, c_in at west). Let me write
 the design:
 
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 # Fill in the body. Do not change the signature of `engine`.
@@ -157,7 +156,7 @@ class PEIO(spmw.Interface):
 ```
 
 
-### t=4797.01s — model turn (6142 tokens cumulative 48208)
+### t=4797.01s — model turn (6142 tokens this turn, 48,208 cumulative)
 
 Now let me build to check compilation and correctness:
 
@@ -165,14 +164,10 @@ Now let me build to check compilation and correctness:
 **ran** `build`
 
 
-*(segment: 48208 tokens, 4797.0 s model, 121.3 s tools)*
+*(segment: 48,208 tokens, 4797.0 s model, 121.3 s tools)*
 
 
-## Build 1 — t=4918.31s
-
-
-
-*result of* `build`:
+## Build 1 — t=4918.31s, 48,208 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -180,12 +175,10 @@ STUDY PRODUCT 0 first_in 4 last_out 39 latency 35
 STUDY PRODUCT 1 first_in 18 last_out 64 latency 46
 STUDY INTERVAL 1 14
 STUDY RESULT CORRECT
-
-Budget left: 451792 tokens, 7 builds.
 ```
 
 
-### t=4926.25s — model turn (6956 tokens cumulative 55164)
+### t=4926.25s — model turn (6956 tokens this turn, 55,164 cumulative)
 
 The design is correct and meets the latency/throughput targets: - **0
 wrong** values ✓ - **Latency 35** (within [22, 64]) ✓ - **Interval 14** (≤
@@ -206,17 +199,7 @@ PNR LUT 7303 FF 8488 DSP 64 WNS 1.274
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 7303 FF 8488 DSP 64 WNS 1.274
-
-Routing runs left: 2.
-```
-
-
-### t=5315.55s — model turn (6909 tokens cumulative 62073)
+### t=5315.55s — model turn (6909 tokens this turn, 62,073 cumulative)
 
 Excellent! The routing results are all within spec: | Requirement |
 Threshold | Result | Status | |---|---|---|---| | Correctness | 0 wrong | 0

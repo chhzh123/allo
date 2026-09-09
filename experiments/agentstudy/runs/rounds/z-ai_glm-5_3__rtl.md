@@ -2,17 +2,16 @@
 
 Model `z-ai/glm-5.3`, arm **rtl**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **did not submit**, stopped by `tokens`, 527,420 tokens, 3842.1 s wall.
+Outcome: **did not submit**, stopped by `tokens`, 527,420 tokens, 3842.1 s wall (2667.6 s model, 1174.5 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.sv`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.sv`. The final design is in `../generated/z-ai_glm-5_3__rtl/`.
 
 
-### t=0.52s — model turn (692 tokens cumulative 692)
+### t=0.52s — model turn (692 tokens this turn, 692 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -94,7 +93,7 @@ build an array without writing out its elements.
 ```
 
 
-### t=1.11s — model turn (4376 tokens cumulative 5068)
+### t=1.11s — model turn (4376 tokens this turn, 5,068 cumulative)
 
 **ran** `cat design.sv`
 
@@ -121,9 +120,9 @@ module dut_norm (
 ```
 
 
-### t=141.08s — model turn (18683 tokens cumulative 23751)
+### t=141.08s — model turn (18683 tokens this turn, 23,751 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -135,19 +134,15 @@ module dut_norm (
 ```
 
 
-### t=142.33s — model turn (8960 tokens cumulative 32711)
+### t=142.33s — model turn (8960 tokens this turn, 32,711 cumulative)
 
 **ran** `build`
 
 
-*(segment: 32711 tokens, 142.3 s model, 13.8 s tools)*
+*(segment: 32,711 tokens, 142.3 s model, 13.8 s tools)*
 
 
-## Build 1 — t=156.15s
-
-
-
-*result of* `build`:
+## Build 1 — t=156.15s, 32,711 tokens spent
 
 ```
 MISMATCH product 0 c_out_0[0]: got 11062 want 24937
@@ -160,12 +155,10 @@ MISMATCH product 0 c_out_6[0]: got 12415 want -34271
 MISMATCH product 0 c_out_7[0]: got 257 want -13082
 STUDY VALUES 128 checked, 16 wrong
 STUDY RESULT TIMEOUT after 20001 cycles, 16 of 128 outputs seen
-
-Budget left: 467289 tokens, 7 builds.
 ```
 
 
-### t=357.67s — model turn (27984 tokens cumulative 60695)
+### t=357.67s — model turn (27984 tokens this turn, 60,695 cumulative)
 
 Let me re-read my written file carefully to hunt for the bug.
 
@@ -210,7 +203,7 @@ module pe #(
 ```
 
 
-### t=747.65s — model turn (54360 tokens cumulative 115055)
+### t=747.65s — model turn (54360 tokens this turn, 115,055 cumulative)
 
 I found the bug by tracing the timing: the drain slot `OWN = i+2j` fires
 *before* the result is ready (result ready at phase i+j+9, slot at i+2j —
@@ -227,7 +220,7 @@ accumulators/drain chain to 19 bits (max |C| = 8·128·128 = 2^17) to save
 LUTs.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -239,19 +232,15 @@ LUTs.
 ```
 
 
-### t=748.52s — model turn (17240 tokens cumulative 132295)
+### t=748.52s — model turn (17240 tokens this turn, 132,295 cumulative)
 
 **ran** `build`
 
 
-*(segment: 132295 tokens, 592.4 s model, 13.8 s tools)*
+*(segment: 132,295 tokens, 592.4 s model, 13.8 s tools)*
 
 
-## Build 2 — t=762.29s
-
-
-
-*result of* `build`:
+## Build 2 — t=762.29s, 132,295 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -259,12 +248,10 @@ STUDY PRODUCT 0 first_in 1 last_out 32 latency 31
 STUDY PRODUCT 1 first_in 17 last_out 48 latency 31
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 367705 tokens, 6 builds.
 ```
 
 
-### t=763.38s — model turn (17399 tokens cumulative 149694)
+### t=763.38s — model turn (17399 tokens this turn, 149,694 cumulative)
 
 All 128 values correct, latency 31 cycles (within 22–64), and 16 cycles
 between product starts. Now let me verify it routes with good timing and
@@ -282,17 +269,7 @@ PNR LUT 7683 FF 5380 DSP 0 WNS 0.454
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 7683 FF 5380 DSP 0 WNS 0.454
-
-Routing runs left: 2.
-```
-
-
-### t=1165.23s — model turn (21743 tokens cumulative 171437)
+### t=1165.23s — model turn (21743 tokens this turn, 171,437 cumulative)
 
 Everything passes except one thing: **DSP 0** — the 8×8 multipliers were
 synthesized into LUTs instead of DSP blocks, and the task requires exactly
@@ -300,7 +277,7 @@ synthesized into LUTs instead of DSP blocks, and the task requires exactly
 DSP block.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -312,19 +289,15 @@ DSP block.
 ```
 
 
-### t=1165.99s — model turn (21544 tokens cumulative 192981)
+### t=1165.99s — model turn (21544 tokens this turn, 192,981 cumulative)
 
 **ran** `build`
 
 
-*(segment: 192981 tokens, 21.6 s model, 14.0 s tools)*
+*(segment: 192,981 tokens, 21.6 s model, 14.0 s tools)*
 
 
-## Build 3 — t=1180.01s
-
-
-
-*result of* `build`:
+## Build 3 — t=1180.01s, 192,981 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -332,12 +305,10 @@ STUDY PRODUCT 0 first_in 1 last_out 32 latency 31
 STUDY PRODUCT 1 first_in 17 last_out 48 latency 31
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 307019 tokens, 5 builds.
 ```
 
 
-### t=1180.62s — model turn (21637 tokens cumulative 214618)
+### t=1180.62s — model turn (21637 tokens this turn, 214,618 cumulative)
 
 **ran** `route`
 
@@ -350,24 +321,14 @@ PNR LUT 2437 FF 3908 DSP 128 WNS 0.539
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 2437 FF 3908 DSP 128 WNS 0.539
-
-Routing runs left: 1.
-```
-
-
-### t=1563.88s — model turn (27157 tokens cumulative 241775)
+### t=1563.88s — model turn (27157 tokens this turn, 241,775 cumulative)
 
 DSP count is 128 — two per PE. The multiply and the accumulate are being
 absorbed into two DSP blocks. I'll register the product so the multiply is a
 clean standalone DSP operation and the accumulation stays in fabric LUTs.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -379,19 +340,15 @@ clean standalone DSP operation and the accumulation stays in fabric LUTs.
 ```
 
 
-### t=1565.09s — model turn (25891 tokens cumulative 267666)
+### t=1565.09s — model turn (25891 tokens this turn, 267,666 cumulative)
 
 **ran** `build`
 
 
-*(segment: 267666 tokens, 25.2 s model, 14.5 s tools)*
+*(segment: 267,666 tokens, 25.2 s model, 14.5 s tools)*
 
 
-## Build 4 — t=1579.56s
-
-
-
-*result of* `build`:
+## Build 4 — t=1579.56s, 267,666 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -399,12 +356,10 @@ STUDY PRODUCT 0 first_in 1 last_out 33 latency 32
 STUDY PRODUCT 1 first_in 17 last_out 49 latency 32
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 232334 tokens, 4 builds.
 ```
 
 
-### t=1590.06s — model turn (25983 tokens cumulative 293649)
+### t=1590.06s — model turn (25983 tokens this turn, 293,649 cumulative)
 
 **ran** `route`
 
@@ -417,17 +372,7 @@ PNR LUT 2450 FF 3972 DSP 128 WNS 1.230
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 2450 FF 3972 DSP 128 WNS 1.230
-
-Routing runs left: 0.
-```
-
-
-### t=2749.06s — model turn (37723 tokens cumulative 331372)
+### t=2749.06s — model turn (37723 tokens this turn, 331,372 cumulative)
 
 All routing runs are used, so I must reason carefully now. The 128-DSP
 result is explained by the product having **two consumers**: both `acc <=
@@ -439,7 +384,7 @@ Then each PE has exactly one multiply → exactly 64 DSPs. I'll also mark the
 accumulator `use_dsp = "no"` as belt-and-braces.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.
@@ -451,19 +396,15 @@ accumulator `use_dsp = "no"` as belt-and-braces.
 ```
 
 
-### t=2751.73s — model turn (30408 tokens cumulative 361780)
+### t=2751.73s — model turn (30408 tokens this turn, 361,780 cumulative)
 
 **ran** `build`
 
 
-*(segment: 361780 tokens, 810.0 s model, 14.3 s tools)*
+*(segment: 361,780 tokens, 810.0 s model, 14.3 s tools)*
 
 
-## Build 5 — t=2766.07s
-
-
-
-*result of* `build`:
+## Build 5 — t=2766.07s, 361,780 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -471,12 +412,10 @@ STUDY PRODUCT 0 first_in 1 last_out 34 latency 33
 STUDY PRODUCT 1 first_in 17 last_out 50 latency 33
 STUDY INTERVAL 1 16
 STUDY RESULT CORRECT
-
-Budget left: 138220 tokens, 3 builds.
 ```
 
 
-### t=2894.85s — model turn (39814 tokens cumulative 401594)
+### t=2894.85s — model turn (39814 tokens this turn, 401,594 cumulative)
 
 The build is correct (latency 33, interval 16). I have no routing runs left,
 so let me reason very carefully about the DSP count using the evidence I
@@ -524,7 +463,7 @@ attributes yields one DSP per PE.
 ```
 
 
-### t=3540.15s — model turn (67188 tokens cumulative 468782)
+### t=3540.15s — model turn (67188 tokens this turn, 468,782 cumulative)
 
 The current version's DSP count is uncertain (64 or 128 depending on how
 Vivado handles the registered product). Before deciding, let me check
@@ -544,7 +483,7 @@ design.sv
 ```
 
 
-### t=3842.07s — model turn (58638 tokens cumulative 527420)
+### t=3842.07s — model turn (58638 tokens this turn, 527,420 cumulative)
 
 No reports are available, so I'll finalize by reasoning from the three
 routed data points, which are quite informative: - v0: combinational
@@ -563,7 +502,7 @@ second DSP can be inferred for the accumulate. Every plausible synthesis
 behaviour then yields exactly one DSP per PE.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // 8x8 output-stationary systolic matrix-multiply tile.

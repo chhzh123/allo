@@ -2,17 +2,16 @@
 
 Model `deepseek/deepseek-v4-pro`, arm **rtl**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **did not submit**, stopped by `tokens`, 503,813 tokens, 4778.8 s wall.
+Outcome: **did not submit**, stopped by `tokens`, 503,813 tokens, 4778.8 s wall (4060.3 s model, 718.5 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.sv`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.sv`. The final design is in `../generated/deepseek_deepseek-v4-pro__rtl/`.
 
 
-### t=3.16s — model turn (895 tokens cumulative 895)
+### t=3.16s — model turn (895 tokens this turn, 895 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -94,7 +93,7 @@ build an array without writing out its elements.
 ```
 
 
-### t=8.16s — model turn (4818 tokens cumulative 5713)
+### t=8.16s — model turn (4818 tokens this turn, 5,713 cumulative)
 
 **ran** `cat design.sv`
 
@@ -121,9 +120,9 @@ module dut_norm (
 ```
 
 
-### t=937.39s — model turn (55263 tokens cumulative 60976)
+### t=937.39s — model turn (55263 tokens this turn, 60,976 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary
@@ -139,7 +138,7 @@ module pe (
 ```
 
 
-### t=1057.52s — model turn (15352 tokens cumulative 76328)
+### t=1057.52s — model turn (15352 tokens this turn, 76,328 cumulative)
 
 Let me first build the current design to see where we stand.
 
@@ -147,14 +146,10 @@ Let me first build the current design to see where we stand.
 **ran** `build`
 
 
-*(segment: 76328 tokens, 1057.5 s model, 9.4 s tools)*
+*(segment: 76,328 tokens, 1057.5 s model, 9.4 s tools)*
 
 
-## Build 1 — t=1066.94s
-
-
-
-*result of* `build`:
+## Build 1 — t=1066.94s, 76,328 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -162,12 +157,10 @@ STUDY PRODUCT 0 first_in 1 last_out 32 latency 31
 STUDY PRODUCT 1 first_in 9 last_out 40 latency 31
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 423672 tokens, 7 builds.
 ```
 
 
-### t=1382.61s — model turn (25381 tokens cumulative 101709)
+### t=1382.61s — model turn (25381 tokens this turn, 101,709 cumulative)
 
 The build passed with 0 wrong values, latency 31, and interval 8. Let me now
 route to check resource usage and timing
@@ -184,24 +177,14 @@ PNR LUT 9331 FF 7448 DSP 0 WNS 0.384
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 9331 FF 7448 DSP 0 WNS 0.384
-
-Routing runs left: 2.
-```
-
-
-### t=2293.02s — model turn (38269 tokens cumulative 139978)
+### t=2293.02s — model turn (38269 tokens this turn, 139,978 cumulative)
 
 Let me look at the current design and understand the DSP issue. The build
 passed with 0 errors but 0 DSP blocks. Let me fix the PE to properly
 pipeline the multiply for DSP inference.
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary
@@ -213,7 +196,7 @@ module pe (
 ```
 
 
-### t=2597.29s — model turn (28415 tokens cumulative 168393)
+### t=2597.29s — model turn (28415 tokens this turn, 168,393 cumulative)
 
 Now let me build this design to check correctness:
 
@@ -221,14 +204,10 @@ Now let me build this design to check correctness:
 **ran** `build`
 
 
-*(segment: 168393 tokens, 1178.0 s model, 9.6 s tools)*
+*(segment: 168,393 tokens, 1178.0 s model, 9.6 s tools)*
 
 
-## Build 2 — t=2606.91s
-
-
-
-*result of* `build`:
+## Build 2 — t=2606.91s, 168,393 tokens spent
 
 ```
 MISMATCH product 0 c_out_0[0]: got 0 want 24937
@@ -244,12 +223,10 @@ STUDY PRODUCT 0 first_in 1 last_out 32 latency 31
 STUDY PRODUCT 1 first_in 9 last_out 40 latency 31
 STUDY INTERVAL 1 8
 STUDY RESULT   WRONG
-
-Budget left: 331607 tokens, 6 builds.
 ```
 
 
-### t=3103.07s — model turn (39301 tokens cumulative 207694)
+### t=3103.07s — model turn (39301 tokens this turn, 207,694 cumulative)
 
 Now I understand the design. The first build passed functionally but used 0
 DSPs. The issue is that the multiply output wasn't registered, preventing
@@ -262,7 +239,7 @@ multiply + registered accumulate: result at i+j+8 - PE(0,7) ready at 15,
 PE(7,7) ready at 22 - Load at i+16, output at i+17..i+24
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -275,7 +252,7 @@ module pe (
 ```
 
 
-### t=3300.72s — model turn (26900 tokens cumulative 234594)
+### t=3300.72s — model turn (26900 tokens this turn, 234,594 cumulative)
 
 The second build failed because I changed the load/shift timing. Let me go
 back to the first design's exact timing (which passed functionally) but
@@ -283,7 +260,7 @@ restructure the multiply for DSP inference. Let me also look at what the
 first design actually was more
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -295,7 +272,7 @@ module pe (
 ```
 
 
-### t=3426.48s — model turn (26783 tokens cumulative 261377)
+### t=3426.48s — model turn (26783 tokens this turn, 261,377 cumulative)
 
 Now let me build this version (which is functionally identical to the first
 passing design but with the product separated into a wire for better DSP
@@ -305,14 +282,10 @@ inference):
 **ran** `build`
 
 
-*(segment: 261377 tokens, 819.6 s model, 9.4 s tools)*
+*(segment: 261,377 tokens, 819.6 s model, 9.4 s tools)*
 
 
-## Build 3 — t=3435.85s
-
-
-
-*result of* `build`:
+## Build 3 — t=3435.85s, 261,377 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -320,12 +293,10 @@ STUDY PRODUCT 0 first_in 1 last_out 32 latency 31
 STUDY PRODUCT 1 first_in 9 last_out 40 latency 31
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 238623 tokens, 5 builds.
 ```
 
 
-### t=3438.82s — model turn (20129 tokens cumulative 281506)
+### t=3438.82s — model turn (20129 tokens this turn, 281,506 cumulative)
 
 Good, the build passes. Now let me route to check DSP count and timing:
 
@@ -341,17 +312,7 @@ PNR LUT 9331 FF 7448 DSP 0 WNS 0.384
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 9331 FF 7448 DSP 0 WNS 0.384
-
-Routing runs left: 1.
-```
-
-
-### t=3849.61s — model turn (25214 tokens cumulative 306720)
+### t=3849.61s — model turn (25214 tokens this turn, 306,720 cumulative)
 
 The DSP count is 0 because the product isn't registered before accumulation.
 I need to add a pipeline register for the product. This adds 1 cycle of
@@ -363,7 +324,7 @@ cycle 23 - Load at i+17: row 7 loads at 24, row 0 at 17 — all results ready
 before
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -376,14 +337,14 @@ module pe (
 ```
 
 
-### t=4039.26s — model turn (34901 tokens cumulative 341621)
+### t=4039.26s — model turn (34901 tokens this turn, 341,621 cumulative)
 
 The issue is clear: 0 DSPs because the product isn't registered. I need to
 register the product for DSP inference, which adds 1 cycle of pipeline
 latency. Let me adjust the load/shift/output
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -396,19 +357,15 @@ module pe (
 ```
 
 
-### t=4178.12s — model turn (34672 tokens cumulative 376293)
+### t=4178.12s — model turn (34672 tokens this turn, 376,293 cumulative)
 
 **ran** `build`
 
 
-*(segment: 376293 tokens, 413.9 s model, 9.4 s tools)*
+*(segment: 376,293 tokens, 413.9 s model, 9.4 s tools)*
 
 
-## Build 4 — t=4187.48s
-
-
-
-*result of* `build`:
+## Build 4 — t=4187.48s, 376,293 tokens spent
 
 ```
 MISMATCH product 0 c_out_0[0]: got 0 want 24937
@@ -424,12 +381,10 @@ STUDY PRODUCT 0 first_in 1 last_out 34 latency 33
 STUDY PRODUCT 1 first_in 9 last_out 42 latency 33
 STUDY INTERVAL 1 8
 STUDY RESULT   WRONG
-
-Budget left: 123707 tokens, 4 builds.
 ```
 
 
-### t=4397.73s — model turn (40364 tokens cumulative 416657)
+### t=4397.73s — model turn (40364 tokens this turn, 416,657 cumulative)
 
 I see the issue. With the registered product, the result_reg is written one
 cycle later, so I need to adjust the load timing to capture it before it's
@@ -437,7 +392,7 @@ overwritten by the next product. Let me trace through the timing carefully
 and fix it
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -450,7 +405,7 @@ module pe (
 ```
 
 
-### t=4522.66s — model turn (38142 tokens cumulative 454799)
+### t=4522.66s — model turn (38142 tokens this turn, 454,799 cumulative)
 
 The problem is clear: with the registered product, PE(i,0) finishes at cycle
 i+9 but load doesn't happen until i+17, by which time result_reg has been
@@ -459,7 +414,7 @@ overwritten by the next product. I need a separate capture register
 load/output timing properly
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.
@@ -472,14 +427,14 @@ module pe (
 ```
 
 
-### t=4778.81s — model turn (49014 tokens cumulative 503813)
+### t=4778.81s — model turn (49014 tokens this turn, 503,813 cumulative)
 
 The issue is clear: with the registered product, the load timing needs to
 shift by 1 and the modulo condition needs to change. Let me fix this
 properly
 
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 // Processing element: one multiplier, one accumulator, output-stationary.

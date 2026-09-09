@@ -2,17 +2,16 @@
 
 Model `openai/gpt-5.6-sol`, arm **spmw**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 44,014 tokens, 850.7 s wall.
+Outcome: **submitted**, stopped by `submit`, 44,014 tokens, 850.7 s wall (156.6 s model, 694.1 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.py`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.py`. The final design is in `../generated/openai_gpt-5_6-sol__spmw/`.
 
 
-### t=1.49s — model turn (600 tokens cumulative 600)
+### t=1.49s — model turn (600 tokens this turn, 600 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -113,9 +112,9 @@ def engine(A: int8[N, N], B: int8[N, N], C: int32[N, N]):
 ```
 
 
-### t=62.46s — model turn (7636 tokens cumulative 8236)
+### t=62.46s — model turn (7636 tokens this turn, 8,236 cumulative)
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 import allo.spmw as spmw
@@ -134,19 +133,15 @@ class PEIO(spmw.Interface):
 ```
 
 
-### t=63.74s — model turn (5381 tokens cumulative 13617)
+### t=63.74s — model turn (5381 tokens this turn, 13,617 cumulative)
 
 **ran** `build`
 
 
-*(segment: 13617 tokens, 63.7 s model, 125.4 s tools)*
+*(segment: 13,617 tokens, 63.7 s model, 125.4 s tools)*
 
 
-## Build 1 — t=189.11s
-
-
-
-*result of* `build`:
+## Build 1 — t=189.11s, 13,617 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -154,14 +149,12 @@ STUDY PRODUCT 0 first_in 5 last_out 38 latency 33
 STUDY PRODUCT 1 first_in 35 last_out 68 latency 33
 STUDY INTERVAL 1 30
 STUDY RESULT CORRECT
-
-Budget left: 486383 tokens, 7 builds.
 ```
 
 
-### t=247.88s — model turn (8874 tokens cumulative 22491)
+### t=247.88s — model turn (8874 tokens this turn, 22,491 cumulative)
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 import allo.spmw as spmw
@@ -185,19 +178,15 @@ mac_mesh = spmw.Topology(
 ```
 
 
-### t=250.0s — model turn (6628 tokens cumulative 29119)
+### t=250.0s — model turn (6628 tokens this turn, 29,119 cumulative)
 
 **ran** `build`
 
 
-*(segment: 29119 tokens, 60.9 s model, 127.3 s tools)*
+*(segment: 29,119 tokens, 60.9 s model, 127.3 s tools)*
 
 
-## Build 2 — t=377.27s
-
-
-
-*result of* `build`:
+## Build 2 — t=377.27s, 29,119 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -205,12 +194,10 @@ STUDY PRODUCT 0 first_in 4 last_out 38 latency 34
 STUDY PRODUCT 1 first_in 18 last_out 52 latency 34
 STUDY INTERVAL 1 14
 STUDY RESULT CORRECT
-
-Budget left: 470881 tokens, 6 builds.
 ```
 
 
-### t=382.56s — model turn (6848 tokens cumulative 35967)
+### t=382.56s — model turn (6848 tokens this turn, 35,967 cumulative)
 
 **ran** `route`
 
@@ -223,17 +210,7 @@ PNR LUT 8378 FF 10992 DSP 64 WNS 1.288
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 8378 FF 10992 DSP 64 WNS 1.288
-
-Routing runs left: 2.
-```
-
-
-### t=850.71s — model turn (8047 tokens cumulative 44014)
+### t=850.71s — model turn (8047 tokens this turn, 44,014 cumulative)
 
 SUBMIT
 

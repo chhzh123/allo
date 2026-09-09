@@ -2,17 +2,16 @@
 
 Model `anthropic/claude-opus-5`, arm **spmw**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 107,350 tokens, 1230.8 s wall.
+Outcome: **submitted**, stopped by `submit`, 107,350 tokens, 1230.8 s wall (639.3 s model, 591.5 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.py`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.py`. The final design is in `../generated/anthropic_claude-opus-5__spmw/`.
 
 
-### t=2.59s — model turn (1184 tokens cumulative 1184)
+### t=2.59s — model turn (1184 tokens this turn, 1,184 cumulative)
 
 I'll start by reading the task and reference docs.
 
@@ -66,7 +65,7 @@ right answer another way does not satisfy the task.
 ```
 
 
-### t=4.89s — model turn (3501 tokens cumulative 4685)
+### t=4.89s — model turn (3501 tokens this turn, 4,685 cumulative)
 
 **ran** `cat REFERENCE.md`
 
@@ -108,7 +107,7 @@ port declarations.
 ```
 
 
-### t=7.72s — model turn (6403 tokens cumulative 11088)
+### t=7.72s — model turn (6403 tokens this turn, 11,088 cumulative)
 
 **ran** `cat design.py`
 
@@ -132,14 +131,14 @@ def engine(A: int8[N, N], B: int8[N, N], C: int32[N, N]):
 ```
 
 
-### t=163.33s — model turn (19241 tokens cumulative 30329)
+### t=163.33s — model turn (19241 tokens this turn, 30,329 cumulative)
 
 Now I understand the task. Let me write a first version: a classic output-
 stationary systolic array with A flowing east, B south, and results draining
 west along each row.
 
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 # Fill in the body. Do not change the signature of `engine`.
@@ -156,7 +155,7 @@ N = 8
 ```
 
 
-### t=595.46s — model turn (41388 tokens cumulative 71717)
+### t=595.46s — model turn (41388 tokens this turn, 71,717 cumulative)
 
 Now I understand the constraints. Let me reason about the timing before
 writing. Key analysis: each row must move 8 accumulator values to one port.
@@ -169,7 +168,7 @@ to-back. I'll give each site a MAC process and a co-located result-
 forwarding process, so MACs and draining overlap.
 
 
-**wrote `design.py`** (first 300 chars as recorded):
+**wrote `design.py`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 # Fill in the body. Do not change the signature of `engine`.
@@ -184,19 +183,15 @@ forwarding process, so MACs and draining overlap.
 ```
 
 
-### t=598.13s — model turn (10871 tokens cumulative 82588)
+### t=598.13s — model turn (10871 tokens this turn, 82,588 cumulative)
 
 **ran** `build`
 
 
-*(segment: 82588 tokens, 598.1 s model, 134.7 s tools)*
+*(segment: 82,588 tokens, 598.1 s model, 134.7 s tools)*
 
 
-## Build 1 — t=732.87s
-
-
-
-*result of* `build`:
+## Build 1 — t=732.87s, 82,588 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -204,12 +199,10 @@ STUDY PRODUCT 0 first_in 4 last_out 37 latency 33
 STUDY PRODUCT 1 first_in 18 last_out 51 latency 33
 STUDY INTERVAL 1 14
 STUDY RESULT CORRECT
-
-Budget left: 417412 tokens, 7 builds.
 ```
 
 
-### t=757.88s — model turn (12497 tokens cumulative 95085)
+### t=757.88s — model turn (12497 tokens this turn, 95,085 cumulative)
 
 Correct on the first try: latency 33 (in 22–64), interval 14 (≤16). Now I
 need to check resources — especially that the multipliers land in 64 DSP
@@ -227,17 +220,7 @@ PNR LUT 8294 FF 11048 DSP 64 WNS 1.364
 ```
 
 
-*result of* `route`:
-
-```
-PNR_UNROUTED 0
-PNR LUT 8294 FF 11048 DSP 64 WNS 1.364
-
-Routing runs left: 2.
-```
-
-
-### t=1230.81s — model turn (12265 tokens cumulative 107350)
+### t=1230.81s — model turn (12265 tokens this turn, 107,350 cumulative)
 
 Everything passes on the real device, with comfortable margin on every
 requirement: | Requirement | Threshold | Achieved | |---|---|---| |

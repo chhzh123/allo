@@ -2,17 +2,16 @@
 
 Model `openai/gpt-5.6-sol`, arm **rtl**, temperature 0.0. Budget 500,000 tokens, 8 builds, 3 routes.
 
-Outcome: **submitted**, stopped by `submit`, 524,554 tokens, 1593.1 s wall.
+Outcome: **submitted**, stopped by `submit`, 524,554 tokens, 1593.1 s wall (390.6 s model, 1202.5 s tools).
 
-> **The code each round wrote is not recoverable.** The harness truncated
-> every tool argument to 200 characters before writing this transcript, and
-> the working directory kept only the final file, which each round
-> overwrote. What follows is the full prose, every build verdict and every
-> routing result, plus the first 200 characters of each `design.sv`.
-> The final design is in `designs/` and its generated hardware in `generated/`.
+> **The code each round wrote is not recoverable.** The harness truncated every
+> tool argument to 200 characters before writing this transcript, and the working
+> directory kept only the final file, which each round overwrote. Below is the full
+> prose, every build verdict and every routing result, plus the first 200 characters
+> of each `design.sv`. The final design is in `../generated/openai_gpt-5_6-sol__rtl/`.
 
 
-### t=1.82s — model turn (603 tokens cumulative 603)
+### t=1.82s — model turn (603 tokens this turn, 603 cumulative)
 
 **ran** `cat TASK.md`
 
@@ -119,9 +118,9 @@ module dut_norm (
 ```
 
 
-### t=125.67s — model turn (14063 tokens cumulative 14666)
+### t=125.67s — model turn (14063 tokens this turn, 14,666 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -136,32 +135,26 @@ module dut_norm_pe (
 ```
 
 
-### t=127.37s — model turn (10073 tokens cumulative 24739)
+### t=127.37s — model turn (10073 tokens this turn, 24,739 cumulative)
 
 **ran** `build`
 
 
-*(segment: 24739 tokens, 127.4 s model, 3.6 s tools)*
+*(segment: 24,739 tokens, 127.4 s model, 3.6 s tools)*
 
 
-## Build 1 — t=130.98s
-
-
-
-*result of* `build`:
+## Build 1 — t=130.98s, 24,739 tokens spent
 
 ```
 STUDY BUILD FAIL elaborate
 ERROR: [VRFC 10-3818] variable 'q' is driven by invalid combination of procedural drivers [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:185]
 ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
-
-Budget left: 475261 tokens, 7 builds.
 ```
 
 
-### t=165.37s — model turn (15092 tokens cumulative 39831)
+### t=165.37s — model turn (15092 tokens this turn, 39,831 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -176,19 +169,15 @@ module dut_norm_pe (
 ```
 
 
-### t=166.8s — model turn (15101 tokens cumulative 54932)
+### t=166.8s — model turn (15101 tokens this turn, 54,932 cumulative)
 
 **ran** `build`
 
 
-*(segment: 54932 tokens, 35.8 s model, 12.0 s tools)*
+*(segment: 54,932 tokens, 35.8 s model, 12.0 s tools)*
 
 
-## Build 2 — t=178.78s
-
-
-
-*result of* `build`:
+## Build 2 — t=178.78s, 54,932 tokens spent
 
 ```
 MISMATCH product 2 c_out_0[0]: got 0 want x
@@ -204,12 +193,10 @@ STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
 STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
 STUDY INTERVAL 1 8
 STUDY RESULT   WRONG
-
-Budget left: 445068 tokens, 6 builds.
 ```
 
 
-### t=191.65s — model turn (15914 tokens cumulative 70846)
+### t=191.65s — model turn (15914 tokens this turn, 70,846 cumulative)
 
 **ran** `cat design.sv`
 
@@ -252,9 +239,9 @@ module dut_norm_pe (
 ```
 
 
-### t=246.98s — model turn (24267 tokens cumulative 95113)
+### t=246.98s — model turn (24267 tokens this turn, 95,113 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -266,19 +253,15 @@ module dut_norm_pe (
 ```
 
 
-### t=248.61s — model turn (23268 tokens cumulative 118381)
+### t=248.61s — model turn (23268 tokens this turn, 118,381 cumulative)
 
 **ran** `build`
 
 
-*(segment: 118381 tokens, 69.8 s model, 1.8 s tools)*
+*(segment: 118,381 tokens, 69.8 s model, 1.8 s tools)*
 
 
-## Build 3 — t=250.39s
-
-
-
-*result of* `build`:
+## Build 3 — t=250.39s, 118,381 tokens spent
 
 ```
 STUDY BUILD FAIL compile
@@ -287,14 +270,12 @@ ERROR: [VRFC 10-8549] SystemVerilog keyword 'edge' used in incorrect context [/s
 ERROR: [VRFC 10-4982] syntax error near 'end' [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:133]
 ERROR: [VRFC 10-8549] SystemVerilog keyword 'end' used in incorrect context [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:133]
 ERROR: [VRFC 10-8530] module 'dut_norm' is ignored due to previous errors [/scratch/hc676/agentstudy/trials/openai_gpt-5_6-sol__rtl/sim/design.sv:62]
-
-Budget left: 381619 tokens, 5 builds.
 ```
 
 
-### t=280.44s — model turn (27489 tokens cumulative 145870)
+### t=280.44s — model turn (27489 tokens this turn, 145,870 cumulative)
 
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -306,19 +287,15 @@ module dut_norm_pe (
 ```
 
 
-### t=282.41s — model turn (27526 tokens cumulative 173396)
+### t=282.41s — model turn (27526 tokens this turn, 173,396 cumulative)
 
 **ran** `build`
 
 
-*(segment: 173396 tokens, 32.0 s model, 12.0 s tools)*
+*(segment: 173,396 tokens, 32.0 s model, 12.0 s tools)*
 
 
-## Build 4 — t=294.41s
-
-
-
-*result of* `build`:
+## Build 4 — t=294.41s, 173,396 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -326,12 +303,10 @@ STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
 STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 326604 tokens, 4 builds.
 ```
 
 
-### t=296.01s — model turn (27630 tokens cumulative 201026)
+### t=296.01s — model turn (27630 tokens this turn, 201,026 cumulative)
 
 **ran** `route`
 
@@ -344,19 +319,9 @@ PNR LUT 11508 FF 8692 DSP 0 WNS 0.847
 ```
 
 
-*result of* `route`:
+### t=716.12s — model turn (31837 tokens this turn, 232,863 cumulative)
 
-```
-PNR_UNROUTED 0
-PNR LUT 11508 FF 8692 DSP 0 WNS 0.847
-
-Routing runs left: 2.
-```
-
-
-### t=716.12s — model turn (31837 tokens cumulative 232863)
-
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -368,19 +333,15 @@ module dut_norm_pe (
 ```
 
 
-### t=719.42s — model turn (31669 tokens cumulative 264532)
+### t=719.42s — model turn (31669 tokens this turn, 264,532 cumulative)
 
 **ran** `build`
 
 
-*(segment: 264532 tokens, 37.9 s model, 12.8 s tools)*
+*(segment: 264,532 tokens, 37.9 s model, 12.8 s tools)*
 
 
-## Build 5 — t=732.25s
-
-
-
-*result of* `build`:
+## Build 5 — t=732.25s, 264,532 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -388,12 +349,10 @@ STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
 STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 235468 tokens, 3 builds.
 ```
 
 
-### t=735.55s — model turn (31773 tokens cumulative 296305)
+### t=735.55s — model turn (31773 tokens this turn, 296,305 cumulative)
 
 **ran** `route`
 
@@ -406,19 +365,9 @@ PNR LUT 4279 FF 5364 DSP 128 WNS 1.158
 ```
 
 
-*result of* `route`:
+### t=1146.65s — model turn (36021 tokens this turn, 332,326 cumulative)
 
-```
-PNR_UNROUTED 0
-PNR LUT 4279 FF 5364 DSP 128 WNS 1.158
-
-Routing runs left: 1.
-```
-
-
-### t=1146.65s — model turn (36021 tokens cumulative 332326)
-
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -430,19 +379,15 @@ module dut_norm_pe (
 ```
 
 
-### t=1148.43s — model turn (35834 tokens cumulative 368160)
+### t=1148.43s — model turn (35834 tokens this turn, 368,160 cumulative)
 
 **ran** `build`
 
 
-*(segment: 368160 tokens, 37.6 s model, 12.2 s tools)*
+*(segment: 368,160 tokens, 37.6 s model, 12.2 s tools)*
 
 
-## Build 6 — t=1160.66s
-
-
-
-*result of* `build`:
+## Build 6 — t=1160.66s, 368,160 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -450,12 +395,10 @@ STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
 STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 131840 tokens, 2 builds.
 ```
 
 
-### t=1162.37s — model turn (35938 tokens cumulative 404098)
+### t=1162.37s — model turn (35938 tokens this turn, 404,098 cumulative)
 
 **ran** `route`
 
@@ -468,19 +411,9 @@ PNR LUT 4279 FF 5364 DSP 128 WNS 1.158
 ```
 
 
-*result of* `route`:
+### t=1569.14s — model turn (40354 tokens this turn, 444,452 cumulative)
 
-```
-PNR_UNROUTED 0
-PNR LUT 4279 FF 5364 DSP 128 WNS 1.158
-
-Routing runs left: 0.
-```
-
-
-### t=1569.14s — model turn (40354 tokens cumulative 444452)
-
-**wrote `design.sv`** (first 300 chars as recorded):
+**wrote `design.sv`** — first 300 characters as recorded, the rest was not kept:
 
 ```
 module dut_norm_pe (
@@ -492,19 +425,15 @@ module dut_norm_pe (
 ```
 
 
-### t=1574.25s — model turn (39943 tokens cumulative 484395)
+### t=1574.25s — model turn (39943 tokens this turn, 484,395 cumulative)
 
 **ran** `build`
 
 
-*(segment: 484395 tokens, 43.4 s model, 12.2 s tools)*
+*(segment: 484,395 tokens, 43.4 s model, 12.2 s tools)*
 
 
-## Build 7 — t=1586.45s
-
-
-
-*result of* `build`:
+## Build 7 — t=1586.45s, 484,395 tokens spent
 
 ```
 STUDY VALUES 128 checked, 0 wrong
@@ -512,12 +441,10 @@ STUDY PRODUCT 0 first_in 1 last_out 31 latency 30
 STUDY PRODUCT 1 first_in 9 last_out 39 latency 30
 STUDY INTERVAL 1 8
 STUDY RESULT CORRECT
-
-Budget left: 15605 tokens, 1 builds.
 ```
 
 
-### t=1593.1s — model turn (40159 tokens cumulative 524554)
+### t=1593.1s — model turn (40159 tokens this turn, 524,554 cumulative)
 
 SUBMIT
 
