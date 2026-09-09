@@ -126,6 +126,38 @@ read the lookup-table column here without the DSP column beside it.**
 SPMW's clock advantage is real and largest where the arrays are small: 462
 against 365 MHz at 4x4, narrowing to 345 against 308 at 32x32.
 
+### Cycles, and what the driver does and does not cover
+
+Gemmini's shipped `MeshWithDelaysUnitTest` does not compile against its own
+HEAD, so `source/MeshDriver.scala` drives the current `req`/`resp` interface
+instead. It checks every output against a golden matmul, which is what makes
+the cycle count worth anything: get the protocol wrong and the mesh emits
+well-formed rows of **zeros** with correct handshaking, correct row count and
+plausible timing. That happened three times before the driver was right. The
+specific trap is `MeshWithDelays` line 118 --
+
+    in_prop := io.req.bits.pe_control.propagate ^ in_prop
+
+`propagate` is XORed into the running state, so it is a *flip* flag rather than
+an absolute weight-register selector (Gemmini's ISA calls the op
+COMPUTE_AND_FLIP). Both the preload and the compute pass must set it.
+
+| Array | SPMW mesh | Gemmini WS, preload + compute | Gemmini WS, compute only |
+|---|---:|---:|---:|
+| 4x4 | 16 | 17 | 12 |
+| 8x8 | 28 | 33 | 24 |
+
+**The middle column is the comparable one.** SPMW's mesh is output-stationary
+and streams both operands in, so its figure already contains getting the
+weights on chip; Gemmini's compute-only window has them resident. The compute
+column is reported because it is a real quantity, not because it compares.
+
+One caveat stays attached to the sequence figure: this driver issues preload
+and compute serially, where Gemmini's `ExecuteController` can overlap the next
+tile's preload with the current tile's compute. So it is a fair single-matmul
+latency and an understatement of back-to-back throughput. 16x16 and 32x32 were
+still measuring when this was written.
+
 ### Why the weight-stationary rows are the comparable ones
 
 Gemmini's output-stationary mode is also built here, and it is **not** a
