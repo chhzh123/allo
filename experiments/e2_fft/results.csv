@@ -1,13 +1,13 @@
-n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_cycles,first_input_cycle,full_transform_latency,steady_interval_cycles,ideal_interval_cycles,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz
-128,spmw,"folded SDF, 1 sample/cycle",33,1,522,4749,68,581,128.0,128,10930,25425,139,12,0.461,2.872,348
-128,hpfft,"UF1, 2 samples/beat",33,2,679,742,35,742,76.0,64,19874,19159,60,68,0.313,3.02,331
-128,allo,"strided, wrap_io",6,,,11586,,11586,11545.0,,4340,7622,16,10,0.697,2.636,379
-256,spmw,"folded SDF, 1 sample/cycle",33,1,1035,9486,132,1158,256.0,256,12361,28865,159,18,0.388,2.945,340
-256,hpfft,"UF1, 2 samples/beat",33,2,1400,1527,35,1527,140.5,128,22403,22244,72,82,0.283,3.05,328
-256,allo,"strided, wrap_io",6,,,26261,,26261,26220.0,,4422,7646,16,10,0.671,2.662,376
-512,spmw,"folded SDF, 1 sample/cycle",33,1,2059,18958,260,2310,512.0,512,13864,32222,179,24,0.129,3.204,312
-512,hpfft,"UF1, 2 samples/beat",33,2,2953,3208,35,3208,269.0,256,25881,25518,84,92,0.179,3.154,317
-512,allo,"strided, wrap_io",6,,,58808,,58808,58767.0,,4316,7542,16,12,0.694,2.639,379
-1024,spmw,"folded SDF, 1 sample/cycle",33,1,4107,37902,516,4614,1024.0,1024,15423,35587,199,31,0.431,2.902,345
-1024,hpfft,"UF1, 2 samples/beat",33,2,6298,6809,35,6809,525.5,512,29316,28835,96,104,0.261,3.072,326
-1024,allo,"strided, wrap_io",6,,,130299,,130299,130258.0,,4320,7561,16,12,0.438,2.895,345
+n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_cycles,steady_interval_cycles,pct_of_ideal,steady_interval_measured,full_transform_latency,ideal_interval_cycles,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz
+1024,allo,"strided, wrap_io",6,,,130299,130258.0,,,130299,,4320,7561,16,12,0.438,2.895,345
+1024,hpfft,"UF1, 2 samples/beat",33,2,6298,6809,525.5,97.4,525.5,6809,512,29316,28835,96,104,0.261,3.072,326
+1024,spmw,"folded SDF, 1 sample/cycle",33,1,4107,37902,1024.0,100.0,1024.0,4614,1024,15423,35587,199,31,0.431,2.902,345
+128,allo,"strided, wrap_io",6,,,11586,11545.0,,,11586,,4340,7622,16,10,0.697,2.636,379
+128,hpfft,"UF1, 2 samples/beat",33,2,679,742,76.0,84.2,76.0,742,64,19874,19159,60,68,0.313,3.02,331
+128,spmw,"folded SDF, 1 sample/cycle",33,1,522,4749,128.0,100.0,128.0,581,128,10930,25425,139,12,0.461,2.872,348
+256,allo,"strided, wrap_io",6,,,26261,26220.0,,,26261,,4422,7646,16,10,0.671,2.662,376
+256,hpfft,"UF1, 2 samples/beat",33,2,1400,1527,140.5,91.1,140.5,1527,128,22403,22244,72,82,0.283,3.05,328
+256,spmw,"folded SDF, 1 sample/cycle",33,1,1035,9486,256.0,100.0,256.0,1158,256,12361,28865,159,18,0.388,2.945,340
+512,allo,"strided, wrap_io",6,,,58808,58767.0,,,58808,,4316,7542,16,12,0.694,2.639,379
+512,hpfft,"UF1, 2 samples/beat",33,2,2953,3208,269.0,95.2,269.0,3208,256,25881,25518,84,92,0.179,3.154,317
+512,spmw,"folded SDF, 1 sample/cycle",33,1,2059,18958,512.0,100.0,512.0,2310,512,13864,32222,179,24,0.129,3.204,312

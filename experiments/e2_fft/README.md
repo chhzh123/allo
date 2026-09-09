@@ -57,8 +57,11 @@ first *output* beat, so the pipeline fill sits inside the interval, and it
 divides by 32 when 33 transforms are emitted. At N=128 that turns a true 128.0
 into 128 + 127/32 = 132.1. The `completion_cycles` column was worse: SPMW's
 held the span of all 33 transforms and HP-FFT's held one transform, a factor of
-thirty apart in the same column. `results.csv` now carries
-`full_transform_latency` and `first_input_cycle` on one definition for both.
+thirty apart in the same column. **The HP-FFT column was not affected by
+either error**; only SPMW's side was wrong. `results.csv` now carries
+`full_transform_latency` on one definition for both, and each transform's
+completion cycle together with the launch's first input beat is in
+`spmw/N*/report/cosim_transforms.log`.
 
 ## Results
 

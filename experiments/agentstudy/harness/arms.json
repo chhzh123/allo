@@ -3,7 +3,7 @@
   "LANG": "SPMW, a Python-embedded language for spatial hardware",
   "FILE": "design.py",
   "TOP": "a fabric named `engine`",
-  "build": "python3 /scratch/hc676/agentstudy/arms/spmw/build.py {trial} visible",
+  "build": "bash /scratch/hc676/agentstudy/arms/spmw/build.sh {trial} visible",
   "stub": "design.py",
   "rtl_dir": "build/sim"
  },
