@@ -52,6 +52,9 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | | **AutoSA, wide** | **512/512** | **374** | **445** | 48,957 | 84,062 | 256 | 23 | +0.380 ns | 339 MHz |
 | 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
 | | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
+| | AutoSA | 256/32 | 2,990 | 3,064 | 185,634 | 317,967 | 1,024 | 9.5 | +0.111 ns | 310 MHz |
+| | **AutoSA, wide** | **512/512** | **1,222** | **1,300** | | | 1,024 | | | |
+| | Allo | 32/32 | 3,408 | 3,457 | | | 1,024 | | | |
 
 Port width is read off each design's synthesised RTL
 (`C_M_AXI_*_DATA_WIDTH`), never assumed from the source.
