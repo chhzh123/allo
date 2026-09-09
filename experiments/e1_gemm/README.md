@@ -53,7 +53,7 @@ kept beside it, because the gap is the control traffic and is worth seeing.
 | 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
 | | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
 | | AutoSA | 256/32 | 2,990 | 3,064 | 185,634 | 317,967 | 1,024 | 9.5 | +0.111 ns | 310 MHz |
-| | **AutoSA, wide** | **512/512** | **1,222** | **1,300** | | | 1,024 | | | |
+| | **AutoSA, wide** | **512/512** | **1,222** | **1,300** | 186,369 | 320,772 | 1,024 | 24 | +0.101 ns | 309 MHz |
 | | Allo | 32/32 | 3,408 | 3,457 | | | 1,024 | | | |
 
 Port width is read off each design's synthesised RTL
@@ -191,11 +191,13 @@ masters need the staging to match. Its clock moved the right way but barely,
 | 8x8 AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
 | 16x16 SPMW kernel | 133 | 32,756 | 40,732 | 0 | 358 MHz |
 | 16x16 AutoSA, wide | 374 | 48,957 | 84,062 | 23 | 339 MHz |
+| 32x32 SPMW kernel | 280 | 137,741 | 163,708 | 0 | 357 MHz |
+| 32x32 AutoSA, wide | 1,222 | 186,369 | 320,772 | 24 | 309 MHz |
 
 The wide port's own overhead is mostly fixed rather than proportional, which is
 visible once there are two sizes: it costs 15 per cent of the lookup tables at
-8x8 but 3 per cent at 16x16, and the same 23 block RAM tiles at both, against 5
-and 9 narrow. The staging it adds is sized by the 512-bit port, not by the
+8x8, 3 per cent at 16x16 and 0.4 per cent at 32x32, and 23 to 24 block RAM
+tiles at every size, against 5, 9 and 9.5 narrow. The staging it adds is sized by the 512-bit port, not by the
 array. Its effect on the clock is small and not consistently signed: 378 to 385
 MHz at 8x8, 342 to 339 at 16x16.
 
