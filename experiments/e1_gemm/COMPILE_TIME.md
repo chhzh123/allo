@@ -24,30 +24,37 @@ matters: **do not quote a cross-framework ratio from this file.**
 
 ## What it does show
 
-One effect is large enough to survive all of that in direction, though not in
-its exact ratio:
+AutoSA's `csynth` and `cosim` are now recorded **apart**, from each build's own
+phase timings, because the combined figure was not comparable with SPMW's:
+SPMW's number excludes cosimulation, and at 32x32 cosimulation is 13,886 s of
+AutoSA's 48,868. The column below is csynth against csynth.
 
-| Array | SPMW kernel, HLS | SPMW, sum of jobs | Allo csynth | AutoSA csynth+cosim |
+| Array | SPMW csynth+export (8 jobs) | SPMW sum of jobs | AutoSA csynth | AutoSA cosim |
 |---|---:|---:|---:|---:|
-| 4x4 | 91.8 s | 687 s | 60 s | 87 s |
-| 8x8 | 99.0 s | 737 s | 80 s | 284 s |
-| 16x16 | 105.4 s | 789 s | 423 s | 2,533 s |
-| 32x32 | 110.6 s | 821 s | -- | -- |
+| 4x4 | 91.8 s | 687 s | **40.8 s** | 42 s |
+| 8x8 | 99.0 s | 737 s | 171 s | 108 s |
+| 16x16 | 105.4 s | 789 s | 1,677 s | 851 s |
+| 32x32 | 110.6 s | 821 s | **34,968 s** | 13,886 s |
 
-SPMW's synthesis time is nearly flat as the array grows -- 1.2x across a 64x
-increase in elements -- because it compiles one project per *role* and the role
-count does not grow with the array: 15 roles at every size. The work-neutral
-column is flat for the same reason, so this is not an artefact of the eight
-workers. Allo and AutoSA compile the whole array as one program, and their
-times grow with it.
+Two things are true at once and both belong in any statement of this.
 
-At 4x4 SPMW is the *slowest* of the three by this measure, and it stays that
-way work-neutrally until the array is large. The crossover, not the ratio, is
-the claim these numbers can support.
+**SPMW's synthesis time is flat**: 91.8 to 110.6 seconds, 1.2x across a 64-fold
+increase in elements, because it compiles one project per *role* and the role
+count does not grow with the array -- 9 at every size. The work-neutral column
+is flat for the same reason, so this is not an artefact of the eight workers.
 
-Place-and-route grows for everyone, because Vivado sees a netlist that grows
-whatever the frontend did: the SPMW kernel goes 335 s to 5,247 s from 4x4 to
-32x32.
+**AutoSA is faster at 4x4 and superlinear after it**: 40.8, 171, 1,677, 34,968
+seconds, roughly 4x then 10x then 21x per doubling of the array side. It starts
+ahead and ends 316 times behind on wall time, 43 times behind work-neutrally.
+
+So the honest claim is a crossover between 4x4 and 8x8, not a constant ratio,
+and the size at which it happens is part of the result. The wide-interface
+builds cost essentially the same as the narrow ones (182 vs 171 s at 8x8,
+35,023 vs 34,968 at 32x32), so the port width is not what makes them slow.
+
+One asymmetry remains and is not removed: SPMW's figure includes
+`export_design` and AutoSA's csynth does not. That inflates SPMW's side, which
+is the conservative direction for the claim above.
 
 ## What a real measurement would need
 
