@@ -63,10 +63,45 @@ gap is the memory boundary rather than the array: SPMW's kernel is fed through
 is smaller. The honest one-line summary is that at 16x16 SPMW buys seven times
 the throughput with more registers and a wider port, not with less logic.
 
+## Does the flow change move the numbers? Barely, except the clock
+
+4x4 has now been routed both ways, which answers it directly:
+
+| 4x4 Allo | Vitis `export -flow impl` | Vivado out of context |
+|---|---:|---:|
+| LUT | 3,693 | 3,703 |
+| FF | 4,459 | 4,459 |
+| DSP | 16 | 16 |
+| BRAM | 3 x 18K | 1.5 x 36K |
+| WNS | +0.625 ns | +0.720 ns |
+| Implied clock | 369 MHz | 383 MHz |
+
+Logic is the same design either way: ten lookup tables apart, 0.3%, and the
+register count identical to the unit. The block RAM figures are the same
+memory in different units, which is the trap below. What does move is the
+clock, 369 to 383 MHz, about 4%, which is the two flows' synthesis and
+implementation directives rather than a different circuit.
+
+So the area numbers published for 4x4 and 8x8 were sound; only their clocks
+were on a different basis from every other row in the table.
+
+## A units trap in the `bram_18k_equiv` column
+
+**Vitis reports BRAM in 18K blocks; Vivado reports Block RAM Tiles, which are
+36K.** Allo 4x4 is `BRAM: 3` from Vitis and `Block RAM Tile 1.5` from Vivado
+-- the same memory, a factor of two apart.
+
+The column is named `bram_18k_equiv`, but every row produced by the
+out-of-context recipe -- SPMW, AutoSA, Gemmini, and now Allo -- stores Block
+RAM Tiles, so those values are **half** what the column name says. AutoSA's
+9.5 at 32x32 is the giveaway: 36K tiles come in halves, 18K blocks do not.
+This predates these runs and affects the AutoSA rows too. The Allo rows are
+being moved onto the same convention as the rest of the file rather than the
+one the column name implies, so the column is internally consistent even
+though it is misnamed.
+
 ## Still open
 
-- 4x4 and 8x8 are being re-routed on this same recipe so the Allo column is on
-  one flow rather than two. Until they land, the published 3,693/4,459 and
-  8,419/8,220 remain Vitis export numbers and are **not** directly comparable
-  to the 16x16 row above.
+- 8x8 is being re-routed on this recipe; until it lands, its published
+  8,419/8,220 at 366 MHz is a Vitis export figure.
 - 32x32 is running.
