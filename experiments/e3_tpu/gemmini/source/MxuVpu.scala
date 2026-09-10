@@ -24,7 +24,19 @@ class MxuVpu(val dim: Int) extends Module {
   val fullDataType = Vec(dim, Vec(1, SInt(accW.W)))
   val rDataType = Vec(dim, Vec(1, SInt(inW.W)))
   val scale_t = SInt(accW.W)
-  val scale_func = (v: SInt, s: SInt) => (v * s) >> 8.U
+  // Two requantisation forms, selected by SCALE_MODE.
+  //   shift: an arithmetic shift right by the scale. This is what SPMW's VPU
+  //          actually does -- its E3 programs requantise with SHR -- so it is
+  //          the apple-to-apple form.
+  //   mul:   multiply by the scale then shift, Gemmini's more general form.
+  //          A 32x32 signed multiply plus shift and clip in one cycle does not
+  //          close at 3.333 ns; the number is kept as a documented variant.
+  val scaleMode = sys.env.getOrElse("SCALE_MODE", "shift")
+  val scale_func = if (scaleMode == "mul") {
+    (v: SInt, sc: SInt) => (v * sc) >> 8.U
+  } else {
+    (v: SInt, sc: SInt) => (v >> sc(4, 0).asUInt).asSInt
+  }
 
   val mxu = Module(new MeshWithDelays(SInt(inW.W), SInt(inW.W), SInt(accW.W), SInt(accW.W),
     new SimpleTag, Dataflow.WS, tree_reduction = false, tile_latency = 0,
@@ -55,15 +67,25 @@ class MxuVpu(val dim: Int) extends Module {
   mxu.io.req <> io.req
   dontTouch(mxu.io.tags_in_progress)
 
+  // Gemmini's real datapath is Mesh -> AccumulatorMem -> AccumulatorScale: the
+  // mesh writes its rows into the accumulator and the scale path reads them
+  // out afterwards, so a memory sits between the two. This scope excludes the
+  // accumulator memory, and wiring the mesh straight into the scale path put
+  // the 32x32 scale multiply in the same cycle as the mesh's output logic --
+  // 4.694 ns and 20 logic levels at dim 4, against a 3.333 ns target. That is
+  // an artefact of leaving the accumulator out, not a property of Gemmini, so
+  // the boundary it would provide is modelled here by one register stage.
+  val respValid = RegNext(mxu.io.resp.valid, false.B)
+  val respData = RegNext(mxu.io.resp.bits.data)
+
   // The mesh's result bus is Valid, the scale path's input is Decoupled, so
   // the VPU cannot back-pressure the mesh. At this scope it never needs to:
-  // the scale path is combinational with one register of latency and accepts
-  // a row every cycle. Asserted rather than assumed.
-  assert(!mxu.io.resp.valid || vpu.io.in.ready, "the VPU stalled while the MXU emitted a row")
+  // the scale path accepts a row every cycle. Asserted rather than assumed.
+  assert(!respValid || vpu.io.in.ready, "the VPU stalled while the MXU emitted a row")
 
-  vpu.io.in.valid := mxu.io.resp.valid
+  vpu.io.in.valid := respValid
   val r = vpu.io.in.bits.acc_read_resp
-  r.data := mxu.io.resp.bits.data
+  r.data := respData
   r.scale := io.scale
   r.act := Activation.RELU
   r.fromDMA := false.B
@@ -83,8 +105,8 @@ class MxuVpu(val dim: Int) extends Module {
 
 object ElaborateMxuVpu extends App {
   val dim = sys.env.getOrElse("MESH_DIM", "4").toInt
-  println("MXUVPU_ELABORATE_START dim=" + dim)
+  println("MXUVPU_ELABORATE_START dim=" + dim + " scale=" + sys.env.getOrElse("SCALE_MODE", "shift"))
   val v = (new ChiselStage).emitVerilog(new MxuVpu(dim),
-    Array("--target-dir", "mxuvpu_out_" + dim))
+    Array("--target-dir", "mxuvpu_out_" + dim + "_" + sys.env.getOrElse("SCALE_MODE", "shift")))
   println("MXUVPU_ELABORATE_OK dim=" + dim + " verilog_chars=" + v.length)
 }

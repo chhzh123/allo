@@ -7,15 +7,15 @@ source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 source /scratch/hc676/gemmini_env.sh
 S=$1
 B=/scratch/hc676/gemmini_mxuvpu
-OUT=/scratch/hc676/gemmini_mxuvpu_pnr/S$S
+OUT=/scratch/hc676/gemmini_mxuvpu_pnr/S${S}_${SCALE_MODE:-shift}
 cd /scratch/hc676 || exit 2
 
-echo "MXUVPU_S${S} ELABORATE $(date -Is)"
+echo "MXUVPU_S${S}_${SCALE_MODE:-shift} ELABORATE $(date -Is)"
 ( cd "$B" && MESH_DIM=$S timeout 7200 sbt -batch "runMain gen.ElaborateMxuVpu" ) > /scratch/hc676/mxuvpu_elab_S$S.log 2>&1
 grep -E "MXUVPU_ELABORATE_OK" /scratch/hc676/mxuvpu_elab_S$S.log || {
-  echo "MXUVPU_S${S} ELABORATE_FAILED"; tail -8 /scratch/hc676/mxuvpu_elab_S$S.log; exit 1; }
+  echo "MXUVPU_S${S}_${SCALE_MODE:-shift} ELABORATE_FAILED"; tail -8 /scratch/hc676/mxuvpu_elab_S$S.log; exit 1; }
 
-V=$B/mxuvpu_out_$S
+V=$B/mxuvpu_out_${S}_${SCALE_MODE:-shift}
 [ -f "$V/MxuVpu.v" ] || { echo "MXUVPU_S${S} NO_RTL in $V"; ls "$V" | head; exit 1; }
 
 rm -rf "$OUT"; mkdir -p "$OUT"

@@ -1,0 +1,9 @@
+array,design,scale_form,lut,ff,dsp,bram_tiles,wns_ns,unrouted,top,note
+4x4,MXU only,--,1932,1372,0,0,0.592,0,MxuOnly,MeshWithDelays alone
+8x8,MXU only,--,7535,4759,0,0,0.432,0,MxuOnly,MeshWithDelays alone
+16x16,MXU only,--,30357,18536,0,0,0.207,0,MxuOnly,MeshWithDelays alone
+4x4,MXU + VPU,shift,2132,1378,0,0,0.591,0,MxuVpu,requantise by arithmetic shift then ReLU
+8x8,MXU + VPU,shift,8042,4818,0,0,0.456,0,MxuVpu,requantise by arithmetic shift then ReLU
+16x16,MXU + VPU,shift,31932,18675,0,0,0.245,0,MxuVpu,requantise by arithmetic shift then ReLU
+4x4,MXU + VPU,multiply,2436,1403,16,0,-1.373,0,MxuVpu,multiply-then-shift scale; misses timing
+8x8,MXU + VPU,multiply,8585,4882,32,0,-1.280,0,MxuVpu,multiply-then-shift scale; misses timing
