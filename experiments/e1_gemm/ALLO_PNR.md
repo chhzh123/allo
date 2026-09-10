@@ -65,25 +65,33 @@ the throughput with more registers and a wider port, not with less logic.
 
 ## Does the flow change move the numbers? Barely, except the clock
 
-4x4 has now been routed both ways, which answers it directly:
+4x4 and 8x8 have now been routed both ways, which answers it directly:
 
-| 4x4 Allo | Vitis `export -flow impl` | Vivado out of context |
+| Allo | Vitis `export -flow impl` | Vivado out of context |
 |---|---:|---:|
-| LUT | 3,693 | 3,703 |
+| **4x4** LUT | 3,693 | 3,703 |
 | FF | 4,459 | 4,459 |
 | DSP | 16 | 16 |
 | BRAM | 3 x 18K | 1.5 x 36K |
 | WNS | +0.625 ns | +0.720 ns |
 | Implied clock | 369 MHz | 383 MHz |
+| **8x8** LUT | 8,419 | 8,425 |
+| FF | 8,220 | 8,220 |
+| DSP | 64 | 64 |
+| BRAM | 3 x 18K | 1.5 x 36K |
+| WNS | +0.598 ns | +0.719 ns |
+| Implied clock | 366 MHz | 383 MHz |
 
-Logic is the same design either way: ten lookup tables apart, 0.3%, and the
-register count identical to the unit. The block RAM figures are the same
+Logic is the same design either way: ten lookup tables apart at 4x4 and six at
+8x8, 0.3% and 0.07%, with the register count identical to the unit at both
+sizes. The block RAM figures are the same
 memory in different units, which is the trap below. What does move is the
 clock, 369 to 383 MHz, about 4%, which is the two flows' synthesis and
 implementation directives rather than a different circuit.
 
 So the area numbers published for 4x4 and 8x8 were sound; only their clocks
-were on a different basis from every other row in the table.
+were on a different basis from every other row in the table. Both sizes land
+at the same 383 MHz under the common recipe, against 369 and 366 before.
 
 ## A units trap in the `bram_18k_equiv` column
 
@@ -100,8 +108,19 @@ being moved onto the same convention as the rest of the file rather than the
 one the column name implies, so the column is internally consistent even
 though it is misnamed.
 
-## Still open
+## The Allo column, complete except 32x32
 
-- 8x8 is being re-routed on this recipe; until it lands, its published
-  8,419/8,220 at 366 MHz is a Vitis export figure.
-- 32x32 is running.
+| Array | Cycles | LUT | FF | DSP | BRAM tiles | WNS | Clock |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | 118 | 3,703 | 4,459 | 16 | 1.5 | +0.720 ns | 383 MHz |
+| 8x8 | 288 | 8,425 | 8,220 | 64 | 1.5 | +0.719 ns | 383 MHz |
+| 16x16 | 928 | 32,480 | 28,780 | 256 | 1.5 | +0.343 ns | 334 MHz |
+| 32x32 | 3,408 | -- | -- | 1,024 | -- | -- | -- |
+
+All on one recipe, the one AutoSA and the SPMW arrays use. 32x32 is still
+running.
+
+Block RAM stays at 1.5 tiles at every size while the array grows sixteenfold,
+which is worth a second look rather than being quoted as-is: this design keeps
+its operands in registers and lookup-table RAM, so the block RAM is interface
+buffering that does not scale with the mesh.
