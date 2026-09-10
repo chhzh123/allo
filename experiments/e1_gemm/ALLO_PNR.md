@@ -108,19 +108,56 @@ being moved onto the same convention as the rest of the file rather than the
 one the column name implies, so the column is internally consistent even
 though it is misnamed.
 
-## The Allo column, complete except 32x32
+## The Allo column, complete
 
-| Array | Cycles | LUT | FF | DSP | BRAM tiles | WNS | Clock |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 4x4 | 118 | 3,703 | 4,459 | 16 | 1.5 | +0.720 ns | 383 MHz |
-| 8x8 | 288 | 8,425 | 8,220 | 64 | 1.5 | +0.719 ns | 383 MHz |
-| 16x16 | 928 | 32,480 | 28,780 | 256 | 1.5 | +0.343 ns | 334 MHz |
-| 32x32 | 3,408 | -- | -- | 1,024 | -- | -- | -- |
+| Array | Cycles | LUT | of which LUTRAM | FF | DSP | BRAM tiles | WNS | Clock |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | 118 | 3,703 | 574 | 4,459 | 16 | 1.5 | +0.720 ns | 383 MHz |
+| 8x8 | 288 | 8,425 | 1,590 | 8,220 | 64 | 1.5 | +0.719 ns | 383 MHz |
+| 16x16 | 928 | 32,480 | 5,450 | 28,780 | 256 | 1.5 | +0.343 ns | 334 MHz |
+| 32x32 | 3,408 | 151,663 | 36,858 | 109,251 | 1,024 | 1.5 | **-0.657 ns** | **251 MHz** |
 
-All on one recipe, the one AutoSA and the SPMW arrays use. 32x32 is still
-running.
+All four on the recipe AutoSA and the SPMW arrays use, all routing with
+nothing unrouted.
 
-Block RAM stays at 1.5 tiles at every size while the array grows sixteenfold,
-which is worth a second look rather than being quoted as-is: this design keeps
-its operands in registers and lookup-table RAM, so the block RAM is interface
-buffering that does not scale with the mesh.
+## 32x32 misses timing, and not narrowly
+
+Allo routes at 32x32 but does not close: **WNS -0.657 ns, TNS -688.5 ns over
+4,244 failing endpoints** of 465,809. Hold is clean (+0.019 ns). The implied
+clock is 251 MHz against the 300 MHz target. It is the second design in E1 to
+miss at this size -- Gemmini's output-stationary mesh misses too, at -0.065 ns
+-- and the only one to miss by more than a rounding margin.
+
+At 32x32, kernel scope:
+
+| System | Cycles | LUT | FF | WNS | Clock |
+|---|---:|---:|---:|---:|---:|
+| SPMW kernel | **280** | 137,741 | 163,708 | **+0.529 ns** | **357 MHz** |
+| Allo | 3,408 | 151,663 | **109,251** | -0.657 ns | 251 MHz |
+| AutoSA | 2,990 | 185,634 | 317,967 | +0.111 ns | 310 MHz |
+
+**The two sizes tell opposite stories, and both belong in the paper.** At
+16x16 Allo is the smallest design and beats the SPMW kernel on both lookup
+tables and registers. At 32x32 it is larger than SPMW on lookup tables, still
+much smaller on registers, and it stops meeting timing while SPMW keeps half a
+nanosecond of margin. SPMW is the only design in E1 with comfortable slack at
+32x32; AutoSA scrapes in at +0.111 and Allo and Gemmini-OS fail.
+
+## Why the block RAM figure is flat, resolved
+
+Block RAM stays at 1.5 tiles from 4x4 to 32x32 while the array grows
+sixty-four-fold. That is not an error and not an artefact of the flow:
+**Allo puts its tiles in distributed LUT RAM instead**, and that does scale.
+
+| Array | LUT as Logic | LUT as Memory | Block RAM tiles |
+|---|---:|---:|---:|
+| 4x4 | 3,129 | 574 | 1.5 |
+| 8x8 | 6,835 | 1,590 | 1.5 |
+| 16x16 | 27,030 | 5,450 | 1.5 |
+| 32x32 | 114,805 | 36,858 | 1.5 |
+
+At 32x32, 24% of Allo's lookup tables are memory rather than logic. So its
+lookup-table column is not comparable to SPMW's as "logic": part of it is
+storage that SPMW places in registers and Gemmini would place elsewhere. The
+block RAM left at 1.5 tiles is interface buffering that does not scale with
+the mesh.

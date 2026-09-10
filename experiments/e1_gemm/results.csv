@@ -23,6 +23,6 @@ array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_be
 32x32,spmw_kernel,SPMW kernel,32^3,512b,512,512,280,298,137741,163708,1024,0,0.529,2.804,357,kernel
 32x32,gemmini,Gemmini OS mesh,32^3,streams,,,,,465002,127660,0,0,-0.065,3.398,294,array
 32x32,gemmini,Gemmini WS mesh,32^3,streams,,,,,111787,71380,0,0,0.083,3.25,308,array
-32x32,allo,Allo,32^3,narrow,32,32,3408,3457,,,1024,,,,,kernel
+32x32,allo,Allo,32^3,narrow,32,32,3408,3457,151663,109251,1024,1.5,-0.657,3.99,251,kernel
 32x32,autosa,AutoSA,32^3,narrow,256,32,2990,3064,185634,317967,1024,9.5,0.111,3.222,310,kernel
 32x32,autosa,AutoSA,32^3,wide,512,512,1222,1300,186369,320772,1024,24,0.101,3.232,309,kernel
