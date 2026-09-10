@@ -29,7 +29,7 @@ there was no error line to find either.
 ## Attempt 1: hit a six-hour cap
 
 `rc=124` after 21,600 s, no cycles. No `OutOfMemory` in the log, so the
-六-hour wall was the binding constraint rather than heap -- but the run was
+six-hour wall was the binding constraint rather than heap -- but the run was
 sitting at 2.8 GB against `SBT_OPTS="-Xmx4G"`, close enough to the ceiling
 that garbage collection was likely taking a real share of the time.
 
