@@ -156,7 +156,7 @@ puts "SYNTHESIS OK"
 """
 
 
-def design(name, size):
+def design(name, size, lanes=1):
     """One of the design doc's worked examples, by name.
 
     They come from the test fixtures rather than being restated here, so the
@@ -305,6 +305,15 @@ def design(name, size):
         from test_spmw_fft_sdf import fft_sdf_of
 
         return fft_sdf_of(size, 33)
+    if name == "fftrolled":
+        # The rolled FFT at `lanes` complex samples a cycle: log2(size) stages,
+        # of which log2(lanes) find their butterfly's partner in another lane
+        # and the rest in a delay line. `--lanes 1` is `fftsdf`'s architecture.
+        # 33 transforms a launch, as fftsdf, so the steady interval is a median
+        # of 32 completions.
+        from test_spmw_fft_rolled import fft_rolled_of
+
+        return fft_rolled_of(size, 33, lanes)
     if name == "fft":
         from test_spmw_fft import fft_spatial
 
@@ -931,6 +940,7 @@ def main():
             "feather-stream",
             "feather-x",
             "fftsdf",
+            "fftrolled",
             "gemm",
             "gemm8",
             "daisy",
@@ -959,6 +969,14 @@ def main():
         help="which worked example to build",
     )
     parser.add_argument("--size", type=int, default=4)
+    parser.add_argument(
+        "--lanes",
+        type=int,
+        default=1,
+        help="lanes for `fftrolled`: the complex samples a cycle, and so "
+        "how many of the stages find their butterfly's partner in another "
+        "lane rather than in a delay line",
+    )
     parser.add_argument(
         "--ii",
         type=int,
@@ -1058,7 +1076,7 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
-    fabric = design(args.design, args.size)
+    fabric = design(args.design, args.size, args.lanes)
     graph = spmw.elaborate(fabric)
     cost = rtl.cost(graph)
     rtl.check_netlist(graph)

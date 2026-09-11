@@ -18,8 +18,12 @@ so the law decides where that partner is:
   ``1 << (d - w)`` rows away. There is no wire to name; the partner is a delay
   line. This is `test_spmw_fft_sdf.py`'s stage, once per lane.
 - ``d < log2(W)``: the partner is **another lane at the same time**, lane
-  ``l ^ (1 << d)``. That is a wire, and it is named as one: the stage's
-  topology is ``link=lambda l: {p_out: to((l ^ stride,), p_in)}``.
+  ``l ^ (1 << d)``. That is a wire, and it is named as one: the cross
+  topology's rule is ``b_out: to((t + 1, l ^ stride), b_in)``, which is the
+  XOR of the lane law turned into an edge. It is a *fan-out*, not a swap --
+  each unit sends its result down its own lane and across to the lane that
+  will need it, rather than trading operands with its partner, because a swap
+  within a row deadlocks in HLS. See `test_the_exchange_is_a_fan_out_not_a_swap`.
 
 So **the unroll factor is the space/time split of the butterfly partners**:
 ``log2(W)`` of the ``log2(N)`` stages have their partners in space, the rest in
@@ -173,77 +177,118 @@ def fft_rolled_of(n, batch, lanes, name=None):
         delay_tw.append(_t)
 
     # ------------------------------------------------------------ the cross
-    # One placement per cross stage, on a topology whose `link` rule names each
-    # butterfly's partner. The twiddle here really is lane-independent -- the
-    # stride is below the lane count, so a lane's twiddle is a function of
-    # `l & (stride - 1)` alone -- so the table is exact at every site.
-    def cross_stage(t):
-        s = n_delay + t
-        d = w_bits - 1 - t  # this stage's separating bit
-        stride = 1 << d
+    # All the cross stages on one topology, whose `link` rule names each
+    # butterfly's partner. Every edge goes from row `t` to row `t+1`, so the
+    # graph is a DAG.
+    #
+    # The obvious shape -- two partner lanes swapping operands on a pair of
+    # streams within a row -- deadlocks, and not subtly. Vitis schedules both
+    # stream *reads* of a pipelined body at `iter0` and both *writes* at the
+    # last pipeline stage, so each lane blocks reading its partner's token
+    # nineteen stages before either lane can write one, and neither ever
+    # reaches the write: an array cosim of that design produced 0 of 1,056
+    # tokens. `test_the_exchange_is_a_fan_out_not_a_swap` is the rule that
+    # came out of it.
+    #
+    # So the partner's operand is fanned out from *upstream* instead: each unit
+    # emits its result twice -- once down its own lane, once across to the lane
+    # that needs it next -- and reads its two operands from two producers that
+    # are not waiting on it. Row 0 is a fork that does the first fan-out; rows
+    # 1..n_cross are the butterflies.
+    class CrossIO(spmw.Interface):
+        a_in = spmw.In(csample, depth=8)  # my own operand
+        b_in = spmw.In(csample, depth=8)  # my partner's, from upstream
+        a_out = spmw.Out(csample, depth=8)  # my result, down my own lane
+        b_out = spmw.Out(csample, depth=8)  # my result, across to my partner
+        tw = spmw.MemIn(float32[max(n_cross, 1), lanes, 2])
 
-        class CrossIO(spmw.Interface):
-            x_in = spmw.In(csample)
-            x_out = spmw.Out(csample)
-            p_in = spmw.In(csample, depth=2)
-            p_out = spmw.Out(csample, depth=2)
-            tw = spmw.MemIn(float32[stride, 2])
+    def cross_links(t, ell):
+        if t >= n_cross:  # the last row's results leave the placement
+            return {}
+        nxt = 1 << (w_bits - 1 - t)  # the separating bit of row t+1
+        return {
+            CrossIO.a_out: spmw.to((t + 1, ell), CrossIO.a_in),
+            CrossIO.b_out: spmw.to((t + 1, ell ^ nxt), CrossIO.b_in),
+        }
 
-        topo = spmw.Topology(
-            CrossIO,
-            grid=(lanes,),
-            # The butterfly's partner, named. Nothing here is an index into a
-            # shared buffer: the two operands are two units, and the XOR is the
-            # wire between them.
-            link=lambda ell: {CrossIO.p_out: spmw.to((ell ^ stride,), CrossIO.p_in)},
-            name=f"cross{t}",
-        )
+    cross_topo = (
+        spmw.Topology(CrossIO, grid=(n_cross + 1, lanes), link=cross_links)
+        if n_cross
+        else None
+    )
 
-        def cross(io: CrossIO, site: spmw.Site):
-            """One butterfly a cycle, its partner arriving from the named lane.
+    @spmw.unit
+    def cross(io: CrossIO, site: spmw.Site):
+        """One butterfly a cycle, on operands that arrive from two producers.
 
-            Which half of the pair a lane holds is a bit of its own
-            coordinate, so it is arithmetic rather than a per-site constant --
-            and the twiddle is the same table at every lane of the stage.
-            """
-            (ell,) = site.rank
-            # Annotated, not inferred: an unannotated local holding a
-            # comparison is given the type of the arithmetic that feeds it and
-            # then stored as a predicate, which the dataflow lowering rejects
-            # as `affine.store ... must have the same type as memref element`.
-            half: int32 = (ell >> d) & 1
-            c: int32 = ell & (stride - 1)
-            for _r in range(total_rows):
-                x = io.x_in.get()
-                io.p_out.put(x)
-                y = io.p_in.get()
-                o: csample
-                if half == 0:  # I hold the upper operand: the sum is mine
-                    o[0] = x[0] + y[0]
-                    o[1] = x[1] + y[1]
-                else:  # I hold the lower: the twiddled difference is mine
-                    dr: float32 = y[0] - x[0]
-                    di: float32 = y[1] - x[1]
-                    wr: float32 = io.tw[c, 0]
-                    wi: float32 = io.tw[c, 1]
-                    o[0] = dr * wr - di * wi
-                    o[1] = dr * wi + di * wr
-                io.x_out.put(o)
+        Which half of the pair a lane holds is a bit of its own coordinate, so
+        it is arithmetic rather than a per-site constant, and the twiddle is
+        one table shared by every site.
+        """
+        t, ell = site.rank
+        # Annotated, not inferred: an unannotated local holding a comparison is
+        # given the type of the arithmetic that feeds it and then stored as a
+        # predicate, which the dataflow lowering rejects as `affine.store ...
+        # must have the same type as memref element`.
+        k: int32 = t - 1  # which cross stage this row is
+        d: int32 = w_bits - t  # its separating bit
+        half: int32 = (ell >> d) & 1
+        c: int32 = ell & ((1 << d) - 1)
+        for _r in range(total_rows):
+            a = io.a_in.get()
+            b = io.b_in.get()
+            o: csample
+            if half == 0:  # I hold the upper operand: the sum is mine
+                o[0] = a[0] + b[0]
+                o[1] = a[1] + b[1]
+            else:  # I hold the lower: the twiddled difference is mine
+                dr: float32 = b[0] - a[0]
+                di: float32 = b[1] - a[1]
+                wr: float32 = io.tw[k, c, 0]
+                wi: float32 = io.tw[k, c, 1]
+                o[0] = dr * wr - di * wi
+                o[1] = dr * wi + di * wr
+            io.a_out.put(o)
+            io.b_out.put(o)
 
-        cross.__name__ = f"cross{t}"
-        cross.__qualname__ = f"cross{t}"
+    @cross.role(unbound=(CrossIO.b_in,))
+    def cross_fork(io: CrossIO):
+        """Row 0: there is no partner upstream yet, so this row only fans out."""
+        for _r in range(total_rows):
+            v = io.a_in.get()
+            io.a_out.put(v)
+            io.b_out.put(v)
 
-        tab = np.zeros((stride, 2), dtype=np.float32)
-        for c in range(stride):
-            tab[c] = _w(c << s, n)
-        return spmw.unit(cross), topo, tab
+    @cross.role(unbound=(CrossIO.b_out,))
+    def cross_last(io: CrossIO, site: spmw.Site):
+        """The last row: its result leaves the placement, so it fans out once."""
+        t, ell = site.rank
+        k: int32 = t - 1
+        d: int32 = w_bits - t
+        half: int32 = (ell >> d) & 1
+        c: int32 = ell & ((1 << d) - 1)
+        for _r in range(total_rows):
+            a = io.a_in.get()
+            b = io.b_in.get()
+            o: csample
+            if half == 0:
+                o[0] = a[0] + b[0]
+                o[1] = a[1] + b[1]
+            else:
+                dr: float32 = b[0] - a[0]
+                di: float32 = b[1] - a[1]
+                wr: float32 = io.tw[k, c, 0]
+                wi: float32 = io.tw[k, c, 1]
+                o[0] = dr * wr - di * wi
+                o[1] = dr * wi + di * wr
+            io.a_out.put(o)
 
-    cross_units, cross_topos, cross_tw = [], [], []
-    for _t in range(n_cross):
-        _u, _topo, _tab = cross_stage(_t)
-        cross_units.append(_u)
-        cross_topos.append(_topo)
-        cross_tw.append(_tab)
+    cross_tw = np.zeros((max(n_cross, 1), lanes, 2), dtype=np.float32)
+    for _k in range(n_cross):
+        _s = n_delay + _k
+        _d = w_bits - 1 - _k
+        for _c in range(1 << _d):
+            cross_tw[_k, _c] = _w(_c << _s, n)
 
     # ---------------------------------------------------------- the reorder
     # Decimation in frequency leaves each lane's own `rows` points bit-reversed
@@ -293,7 +338,7 @@ def fft_rolled_of(n, batch, lanes, name=None):
     @spmw.fabric
     def engine(X: float32[lanes, total_rows, 2], Y: float32[lanes, batch * rows, 2]):
         D = [spmw.place(u, on=spmw.Grid((lanes,))) for u in delay_units]
-        C = [spmw.place(u, on=topo) for u, topo in zip(cross_units, cross_topos)]
+        C = spmw.place(cross, on=cross_topo) if n_cross else None
         R = spmw.place(reorder, on=spmw.Grid((lanes,)))
 
         # One ROM per stage, each with its own name: memories made in a loop
@@ -308,25 +353,27 @@ def fft_rolled_of(n, batch, lanes, name=None):
                 name=f"twd{s}",
             )
             spmw.stationary(tw, at=p.tw)
-        for t, p in enumerate(C):
-            stride = 1 << (w_bits - 1 - t)
-            tw = spmw.mem(
-                float32[stride, 2],
-                init=cross_tw[t],
+        if n_cross:
+            twc = spmw.mem(
+                float32[n_cross, lanes, 2],
+                init=cross_tw,
                 layout=spmw.replicate,
-                name=f"twc{t}",
+                name="twc",
             )
-            spmw.stationary(tw, at=p.tw)
+            spmw.stationary(twc, at=C.tw)
         perm = spmw.mem(int32[rows], init=perm_tab, layout=spmw.replicate)
         spmw.stationary(perm, at=R.perm)
 
         # Lane `l` carries the samples whose index is congruent to `l`: the
         # lane law, at the boundary.
         spmw.stream_in(X, into=D[0].x_in, index=(D[0].rows, ...))
-        chain = D + C
-        for a, b in zip(chain, chain[1:]):
+        for a, b in zip(D, D[1:]):
             spmw.link(a.x_out, to=b.x_in)
-        spmw.link(chain[-1].x_out, to=R.x_in)
+        if n_cross:
+            spmw.link(D[-1].x_out, to=C.a_in)
+            spmw.link(C.a_out, to=R.x_in)
+        else:
+            spmw.link(D[-1].x_out, to=R.x_in)
         spmw.gather(Y, from_=R.y_out, index=(R.rows, ...))
 
     engine.__name__ = name or f"fft_rolled_{n}_w{lanes}"
@@ -338,8 +385,12 @@ def fft_rolled_of(n, batch, lanes, name=None):
     # when its loop ends: with the default stall style HLS keeps the iterations
     # in flight and the last unit is short by its depth.
     engine.spmw_pipeline_style = "flp"
-    # One transform is `rows` tokens out of each lane.
-    engine.spmw_tokens_per_transform = rows
+    # One transform is `n` output tokens. The testbench counts every token on
+    # every channel -- not every channel -- so this is the whole transform
+    # across all `lanes` lanes, not the `rows` one lane emits. Dividing by the
+    # per-lane count would report `lanes` transforms for every real one, which
+    # is the same shape of error as E2's original interval divisor.
+    engine.spmw_tokens_per_transform = n
     return engine
 
 
@@ -418,6 +469,98 @@ def test_the_unroll_factor_is_where_the_partner_lives():
             kinds = [k for k, _d in split]
             assert kinds.count("cross") == w_bits, (n, w_bits, kinds)
             assert kinds.count("delay") == stages - w_bits, (n, w_bits, kinds)
+
+
+def test_the_exchange_is_a_fan_out_not_a_swap():
+    """No edge of the cross topology stays inside a row.
+
+    A butterfly's two operands have to meet somewhere, and the shape that
+    reads like the obvious one -- partner lanes trading operands on a pair of
+    streams within a row -- deadlocks. Vitis schedules a pipelined body's
+    stream *reads* at `iter0` and its *writes* at the last pipeline stage, so
+    both lanes block on the read nineteen stages before either can reach the
+    write. An array cosimulation of exactly that design produced **0 of 1,056
+    tokens with 0 errors**: the kind of failure that looks like nothing
+    happening.
+
+    The fix is a fan-out. Every edge crosses from row `t` to row `t+1`, so the
+    graph is a DAG and no unit is waiting on a unit that is waiting on it, and
+    each unit's result goes to two consumers rather than being traded for
+    one. This is that property checked, not a comment claiming it.
+    """
+    graph = spmw.elaborate(fft_rolled_of(64, 2, 8))
+    cross = [p for p in graph.placements if p.name == "cross"]
+    assert len(cross) == 1, [p.name for p in graph.placements]
+    topo = cross[0].topology
+    assert topo.channels, "the cross topology declares no edges"
+
+    fan = {}
+    for chan in topo.channels.values():
+        wsite, _ = chan.writer
+        for rsite, _ in chan.readers:
+            # Strictly downstream: a same-row edge is the deadlocking shape.
+            assert rsite[0] == wsite[0] + 1, (wsite, rsite)
+        fan[wsite] = fan.get(wsite, 0) + 1
+
+    rows_with_out = [t for t in range(topo.grid[0] - 1)]
+    for t in rows_with_out:
+        for ell in range(topo.grid[1]):
+            assert fan.get((t, ell)) == 2, (t, ell, fan.get((t, ell)))
+
+
+def test_stationary_index_on_a_brick_is_ignored():
+    """`index=` on a stationary *brick* is accepted and then dropped.
+
+    This is why the delay stage holds its whole stage's twiddle table and
+    indexes it by lane rather than holding the `span` entries that lane reads:
+    a per-lane ROM is not expressible. `spmw.stationary` checks the map's
+    arity against the port (`bindings.py`'s `bind_check`) and records it, and
+    then neither path slices by it -- `refsim._memory_port` hands back the
+    whole `init`, and `Lowering.stationary_locals` declares the resident local
+    at the *brick's* shape rather than the port's. The two disagree by exactly
+    the axes the map was supposed to consume, and the only symptom is a
+    ValueError from inside the body.
+
+    Pinned rather than asserted-correct because it is not correct yet: when
+    the map is honoured, the declaration below becomes the port's own shape
+    and this test is the change that says so. It is the same shape of bug as
+    `xor_bank` once was -- a knob with a checker in front of it and nothing
+    behind it.
+    """
+    sites, k = 3, 2
+
+    class TabIO(spmw.Interface):
+        x_in = spmw.In(float32)
+        y_out = spmw.Out(float32)
+        tab = spmw.MemIn(float32[k])  # one row per site, says the port
+
+    @spmw.unit
+    def take(io: TabIO):
+        v = io.x_in.get()
+        io.y_out.put(v + io.tab[0])
+
+    table = np.arange(sites * k, dtype=np.float32).reshape(sites, k)
+
+    @spmw.fabric
+    def fab(X: float32[sites], Y: float32[sites]):
+        P = spmw.place(take, on=spmw.Grid((sites,)))
+        t = spmw.mem(
+            float32[sites, k], init=table, layout=spmw.replicate, name="tbl"
+        )
+        spmw.stationary(t, at=P.tab, index=(P.rows,))
+        spmw.stream_in(X, into=P.x_in, index=(P.rows,))
+        spmw.gather(Y, from_=P.y_out, index=(P.rows,))
+
+    decl = [
+        line.strip()
+        for line in spmw.source(fab).splitlines()
+        if "_st_tab:" in line
+    ]
+    assert len(decl) == 1, decl
+    # The whole table at every site -- the map consumed nothing.
+    assert "[3, 2]" in decl[0], decl[0]
+    # What the port declares, and what the slice would have been.
+    assert "[2]" not in decl[0].replace("[3, 2]", ""), decl[0]
 
 
 def test_at_one_lane_it_is_the_folded_pipeline():
