@@ -202,10 +202,22 @@ A 128-cubed int8 GEMM under the drivers' own tiling; a 16x16x64 convolution with
 both sides.
 
 With weights resident the two agree to within 0.4% at 4x4 and 8x8, at identical
-cycles per tile. When a workload has to re-feed weights, the port holds its
-interval while the original RTL takes up to 128 times longer, because its shipped
-weight loader admits one processing element per cycle. That is a property of the
-reference implementation's loader, not of the FEATHER architecture.
+cycles per tile. When a workload has to re-feed weights, the port's total falls
+with the array while the original RTL's does not move at all: 2,097,169,
+2,097,179 and 2,097,197 are the same number three times. Its loader admits one
+processing element per cycle -- probed in simulation, the array absorbs exactly
+one weight a cycle at every size, 64 writes in 64 cycles at 4x4 and 4,096 in
+4,096 at 16x16 -- and a tile holds as many weights as it performs
+multiply-accumulates, so re-feeding every tile costs this GEMM one cycle per MAC,
+128-cubed, whatever the array is. Only the first output (81, 539, 4,141) and the
+resident rows scale.
+
+Half of that is the reference implementation's loader and half is architectural:
+the drivers' own layout replicates each weight across N/2 processing-element
+rows, so a loader using the whole N-byte row instead of one byte of it would
+still leave the feed falling 2x per doubling against 4x the arithmetic. A
+weight-stationary array fed through a port that does not widen with it does not
+get faster by growing.
 
 Out of context the two are comparable in area at 4x4: 2,305 lookup tables and
 3,639 registers for the port against 2,309 and 3,378 for FEATHER's own. The

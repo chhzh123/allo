@@ -234,6 +234,56 @@ with a weight change per tile is the weight-load bandwidth (the shipped
 controller stores one PE a cycle; the SPMW port loads every PE's file in
 parallel at one token a cycle), not the datapath.
 
+### The feed-mode total does not move with the array
+
+`completion_cycles` in the GEMM feed rows is 2,097,169 / 2,097,179 / 2,097,197
+at 4x4 / 8x8 / 16x16: the same number three times, while `tiles` falls 32,768 ->
+4,096 -> 512 and the resident rows scale properly (131,149 -> 33,299 -> 12,317).
+Each is `T * N^3` plus the pipeline's tail, and `weight_rows` in the runs'
+`meta.json` -- the SRAM rows the weight port must deliver -- is `T * N^3` =
+2,097,152 at all three sizes. This is FEATHER's behaviour, not an artefact of
+the stimulus, and two facts of its design are both needed to put it there.
+
+**The loader admits one PE a cycle.** `r_pe_sel` is a free-running counter over
+the array's N^2 PEs (`feather_controller.v`: `r_pe_sel + 1` every feed cycle,
+wrapping at `DPE_COL_NUM*WEIGHTS_DEPTH - 1`), and a PE writes its file only on
+`i_pe_sel == THIS_PE_ID` (`feather_pe.v`), where `THIS_PE_ID` is the global
+`DPE_ROW_NUM*col + row` (`feather_top.v`). A PE's file is `WEIGHTS_DEPTH =
+DPE_ROW_NUM = N` deep, so a full reload is N^2 PEs x N entries = N^3 cycles.
+The port is N bytes wide and one row is read per cycle (`WEIGHTS_NUM_BANKS = 1`,
+`WEIGHTS_DATA_WIDTH = 8*DPE_COL_NUM`), so N^3 rows must cross it per tile with
+one of every N bytes used. Probed in xsim over a two-tile MODE 0 run -- counting
+the PE-file write condition on every PE every cycle -- one steady feed performs
+64 writes in 64 cycles at 4x4, 512 in 512 at 8x8 and 4,096 in 4,096 at 16x16,
+never more than 2 in any one cycle and idle in half of them: an average of
+exactly one weight a cycle at every size, which is the array's whole weight
+bandwidth.
+
+**The drivers' GEMM layout replicates each weight across N/2 PE rows**
+(`examples/feather/gemm.py`: `[B_left.transpose()] * (AW // 2)`), so a tile
+holds N^3 weight bytes for 2N^2 distinct ones. A tile is also `Mt*Kt*Nt =
+(N/2)(2N)(N) = N^3` multiply-accumulates. Per tile the array therefore loads
+exactly as many weights as it performs MACs -- weight reuse one -- so re-feeding
+every tile costs the whole GEMM one cycle per MAC, `M*K*N` = 128^3 = 2,097,152,
+whatever the array's size.
+
+Doubling the array quadruples the MACs in a tile and quadruples the weights it
+must be given to do them, through a port that does not widen. So with a weight
+change per tile a bigger FEATHER array finishes this GEMM in the same time as a
+smaller one; only `first_output_cycles` (81 / 539 / 4,141, itself N^3 + 2N + 5 +
+2 log2 N) and the resident rows scale. Widening the loader to use the whole
+N-byte row would make the feed `T * N^2` -- 524,288 / 262,144 / 131,072, which is
+arithmetic and not a run, no such loader exists -- and even that still falls only
+2x per doubling, not 4x. Half the invariance is the loader's
+one-PE-a-cycle rate; half is the mapping's N/2-fold weight replication, and that
+half is architectural.
+
+`weight_rows` is computed from the stimulus, not assumed: the convolution rows
+come out at 12,582,912 at 4x4 against 16,777,216 at 8x8 and 16x16, because the 9
+taps pad up to a multiple of AH -- 12 reduction rows at AH = 4, 16 at AH = 8 and
+16 -- and the count follows the padded reduction exactly (`completion_cycles`
+12,582,929 / 16,777,243 / 16,777,261).
+
 ## 4. Stimuli: what "general weights" means on each side
 
 - **SPMW port, general** (`weight_mode` = general, this agent's runs):
