@@ -237,15 +237,19 @@ measured, and it is not HP-FFT's advertised figure.
 
 ### Where SPMW loses: multipliers and registers
 
-| N=256, 2 samples/cyc | LUT | FF | DSP | BRAM18 | clock |
+| N=256, matched width | LUT | FF | DSP | BRAM18 | clock |
 |---|---:|---:|---:|---:|---:|
-| SPMW W=2 | 24,318 | 55,109 | **318** | **12** | 334 MHz |
-| HP-FFT UF1 | 22,403 | 22,244 | **72** | **82** | 328 MHz |
+| SPMW W=2 (2/cyc) | 24,318 | 55,109 | **318** | **12** | 334 MHz |
+| HP-FFT UF1 (2/cyc) | 22,403 | 22,244 | **72** | **82** | 328 MHz |
 | ratio | 1.09x | **2.48x** | **4.42x** | **0.15x** | 1.02x |
+| SPMW W=4 (4/cyc) | 45,150 | 104,820 | **604** | **24** | 329 MHz |
+| HP-FFT UF2 (4/cyc) | 45,482 | 37,809 | **132** | **104** | 332 MHz |
+| ratio | **0.99x** | **2.77x** | **4.58x** | **0.23x** | 0.99x |
 
-At the same datapath width SPMW spends **4.4x the DSPs and 2.5x the registers**,
-and buys with them 6.8x less block RAM, a marginally higher clock, and the
-interval above. The direction is structural rather than mysterious: this design
+At the same datapath width SPMW spends **4.4 to 4.6x the DSPs and 2.5 to 2.8x
+the registers**, and buys with them 4.3 to 6.8x less block RAM and the interval
+above. Lookup tables and clock are a wash, and the LUT side *improves* with
+width -- 1.09x HP-FFT's at two samples a cycle, 0.99x at four. The direction is structural rather than mysterious: this design
 is spatial in the stages -- `log2(N) * W` physical butterflies, each with its
 own complex multiplier and its own delay line -- whereas HP-FFT folds more of
 the transform onto shared arithmetic. The registers follow from the same place:
@@ -256,7 +260,7 @@ answered by the matched comparison: it is the price of one butterfly per stage
 per lane at II=1, and it grows linearly with `W` (159 DSPs at one lane, 318 at
 two).
 
-The routed rows for W=4, 8 and 16 are **not measured** at the time of writing;
+The routed rows for W=8 and 16 are **not measured** at the time of writing;
 `scripts/spmw/rolled_sweep.py` prints them from the reports as they land.
 
 ### One cost that is a compiler gap, not a design choice
