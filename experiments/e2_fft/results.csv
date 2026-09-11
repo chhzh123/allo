@@ -17,3 +17,4 @@ n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_c
 256,spmw,"rolled W=8, 8 samples/cycle",33,8,,,32.0,100.0,32.0,271,32,,,,,,,
 256,hpfft,"UF2, 4 samples/beat",32,4,703,766,74.5,85.9,74.5,766,64,45482,37809,132,104,0.317,3.016,332
 256,hpfft,"UF4, 8 samples/beat",32,8,782,813,400.0,8.0,400.0,813,32,86402,68295,246,294,0.011,3.322,301
+256,spmw,"rolled W=16, 16 samples/cycle",33,16,,,16.0,100.0,16.0,222,16,,,,,,,

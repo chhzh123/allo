@@ -210,7 +210,7 @@ same part, same 3.333 ns target, 33 transforms a launch.
 | UF1 | 2 | **581** | **128.0** | **100.0%** | 1,527 | 140.5 | 91.1% |
 | UF2 | 4 | **368** | **64.0** | **100.0%** | 766 | 74.5 | 85.9% |
 | UF4 | 8 | **271** | **32.0** | **100.0%** | 813 | 400.0 | 8.0% |
-| UF8 | 16 | not measured | not measured | -- | not measured | not measured | -- |
+| UF8 | 16 | **222** | **16.0** | **100.0%** | not measured | not measured | -- |
 
 **At matched width SPMW wins both axes, which the unmatched table could not
 show.** Latency 2.63x, 2.08x, 3.00x; throughput 1.10x, 1.16x, 12.5x. The
@@ -221,7 +221,12 @@ equal width it reverses.
 **The two systems diverge as they widen.** SPMW holds *exactly* 100% of its
 ideal at every width -- the interval is `N/W` to the cycle, with `min` equal to
 ideal and `max` four higher on the final drain -- while HP-FFT slides 91.1%,
-85.9%, 8.0%. The last of those is not a harness artefact: HP-FFT's own csynth
+85.9%, 8.0%. The SPMW column is measured at **every** width from 1 to 16
+samples a cycle -- 1,158 / 581 / 368 / 271 / 222 cycles of latency against
+intervals of 256 / 128 / 64 / 32 / 16 -- and the interval halves exactly on
+each doubling. Latency does not: the delay lines shorten with `W` but the
+float pipelines in them do not, so the return diminishes (2.0x from one lane
+to two, 1.22x from eight to sixteen). The last of those is not a harness artefact: HP-FFT's own csynth
 reports a top-level interval of 424 against a latency of 423 for UF4 on this
 part, i.e. no overlap between transforms at all, and the cosimulation's 400
 agrees with it. **On its own part the shipped UF4 reports an interval of 32**
