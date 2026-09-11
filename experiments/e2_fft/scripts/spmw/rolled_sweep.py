@@ -104,6 +104,86 @@ def main():
                 f"{row['transforms']} transforms"
             )
         print()
+    ii_table()
+    area_table()
+
+
+# A pipelined loop's line in a Vitis csynth report: the columns are
+# name | type | slack | latency | latency(ns) | iteration latency | INTERVAL |
+# trip count | pipelined | ...
+LOOP = re.compile(r"^\s*\|\s+o\s+(\S+)\s*\|([^|]*\|){5}\s*(\d+)\|\s*(\d+)\|\s*(\S+)\|")
+
+
+def ii_table():
+    """Initiation intervals, read out of the reports rather than inferred.
+
+    A cycle count can look like II=1 for several reasons; the report says it
+    or it does not. The worst II over every pipelined loop of every role is
+    what the array's throughput actually rests on.
+    """
+    print("\nII, from each role's csynth report (worst loop per role)\n")
+    print(f"{'W':>3} {'roles':>6} {'worst II':>9} {'longest loop':>44} {'trip':>8}")
+    print("-" * 75)
+    for lanes in (1, 2, 4, 8, 16):
+        root = SPMW / f"n{N}w{lanes}_c"
+        if not root.is_dir():
+            print(f"{lanes:>3} {'not built':>6}")
+            continue
+        worst, longest, roles = 0, None, 0
+        for role in sorted(root.glob("*_r*/prj/sol/syn/report/csynth.rpt")):
+            roles += 1
+            for line in role.read_text(errors="replace").splitlines():
+                m = LOOP.match(line)
+                if not m:
+                    continue
+                name, _, ii, trip = (
+                    m.group(1),
+                    m.group(2),
+                    int(m.group(3)),
+                    int(m.group(4)),
+                )
+                worst = max(worst, ii)
+                if longest is None or trip > longest[2]:
+                    longest = (name, ii, trip)
+        if longest is None:
+            print(f"{lanes:>3} {roles:>6} {'no loops':>9}")
+            continue
+        print(
+            f"{lanes:>3} {roles:>6} {worst:>9} {longest[0][-44:]:>44} {longest[2]:>8}"
+        )
+
+
+def area_table():
+    """Routed resources for the array, from the place-and-route reports."""
+    print("\nRouted on xcu280-fsvh2892-2L-e at 3.333 ns\n")
+    print(
+        f"{'W':>3} {'LUT':>8} {'FF':>8} {'DSP':>6} {'BRAM18':>7} {'WNS ns':>8} {'MHz':>5}"
+    )
+    print("-" * 50)
+    for lanes in (1, 2, 4, 8, 16):
+        log = SPMW / f"n{N}w{lanes}_p.log"
+        util = SPMW / f"n{N}w{lanes}_p" / "util.rpt"
+        if not util.is_file():
+            print(f"{lanes:>3} {'not measured':>8}")
+            continue
+        txt = util.read_text(errors="replace")
+
+        def cell(name, txt=txt):
+            m = re.search(r"\|\s*" + re.escape(name) + r"\s*\|\s*([\d,]+)\s*\|", txt)
+            return int(m.group(1).replace(",", "")) if m else None
+
+        wns = None
+        if log.is_file():
+            m = re.search(r"ARRAY WNS (-?[\d.]+)", log.read_text(errors="replace"))
+            wns = float(m.group(1)) if m else None
+        b18 = 2 * (cell("RAMB36/FIFO") or 0) + (cell("RAMB18") or 0)
+        mhz = f"{1000 / (3.333 - wns):.0f}" if wns is not None else "-"
+        print(
+            f"{lanes:>3} {cell('CLB LUTs') or cell('Slice LUTs'):>8} "
+            f"{cell('CLB Registers') or cell('Slice Registers'):>8} "
+            f"{cell('DSPs'):>6} {b18:>7} "
+            f"{wns if wns is not None else '-':>8} {mhz:>5}"
+        )
 
 
 if __name__ == "__main__":
