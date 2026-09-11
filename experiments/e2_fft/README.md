@@ -196,6 +196,64 @@ interval**, trip count, pipelined. Trip counts are `(BATCH+1) * N / W`: 8,704
 at one lane and 4,352 at two. This is read out of `csynth.rpt`, not inferred
 from a cycle count.
 
+### Matched unroll factors
+
+HP-FFT's boundary is `hls::stream<hls::vector<complex<float>, UF*2>>` -- `2*UF`
+complex samples a beat -- and the rolled design's is `W` lanes of one complex
+sample a cycle. So **`W = 2*UF`** is the matched point, and both sides then
+share an ideal interval of `N / (2*UF)`. Same definition as the table above,
+same part, same 3.333 ns target, 33 transforms a launch.
+
+| N=256, matched | samples/cyc | SPMW latency | SPMW interval | SPMW of ideal | HP-FFT latency | HP-FFT interval | HP-FFT of ideal |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| (below UF1) | 1 | 1,158 | 256.0 | **100.0%** | -- | -- | -- |
+| UF1 | 2 | **581** | **128.0** | **100.0%** | 1,527 | 140.5 | 91.1% |
+| UF2 | 4 | **368** | **64.0** | **100.0%** | 766 | 74.5 | 85.9% |
+| UF4 | 8 | **271** | **32.0** | **100.0%** | 813 | 400.0 | 8.0% |
+| UF8 | 16 | not measured | not measured | -- | not measured | not measured | -- |
+
+**At matched width SPMW wins both axes, which the unmatched table could not
+show.** Latency 2.63x, 2.08x, 3.00x; throughput 1.10x, 1.16x, 12.5x. The
+"HP-FFT has the higher throughput at every size, and its advantage grows"
+conclusion above is an artefact of comparing 1 sample a cycle against 2: at
+equal width it reverses.
+
+**The two systems diverge as they widen.** SPMW holds *exactly* 100% of its
+ideal at every width -- the interval is `N/W` to the cycle, with `min` equal to
+ideal and `max` four higher on the final drain -- while HP-FFT slides 91.1%,
+85.9%, 8.0%. The last of those is not a harness artefact: HP-FFT's own csynth
+reports a top-level interval of 424 against a latency of 423 for UF4 on this
+part, i.e. no overlap between transforms at all, and the cosimulation's 400
+agrees with it. **On its own part the shipped UF4 reports an interval of 32**
+(`/scratch/hc676/HP-FFT-HLS/results/n256-UF4/csynth.rpt`); the collapse is what
+retargeting to the U280 at 300 MHz does to it, not a property of the source.
+That is worth stating plainly: the number in the table is what this experiment
+measured, and it is not HP-FFT's advertised figure.
+
+### Where SPMW loses: multipliers and registers
+
+| N=256, 2 samples/cyc | LUT | FF | DSP | BRAM18 | clock |
+|---|---:|---:|---:|---:|---:|
+| SPMW W=2 | 24,318 | 55,109 | **318** | **12** | 334 MHz |
+| HP-FFT UF1 | 22,403 | 22,244 | **72** | **82** | 328 MHz |
+| ratio | 1.09x | **2.48x** | **4.42x** | **0.15x** | 1.02x |
+
+At the same datapath width SPMW spends **4.4x the DSPs and 2.5x the registers**,
+and buys with them 6.8x less block RAM, a marginally higher clock, and the
+interval above. The direction is structural rather than mysterious: this design
+is spatial in the stages -- `log2(N) * W` physical butterflies, each with its
+own complex multiplier and its own delay line -- whereas HP-FFT folds more of
+the transform onto shared arithmetic. The registers follow from the same place:
+every unit is a deep flushable pipeline and the array is all of them at once.
+
+The E1 table's remark that the DSP direction "is not explained here" is
+answered by the matched comparison: it is the price of one butterfly per stage
+per lane at II=1, and it grows linearly with `W` (159 DSPs at one lane, 318 at
+two).
+
+The routed rows for W=4, 8 and 16 are **not measured** at the time of writing;
+`scripts/spmw/rolled_sweep.py` prints them from the reports as they land.
+
 ### One cost that is a compiler gap, not a design choice
 
 `spmw.stationary(brick, at=..., index=...)` accepts a per-site index map,
