@@ -22,7 +22,9 @@ import re
 import statistics
 import sys
 
-SPMW = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "/scratch/hc676/spmw_fft_rolled")
+SPMW = pathlib.Path(
+    sys.argv[1] if len(sys.argv) > 1 else "/scratch/hc676/spmw_fft_rolled"
+)
 HPFFT = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else "/scratch/hc676/e2_hpfft")
 N = 256
 

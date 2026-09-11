@@ -544,17 +544,13 @@ def test_stationary_index_on_a_brick_is_ignored():
     @spmw.fabric
     def fab(X: float32[sites], Y: float32[sites]):
         P = spmw.place(take, on=spmw.Grid((sites,)))
-        t = spmw.mem(
-            float32[sites, k], init=table, layout=spmw.replicate, name="tbl"
-        )
+        t = spmw.mem(float32[sites, k], init=table, layout=spmw.replicate, name="tbl")
         spmw.stationary(t, at=P.tab, index=(P.rows,))
         spmw.stream_in(X, into=P.x_in, index=(P.rows,))
         spmw.gather(Y, from_=P.y_out, index=(P.rows,))
 
     decl = [
-        line.strip()
-        for line in spmw.source(fab).splitlines()
-        if "_st_tab:" in line
+        line.strip() for line in spmw.source(fab).splitlines() if "_st_tab:" in line
     ]
     assert len(decl) == 1, decl
     # The whole table at every site -- the map consumed nothing.
