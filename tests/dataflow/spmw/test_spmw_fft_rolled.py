@@ -455,6 +455,21 @@ def test_rolled_matches_numpy(n, lanes, target):
     assert norm < 1e-5
 
 
+@pytest.mark.parametrize(
+    "n,lanes", [(64, 8), (128, 16), (256, 8), (256, 32), (256, 128)]
+)
+def test_the_wide_end_of_the_sweep(n, lanes):
+    """The unroll factors the sweep actually measures, on the fast target.
+
+    The parametrisation above stops at four lanes because the simulator is
+    slow; these are the configurations the array is built at, plus the two
+    extremes -- 32 lanes, where only three stages still have their partner in
+    time, and 128, where only one does.
+    """
+    _err, norm = run(n, 2, lanes, "ref", seed=n + lanes)
+    assert norm < 1e-5
+
+
 def test_the_unroll_factor_is_where_the_partner_lives():
     """The claim the whole family rests on, read out of the layout itself.
 
