@@ -109,3 +109,7 @@ experiments/agentstudy/trials/
 !experiments/agentstudy/runs/**/*.v
 !experiments/agentstudy/runs/**/*.sv
 !experiments/agentstudy/runs/**/*.rpt
+
+# macOS finder metadata, swept in by a subagent commit
+.DS_Store
+**/.DS_Store
