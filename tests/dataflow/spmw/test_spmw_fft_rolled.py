@@ -38,10 +38,12 @@ are the same at every site of its placement -- ``spmw.stationary(brick, at=...,
 index=...)`` accepts a per-site index map and no path slices by it, so a ROM
 that differs per lane is not expressible. The delay stage therefore holds its
 whole stage's table and indexes it by the lane, which costs `W` times the ROM
-it reads; the cross stage's table is genuinely lane-independent (its stride is
-below the lane count, so the twiddle is a function of ``l & (stride-1)`` alone)
-and costs nothing. `test_stationary_index_on_a_brick_is_ignored` pins the gap
-that forces the first of those.
+it reads. The cross stage escapes it: its stride is below the lane count, so a
+lane's twiddle is a function of ``l & (stride-1)`` alone and one table serves
+every site -- ``log2(W) * W`` entries where ``W - 1`` would do, which is a few
+hundred bytes rather than tens of kilobytes.
+`test_stationary_index_on_a_brick_is_ignored` pins the gap that forces the
+first of those.
 """
 
 import cmath
