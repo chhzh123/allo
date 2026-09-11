@@ -47,13 +47,24 @@ defines `xor_bank(banks, stride_bit=None)` with
 conflict-freedom. `at_stride` **refuses** a stride below the bank count, which
 is correct -- do not work around that refusal, it is preventing data loss.
 
-**`fold` and `unroll` do not exist yet.** `spmw.place(..., fold=..., unroll=...)`
-accepts them and `Placement.__init__` stores them
-(`allo/spmw/placement.py:152-153`), but **nothing anywhere reads them back**.
-`tests/dataflow/spmw/test_spmw_elaborate.py:130` passes `fold={1: 2}` and only
-checks that the build succeeds, so the parameter is inert and the test cannot
-catch it. This is the recurring bug shape in this project: a check that exists
-but cannot fire.
+**`fold` and `unroll` are refused, not ignored.** `spmw.place(...)` accepts
+them and `Placement` stores them, but `allo/spmw/driver.py:156` `_check_realised`
+reads all three of `fold`, `unroll` and `layout` and raises
+`SPMWPlacementError("... does not realise yet")` from both `build()` and
+`customize()`, on every target.
+`tests/dataflow/spmw/test_spmw_elaborate.py:126`,
+`test_unimplemented_knobs_are_refused_rather_than_ignored`, asserts exactly
+that raise.
+
+So implementing `fold` means **deleting a passing assertion**, not adding a
+failing one, and a real implementation has to thread a sequencer through
+`lower_df`, `role_ip`, `rtl`, `cosim` and `refsim`.
+
+(An earlier version of this brief claimed the opposite -- that the knob was
+inert and the test could not fire. That was wrong. `_check_realised` reads the
+attributes by name string through `getattr`, so a grep for `.fold` does not
+find it, and the test body was not read before the claim was made. Corrected
+here so the next reader is not misled by it.)
 
 So **rolling is work you have to implement**, not a flag you set. Decide
 deliberately between:
