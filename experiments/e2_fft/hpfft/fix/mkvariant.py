@@ -20,13 +20,20 @@ def static_arrays(c):
     complex<float> default constructor stops emitting per-call init loops."""
     s, e = rev_fn_span(c)
     body = c[s:e]
-    n = 0
-    for v in ("data_rev_stream", "data_in_cyclic"):
-        body, k = re.subn(r"^(\s*)complex<float> %s\[" % v,
-                          r"\1static complex<float> %s[" % v, body, flags=re.M)
-        assert k == 1, "%s: expected 1 declaration, got %d" % (v, k)
-        n += k
-    return c[:s] + body + c[e:], n
+    # Only the scratch buffers declared at function scope, i.e. ahead of the first
+    # labelled loop. Arrays declared inside a loop body (block_data, cyclic_data)
+    # are rewritten every iteration and must stay automatic.
+    first_loop = re.search(r"^[ \t]*\w+: for ", body, re.M)
+    cut = first_loop.start() if first_loop else len(body)
+    head, tail = body[:cut], body[cut:]
+    out, n = [], 0
+    for line in head.splitlines(True):
+        if re.match(r"^[ \t]*complex<float> \w+\[", line):   # skips // comments
+            line = re.sub(r"^([ \t]*)complex<float>", r"\1static complex<float>", line)
+            n += 1
+        out.append(line)
+    assert n >= 1, "no non-static complex<float> array declarations in reverse stage"
+    return c[:s] + "".join(out) + tail + c[e:], n
 
 
 def dataflow_pipo(c):

@@ -84,16 +84,48 @@ the same bank, and at `factor=UF` = 8 banks the stride-8 write pair does.
 
 FFT_TOP interval from `csynth.rpt`:
 
-| UF | ideal | before | after | change | of ideal, before -> after |
-|---|---:|---:|---:|---|---:|
-| 1 | 128 | 147 | 147 | none found | 87.1% |
-| 2 | 64 | 84 | 84 | none found | 76.2% |
-| 4 | 32 | **424** | **52** | `static` + function pipeline | 7.5% -> 61.5% |
-| 8 | 16 | **67** | **36** | `data_2` factor `UF*2` -> `UF*4` | 23.9% -> 44.4% |
+| UF | ideal | before | after | change |
+|---|---:|---:|---:|---|
+| 1 | 128 | 147 | 147 | none found |
+| 2 | 64 | 84 | 84 | none found |
+| 4 | 32 | **424** | **52** | `static` + function pipeline |
+| 8 | 16 | **67** | **36** | `data_2` factor `UF*2` -> `UF*4` |
+
+Steady interval from the **cosimulation**, 32 transforms of numpy stimulus,
+`min` and `max` equal in every row (dead flat, no jitter):
+
+| UF | ideal | before | after | of ideal, before -> after | speedup |
+|---|---:|---:|---:|---:|---:|
+| 1 | 128 | 140.5 | 140.5 | 91.1% | 1.00x |
+| 2 | 64 | 74.5 | 74.5 | 85.9% | 1.00x |
+| 4 | 32 | **400.0** | **42.0** | 8.0% -> **76.2%** | **9.52x** |
+| 8 | 16 | **57.0** | **26.0** | 28.1% -> **61.5%** | **2.19x** |
+
+Latency falls with it: UF4 first output 782 -> 377 and full transform 813 ->
+408; UF8 284 -> 254 and 299 -> 269.
+
+The RTL result is checked against `numpy.fft.fft` on every one of the 32
+transforms, and the max absolute error is **identical before and after** --
+`5.372450323953043e-06` for all four configurations. The fix changed the
+schedule and nothing else.
 
 Cost: UF4 keeps its 258 DSPs, spends FF 85,651 -> 104,962 and saves LUT 92,237
 -> 78,012. UF8 goes DSP 423 -> 486, FF 165,953 -> 180,336, LUT 143,535 ->
-156,983.
+156,983. (csynth estimates; the fixed designs were not put through
+place-and-route, so the resource columns in `results.csv` are left blank for
+them rather than filled in with pre-P&R numbers.)
+
+## The same defect at N=1024
+
+`n1024/UF4` has the same bug spelled differently: nine function-scope arrays
+(`data_in_cyclic` plus `data_rev_stream_0..7`), all non-`static`, in a
+monolithic reverse stage. Each pays a 129-cycle constructor loop, and the shipped
+build reports FFT_TOP interval **1576 against an ideal of 128 -- 8.1%**, the same
+signature as N=256 UF4. So this is a property of the shipped UF4 sources rather
+than a one-off in one file, and `mkvariant.py`'s `static` edit covers both: it
+promotes every `complex<float>` array declared at function scope in the reverse
+stage, and deliberately leaves the loop-body scratch arrays (`block_data`,
+`cyclic_data`) automatic, since those are rewritten every iteration.
 
 ## Why none of them reach ideal, and why that is not a pragma problem
 

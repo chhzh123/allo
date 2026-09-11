@@ -204,36 +204,61 @@ sample a cycle. So **`W = 2*UF`** is the matched point, and both sides then
 share an ideal interval of `N / (2*UF)`. Same definition as the table above,
 same part, same 3.333 ns target, 33 transforms a launch.
 
-| N=256, matched | samples/cyc | SPMW latency | SPMW interval | SPMW of ideal | HP-FFT latency | HP-FFT interval | HP-FFT of ideal |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| (below UF1) | 1 | 1,158 | 256.0 | **100.0%** | -- | -- | -- |
-| UF1 | 2 | **581** | **128.0** | **100.0%** | 1,527 | 140.5 | 91.1% |
-| UF2 | 4 | **368** | **64.0** | **100.0%** | 766 | 74.5 | 85.9% |
-| UF4 | 8 | **271** | **32.0** | **100.0%** | 813 | 400.0 | 8.0% |
-| UF8 | 16 | **222** | **16.0** | **100.0%** | not measured | not measured | -- |
+The HP-FFT columns below are the **fixed** baseline. The build first measured
+here was wrong at UF4 and UF8; what was wrong with it, and the pragmas that
+repair it, are in `hpfft/fix/README.md`. The interval as first built is kept in
+the last column so the correction is visible. UF8 was previously not measured at
+all; both of its numbers are new.
 
-**At matched width SPMW wins both axes, which the unmatched table could not
-show.** Latency 2.63x, 2.08x, 3.00x; throughput 1.10x, 1.16x, 12.5x. The
-"HP-FFT has the higher throughput at every size, and its advantage grows"
-conclusion above is an artefact of comparing 1 sample a cycle against 2: at
-equal width it reverses.
+| N=256, matched | samples/cyc | SPMW latency | SPMW interval | SPMW of ideal | HP-FFT latency | HP-FFT interval | HP-FFT of ideal | (interval as first built) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| (below UF1) | 1 | 1,158 | 256.0 | **100.0%** | -- | -- | -- | -- |
+| UF1 | 2 | **581** | **128.0** | **100.0%** | 1,527 | 140.5 | 91.1% | 140.5 |
+| UF2 | 4 | **368** | **64.0** | **100.0%** | 766 | 74.5 | 85.9% | 74.5 |
+| UF4 | 8 | **271** | **32.0** | **100.0%** | 408 | 42.0 | 76.2% | *400.0* |
+| UF8 | 16 | **222** | **16.0** | **100.0%** | 269 | 26.0 | 61.5% | *57.0* |
+
+**At matched width SPMW still wins both axes, but by far less than this table
+first said.** Latency 2.63x, 2.08x, 1.51x, 1.21x; throughput 1.10x, 1.16x,
+1.31x, 1.63x. The "HP-FFT has the higher throughput at every size, and its
+advantage grows" conclusion above is an artefact of comparing 1 sample a cycle
+against 2: at equal width it reverses. But the **12.5x** at UF4 that this
+section previously reported was almost entirely our own build's fault, and the
+honest figure is **1.31x**.
 
 **The two systems diverge as they widen.** SPMW holds *exactly* 100% of its
 ideal at every width -- the interval is `N/W` to the cycle, with `min` equal to
 ideal and `max` four higher on the final drain -- while HP-FFT slides 91.1%,
-85.9%, 8.0%. The SPMW column is measured at **every** width from 1 to 16
+85.9%, 76.2%, 61.5%. The SPMW column is measured at **every** width from 1 to 16
 samples a cycle -- 1,158 / 581 / 368 / 271 / 222 cycles of latency against
 intervals of 256 / 128 / 64 / 32 / 16 -- and the interval halves exactly on
 each doubling. Latency does not: the delay lines shorten with `W` but the
 float pipelines in them do not, so the return diminishes (2.0x from one lane
-to two, 1.22x from eight to sixteen). The last of those is not a harness artefact: HP-FFT's own csynth
-reports a top-level interval of 424 against a latency of 423 for UF4 on this
-part, i.e. no overlap between transforms at all, and the cosimulation's 400
-agrees with it. **On its own part the shipped UF4 reports an interval of 32**
-(`/scratch/hc676/HP-FFT-HLS/results/n256-UF4/csynth.rpt`); the collapse is what
-retargeting to the U280 at 300 MHz does to it, not a property of the source.
-That is worth stating plainly: the number in the table is what this experiment
-measured, and it is not HP-FFT's advertised figure.
+to two, 1.22x from eight to sixteen).
+
+**HP-FFT's slide is real but it is not the collapse first reported here.** The
+8.0% at UF4, and the 28.1% the unfixed UF8 measures, were defects in our build;
+both are fixed by pragmas alone and both fixes are verified by cosimulation
+against `numpy.fft.fft` (`hpfft/fix/README.md`). What remains is structural: each butterfly stage is a
+non-pipelined process in a dataflow region, so its interval is its latency,
+`trip count + iteration latency`. The trip count *is* the ideal interval and the
+iteration latency is a near-constant ~19 cycles of float pipeline, so the
+shortfall is a fixed additive term and its share necessarily grows as the
+transform is spread over fewer beats. After the fix all four unroll factors sit
+within one cycle of that floor.
+
+The claim this section previously made -- **"on its own part the shipped UF4
+reports an interval of 32 ... the collapse is what retargeting to the U280 does
+to it, not a property of the source"** -- was wrong twice over, and both halves
+are worth correcting. The collapse was a source defect (non-`static` scratch
+arrays whose constructors cost 312 of the 423 cycles) that Vitis 2023.2 exposes
+and 2024.2 hides; and that upstream "32" is not a sustainable interval. The same
+upstream report gives its own dataflow processes intervals of 41, 42, 42, 42,
+43, 43 and flags `output_result_array_to_stream` as `Achieved TI 34, TI met:
+no`. A dataflow region cannot run at 32 when six of its processes each need
+41-43 cycles to restart; the 32 is the rate at which the first, pipelined
+process accepts input. Our fixed build measures 42.0 in cosimulation, which is
+at or better than upstream's own per-stage floor.
 
 ### Where SPMW loses: multipliers and registers
 
