@@ -3,7 +3,8 @@
 E2 reported HP-FFT at 91.1% / 85.9% / 8.0% of its ideal interval `FFT_NUM/(2*UF)`
 at UF1 / UF2 / UF4, with the UF4 row collapsing to an interval of 400 cycles
 against an ideal of 32. This directory holds the investigation of that collapse
-and the two pragma changes that remove it.
+and the pragma changes that remove it. UF8, not measured before, turned out to
+have a second and unrelated defect.
 
 Everything below is read out of the per-module **Interval** column of
 `csynth.rpt` (Vitis 2023.2, `xcu280-fsvh2892-2L-e`, 3.333 ns) or out of the
@@ -31,19 +32,33 @@ Its five loop nests run back to back:
 Two of those -- 33 and 279, i.e. **312 of the 423 cycles** -- are not FFT work.
 They are the `complex<float>` default constructor initialising the two
 non-`static` scratch arrays `data_rev_stream[UF*2][FFT_NUM/(UF*2)]` and
-`data_in_cyclic[...]` on every call. The UF1 and UF2 sources declare the same
-arrays `static` and never pay this; the shipped UF4 source does not.
+`data_in_cyclic[...]` on every call.
+
+**The N=256 UF4 source is the only one of the four that pays this.** UF1 and UF8
+declare the same two arrays `static`; UF2 does not have them at all, because its
+reverse stage is already split into three process functions
+(`reverse_read_stream_input`, `reverse_from_block_to_cyclic`,
+`reverse_write_stream_output`) that take the buffers as parameters -- the
+canonical dataflow form, which is also what the commented-out lines in the UF1
+source sketch. UF4 is the outlier: one monolithic function, automatic arrays, no
+dataflow pragma.
 
 ## The two fixes
 
 ### UF4: `static` scratch arrays, then pipeline the reverse stage as a function
 
 ```c
+ void reverse_input_stream_UF4 (...) {
++    #pragma HLS pipeline II=FFT_NUM/(2*UF)
 -    complex<float> data_rev_stream[UF*2][FFT_NUM/(UF*2)];
 -    complex<float> data_in_cyclic[UF*2][FFT_NUM/(UF*2)];
-+    #pragma HLS pipeline II=FFT_NUM/(2*UF)
 +    static complex<float> data_rev_stream[UF*2][FFT_NUM/(UF*2)];
 +    static complex<float> data_in_cyclic[UF*2][FFT_NUM/(UF*2)];
+     ...
+     READ_STREAM_INPUT: for (...) {
+-        #pragma HLS pipeline          // and the same on the other two loops:
+                                       // function pipelining unrolls them, so
+                                       // the per-loop pragmas are superseded
 ```
 
 `static` alone takes the FFT_TOP interval from **424 to 109**. The remaining 108
