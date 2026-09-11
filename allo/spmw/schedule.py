@@ -195,10 +195,56 @@ def bind_recurrences(code, names, latency):
     return "".join(lines), bound
 
 
+def bind_fabric_arith(code):
+    """Bind every float add and subtract in generated HLS C++ to fabric.
+
+    `bind_recurrences` binds one adder per accumulator, because a recurrence
+    through a float add sets the interval. This binds the *feed-forward* ones,
+    which cost nothing in interval and everything in DSP blocks: Vitis
+    implements a float add in DSPs by default, so a design that never says
+    otherwise spends two of them on every butterfly add it performs.
+
+    HP-FFT, the hand-written baseline this is measured against, carries six
+    `bind_op ... impl=fabric` pragmas in its butterfly for exactly this reason
+    and keeps only its multiplies in DSPs. Matching that is what makes the DSP
+    columns comparable rather than a comparison of who remembered the pragma.
+
+    Multiplies are deliberately left alone: the multiplier is the arithmetic
+    the DSP exists for, and moving it to fabric would cost lookup tables to no
+    purpose.
+
+    Matching is line-based and mirrors `bind_recurrences`: Allo emits one
+    operation per statement as ``float vNN = vA + vB;`` and puts a ``// L17``
+    provenance comment *after* the semicolon, so the pattern stops at the
+    semicolon rather than at end-of-line.
+
+    Returns the rewritten code and the values bound. Anything unmatched is
+    skipped -- a binding is an implementation directive, so missing one costs
+    DSP blocks rather than correctness, and it changes no rounding.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    out, bound = [], []
+    for line in code.splitlines(True):
+        out.append(line)
+        match = re.match(
+            r"(\s*)float\s+(v\d+)\s*=\s*[^;]*?([-+])\s*v\d+\s*;", line
+        )
+        if match:
+            indent, value, op = match.group(1), match.group(2), match.group(3)
+            out.append(
+                f"{indent}#pragma HLS bind_op variable={value} "
+                f"op={'fadd' if op == '+' else 'fsub'} impl=fabric\n"
+            )
+            bound.append(value)
+    return "".join(out), bound
+
+
 __all__ = [
     "Directive",
     "PIPELINE",
     "accumulators",
+    "bind_fabric_arith",
     "apply",
     "bind_recurrences",
     "interval",

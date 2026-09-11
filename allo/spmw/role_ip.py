@@ -584,6 +584,12 @@ def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwa
     built.spmw_pipelined = pipelined
     built.spmw_accumulators = carried
     built.spmw_interval = want
+    # Fabric binding is a fabric-wide choice, not a per-role one: the point is
+    # that every butterfly in the design spends the same resource.
+    built.spmw_bind_fabric = bool(
+        getattr(getattr(placement, "fabric", None), "spmw_bind_fabric", False)
+        or getattr(placement, "spmw_bind_fabric", False)
+    )
     return built
 
 
@@ -608,9 +614,18 @@ def optimise(code, built):
     """
     interval_ = getattr(built, "spmw_interval", 0)
     names = getattr(built, "spmw_accumulators", ())
-    if not interval_ or not names:
-        return code, []
-    return sched.bind_recurrences(code, names, max(interval_ - 1, 0))
+    bound = []
+    if interval_ and names:
+        code, bound = sched.bind_recurrences(code, names, max(interval_ - 1, 0))
+    # A design may also ask for its feed-forward float adds in fabric. That is
+    # a separate question from the recurrence budget above: those adders do not
+    # set the interval, they set the DSP count, because Vitis implements a
+    # float add in DSPs unless told otherwise. Off by default, so no existing
+    # design changes.
+    if getattr(built, "spmw_bind_fabric", False):
+        code, extra = sched.bind_fabric_arith(code)
+        bound = list(bound) + [v for v in extra if v not in bound]
+    return code, bound
 
 
 def _import_program(stem, src, namespace, keep):
