@@ -137,10 +137,19 @@ them rather than filled in with pre-P&R numbers.)
 monolithic reverse stage. Each pays a 129-cycle constructor loop, and the shipped
 build reports FFT_TOP interval **1576 against an ideal of 128 -- 8.1%**, the same
 signature as N=256 UF4. So this is a property of the shipped UF4 sources rather
-than a one-off in one file, and `mkvariant.py`'s `static` edit covers both: it
-promotes every `complex<float>` array declared at function scope in the reverse
-stage, and deliberately leaves the loop-body scratch arrays (`block_data`,
-`cyclic_data`) automatic, since those are rewritten every iteration.
+than a one-off in one file.
+
+`static` alone takes it **1576 -> 397** (3.97x, csim passing), leaving the
+reverse stage's three real loops in sequence at 396 while every butterfly stage
+sits at 145-147 -- trip 128 plus the same ~18-cycle iteration latency, the same
+floor as at N=256.
+
+`mkvariant.py`'s `static` edit covers both spellings: it promotes every
+`complex<float>` array declared at function scope in the reverse stage, and
+deliberately leaves the loop-body scratch arrays (`block_data`, `cyclic_data`)
+automatic, since those are rewritten every iteration. Restricting it to
+function scope matters -- the first version of the edit made those two static as
+well, which would have been wrong.
 
 ## Why none of them reach ideal, and why that is not a pragma problem
 
