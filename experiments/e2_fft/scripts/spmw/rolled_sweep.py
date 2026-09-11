@@ -174,7 +174,12 @@ def area_table():
 
         wns = None
         if log.is_file():
-            m = re.search(r"ARRAY WNS (-?[\d.]+)", log.read_text(errors="replace"))
+            text = log.read_text(errors="replace")
+            # The build script reports the routed clock in prose; the raw tcl
+            # line is only in the Vivado transcript.
+            m = re.search(r"\(WNS ([+-][\d.]+) ns\)", text) or re.search(
+                r"ARRAY WNS (-?[\d.]+)", text
+            )
             wns = float(m.group(1)) if m else None
         b18 = 2 * (cell("RAMB36/FIFO") or 0) + (cell("RAMB18") or 0)
         mhz = f"{1000 / (3.333 - wns):.0f}" if wns is not None else "-"
