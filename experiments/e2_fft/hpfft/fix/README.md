@@ -142,7 +142,46 @@ than a one-off in one file.
 `static` alone takes it **1576 -> 397** (3.97x, csim passing), leaving the
 reverse stage's three real loops in sequence at 396 while every butterfly stage
 sits at 145-147 -- trip 128 plus the same ~18-cycle iteration latency, the same
-floor as at N=256.
+floor as at N=256. Adding the function pipeline takes it to **148**, with
+`reverse_input_stream_UF4` again at interval **128 = its trip count**:
+
+| N=1024 UF4 | interval | of ideal 128 |
+|---|---:|---:|
+| shipped | 1576 | 8.1% |
+| `static` | 397 | 32.2% |
+| `static` + function pipeline | **148** | **86.5%** |
+
+The function pipeline is not free in build time: it fully unrolls the reverse
+loop, so csynth goes from 104 s to 515 s at N=1024 (trip 128) against 77 s to
+101 s at N=256 (trip 32). It will get worse with N.
+
+## The one caveat: the function pipeline spends the timing margin
+
+Issue type and slack on `FFT_TOP` in `csynth.rpt`, at the 3.333 ns target:
+
+| build | issue | slack (ns) |
+|---|---|---:|
+| n256 UF4 shipped | -- | 0.06 |
+| n256 UF4 `static` | -- | 0.06 |
+| n256 UF4 `static` + fn pipeline | **Timing** | **-0.00** |
+| n256 UF8 shipped | Timing | -0.00 |
+| n256 UF8 fixed | Timing | -0.00 |
+| n1024 UF4 shipped | Timing | -0.19 |
+| n1024 UF4 `static` | Timing | -0.19 |
+| n1024 UF4 `static` + fn pipeline | Timing | -0.19 |
+
+The UF8 fix and the `static` step cost nothing -- UF8 and N=1024 were already
+flagged in the shipped builds, and `static` leaves N=256 UF4's 0.06 ns
+untouched. At N=1024 the function pipeline costs nothing either: -0.19 before
+and after. **N=256 UF4 is the single case where a fix spends margin**, going
+from 0.06 to -0.00 on the function-pipeline step. These are csynth estimates, not routed results,
+and none of the fixed designs were taken through place-and-route; the shipped
+UF4 routed at 3.322 ns against the 3.333 ns target (wns 0.011), so it was
+already close to the edge. If the fixed UF4 will not close at 300 MHz, the
+`static`-only variant is the fallback: interval 109 rather than 52, still 3.9x
+better than the shipped 424, at the baseline's own slack. The cosimulated
+intervals quoted here are cycle counts and are unaffected either way, but a
+clock that has to drop would change the throughput in Hz.
 
 `mkvariant.py`'s `static` edit covers both spellings: it promotes every
 `complex<float>` array declared at function scope in the reverse stage, and
