@@ -117,6 +117,111 @@ reading how each maps a complex float multiply, which has not been done.
 inner loop at II=25, so a butterfly costs tens of cycles rather than one. That
 is visible in `report/csynth.rpt` at every size.
 
+## The comparison above is one point against one point
+
+SPMW's rows are a single configuration -- the folded single-path
+delay-feedback pipeline, one complex sample a cycle -- and HP-FFT ships six
+(UF1..UF32). So the table compares SPMW's only design against HP-FFT's
+narrowest. `tests/dataflow/spmw/test_spmw_fft_rolled.py` is the family that
+closes that: **`W` lanes, `W` complex samples a cycle, `W` a parameter**, and
+`W = 1` is the design already measured -- at N=256 it reproduces its latency
+(1,158) and its interval (256.0, 100% of ideal) to the cycle, which is the
+check that the sweep extends this row rather than replacing it with something
+else.
+
+`scripts/spmw_build_array.py --design fftrolled --size N --lanes W` builds it;
+`scripts/spmw/rolled_sweep.py` reads the numbers back out of the reports.
+
+### The unroll factor is the space/time split of the butterfly partners
+
+The `N` points of a block are spread over `W` lanes by the lane law
+`lane(i) = i & (W-1)`, `row(i) = i >> log2(W)` -- `spmw.banked(banks=W)`'s own
+`bank_of`/`row_of`, the same at every stage. Stage `s` of the
+decimation-in-frequency recursion pairs `i` with `i ^ (1 << d)`, `d = S-1-s`,
+and the law says where that partner is:
+
+- `d >= log2(W)`: **the same lane, `1 << (d - log2 W)` rows back.** There is no
+  wire to name; the partner is a delay line. This is the folded pipeline's
+  stage, once per lane.
+- `d < log2(W)`: **another lane at the same time, `l ^ (1 << d)`.** That is a
+  wire, and the topology names it as one.
+
+So `log2(W)` of the `log2(N)` stages have their partner in space and the rest
+in time. At `W = 1` every partner is a delay line; at `W = N/2` every partner
+is a wire. That is the whole knob, and
+`test_the_unroll_factor_is_where_the_partner_lives` checks it rather than
+asserting it in prose.
+
+**The role count does not follow the grid.** Across the sweep at N=256 the
+instance count goes 9, 20, 40, 80, 160 and the role count stays at 9, 10, 10,
+9, 8 -- so the HLS cost is flat while the array grows 17.8x. (It *falls*
+slightly because a delay stage is one role each, having its own literal span,
+while all the cross stages together are three.)
+
+### A swap deadlocks; a fan-out does not
+
+The first cross stage had partner lanes trading operands on a pair of streams
+inside one row -- the shape the algebra suggests. It passed `ref` and the
+simulator and then produced **0 of 1,056 tokens with 0 errors** in the array
+cosimulation: a failure that looks like nothing happening.
+
+The generated Verilog says why outright. In the cross unit's pipelined body
+both stream reads are enabled at `iter0` and both writes at `iter19`
+(`cross0_r0_0_..._Pipeline_l_S_r_0_r.v`), so each lane blocks reading its
+partner's token nineteen pipeline stages before either lane can write one, and
+neither ever reaches its write. `W = 1`, which has no cross stages, passed the
+same cosimulation at 1056/1056, which isolated it.
+
+The operand is therefore fanned out from *upstream*: each unit emits its result
+twice, once down its own lane and once across to the lane that will need it
+next, and reads its two operands from two producers that are not waiting on it.
+Every edge goes from row `t` to row `t+1`, so the graph is a DAG.
+`test_the_exchange_is_a_fan_out_not_a_swap` asserts that property.
+
+### II is 1, from the reports
+
+Every pipelined loop of every role reports `Interval = 1`, `yes(flp)`. The two
+that carry the work, at N=256:
+
+```
+W=1  delay stage, 9 roles
+  o l_S__b_0__b_l_S_h_0_h_l_S_c_0_c | - | 2.43 | 8726 | ... | 22 | 1 | 8704 | yes(flp)
+W=2  cross butterfly / cross fork
+  o l_S__r_0__r | - | 2.43 | 4370 | 1.455e+04 | 20 | 1 | 4352 | yes(flp)
+  o l_S__r_0__r | - | 2.43 | 4352 | 1.449e+04 |  2 | 1 | 4352 | yes(flp)
+```
+
+The columns are latency, latency(ns), **iteration latency**, **initiation
+interval**, trip count, pipelined. Trip counts are `(BATCH+1) * N / W`: 8,704
+at one lane and 4,352 at two. This is read out of `csynth.rpt`, not inferred
+from a cycle count.
+
+### One cost that is a compiler gap, not a design choice
+
+`spmw.stationary(brick, at=..., index=...)` accepts a per-site index map,
+checks its arity against the port, and then **no path slices by it** --
+`refsim._memory_port` hands back the whole `init` and
+`Lowering.stationary_locals` declares the resident local at the brick's full
+shape. (It works for a `Tensor`; only a `Brick` is dropped.) So a ROM whose
+contents differ per lane is not expressible, and the delay stage holds its
+whole stage's twiddle table and indexes it by lane. At N=256 that is:
+
+| W | delay sites | ROM held | ROM read | replication | held |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 8 | 255 | 255 | 1x | 2.0 KB |
+| 2 | 14 | 508 | 254 | 2x | 4.0 KB |
+| 4 | 24 | 1,008 | 252 | 4x | 7.9 KB |
+| 8 | 40 | 1,984 | 248 | 8x | 15.5 KB |
+| 16 | 64 | 3,840 | 240 | 16x | 30.0 KB |
+
+(complex entries.) The cross stage's table is genuinely lane-independent -- its
+stride is below the lane count, so a lane's twiddle is a function of
+`l & (stride-1)` alone -- so it costs nothing. `link(out, to, index=)` has the
+same shape of gap: the pairing is stored on the binding and never read, both
+`lower_df._plan_link` and refsim pairing sites by positional `zip`. That is why
+the lane permutation lives in a topology rule and not in a binding.
+`test_stationary_index_on_a_brick_is_ignored` pins the first of these.
+
 ## A stale summary, kept
 
 `experiments/results/e2_fft/allo/summary.md` records every P&R row as
