@@ -52,6 +52,8 @@ import numpy as np
 import pytest
 
 import allo.spmw as spmw
+import os
+
 from allo.ir.types import float32, int32
 
 csample = float32[2]  # one complex sample: [re, im]
@@ -387,6 +389,11 @@ def fft_rolled_of(n, batch, lanes, name=None):
     # when its loop ends: with the default stall style HLS keeps the iterations
     # in flight and the last unit is short by its depth.
     engine.spmw_pipeline_style = "flp"
+    # Put the butterfly's feed-forward float adds in fabric rather than DSPs,
+    # which is what HP-FFT does by hand with six `bind_op ... impl=fabric`
+    # pragmas. Off by default so the measured rows do not move underneath
+    # anyone; SPMW_BIND_FABRIC=1 builds the bound variant for comparison.
+    engine.spmw_bind_fabric = os.environ.get("SPMW_BIND_FABRIC", "") == "1"
     # One transform is `n` output tokens. The testbench counts every token on
     # every channel -- not every channel -- so this is the whole transform
     # across all `lanes` lanes, not the `rows` one lane emits. Dividing by the

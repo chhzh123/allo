@@ -585,10 +585,12 @@ def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwa
     built.spmw_accumulators = carried
     built.spmw_interval = want
     # Fabric binding is a fabric-wide choice, not a per-role one: the point is
-    # that every butterfly in the design spends the same resource.
+    # that every butterfly in the design spends the same resource. It is read
+    # off the fabric, where the design sets it -- `Placement` has no back
+    # reference to one, which is what made the first attempt at this silently
+    # never fire.
     built.spmw_bind_fabric = bool(
-        getattr(getattr(placement, "fabric", None), "spmw_bind_fabric", False)
-        or getattr(placement, "spmw_bind_fabric", False)
+        getattr(getattr(graph, "fabric", None), "spmw_bind_fabric", False)
     )
     return built
 
