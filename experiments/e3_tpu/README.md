@@ -41,6 +41,18 @@ Quoting `wall_s` as a block latency would be wrong in both directions, and
 quoting `device_kernel_s` as one would be wrong in the other. The row carries
 all five components for that reason.
 
+## The comparison against Gemmini
+
+The rows above are SPMW on its own. `gemmini/` measures Gemmini's MXU+VPU as a
+TPU at the same scope, and `micro/` is the workload both systems run -- a tiled
+int8 GEMM with bias, requantisation, ReLU and the clip to int8, entirely on
+device, at 4x4, 8x8 and 16x16. That is where the two are set side by side; the
+short version is that SPMW loses every measured column, by 27-36x on
+throughput, and `micro/README.md` says why.
+
+Note that `micro/` also moves the requantisation onto the device. The rows
+above do it on the host, which is one of the reasons `pack_s` dominates them.
+
 ## Files
 
 - `source/` -- the host driver (`spmw_gpt_block.py`), the stage engine and the
