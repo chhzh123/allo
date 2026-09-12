@@ -52,10 +52,25 @@ every power of two at every stage finds **exactly one** that works
 
 ## What it costs and what it buys
 
-`log2(n) - 2` stages need a multiplier -- the last two draw their twiddles from
-{1, -i}, where a rotation is a swap and a sign -- so the design holds
-``(log2(n) - 2) * W/2`` complex multipliers, all of them busy every beat.  At
-N=256, W=2 that is six, the same six HP-FFT UF1 has.
+A site holds one complex multiplier and it is busy every beat, so the DSP count
+is the number of sites that need one.  Two things take sites off that list:
+
+- **Per stage.** The last two stages draw their twiddles from {1, -i}, where a
+  rotation is a swap and a sign, so no site of theirs needs a multiplier.  That
+  leaves ``(log2(n) - 2) * W/2``, which at N=256, W=2 is six -- the same six
+  HP-FFT UF1 has.
+- **Per site.** Once the last permutation restores the natural layout, a site's
+  twiddle exponent stops depending on the beat, so it is a compile-time
+  constant and *individual* sites of an otherwise general stage rotate by 1 or
+  -i.  With the grid axes specialised those sites lose their multiplier too.
+  This is the saving the scalar reference gets from `if tw_k == 0` inside its
+  unrolled lane loop, and it is where HP-FFT's sub-linear DSP curve comes from;
+  it only bites at ``W >= 8``, where a stage with distance below the lane count
+  is still general.  Measured on one tail role at N=256, W=4: 12 DSP with a
+  beat-indexed ROM, 6 with the ROM specialised but no branch, 0 with both.  The
+  middle number is why the branch is needed and not just the constant --
+  ``x * 1.0`` folds and ``x * 0.0`` does not, being wrong on NaN and on a
+  signed zero.
 
 The permutation memory is `sum(d) * W` complex samples, about `1.5 n` whatever
 `W` is, against the paired design's `2n` *per stage*.  There is no buffer to
@@ -947,6 +962,52 @@ def test_one_multiplier_per_site_per_non_trivial_stage():
         assert triv == [S - 2, S - 1], (lanes, triv)
         mults = (S - len(triv)) * (lanes // 2)
         assert mults == 6 * (lanes // 2), (lanes, mults)
+
+
+def test_the_tail_folds_its_twiddles_per_site():
+    """The saving that keeps the DSP curve sub-linear, counted from the design.
+
+    The stage-level rule -- the last two stages rotate only by 1 and -i -- is
+    not the whole of it. Once the last permutation restores the natural layout
+    a site's exponent is a compile-time constant, so *individual* sites of a
+    still-general stage rotate trivially too. Those sites lose their multiplier
+    when the grid axes are specialised, which is what the scalar reference's
+    `if tw_k == 0` does inside its unrolled lane loop.
+
+    Counted here rather than asserted, because it is the difference between a
+    DSP count that doubles with the width and one that tracks HP-FFT's.
+    """
+    n, S = 256, 8
+    # sites needing a multiplier, per width: stage-level folding only, and
+    # then with the per-site folding the tail actually gets
+    for lanes, per_stage, per_site in (
+        (2, 6, 6),
+        (4, 12, 12),
+        (8, 24, 22),
+        (16, 48, 42),
+    ):
+        tab = lanes_tables(n, lanes)
+        w, sites = tab["w"], lanes // 2
+        tail = list(range(S - w, S)) if w >= 2 else []
+        stagewise = sum(
+            sites
+            for s in range(S)
+            if not set(tab["twiddles"][s].values()) <= {0, n // 4}
+        )
+        assert stagewise == per_stage, (lanes, stagewise, per_stage)
+        sitewise = 0
+        for s in range(S):
+            if s in tail:
+                # every tail stage is beat-independent, so count site by site
+                assert s in tab["site_const"], (lanes, s)
+                sitewise += sum(
+                    1 for e in tab["site_const"][s].values() if e not in (0, n // 4)
+                )
+            elif not set(tab["twiddles"][s].values()) <= {0, n // 4}:
+                sitewise += sites
+        assert sitewise == per_site, (lanes, sitewise, per_site)
+        # the saving is real from W=8 on, and there is nothing to save below it
+        assert (sitewise < stagewise) == (lanes >= 8), (lanes, sitewise, stagewise)
 
 
 def test_the_interval_is_the_ideal_one():
