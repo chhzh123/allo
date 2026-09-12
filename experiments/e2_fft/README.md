@@ -430,17 +430,64 @@ buffering a vector; the lane design overtakes it at 8 and 16 and costs a third
 to a fifth of the multipliers throughout. There is no single best SPMW design
 here, and the front is the finding.
 
-### Two gaps, stated rather than filled
+### Both gaps are now closed
 
-**HP-FFT's fixed variants are not routed.** UF4-fixed and UF8-fixed have
-cycles from cosimulation but no area or timing: their first place-and-route
-attempt failed at synthesis because HP-FFT's float adders are Xilinx IP cores
-that must be generated from `*_ip.tcl` before the RTL will elaborate, which the
-published UF1 recipe does and the first attempt did not. Rerunning on the
-correct recipe. Until it lands, the 8 and 16 samples-a-cycle rows compare on
-interval and latency only.
+HP-FFT's fixed variants are routed, on the project-based recipe that produced
+its published UF1 row -- a Vivado project with the float operators' `*_ip.tcl`
+generation scripts sourced first. A first attempt using non-project
+`read_verilog` failed at synthesis, `module FFT_TOP_fsub_..._ip not found`,
+because those adders are Xilinx IP cores that must be generated before the RTL
+will elaborate.
 
-**The UF4 fix's timing is unverified.** Its csynth slack went 0.06 to -0.00
-when the reverse stage was function-pipelined, so it may not close at 300 MHz.
-The static-only fallback (interval 109 rather than 42, still 3.9x better than
-the broken 424) is being routed alongside it for that reason.
+**The UF4 fix closes timing after all**, at +0.119 ns. The concern that its
+function pipeline had spent the margin came from a csynth estimate of -0.00;
+routing disproves it, so the static-only fallback is not needed. It is kept in
+`results.csv` as a record, unmeasured for interval, rather than deleted.
+
+**The UF8 fix does not close**, at -0.093 ns. Its interval of 26.0 is real and
+cosimulated, but there is no implementation behind it at 300 MHz, and the row
+says so.
+
+## Where the two systems actually differ, and it is not area
+
+At 8 and 16 samples a cycle the two land on nearly the same silicon:
+
+| samples/cyc | | LUT | FF | DSP | BRAM18 | WNS | latency | interval | % ideal |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 8 | HP-FFT UF4 fixed | 91,524 | 90,201 | 246 | 166 | +0.119 | 408 | 42.0 | 76.2% |
+| | **SPMW lanes W=8** | **87,021** | 102,464 | 258 | **40** | **+0.292** | **260** | **32.0** | **100%** |
+| 16 | HP-FFT UF8 fixed | 179,275 | 148,768 | 474 | 288 | **-0.093** | 269 | 26.0 | 61.5% |
+| | **SPMW lanes W=16** | **167,847** | 195,716 | 486 | **64** | **+0.079** | **200** | **16.0** | **100%** |
+
+Lookup tables within 5%, multipliers within 5%, and SPMW is 1.3x to 1.6x
+faster to a result and 1.3x to 1.6x higher in throughput, on a quarter of the
+block RAM, while closing timing where HP-FFT's widest configuration does not.
+SPMW pays for it in registers, 14% to 32% more.
+
+**The reason is not efficiency per multiplier. It is that HP-FFT refills its
+pipeline once per transform and SPMW does not.** Its inner loops all reach
+II=1 -- `FFT_Stage1` at iteration latency 7, the spatial-unroll stages at 17 to
+19, every one reporting `Interval 1`. But the *modules* around them report an
+interval equal to their own latency: `FFT_stage_spatial_unroll_4_s` is latency
+51, interval 51. Each stage is a per-transform function call inside a dataflow
+region, so it is invoked, fills its float pipeline, streams its trip count of
+beats, drains, and only then restarts.
+
+That fill is a constant, and the measurement shows it:
+
+| config | ideal | measured | overhead |
+|---|---:|---:|---:|
+| UF1 | 128 | 140.5 | +12.5 |
+| UF2 | 64 | 74.5 | +10.5 |
+| UF4 fixed | 32 | 42.0 | +10.0 |
+| UF8 fixed | 16 | 26.0 | +10.0 |
+
+About ten cycles at every width. The ideal interval halves each step while
+that constant does not, so its share grows from 9% of the interval to 38% --
+which is the whole of HP-FFT's efficiency curve, 91.1% down to 61.5%.
+
+SPMW's units are persistent processes wired by streams, `yes(flp)` at II=1,
+never restarted between transforms. The pipeline fills once at startup, so a
+stage's interval is exactly its trip count and the array's is exactly `N/W` at
+every width. The advantage is structural rather than arithmetic, and it widens
+precisely where the design is fastest.
