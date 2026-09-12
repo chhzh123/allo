@@ -22,7 +22,8 @@ n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_c
 256,hpfft,"UF8, 16 samples/beat",32,16,284,299,57.0,28.1,57.0,299,16,,,,,,,
 256,hpfft,"UF8 fixed, 16 samples/beat",32,16,254,269,26.0,61.5,26.0,269,16,,,,,,,
 256,spmw,"rolled W=1 fabric-bound, 1 sample/cycle",33,1,,,256.0,100.0,256.0,1158,256,18496,25143,87,4,0.253,3.08,325
-256,spmw,"rolled W=2 fabric-bound, 2 samples/cycle",33,2,,,128.0,100.0,128.0,581,128,36567,46704,174,6,0.345,2.988,335
+256,spmw,"rolled W=2 fabric-bound, 2 samples/cycle",33,2,,,128.0,100.0,128.0,581,128,36567,46704,174,12,0.345,2.988,335
 256,spmw,"paired W=2 fabric-bound, 2 samples/cycle",32,2,1052,5147,128.0,100.0,128.0,919,128,21266,24582,72,44,0.432,2.901,345
 256,spmw,"paired W=2 general twiddle, 2 samples/cycle",32,2,1065,5160,128.0,100.0,128.0,932,128,23523,26786,96,44,0.274,3.059,327
 256,spmw,"paired W=2 banked-buffer variant, 2 samples/cycle",32,2,2765,19145,512.0,25.0,512.0,3272,128,,,,,,,
+256,spmw,"lanes W=2 unrolled, 2 samples/cycle",32,2,1052,5147,128.0,100.0,128.0,,128,24012,28614,72,10,0.443,2.890,346
