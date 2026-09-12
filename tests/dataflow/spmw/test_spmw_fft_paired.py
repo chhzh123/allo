@@ -48,11 +48,42 @@ those is written `lag` cycles earlier, so the stage issues `lag = N/4 + 1`
 cycles behind its input and the buffer holds `2N` positions -- two blocks, so a
 slot is reused 256 cycles after it dies rather than the same cycle.
 
-`buffer="split"` and `buffer="banked"` are the same layout realised two ways:
-one holds the banks as separate memories and muxes, the other hands the linear
-address to `spmw.xor_bank` and lets the lowering place it.  They compute the
-same thing -- `test_the_two_buffer_forms_agree` -- and cost differently, which
-is the point of having both.
+## Two ways to hold the same layout, and why the design holds it the long way
+
+`buffer="banked"` hands the linear address to `spmw.xor_bank` and lets the
+lowering place it -- one memory per component, `_st_buf[bank(p), row(p)]`.
+`buffer="split"`, the default, is the same layout written out: one memory per
+bank, with the bank index chosen at elaboration and muxes on the addresses and
+the results.  They compute the same thing (`test_the_two_buffer_forms_agree`).
+
+The banked form is the one this design wanted, and it does not hold the
+interval.  Measured at N=256, W=2 on xcu280, from `csynth.rpt`:
+
+    banked, no bank partition   II=3 at every unit
+    banked, bank partitioned    II=1 at stage 0, II=2 at stages 1-7, II=4 at
+                                the reorder; array interval 512, four times
+                                the ideal, cosim passing throughout
+    split                       II=1 at all nine, array interval 128 exactly
+
+The first line is a real bug and is fixed -- `schedule.partition_banks` -- but
+the second is the thing itself.  `bank(p)` is a *runtime* value, so Vitis
+cannot prove the cycle's two reads land in different banks and must give each
+bank two read ports beside its write.  The split form makes the bank index a
+constant of the loop body and the routing dynamic instead, so each bank sees
+exactly one read and one write; the muxes are what the swizzle costs when it
+has to be honoured by a scheduler rather than by a wire.
+
+The banked form costs less area for it -- LUT 3,085 a unit against the split
+form's 3,491, FF 3,438 against 3,613, the same 12 DSP and 4 BRAM -- and the
+exact interval is worth more than either column, so the default is `split`.
+The banked form stays because it is the measurement that says so.
+
+That was not true when this was written.  The banked form first synthesised at
+**II=3**, because a banked memory reached Vitis with all its banks in one
+memory sharing one set of ports; `schedule.partition_banks` emits the pragma
+that makes the banks real, and the same source then closes at II=1.  A layout
+that places data without partitioning the ports is arithmetic with nothing on
+the other end of it.
 """
 
 import cmath
