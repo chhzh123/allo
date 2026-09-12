@@ -1,0 +1,57 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sat Sep 12 18:59:10 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 1 -file /scratch/hc676/feather_loader/pnr/rowload_N4/util_hier.rpt
+| Design       : feather_top
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|                                             Instance                                            |               Module               | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| feather_top                                                                                     |                              (top) |       2291 |       2287 |       0 |    4 | 3378 |      0 |      0 |    0 |          0 |
+|   IACTS_PING_SRAM                                                                               |   sram_sp_2d_array__parameterized0 |         32 |         32 |       0 |    0 |  160 |      0 |      0 |    0 |          0 |
+|   IACTS_PONG_SRAM                                                                               | sram_sp_2d_array__parameterized0_0 |         32 |         32 |       0 |    0 |  160 |      0 |      0 |    0 |          0 |
+|   INSTR_SRAM                                                                                    |   sram_sp_2d_array__parameterized1 |         19 |         19 |       0 |    0 |   80 |      0 |      0 |    0 |          0 |
+|   OUTPUT_BUFFER_SRAM                                                                            |   sram_sp_2d_array__parameterized2 |         32 |         32 |       0 |    0 |  160 |      0 |      0 |    0 |          0 |
+|   WEIGHTS_PING_BUFFER                                                                           |                   sram_sp_2d_array |         32 |         32 |       0 |    0 |  160 |      0 |      0 |    0 |          0 |
+|   WEIGHTS_PONG_BUFFER                                                                           |                 sram_sp_2d_array_1 |         32 |         32 |       0 |    0 |  160 |      0 |      0 |    0 |          0 |
+|   birrd_INST                                                                                    |          birrd_simple_cmd_flow_seq |        108 |        104 |       0 |    4 |  166 |      0 |      0 |    0 |          0 |
+|   feather_CONTROLLER_INST                                                                       |                 feather_controller |        585 |        585 |       0 |    0 |  256 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].COL_WISE_O_DATA_BUS                                       |                 o_bus_autopick_seq |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |                         feather_pe |         78 |         78 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |         feather_pe__parameterized0 |         80 |         80 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |         feather_pe__parameterized1 |         87 |         87 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[0].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |         feather_pe__parameterized2 |         75 |         75 |       0 |    0 |  113 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_2 |         16 |         16 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |         feather_pe__parameterized3 |         78 |         78 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |         feather_pe__parameterized4 |         80 |         80 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |         feather_pe__parameterized5 |         87 |         87 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[1].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |         feather_pe__parameterized6 |         75 |         75 |       0 |    0 |  113 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_3 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |         feather_pe__parameterized7 |         78 |         78 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |         feather_pe__parameterized8 |         80 |         80 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |         feather_pe__parameterized9 |         87 |         87 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[2].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized10 |         75 |         75 |       0 |    0 |  113 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].COL_WISE_O_DATA_BUS                                       |               o_bus_autopick_seq_4 |         16 |         16 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[0].feather_PE_OTHER_ROWS |        feather_pe__parameterized11 |        114 |        114 |       0 |    0 |  137 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[1].feather_PE_OTHER_ROWS |        feather_pe__parameterized12 |        116 |        116 |       0 |    0 |  137 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[2].feather_PE_OTHER_ROWS |        feather_pe__parameterized13 |        123 |        123 |       0 |    0 |  137 |      0 |      0 |    0 |          0 |
+|   feather_GENVAR_DPE_INST_COL_ITER[3].feather_GENVAR_DPE_INST_ROW_ITER[3].feather_PE_OTHER_ROWS |        feather_pe__parameterized14 |         75 |         75 |       0 |    0 |  129 |      0 |      0 |    0 |          0 |
++-------------------------------------------------------------------------------------------------+------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

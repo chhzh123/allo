@@ -232,6 +232,11 @@ At 4x4 and 8x8 the lookup-table counts are within 3 per cent of each other,
 which is the more informative result: at those sizes the port is neither
 cheaper nor dearer, it just moves the multipliers.
 
+The row-wise loader lands on top of the corrected RTL's row of this table
+without moving it -- within 1.7% on LUTs, within 0.03 ns on slack, and it is
+the corrected RTL's cycle counts rather than its area that the change alters.
+The numbers are under "Three controller variants" below.
+
 **Both 32x32 builds fail timing** (-0.227 ns shipped, -0.206 ns corrected), and
 the SPMW port was never run at that size, so 32x32 supports no comparison at
 all.
@@ -248,12 +253,30 @@ noise of each other and the correction is a control-path fix, not an
 architectural change.
 
 The `rtl_rowload_*` rows are the corrected controller plus the row-wise select
-(`scripts/loader/`). Its cycle counts are above; it has **not** been placed and
-routed, so the area and timing table further up is still the shipped-vs-
-corrected pair and says nothing about it. It should not cost anything -- it
-narrows a counter from `2*log2(N)` bits to `log2(N)` and compares fewer bits in
-each PE, so it is strictly less logic than the corrected controller -- but that
-is an expectation, not a measurement, and it is not one of the numbers here.
+(`scripts/loader/`), and it is placed and routed too, at the same 3.333 ns out
+of context on the same part:
+
+| Array | LUT corrected | LUT row-wise | FF corrected | FF row-wise | slack corrected | slack row-wise |
+|---|---:|---:|---:|---:|---:|---:|
+| 4x4 | 2,309 | 2,291 | 3,378 | 3,378 | +1.174 ns | +1.074 ns |
+| 8x8 | 9,694 | 9,690 | 15,332 | 15,335 | +0.355 ns | +0.386 ns |
+| 16x16 | 57,499 | 58,465 | 91,251 | 91,249 | +0.120 ns | +0.115 ns |
+
+All three route with zero unrouted nets, zero TNS and still zero DSPs. The
+differences are inside the same band as the shipped-vs-corrected pair, which is
+a control-path fix of the same kind and differs by 96 LUTs and 0.058 ns at
+16x16 while being logically the same size. **The load is `N` times cheaper and
+the area and timing are unchanged.**
+
+Worth recording that this contradicts the obvious guess. Narrowing `r_pe_sel`'s
+range from `N^2` to `N` looks like it should shrink the design -- the daisy
+chain carries one `PE_SEL_WIDTH`-bit register per PE, `2*log2(N)` bits where
+`log2(N)` now suffice, 2,048 flip-flops at 16x16. Not one of them goes away.
+The upper bits are only constant because the counter never reaches them, and
+that is a statement about the counter's reachable states rather than a constant
+Vivado can propagate, so the full width survives. Getting the flip-flops back
+would mean narrowing the parameter itself, and it is not worth a wider change
+for 1% of the registers.
 
 Two `rtl_rowload_negctl_*` rows are `fail` **on purpose**: they cross the
 weight image with the wrong select, and they are kept as the evidence that the
