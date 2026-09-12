@@ -314,6 +314,15 @@ def design(name, size, lanes=1):
         from test_spmw_fft_rolled import fft_rolled_of
 
         return fft_rolled_of(size, 33, lanes)
+    if name == "fftpaired":
+        # The paired-operand FFT: one butterfly unit a stage taking *both*
+        # operands a cycle out of an XOR-banked shared buffer, so log2(size)
+        # units at 100% rather than lanes*log2(size) at 50%. 32 transforms a
+        # launch; the fill is `lead` cycles rather than a whole block, so the
+        # steady interval is a median of 31 completions.
+        from test_spmw_fft_paired import fft_paired_of
+
+        return fft_paired_of(size, 32, lanes)
     if name == "fft":
         from test_spmw_fft import fft_spatial
 
@@ -941,6 +950,7 @@ def main():
             "feather-x",
             "fftsdf",
             "fftrolled",
+            "fftpaired",
             "gemm",
             "gemm8",
             "daisy",
