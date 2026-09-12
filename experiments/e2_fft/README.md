@@ -381,3 +381,66 @@ Both variants are kept in `results.csv`. The bound one is the like-for-like
 configuration, because it is the choice HP-FFT itself makes; the unbound one is
 what SPMW produces if a design says nothing, and the gap between them is the
 cost of that silence.
+
+
+## The full comparison: three SPMW designs against HP-FFT, N=256
+
+All routed out of context at 3.333 ns on `xcu280-fsvh2892-2L-e`, nothing
+unrouted. Latency is the last output beat of a transform minus the launch's
+first input beat; interval is the steady spacing when transforms stream back
+to back. Block RAM is RAMB18 throughout -- the column mixed 18K and 36K units
+until `93c7ad4e`, so any figure quoted before that is half of one.
+
+| samples/cyc | design | latency | interval | % ideal | LUT | FF | DSP | BRAM18 | MHz |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | HP-FFT UF1 | 1,527 | 140.5 | 91.1% | 22,403 | 22,244 | 72 | 82 | 328 |
+| | SPMW rolled W=2 | **581** | **128.0** | **100%** | 36,567 | 46,704 | 174 | 12 | 335 |
+| | SPMW paired W=2 | 919 | **128.0** | **100%** | 21,266 | 24,582 | 72 | 44 | 345 |
+| | **SPMW lanes W=2** | 645 | **128.0** | **100%** | 24,012 | 28,614 | **72** | **10** | **346** |
+| 4 | HP-FFT UF2 | 766 | 74.5 | 85.9% | 45,482 | 37,809 | 132 | 104 | 332 |
+| | SPMW rolled W=4 | **368** | **64.0** | **100%** | 45,150 | 104,820 | 604 | 24 | 329 |
+| | **SPMW lanes W=4** | 376 | **64.0** | **100%** | 45,711 | 54,192 | **144** | **20** | 323 |
+| 8 | HP-FFT UF4 fixed | 408 | 42.0 | 76.2% | not routed | | | | |
+| | SPMW rolled W=8 | **271** | **32.0** | **100%** | 89,039 | 208,553 | 1,208 | 24 | 328 |
+| | **SPMW lanes W=8** | 260 | **32.0** | **100%** | 87,021 | 102,464 | **258** | **40** | 329 |
+| 16 | HP-FFT UF8 fixed | 269 | 26.0 | 61.5% | not routed | | | | |
+| | SPMW rolled W=16 | 222 | **16.0** | **100%** | 174,629 | 411,319 | 2,356 | 48 | 301 |
+| | **SPMW lanes W=16** | **200** | **16.0** | **100%** | 167,847 | 195,716 | **486** | 64 | 307 |
+
+### What the table says
+
+**SPMW holds exactly 100% of ideal at every width; HP-FFT does not, and gets
+worse as it widens** -- 91.1%, 85.9%, 76.2%, 61.5%. That gap is structural on
+HP-FFT's side: each of its butterfly stages costs its trip count plus about 19
+cycles of float pipeline, and that fixed term takes a larger share as the
+transform is spread over fewer beats.
+
+**The lane design is the one to quote.** It matches HP-FFT's multiplier count
+at 2 samples a cycle (72 against 72), uses an eighth of its block RAM, beats
+its latency by 2.4x and its interval by 1.10x, and its DSP count then doubles
+cleanly with width -- 72, 144, 258, 486 -- because every multiplier stays
+fully used. The rolled design's did not: it drifted 159 to 147 DSP per
+sample/cycle across a 16x widening, because nothing in it ever paired a
+butterfly's two operands.
+
+**Latency and area disagree about which SPMW design wins, and both are
+reported.** Rolled is fastest to first result at 2 and 4 samples a cycle (581
+and 368 against the lane design's 645 and 376) because it streams rather than
+buffering a vector; the lane design overtakes it at 8 and 16 and costs a third
+to a fifth of the multipliers throughout. There is no single best SPMW design
+here, and the front is the finding.
+
+### Two gaps, stated rather than filled
+
+**HP-FFT's fixed variants are not routed.** UF4-fixed and UF8-fixed have
+cycles from cosimulation but no area or timing: their first place-and-route
+attempt failed at synthesis because HP-FFT's float adders are Xilinx IP cores
+that must be generated from `*_ip.tcl` before the RTL will elaborate, which the
+published UF1 recipe does and the first attempt did not. Rerunning on the
+correct recipe. Until it lands, the 8 and 16 samples-a-cycle rows compare on
+interval and latency only.
+
+**The UF4 fix's timing is unverified.** Its csynth slack went 0.06 to -0.00
+when the reverse stage was function-pipelined, so it may not close at 300 MHz.
+The static-only fallback (interval 109 rather than 42, still 3.9x better than
+the broken 424) is being routed alongside it for that reason.
