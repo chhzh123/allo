@@ -1,0 +1,157 @@
+
+
+================================================================
+== Synthesis Summary Report of 'reorder_r0_0'
+================================================================
++ General Information: 
+    * Date:           Sat Sep 12 02:20:17 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        prj
+    * Solution:       sol (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +----------------------------------------------------------+--------+-------+---------+-----------+----------+---------+------+----------+------+----+-----------+------------+-----+
+    |                          Modules                         |  Issue |       | Latency |  Latency  | Iteration|         | Trip |          |      |    |           |            |     |
+    |                          & Loops                         |  Type  | Slack | (cycles)|    (ns)   |  Latency | Interval| Count| Pipelined| BRAM | DSP|     FF    |     LUT    | URAM|
+    +----------------------------------------------------------+--------+-------+---------+-----------+----------+---------+------+----------+------+----+-----------+------------+-----+
+    |+ reorder_r0_0                                            |  Timing|  -0.06|     4690|  1.562e+04|         -|     4691|     -|        no|     -|   -|  701 (~0%)|  2409 (~0%)|    -|
+    | + reorder_r0_0_Pipeline_VITIS_LOOP_21_1_VITIS_LOOP_22_2  |  Timing|  -0.06|      258|    859.140|         -|      258|     -|        no|     -|   -|   21 (~0%)|   146 (~0%)|    -|
+    |  o VITIS_LOOP_21_1_VITIS_LOOP_22_2                       |       -|   2.43|      256|    852.480|         1|        1|   256|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_VITIS_LOOP_27_3_VITIS_LOOP_28_4  |  Timing|  -0.06|      258|    859.140|         -|      258|     -|        no|     -|   -|   21 (~0%)|   146 (~0%)|    -|
+    |  o VITIS_LOOP_27_3_VITIS_LOOP_28_4                       |       -|   2.43|      256|    852.480|         1|        1|   256|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_VITIS_LOOP_33_5_VITIS_LOOP_34_6  |  Timing|  -0.06|      258|    859.140|         -|      258|     -|        no|     -|   -|   21 (~0%)|   146 (~0%)|    -|
+    |  o VITIS_LOOP_33_5_VITIS_LOOP_34_6                       |       -|   2.43|      256|    852.480|         1|        1|   256|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_VITIS_LOOP_39_7_VITIS_LOOP_40_8  |  Timing|  -0.06|      258|    859.140|         -|      258|     -|        no|     -|   -|   21 (~0%)|   146 (~0%)|    -|
+    |  o VITIS_LOOP_39_7_VITIS_LOOP_40_8                       |       -|   2.43|      256|    852.480|         1|        1|   256|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_l_S_f_0_f                        |       -|   0.95|      193|    642.690|         -|      193|     -|        no|     -|   -|   14 (~0%)|   102 (~0%)|    -|
+    |  o l_S__f_0__f                                           |       -|   2.43|      191|    636.030|         2|        1|   191|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_l_S_blk_1_blk_l_S_r_1_r          |       -|   0.07|     4100|  1.365e+04|         -|     4100|     -|        no|     -|   -|  316 (~0%)|   397 (~0%)|    -|
+    |  o l_S_blk_1_blk_l_S_r_1_r                               |       -|   2.43|     4098|  1.365e+04|         4|        1|  4096|  yes(flp)|     -|   -|          -|           -|    -|
+    | + reorder_r0_0_Pipeline_l_S_r2_3_r2                      |       -|   0.62|      130|    432.900|         -|      130|     -|        no|     -|   -|   14 (~0%)|   103 (~0%)|    -|
+    |  o l_S_r2_3_r2                                           |       -|   2.43|      128|    426.240|         2|        1|   128|  yes(flp)|     -|   -|          -|           -|    -|
+    +----------------------------------------------------------+--------+-------+---------+-----------+----------+---------+------+----------+------+----+-----------+------------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* AP_FIFO
++-----------+-----------+------------+
+| Interface | Direction | Data Width |
++-----------+-----------+------------+
+| v0        | out       | 64         |
+| v1        | out       | 64         |
+| v2        | out       | 64         |
+| v3        | out       | 64         |
++-----------+-----------+------------+
+
+* TOP LEVEL CONTROL
++-----------+--------------+--------+
+| Interface | Type         | Ports  |
++-----------+--------------+--------+
+| ap_clk    | clock        | ap_clk |
+| ap_rst    | reset        | ap_rst |
+| ap_ctrl   | ap_ctrl_none |        |
++-----------+--------------+--------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+-----------------------------------+
+| Argument | Direction | Datatype                          |
++----------+-----------+-----------------------------------+
+| v0       | in        | stream<hls::vector<float, 2>, 0>& |
+| v1       | in        | stream<hls::vector<float, 2>, 0>& |
+| v2       | out       | stream<hls::vector<float, 2>, 0>& |
+| v3       | out       | stream<hls::vector<float, 2>, 0>& |
++----------+-----------+-----------------------------------+
+
+* SW-to-HW Mapping
++----------+--------------+-----------+
+| Argument | HW Interface | HW Type   |
++----------+--------------+-----------+
+| v0       | v0           | interface |
+| v1       | v1           | interface |
+| v2       | v2           | interface |
+| v3       | v3           | interface |
++----------+--------------+-----------+
+
+
+================================================================
+== Bind Op Report
+================================================================
++----------------------------------------------------------+-----+--------+------------+-----+--------+---------+
+| Name                                                     | DSP | Pragma | Variable   | Op  | Impl   | Latency |
++----------------------------------------------------------+-----+--------+------------+-----+--------+---------+
+| + reorder_r0_0                                           | 0   |        |            |     |        |         |
+|  + reorder_r0_0_Pipeline_VITIS_LOOP_21_1_VITIS_LOOP_22_2 | 0   |        |            |     |        |         |
+|    add_ln21_fu_106_p2                                    |     |        | add_ln21   | add | fabric | 0       |
+|    add_ln21_1_fu_132_p2                                  |     |        | add_ln21_1 | add | fabric | 0       |
+|    add_ln22_fu_156_p2                                    |     |        | add_ln22   | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_VITIS_LOOP_27_3_VITIS_LOOP_28_4 | 0   |        |            |     |        |         |
+|    add_ln27_fu_106_p2                                    |     |        | add_ln27   | add | fabric | 0       |
+|    add_ln27_1_fu_132_p2                                  |     |        | add_ln27_1 | add | fabric | 0       |
+|    add_ln28_fu_156_p2                                    |     |        | add_ln28   | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_VITIS_LOOP_33_5_VITIS_LOOP_34_6 | 0   |        |            |     |        |         |
+|    add_ln33_fu_106_p2                                    |     |        | add_ln33   | add | fabric | 0       |
+|    add_ln33_1_fu_132_p2                                  |     |        | add_ln33_1 | add | fabric | 0       |
+|    add_ln34_fu_156_p2                                    |     |        | add_ln34   | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_VITIS_LOOP_39_7_VITIS_LOOP_40_8 | 0   |        |            |     |        |         |
+|    add_ln39_fu_106_p2                                    |     |        | add_ln39   | add | fabric | 0       |
+|    add_ln39_1_fu_132_p2                                  |     |        | add_ln39_1 | add | fabric | 0       |
+|    add_ln40_fu_156_p2                                    |     |        | add_ln40   | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_l_S_f_0_f                       | 0   |        |            |     |        |         |
+|    p_f_2_fu_64_p2                                        |     |        | p_f_2      | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_l_S_blk_1_blk_l_S_r_1_r         | 0   |        |            |     |        |         |
+|    add_ln60_fu_353_p2                                    |     |        | add_ln60   | add | fabric | 0       |
+|    add_ln60_1_fu_428_p2                                  |     |        | add_ln60_1 | add | fabric | 0       |
+|    add_ln71_fu_414_p2                                    |     |        | add_ln71   | add | fabric | 0       |
+|  + reorder_r0_0_Pipeline_l_S_r2_3_r2                     | 0   |        |            |     |        |         |
+|    add_ln159_fu_130_p2                                   |     |        | add_ln159  | add | fabric | 0       |
++----------------------------------------------------------+-----+--------+------------+-----+--------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
++--------------------------------------------------+---------------+------+------+------+--------+----------+------+---------+------------------+
+| Name                                             | Usage         | Type | BRAM | URAM | Pragma | Variable | Impl | Latency | Bitwidth, Depth, |
+|                                                  |               |      |      |      |        |          |      |         | Banks            |
++--------------------------------------------------+---------------+------+------+------+--------+----------+------+---------+------------------+
+| + reorder_r0_0                                   |               |      | 0    | 0    |        |          |      |         |                  |
+|   ar_U                                           | ram_s2p array |      |      |      |        | ar       | auto | 1       | 32, 128, 1       |
+|   ar_1_U                                         | ram_s2p array |      |      |      |        | ar_1     | auto | 1       | 32, 128, 1       |
+|   ai_U                                           | ram_s2p array |      |      |      |        | ai       | auto | 1       | 32, 128, 1       |
+|   ai_1_U                                         | ram_s2p array |      |      |      |        | ai_1     | auto | 1       | 32, 128, 1       |
+|   br_U                                           | ram_s2p array |      |      |      |        | br       | auto | 1       | 32, 128, 1       |
+|   br_1_U                                         | ram_s2p array |      |      |      |        | br_1     | auto | 1       | 32, 128, 1       |
+|   bi_U                                           | ram_s2p array |      |      |      |        | bi       | auto | 1       | 32, 128, 1       |
+|   bi_1_U                                         | ram_s2p array |      |      |      |        | bi_1     | auto | 1       | 32, 128, 1       |
+|  + reorder_r0_0_Pipeline_l_S_blk_1_blk_l_S_r_1_r |               |      | 0    | 0    |        |          |      |         |                  |
+|    p_st_rd_U                                     | rom_1p        |      |      |      |        | p_st_rd  | auto | 1       | 7, 128, 1        |
++--------------------------------------------------+---------------+------+------+------+--------+----------+------+---------+------------------+
+
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+--------------------------+------------------------------------+
+| Type      | Options                  | Location                           |
++-----------+--------------------------+------------------------------------+
+| dataflow  |                          | kernel.cpp:205 in top              |
+| stream    | variable=v90 depth=8     | kernel.cpp:208 in top, v90         |
+| stream    | variable=v91 depth=8     | kernel.cpp:211 in top, v91         |
+| stream    | variable=v92 depth=8     | kernel.cpp:214 in top, v92         |
+| stream    | variable=v93 depth=8     | kernel.cpp:217 in top, v93         |
+| interface | ap_ctrl_none port=return | run.tcl:15 in reorder_r0_0, return |
++-----------+--------------------------+------------------------------------+
+
+
