@@ -252,6 +252,24 @@ def lanes_tables(n, lanes, blocks=None):
         twiddles[s] = exps
         streams = out
 
+    # Once the layout is natural again -- from the stage the last permutation
+    # feeds onwards -- a site's twiddle exponent stops depending on the beat:
+    # the low index at site `m` is `t*lanes + j` and the exponent is
+    # `(i mod D) * 2^s` with `D` dividing `lanes`, so the `t*lanes` term drops
+    # out. Those stages can therefore index their ROM by site alone, and with
+    # the site coordinate specialised the read folds to a literal -- which is
+    # what makes a rotation by 1 or -i cost no multiplier *per site* rather
+    # than only per stage. This records which stages have that property; the
+    # design asserts the ones it relies on.
+    site_const = {}
+    for s in range(S):
+        per_site = {}
+        for (m, _r), e in twiddles[s].items():
+            if per_site.setdefault(m, e) != e:
+                break
+        else:
+            site_const[s] = per_site
+
     # ---- which bin lands where, and the per-lane reorder that undoes it
     bin_at = {}
     for t in range(T):
@@ -313,6 +331,7 @@ def lanes_tables(n, lanes, blocks=None):
         "lat": lat,
         "pairings": pairings,
         "twiddles": twiddles,
+        "site_const": site_const,
         # The reorder reads its ROM at its own beat, which starts `lead` beats
         # into the stream, so the rotation is folded in here once rather than
         # being an offset the body has to carry.
@@ -478,19 +497,34 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
     # --------------------------------------------------------------- the tail
     tail_topo = None
     tail_unit = None
-    tail_triv = all(trivial(s) for s in tail) if tail else True
     if tail:
         n_tail = len(tail)
+        # Every tail stage's exponent is a per-site constant -- checked, not
+        # assumed, because the whole ROM shape below rests on it.
+        for s in tail:
+            if s not in tab["site_const"]:
+                raise AssertionError(
+                    f"stage {s} is in the tail but its twiddle exponent still "
+                    f"depends on the beat, so a per-site ROM would drop data"
+                )
 
         class TailIO(spmw.Interface):
             a_in = spmw.In(csample, depth=8)
             b_in = spmw.In(csample, depth=8)
             a_out = spmw.Out(csample, depth=8)
             b_out = spmw.Out(csample, depth=8)
-            if tail_triv:
-                sel = spmw.MemIn(int32[n_tail, R, sites])
-            else:
-                tw = spmw.MemIn(float32[n_tail, R, sites, 2])
+            # One entry per (row, site), not per beat, and a rotation code
+            # beside it. With both grid axes specialised the indices are
+            # literals, so both reads fold to the constants they are and the
+            # dead arm of the branch below goes with them: a site that rotates
+            # only by 1 or -i has no multiply left to build. That is the
+            # per-butterfly trivial-twiddle folding the scalar reference gets
+            # from unrolling its lane loop; here the lane loop is the grid.
+            #
+            # The code is a ROM rather than a test on the twiddle's magnitude,
+            # because `wr > 0.5` is also true of a 45-degree rotation.
+            tw = spmw.MemIn(float32[n_tail, sites, 2])
+            sel = spmw.MemIn(int32[n_tail, sites])
 
         def tail_links(k, m):
             if k == n_tail - 1:  # the last row's results leave the placement
@@ -512,45 +546,30 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
 
         def tail_general(io: TailIO, site: spmw.Site):
             k, m = site.rank
-            for t in range(total):
+            for _t in range(total):
                 a = io.a_in.get()
                 b = io.b_in.get()
-                r: int32 = t & (R - 1)
                 dr: float32 = a[0] - b[0]
                 di: float32 = a[1] - b[1]
-                wr: float32 = io.tw[k, r, m, 0]
-                wi: float32 = io.tw[k, r, m, 1]
+                wr: float32 = io.tw[k, m, 0]
+                wi: float32 = io.tw[k, m, 1]
+                rot: int32 = io.sel[k, m]
                 p: csample
                 q: csample
                 p[0] = a[0] + b[0]
                 p[1] = a[1] + b[1]
                 q[0] = dr * wr - di * wi
                 q[1] = dr * wi + di * wr
-                io.a_out.put(p)
-                io.b_out.put(q)
-
-        def tail_rotate(io: TailIO, site: spmw.Site):
-            k, m = site.rank
-            for t in range(total):
-                a = io.a_in.get()
-                b = io.b_in.get()
-                r: int32 = t & (R - 1)
-                dr: float32 = a[0] - b[0]
-                di: float32 = a[1] - b[1]
-                rot: int32 = io.sel[k, r, m]
-                p: csample
-                q: csample
-                p[0] = a[0] + b[0]
-                p[1] = a[1] + b[1]
-                q[0] = dr
-                q[1] = di
-                if rot == 1:
+                if rot == 1:  # rotate by 1: nothing to do
+                    q[0] = dr
+                    q[1] = di
+                if rot == 2:  # rotate by -i: a swap and a sign
                     q[0] = di
                     q[1] = 0.0 - dr
                 io.a_out.put(p)
                 io.b_out.put(q)
 
-        tail_unit = spmw.unit(tail_rotate if tail_triv else tail_general)
+        tail_unit = spmw.unit(tail_general)
 
     # ------------------------------------------------------------ the reorder
     # Decimation in frequency leaves the transform bit-reversed, and the
@@ -564,6 +583,10 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
         b_out = spmw.Out(csample, depth=8)
         rd = spmw.MemIn(int32[R])
 
+    # A body local must not be named `v<digits>`: the emitter names the role's
+    # stream arguments `v0, v1, ...`, so a local called `v2` shadows the output
+    # stream and `v2.write(...)` becomes a member reference on `float[2]`. It
+    # fails loudly at csynth rather than quietly, but the names here avoid it.
     @spmw.unit
     def reorder(io: ReorderIO):
         ar: float32[2, R]
@@ -585,24 +608,24 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
                 br[side, pos] = y[0]
                 bi[side, pos] = y[1]
                 if blk > 0:
-                    u: csample
-                    v: csample
-                    u[0] = ar[other, r]
-                    u[1] = ai[other, r]
-                    v[0] = br[other, r]
-                    v[1] = bi[other, r]
-                    io.a_out.put(u)
-                    io.b_out.put(v)
+                    lo: csample
+                    hi: csample
+                    lo[0] = ar[other, r]
+                    lo[1] = ai[other, r]
+                    hi[0] = br[other, r]
+                    hi[1] = bi[other, r]
+                    io.a_out.put(lo)
+                    io.b_out.put(hi)
         last: int32 = (batch - 1) & 1
         for r2 in range(R):
-            u2: csample
-            v2: csample
-            u2[0] = ar[last, r2]
-            u2[1] = ai[last, r2]
-            v2[0] = br[last, r2]
-            v2[1] = bi[last, r2]
-            io.a_out.put(u2)
-            io.b_out.put(v2)
+            tlo: csample
+            thi: csample
+            tlo[0] = ar[last, r2]
+            tlo[1] = ai[last, r2]
+            thi[0] = br[last, r2]
+            thi[1] = bi[last, r2]
+            io.a_out.put(tlo)
+            io.b_out.put(thi)
 
     perm_units = {
         op[1]: perm_unit(op[1], op[2], op[3]) for op in ops if op[0] == "perm"
@@ -626,7 +649,15 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
             s: spmw.place(u, on=spmw.Grid((sites,)))
             for s, (u, _t) in bfly_units.items()
         }
-        Tl = spmw.place(tail_unit, on=tail_topo) if tail else None
+        # Both grid axes specialised: the row picks the stage and the site
+        # picks the lane pair, and a body that reads either as a literal
+        # folds its twiddle read to a constant. One role per tail site is
+        # the price, and they synthesise concurrently.
+        Tl = (
+            spmw.place(tail_unit, on=tail_topo, specialise=(0, 1))
+            if tail
+            else None
+        )
         Rd = spmw.place(reorder, on=spmw.Grid((sites,)))
 
         # One ROM per stage, each with its own name: memories made in a loop
@@ -662,35 +693,30 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
                     at=B[s].tw,
                 )
         if tail:
-            if tail_triv:
-                rot = np.array(
-                    [[[1 if e else 0 for e in row] for row in exps_of(s)] for s in tail],
-                    dtype=np.int32,
-                )
-                spmw.stationary(
-                    spmw.mem(
-                        int32[len(tail), R, sites],
-                        init=rot,
-                        layout=spmw.replicate,
-                        name="rottail",
-                    ),
-                    at=Tl.sel,
-                )
-            else:
-                tw = np.zeros((len(tail), R, sites, 2), dtype=np.float32)
-                for k, s in enumerate(tail):
-                    for r, row in enumerate(exps_of(s)):
-                        for m, e in enumerate(row):
-                            tw[k, r, m] = _w(e, n)
-                spmw.stationary(
-                    spmw.mem(
-                        float32[len(tail), R, sites, 2],
-                        init=tw,
-                        layout=spmw.replicate,
-                        name="twtail",
-                    ),
-                    at=Tl.tw,
-                )
+            tw = np.zeros((len(tail), sites, 2), dtype=np.float32)
+            rot = np.zeros((len(tail), sites), dtype=np.int32)
+            for k, s in enumerate(tail):
+                for m, e in tab["site_const"][s].items():
+                    tw[k, m] = _w(e, n)
+                    rot[k, m] = 1 if e == 0 else (2 if e == n // 4 else 0)
+            spmw.stationary(
+                spmw.mem(
+                    float32[len(tail), sites, 2],
+                    init=tw,
+                    layout=spmw.replicate,
+                    name="twtail",
+                ),
+                at=Tl.tw,
+            )
+            spmw.stationary(
+                spmw.mem(
+                    int32[len(tail), sites],
+                    init=rot,
+                    layout=spmw.replicate,
+                    name="rottail",
+                ),
+                at=Tl.sel,
+            )
         spmw.stationary(
             spmw.mem(
                 int32[R], init=np.array(tab["perm"], dtype=np.int32),
