@@ -3,26 +3,26 @@ array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_be
 4x4,spmw_kernel,SPMW kernel,4^3,512b,512,512,47,66,1867,2516,16,0,1.301,2.032,492,kernel
 4x4,gemmini,Gemmini OS mesh,4^3,streams,,,,,7235,2096,0,0,0.297,3.036,329,array
 4x4,gemmini,Gemmini WS mesh,4^3,streams,,,17,,1592,1064,0,0,0.59,2.743,365,array
-4x4,allo,Allo,4^3,narrow,32,32,118,167,3703,4459,16,1.5,0.72,2.613,383,kernel
-4x4,autosa,AutoSA,4^3,narrow,32,32,78,148,4974,8171,16,3,0.512,2.821,354,kernel
+4x4,allo,Allo,4^3,narrow,32,32,118,167,3703,4459,16,3,0.72,2.613,383,kernel
+4x4,autosa,AutoSA,4^3,narrow,32,32,78,148,4974,8171,16,6,0.512,2.821,354,kernel
 8x8,spmw_mesh,SPMW mesh,8^3,streams,,,28,,2225,4301,64,0,0.996,2.337,428,array
 8x8,spmw_kernel,SPMW kernel,8^3,512b,512,512,82,100,8015,10220,64,0,1.232,2.101,476,kernel
 8x8,gemmini,Gemmini OS mesh,8^3,streams,,,,,28982,8147,0,0,0.112,3.221,310,array
 8x8,gemmini,Gemmini WS mesh,8^3,streams,,,33,,6457,4128,0,0,0.418,2.915,343,array
-8x8,allo,Allo,8^3,narrow,32,32,288,337,8425,8220,64,1.5,0.719,2.614,383,kernel
-8x8,autosa,AutoSA,8^3,narrow,64,32,222,292,13393,22924,64,5,0.69,2.643,378,kernel
-8x8,autosa,AutoSA,8^3,wide,512,512,130,202,15343,25536,64,23,0.738,2.595,385,kernel
+8x8,allo,Allo,8^3,narrow,32,32,288,337,8425,8220,64,3,0.719,2.614,383,kernel
+8x8,autosa,AutoSA,8^3,narrow,64,32,222,292,13393,22924,64,10,0.69,2.643,378,kernel
+8x8,autosa,AutoSA,8^3,wide,512,512,130,202,15343,25536,64,46,0.738,2.595,385,kernel
 16x16,spmw_mesh,SPMW mesh,16^3,streams,,,52,,9026,18048,256,0,0.428,2.905,344,array
 16x16,spmw_kernel,SPMW kernel,16^3,512b,512,512,133,152,32756,40732,256,0,0.541,2.792,358,kernel
 16x16,gemmini,Gemmini OS mesh,16^3,streams,,,,,116055,32162,0,0,0.032,3.301,303,array
 16x16,gemmini,Gemmini WS mesh,16^3,streams,,,65,,26847,17024,0,0,0.306,3.027,330,array
-16x16,allo,Allo,16^3,narrow,32,32,928,977,32480,28780,256,1.5,0.343,2.99,334,kernel
-16x16,autosa,AutoSA,16^3,narrow,128,32,782,859,47390,81265,256,9,0.41,2.923,342,kernel
-16x16,autosa,AutoSA,16^3,wide,512,512,374,445,48957,84062,256,23,0.38,2.953,339,kernel
+16x16,allo,Allo,16^3,narrow,32,32,928,977,32480,28780,256,3,0.343,2.99,334,kernel
+16x16,autosa,AutoSA,16^3,narrow,128,32,782,859,47390,81265,256,18,0.41,2.923,342,kernel
+16x16,autosa,AutoSA,16^3,wide,512,512,374,445,48957,84062,256,46,0.38,2.953,339,kernel
 32x32,spmw_mesh,SPMW mesh,32^3,streams,,,100,,37917,74945,1024,0,0.431,2.902,345,array
 32x32,spmw_kernel,SPMW kernel,32^3,512b,512,512,280,298,137741,163708,1024,0,0.529,2.804,357,kernel
 32x32,gemmini,Gemmini OS mesh,32^3,streams,,,,,465002,127660,0,0,-0.065,3.398,294,array
 32x32,gemmini,Gemmini WS mesh,32^3,streams,,,,,111787,71380,0,0,0.083,3.25,308,array
-32x32,allo,Allo,32^3,narrow,32,32,3408,3457,151663,109251,1024,1.5,-0.657,3.99,251,kernel
-32x32,autosa,AutoSA,32^3,narrow,256,32,2990,3064,185634,317967,1024,9.5,0.111,3.222,310,kernel
-32x32,autosa,AutoSA,32^3,wide,512,512,1222,1300,186369,320772,1024,24,0.101,3.232,309,kernel
+32x32,allo,Allo,32^3,narrow,32,32,3408,3457,151663,109251,1024,3,-0.657,3.99,251,kernel
+32x32,autosa,AutoSA,32^3,narrow,256,32,2990,3064,185634,317967,1024,19,0.111,3.222,310,kernel
+32x32,autosa,AutoSA,32^3,wide,512,512,1222,1300,186369,320772,1024,48,0.101,3.232,309,kernel

@@ -100,13 +100,20 @@ at the same 383 MHz under the common recipe, against 369 and 366 before.
 -- the same memory, a factor of two apart.
 
 The column is named `bram_18k_equiv`, but every row produced by the
-out-of-context recipe -- SPMW, AutoSA, Gemmini, and now Allo -- stores Block
-RAM Tiles, so those values are **half** what the column name says. AutoSA's
-9.5 at 32x32 is the giveaway: 36K tiles come in halves, 18K blocks do not.
-This predates these runs and affects the AutoSA rows too. The Allo rows are
-being moved onto the same convention as the rest of the file rather than the
-one the column name implies, so the column is internally consistent even
-though it is misnamed.
+out-of-context recipe -- SPMW, AutoSA, Gemmini and Allo -- stored Block RAM
+Tiles, so those values were **half** what the column name said. AutoSA's 9.5
+at 32x32 was the giveaway: 36K tiles come in halves, 18K blocks do not.
+
+**Now corrected.** Every non-zero cell has been doubled, so the column holds
+what its name claims. Verified against the reports rather than assumed: Allo
+16x16's `ooc_util.rpt` reads `Block RAM Tile 1.5` and `RAMB18E2 3`, and both
+`pnr_matched.sh` and `allo_ooc.sh` read the tile line. Allo is 3 RAMB18 at
+every size, AutoSA 6/10/18/19 narrow and 46/46/48 wide, SPMW and Gemmini
+zero throughout.
+
+E2's table had the same trap in a worse form -- one unit in some rows and the
+other in the rest -- and is corrected too. Anyone quoting a block RAM figure
+from before these two commits is quoting half of one.
 
 ## The Allo column, complete
 
