@@ -27,3 +27,5 @@ n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_c
 256,spmw,"paired W=2 general twiddle, 2 samples/cycle",32,2,1065,5160,128.0,100.0,128.0,932,128,23523,26786,96,44,0.274,3.059,327
 256,spmw,"paired W=2 banked-buffer variant, 2 samples/cycle",32,2,2765,19145,512.0,25.0,512.0,3272,128,,,,,,,
 256,spmw,"lanes W=2 unrolled, 2 samples/cycle",32,2,586,5147,128.0,100.0,128.0,645,128,24012,28614,72,10,0.443,2.890,346
+256,spmw,"lanes W=4 unrolled, 4 samples/cycle",32,4,349,5147,64.0,100.0,64.0,376,64,45711,54192,144,20,0.241,3.092,323
+256,spmw,"lanes W=8 unrolled, 8 samples/cycle",32,8,249,5147,32.0,100.0,32.0,260,32,87021,102464,258,40,0.292,3.041,329
