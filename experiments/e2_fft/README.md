@@ -53,8 +53,23 @@ ping-pong: the consumer task cannot start until the producer task has finished,
 and the buffer is doubled so the next transform can fill one half while this one
 drains the other.
 
-SPMW connects its units with **depth-2 register slices** (`spmw_fifo`, 32 of
-them in the W=8 fabric). A consumer starts on the first token, not the last.
+SPMW connects its units with **depth-8 FIFOs carrying one complex sample each**
+-- `spmw_fifo #(.DW(64), .DEPTH(8))`, 32 of them in the W=8 fabric, read out of
+the generated `spmw_top.sv`. A consumer starts on the first token, not the
+last, and the channel holds eight samples rather than a transform.
+
+That is also **not** the mechanism the reference Allo design uses, which is
+worth stating because the two are easy to conflate. `feature/allo-fft`'s
+`tests/dataflow/test_fft.py` streams a whole `WIDTH`-element vector per token
+(`Stream[float32[WIDTH], 2]`) and unrolls a lane loop inside the stage, so the
+swizzled indices `il`/`iu` fold to constants. This design has **no shared
+buffer and no bank arithmetic at all**: the `W` lanes are `W` separate scalar
+streams, a stage is `W/2` sites, and site `m` reads the two lanes it needs on
+two ports. The lane index is a *placement coordinate*, which is a stronger
+compile-time constant than an unrolled loop index. Where the partner is `D >= W`
+away -- the same lane, several beats back, which no site can read -- a
+permutation element in front of the stage turns that beat distance into a lane
+distance.
 
 Everything below follows from that, and each row is checked rather than
 asserted.
