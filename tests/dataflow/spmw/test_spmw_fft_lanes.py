@@ -199,9 +199,7 @@ def lanes_tables(n, lanes, blocks=None):
     blocks = blocks or (4 + (lat + R - 1) // R)
     T = blocks * R
 
-    streams = [
-        [(t // R, (t % R) * lanes + j) for t in range(T)] for j in range(lanes)
-    ]
+    streams = [[(t // R, (t % R) * lanes + j) for t in range(T)] for j in range(lanes)]
 
     twiddles, pairings = {}, {}
     for op in ops:
@@ -361,9 +359,7 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
     plain = [s for s in range(S) if s not in tail]
 
     def exps_of(s):
-        return [
-            [tab["twiddles"][s][(m, r)] for m in range(sites)] for r in range(R)
-        ]
+        return [[tab["twiddles"][s][(m, r)] for m in range(sites)] for r in range(R)]
 
     def trivial(s):
         return set(tab["twiddles"][s].values()) <= {0, n // 4}
@@ -540,9 +536,7 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
                         out[port] = spmw.to((k + 1, m1), TailIO.b_in)
             return out
 
-        tail_topo = spmw.Topology(
-            TailIO, grid=(n_tail, sites), link=tail_links
-        )
+        tail_topo = spmw.Topology(TailIO, grid=(n_tail, sites), link=tail_links)
 
         def tail_general(io: TailIO, site: spmw.Site):
             k, m = site.rank
@@ -642,9 +636,7 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
         Ya: float32[sites, batch * R, 2],
         Yb: float32[sites, batch * R, 2],
     ):
-        P = {
-            s: spmw.place(u, on=spmw.Grid((sites,))) for s, u in perm_units.items()
-        }
+        P = {s: spmw.place(u, on=spmw.Grid((sites,))) for s, u in perm_units.items()}
         B = {
             s: spmw.place(u, on=spmw.Grid((sites,)))
             for s, (u, _t) in bfly_units.items()
@@ -653,11 +645,7 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
         # picks the lane pair, and a body that reads either as a literal
         # folds its twiddle read to a constant. One role per tail site is
         # the price, and they synthesise concurrently.
-        Tl = (
-            spmw.place(tail_unit, on=tail_topo, specialise=(0, 1))
-            if tail
-            else None
-        )
+        Tl = spmw.place(tail_unit, on=tail_topo, specialise=(0, 1)) if tail else None
         Rd = spmw.place(reorder, on=spmw.Grid((sites,)))
 
         # One ROM per stage, each with its own name: memories made in a loop
@@ -719,8 +707,10 @@ def fft_lanes_of(n, batch, lanes=2, name=None):
             )
         spmw.stationary(
             spmw.mem(
-                int32[R], init=np.array(tab["perm"], dtype=np.int32),
-                layout=spmw.replicate, name="rdl",
+                int32[R],
+                init=np.array(tab["perm"], dtype=np.int32),
+                layout=spmw.replicate,
+                name="rdl",
             ),
             at=Rd.rd,
         )
@@ -852,7 +842,9 @@ def test_lanes_matches_numpy(n, lanes, target):
     assert norm < 1e-5
 
 
-@pytest.mark.parametrize("n,lanes", [(64, 2), (128, 4), (256, 2), (256, 4), (256, 8), (256, 16)])
+@pytest.mark.parametrize(
+    "n,lanes", [(64, 2), (128, 4), (256, 2), (256, 4), (256, 8), (256, 16)]
+)
 def test_the_wide_end_of_the_sweep(n, lanes):
     """The configurations the array is built at, on the fast target."""
     _err, norm = run(n, 2, lanes, "ref", seed=n + lanes)
@@ -951,9 +943,7 @@ def test_one_multiplier_per_site_per_non_trivial_stage():
     S = 8
     for lanes in (2, 4, 8, 16):
         tab = lanes_tables(n, lanes)
-        triv = [
-            s for s in range(S) if set(tab["twiddles"][s].values()) <= {0, n // 4}
-        ]
+        triv = [s for s in range(S) if set(tab["twiddles"][s].values()) <= {0, n // 4}]
         assert triv == [S - 2, S - 1], (lanes, triv)
         mults = (S - len(triv)) * (lanes // 2)
         assert mults == 6 * (lanes // 2), (lanes, mults)
@@ -1000,9 +990,11 @@ def test_the_tail_crossings_are_a_function_of_the_width():
     for lanes, want in ((2, 0), (4, 1), (8, 2), (16, 3)):
         tab = lanes_tables(n, lanes)
         S, w = tab["S"], tab["w"]
-        wire = [s for s in range(S) if not any(
-            o[0] == "perm" and o[1] == s for o in tab["ops"]
-        )]
+        wire = [
+            s
+            for s in range(S)
+            if not any(o[0] == "perm" and o[1] == s for o in tab["ops"])
+        ]
         assert len(wire) == w - 1 == want, (lanes, wire)
         for a, b in zip(wire, wire[1:]):
             assert tab["pairings"][a] != tab["pairings"][b], (lanes, a, b)
