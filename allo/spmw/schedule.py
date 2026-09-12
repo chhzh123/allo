@@ -18,7 +18,7 @@ bounded by the adder's latency -- still benefits from being pipelined at the
 interval it *can* meet, which is what HLS falls back to on its own.
 """
 
-from .errors import SPMWPlacementError
+from .errors import SPMWMemoryError, SPMWPlacementError
 
 PIPELINE = "pipeline"
 
@@ -240,6 +240,50 @@ def bind_fabric_arith(code):
     return "".join(out), bound
 
 
+def partition_banks(code, banked):
+    """Give every banked memory one set of ports per bank.
+
+    Banking is a promise about *ports*, not about addresses: the point of the
+    swizzle is that a butterfly's two operands sit in different banks so both
+    can be read in one cycle. Vitis keeps a `[banks][rows]` array in a single
+    memory unless told otherwise, so without this the swizzle costs its address
+    arithmetic and buys nothing -- the accesses queue on the same two ports and
+    the loop's interval multiplies by however many of them there are.
+
+    Measured on the paired FFT at N=256, two samples a cycle, four accesses a
+    bank a cycle: **II=3 without this pragma and II=1 with it**, same design,
+    same source. That is the whole difference between a banked memory and a
+    banked memory that works.
+
+    Anything unmatched raises. `bind_recurrences` and `bind_fabric_arith` skip
+    what they cannot find because a missing binding costs DSP blocks; a missing
+    partition costs the interval, which is the thing the design exists to hold.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    out, placed = [], set()
+    for line in code.splitlines(True):
+        match = re.match(r"(\s*)//\s*placeholder for .*?\b(_st_\w+)\b", line)
+        if match and match.group(2) in banked and match.group(2) not in placed:
+            local = match.group(2)
+            out.append(
+                f"{match.group(1)}#pragma HLS array_partition variable={local} "
+                f"complete dim=1\n"
+            )
+            placed.add(local)
+        out.append(line)
+    missing = sorted(set(banked) - placed)
+    if missing:
+        raise SPMWMemoryError(
+            f"banked memor{'y' if len(missing) == 1 else 'ies'} "
+            f"{', '.join(missing)} could not be partitioned: no declaration was "
+            f"found to attach the pragma to. Unpartitioned, the banks share one "
+            f"memory's ports and the swizzle buys nothing, so this is refused "
+            f"rather than emitted as a design that is banked in name only."
+        )
+    return "".join(out), sorted(placed)
+
+
 __all__ = [
     "Directive",
     "PIPELINE",
@@ -248,5 +292,6 @@ __all__ = [
     "apply",
     "bind_recurrences",
     "interval",
+    "partition_banks",
     "pipeline",
 ]

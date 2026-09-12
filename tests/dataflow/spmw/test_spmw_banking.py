@@ -419,3 +419,44 @@ def _unit_source_of(fabric, order=0):
 
     emitter = UnitEmitter(spmw.elaborate(fabric))
     return emitter.program(emitter.placements()[0], order)[0]
+
+
+def test_a_banked_memory_is_partitioned_on_its_bank_axis():
+    """Banking is a promise about ports, and the pragma is where it is kept.
+
+    Vitis keeps a `[banks][rows]` array in one memory unless told otherwise, so
+    a banked brick without this partition has one set of ports for all its
+    banks: the swizzle costs its arithmetic and buys nothing. Measured on the
+    paired FFT at N=256 -- four accesses a bank a cycle -- the same design
+    synthesises at II=3 without the pragma and II=1 with it.
+
+    That is why `partition_banks` raises where `bind_recurrences` skips: a
+    missing binding costs DSP blocks, a missing partition costs the interval.
+    """
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw import schedule as sched
+
+    code = "  // placeholder for const float _st_tab\t// L21\n  x = 1;\n"
+    out, placed = sched.partition_banks(code, {"_st_tab": BANKS})
+    assert placed == ["_st_tab"]
+    assert "#pragma HLS array_partition variable=_st_tab complete dim=1" in out
+    assert out.index("array_partition") < out.index("x = 1")
+    with pytest.raises(SPMWMemoryError, match="banked in name only"):
+        sched.partition_banks("  x = 1;\n", {"_st_tab": BANKS})
+
+
+def test_the_emitter_names_the_banked_locals_a_role_holds():
+    """The partition list comes from the rewriter, not from a second guess.
+
+    Two lists of "which memories are banked" is how the first bug in this file
+    happened -- one half permuted the contents and the other did not know.
+    """
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw.role_ip import UnitEmitter
+
+    banked = UnitEmitter(
+        spmw.elaborate(_fabric_with(spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2)))
+    )
+    assert banked.banked_residents(banked.placements()[0], 0) == {"_st_tab": BANKS}
+    plain = UnitEmitter(spmw.elaborate(_fabric_with(spmw.replicate)))
+    assert plain.banked_residents(plain.placements()[0], 0) == {}

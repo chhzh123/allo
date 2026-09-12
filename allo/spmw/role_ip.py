@@ -410,6 +410,22 @@ class UnitEmitter:
         )
         return text, extras
 
+    def banked_residents(self, placement, order):
+        """The `_st_` locals this role holds banked, by bank count.
+
+        The unit path needs them by name to partition them, and asking the
+        emitter is what keeps that list the same list the body was rewritten
+        against rather than a second guess at which memories are banked.
+        """
+        _sig, _routing, sites = self.classes(placement)[order]
+        _body, _pids, rewriter = self.body_for(placement, order, sites[0])
+        out = {}
+        for port_name, port in rewriter.residents.items():
+            layout = self.low.resident_layout(rewriter.placement, port)
+            if layout is not None:
+                out[f"_st_{port_name}"] = layout.banks
+        return out
+
     def programs(self):
         """Every role in the design, as `(name, source, extras)`."""
         out = []
@@ -662,6 +678,9 @@ def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwa
     built = schedule.build(target=target, **kwargs)
     built.spmw_unit_source = src
     built.spmw_unit_name = name
+    # Banking without partitioning is banking in name only: the banks share one
+    # memory's ports and the interval multiplies. `optimise` emits the pragma.
+    built.spmw_banked = emitter.banked_residents(placement, order)
     built.spmw_pipelined = pipelined
     built.spmw_accumulators = carried
     built.spmw_interval = want
@@ -708,6 +727,13 @@ def optimise(code, built):
     if getattr(built, "spmw_bind_fabric", False):
         code, extra = sched.bind_fabric_arith(code)
         bound = list(bound) + [v for v in extra if v not in bound]
+    # A banked memory has to be partitioned on its bank axis or the banks are
+    # one memory with one set of ports, and the swizzle has bought nothing but
+    # the arithmetic to compute it. Unlike the bindings above this is not an
+    # optimisation: it is what makes the layout mean what it says.
+    banked = getattr(built, "spmw_banked", None)
+    if banked:
+        code, _placed = sched.partition_banks(code, banked)
     return code, bound
 
 
