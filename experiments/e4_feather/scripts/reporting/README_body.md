@@ -33,7 +33,7 @@ Directory layout:
 - `validation/<run_id>/` -- the `check.json` (RTL) / `result.json` (SPMW) of
   every run, plus `meta.json` (seed, zero points, pattern, layout constants);
   for the single-tile matrices one subdirectory per run.
-- `scripts/previous_agent/`, `scripts/this_agent/` -- both workspaces' scripts;
+- `scripts/harness/`, `scripts/reporting/` -- both workspaces' scripts;
   `scripts/feather_controller.diff` -- the RTL patch.
 
 ## 1. Columns of results.csv
@@ -350,7 +350,7 @@ RTL: `feather_top` out of context (`synth_design -mode out_of_context -generic
 DPE_COL_NUM=N -generic DPE_ROW_NUM=N`, every other parameter the shipped
 default -- depth-4 SRAM register arrays, as the authors' own Figure-14 reports
 -- then opt, place, phys_opt, route at `create_clock -period 3.333`), shipped
-and corrected controller, N = 4 / 8 / 16 / 32 (`scripts/previous_agent/pnr_ooc.sh`).
+and corrected controller, N = 4 / 8 / 16 / 32 (`scripts/harness/pnr_ooc.sh`).
 
 SPMW port: the registry's `feather-stream` (NT = 16; NT only changes loop
 bounds) and `feather` (single tile, resident int8 files) through
@@ -362,7 +362,7 @@ at most two Vivado jobs of this package run at once.
 
 ## 7. Commands
 
-RTL, general bench, whole workloads (this agent; `scripts/this_agent/chains.sh`
+RTL, general bench, whole workloads (this agent; `scripts/reporting/chains.sh`
 runs them all):
 
     cd /scratch/hc676/e4b_work
@@ -385,7 +385,7 @@ Single-tile matrices and the constrained workloads (first agent):
     cd /scratch/hc676/e4_work
     python3 e4_matrix.py --rtl /scratch/hc676/e4_feather_fixed/RTL --N <N> --tag fixed --set validate --out /scratch/hc676/e4_rtl_runs/matrix
     python3 e4_matrix.py --rtl /scratch/hc676/feather_ref/FEATHER_RTL/RTL --N <N> --tag orig --set orig --out /scratch/hc676/e4_rtl_runs/matrix
-    python3 e4_rtl_run.py --rtl /scratch/hc676/e4_feather_fixed/RTL --N 8 --out /scratch/hc676/e4_rtl_runs/wl_gemm_N8_m0 --workload gemm --gemm 128,128,128 --mode 0 --zpa 7 --zpw 5 --pattern small --seed 0   (and the N16 mid / conv N4 small variants, see scripts/previous_agent)
+    python3 e4_rtl_run.py --rtl /scratch/hc676/e4_feather_fixed/RTL --N 8 --out /scratch/hc676/e4_rtl_runs/wl_gemm_N8_m0 --workload gemm --gemm 128,128,128 --mode 0 --zpa 7 --zpw 5 --pattern small --seed 0   (and the N16 mid / conv N4 small variants, see scripts/harness)
     python3 e4_spmw_run.py --N 8 --workload gemm --gemm 128,128,128 --pattern small --seed 0 --out /scratch/hc676/e4_spmw/wl_gemm_N8_stream   (etc.)
     cd /scratch/hc676/allo && python3 scripts/spmw_feather_rtl.py --feather /scratch/hc676/feather_ref --sizes 4,8,16,32 --passes 2 --out /scratch/hc676/e4_rtl_runs/restricted
 
@@ -398,7 +398,7 @@ P&R:
 
 Collecting: `python3 /scratch/hc676/e4b_work/e4b_collect.py`.
 
-The second agent's changes to the first agent's scripts (`scripts/this_agent/patch_gen.py`,
+The second agent's changes to the first agent's scripts (`scripts/reporting/patch_gen.py`,
 `patch_spmw.py` apply them; the Allo checkout was not modified):
 
 - `e4_feather_gen.py`: the `mixed` pattern; `conv_insts(AW)` with

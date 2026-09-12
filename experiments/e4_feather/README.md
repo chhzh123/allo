@@ -5,6 +5,54 @@ Same layout as E1 to E3: `<framework>/S<n>/{source,generated,report}`.
 (shipped and corrected); `spmw/` is the port. Report files are prefixed by
 variant and mode, because one array size carries several of both.
 
+## Latency: SPMW's lead grows with the array, and the reason is the weight loader
+
+First output, weights resident on both sides, from the cosimulations:
+
+| Array | SPMW port | FEATHER RTL | SPMW faster by |
+|---|---:|---:|---:|
+| 4x4 | 50 | 81 | 1.6x |
+| 8x8 | 96 | 539 | **5.6x** |
+| 16x16 | 164 | 4,141 | **25.2x** |
+
+**FEATHER emits nothing until every weight is in.** Its first output lands at
+`N^3` cycles plus a small constant -- 64+17, 512+27, 4096+45 -- because its
+loader admits one processing element per cycle and the array holds `N^2`
+elements with an `N`-deep weight file each. That is the same one-slot-a-cycle
+loader that makes the feed-mode total invariant, measured directly in
+simulation: 64 writes in 64 cycles at 4x4, 4,096 in 4,096 at 16x16.
+
+SPMW's port starts draining while operands are still arriving, so its first
+output grows roughly with the array's edge rather than its volume: 50, 96, 164.
+
+Completion, same rows, is much closer, because once loaded both arrays compute
+at the same rate:
+
+| Array | SPMW | FEATHER RTL |
+|---|---:|---:|
+| 4x4 | 131,118 | 131,149 |
+| 8x8 | 32,856 | 33,299 |
+| 16x16 | 8,340 | 12,317 |
+
+So the honest summary is that the two compute at nearly the same speed and
+differ in when they can start.
+
+## The shipped RTL is broken, and every number here uses the corrected one
+
+FEATHER's published controller **fails its own RTL simulation** at 4x4, 8x8 and
+16x16 -- the three `rtl_orig_*` `fail` rows in `results.csv`. The fault is in
+the PEs' ping/pong select: it toggles once per weight per visit, and the
+shipped toggle puts a PE's even-index weights in the wrong half, so the array
+computes against stale weights. `scripts/harness/apply_patch.py` carries the
+one-line correction and the reasoning.
+
+Every `rtl_fixed_*` row -- which is every FEATHER number quoted anywhere in
+this experiment -- uses the corrected controller. Both variants are placed and
+routed, and their area and timing are within noise of each other, so the
+correction costs nothing and is not a thumb on the scale. The broken rows are
+kept rather than deleted, because a baseline that does not pass its own
+testbench is a finding about the baseline.
+
 ## The comparable pair, and the thing that has to be read with it
 
 Two SPMW variants were built. Only **`feather` (single tile, resident

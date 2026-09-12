@@ -458,7 +458,7 @@ def main():
     tables(rows)
     sdir = os.path.join(RES, "scripts")
     os.makedirs(sdir, exist_ok=True)
-    for src, sub in ((f"{ROOT}/e4_work", "previous_agent"), (f"{ROOT}/e4b_work", "this_agent")):
+    for src, sub in ((f"{ROOT}/e4_work", "harness"), (f"{ROOT}/e4b_work", "reporting")):
         dst = os.path.join(sdir, sub)
         os.makedirs(dst, exist_ok=True)
         for f in glob.glob(f"{src}/*"):
