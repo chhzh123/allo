@@ -39,7 +39,7 @@ behind it at 300 MHz. SPMW closes at every width.
 
 Both HP-FFT rows at 8 and 16 samples a cycle are the **fixed** builds; the
 shipped sources reach 8.0% and 28.1% of ideal on this target, for reasons in
-`hpfft/fix/README.md`. Comparing against the shipped ones would flatter SPMW
+`hpfft/README.md`. Comparing against the shipped ones would flatter SPMW
 by a factor of ten and is not done here.
 
 ## Accounting for every difference
@@ -232,11 +232,25 @@ wide margin: 4,422 LUT, 16 DSP.
     python3 scripts/spmw_build_array.py --design fftrolled --size 256 --lanes 8 --cosim
 
     # HP-FFT, including the fixed variants
-    bash hpfft/fix/mkvariant.py            # generates the variants
+    python3 scripts/hpfft/mkvariant.py     # generates the variants
     bash /scratch/hc676/hpfft_pnr2.sh UF4_a8   # routes one, IP cores included
 
-Designs are in `spmw/source/`, the generated hardware and every csynth report
-in `spmw/generated/`, and HP-FFT's investigation in `hpfft/fix/README.md`.
+Everything is laid out as `<framework>/<size>/{source,generated,report}`, the
+same convention E1 uses. Where a size holds more than one design, each is a
+directory *inside* those three, named for the design and its width; where it
+holds one, the files sit directly in them.
+
+    spmw/N256/source/lanes.py                  the design
+    spmw/N256/generated/lanes_W2/roles/        the HLS C++ per unit
+    spmw/N256/generated/lanes_W2/fabric/       spmw_top and the FIFOs
+    spmw/N256/generated/lanes_W2/reports/      csynth, where II=1 is read
+    spmw/N256/report/rolled_bound_W2/          routed utilisation and timing
+    spmw/N512/generated/                       one design, so no variant level
+    hpfft/N256/source/fix_UF4_a8/FFT.cpp       one fixed HP-FFT variant
+    hpfft/N256/report/fix_UF4_a8/csynth.rpt    its interval
+
+HP-FFT's investigation is `hpfft/README.md`; the scripts that drive all three
+frameworks are in `scripts/`.
 
 ## What is in results.csv but not above
 
