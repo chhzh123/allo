@@ -108,9 +108,43 @@ close at 300 MHz**, and it pulls DSP blocks into a design whose mesh uses none.
   `tags_in_progress` is already an Output, so flipping the aggregate makes both
   sides drivers of it.
 
-## Still missing
+## Cycles
 
-**No cycle measurement exists for this baseline.** Everything above is area and
-timing. A cycle count needs a driver that runs matmul, accumulate, scale and
-ReLU against a golden model, which is the next piece of work, and the matching
-SPMW program after it. Nothing here should be quoted as a throughput result.
+There are two drivers, and both check every result against a golden model
+rather than only counting.
+
+`MxuVpuDriver` runs **one** matmul: `correct=true` at dim 4 and 8, latency 20
+and 36 against the mesh alone's 17 and 33.
+
+`MxuVpuStream` runs the **tiled, streaming** workload the comparison needs --
+sixteen `S x S x S` int8 tiles back to back, bias, requantise, ReLU and clip,
+all on device -- against the stimulus
+`tests/dataflow/spmw/test_spmw_tpu_micro.py` generates. It reads that file
+rather than making its own, so it and SPMW are checked against the same bytes.
+Weights are double-buffered: `MeshWithDelays` toggles its propagate on every
+request and the PE writes `d` into whichever register it is not multiplying by,
+so a pass computes with last pass's weights while shifting in the next, and
+sixteen tiles take seventeen passes.
+
+| Array | latency | interval | array busy |
+|---|---:|---:|---:|
+| 4x4 | 22 | 6 | 66.7% |
+| 8x8 | 38 | 10 | 80.0% |
+| 16x16 | 70 | 18 | 88.9% |
+
+Latency is the first input beat to the last output beat of the first tile;
+interval is the gap between tile completions, which is identical for every tile
+at every size. The interval is `S + 2` cycles: `S` rows of activations and a
+two-cycle request handshake between passes.
+
+**These are xsim's numbers, not chiseltest's.** There is no verilator on the
+machine, so chiseltest falls back to a Scala interpreter: 63 seconds at 4x4, 25
+minutes at 8x8, and E1 measured six hours for a 16x16 mesh that way. An xsim
+testbench on the emitted Verilog does all three in 43 seconds
+(`../micro/scripts/gen_mxuvpu_tb.py`). The two agree that the design is correct
+and differ by a constant one cycle of interval and two of latency -- 5 against
+6 at 4x4, 9 against 10 at 8x8 -- because the xsim driver's request handshake
+takes two cycles where chiseltest's takes one. `results.csv` records which
+harness each row came from.
+
+The comparison against SPMW on this workload is `../micro/`.

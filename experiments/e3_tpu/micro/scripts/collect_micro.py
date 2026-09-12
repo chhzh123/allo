@@ -64,6 +64,39 @@ def utilisation(path):
     return out
 
 
+def hierarchy(path):
+    """The array's own LUTs, FFs and DSPs, out of the harness that wraps it.
+
+    `--pnr` routes `spmw_harness` -- the fabric plus one LFSR per channel, so
+    its stream ports stop being pins -- and Gemmini's `MxuVpu` is routed bare.
+    The `dut` row is the like-for-like figure; the difference between the two is
+    what the harness cost, and it is reported rather than assumed negligible.
+    """
+    text = read(path)
+    out = {}
+    for label, key in (("spmw_harness", "top"), ("dut", "dut")):
+        m = re.search(
+            r"^\|\s*%s\s*\|[^|]*\|\s*(\d+)\s*\|[^|]*\|[^|]*\|[^|]*\|"
+            r"\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|"
+            r"\s*(\d+)\s*\|" % label,
+            text,
+            re.M,
+        )
+        if m:
+            out[key] = {
+                "lut": int(m.group(1)),
+                "ff": int(m.group(2)),
+                "bram_36k": int(m.group(3)),
+                "bram_18k": int(m.group(4)),
+                "uram": int(m.group(5)),
+                "dsp": int(m.group(6)),
+            }
+    if "dut" in out and "top" in out:
+        out["harness_lut"] = out["top"]["lut"] - out["dut"]["lut"]
+        out["harness_ff"] = out["top"]["ff"] - out["dut"]["ff"]
+    return out
+
+
 def timing(path):
     text = read(path)
     m = re.search(
@@ -92,7 +125,12 @@ def spmw(root, size, tag=""):
     """One SPMW point: the cosim's cycles and the routed run's area."""
     name = f"spmw_cosim{tag}_S{size}"
     log = read(os.path.join(root, "logs", f"{name}.log"))
-    row = {"system": "SPMW", "size": size, "variant": tag.lstrip("_") or "micro"}
+    row = {
+        "system": "SPMW",
+        "size": size,
+        "variant": tag.lstrip("_") or "micro",
+        "harness": "xsim on the assembled array",
+    }
 
     m = re.search(r"SPMW COSIM (PASS|FAIL) \((\d+)/(\d+) tokens, (\d+) errors\)", log)
     if m:
@@ -128,19 +166,37 @@ def spmw(root, size, tag=""):
         row.update(utilisation(os.path.join(out, "util.rpt")))
         row.update(timing(os.path.join(out, "timing.rpt")))
         plog = read(os.path.join(root, "logs", f"spmw_pnr_S{size}.log"))
-        m = re.search(r"SPMW UNROUTED (\d+)", plog)
+        m = re.search(r"^\s*unrouted (\d+)", plog, re.M)
         if m:
             row["unrouted"] = int(m.group(1))
+        # The array without its routing harness: what compares to a bare MxuVpu.
+        split = hierarchy(os.path.join(out, "util_hier.rpt"))
+        if "dut" in split:
+            row["lut_with_harness"] = row.get("lut")
+            row["ff_with_harness"] = row.get("ff")
+            row["harness_lut"] = split["harness_lut"]
+            row["harness_ff"] = split["harness_ff"]
+            row["lut"] = split["dut"]["lut"]
+            row["ff"] = split["dut"]["ff"]
+            row["dsp"] = split["dut"]["dsp"]
+            row["bram_18k_equiv"] = 2 * split["dut"]["bram_36k"] + split["dut"][
+                "bram_18k"
+            ]
+            row["uram"] = split["dut"]["uram"]
         row["ii"] = loop_ii(out, size)
     return row
 
 
 def loop_ii(out, size):
-    """The achieved initiation interval of the loops HLS did pipeline.
+    """Every loop HLS reported, with its initiation interval or its refusal.
 
-    Quoted, not inferred: the sweep loop in the matrix cell and the accumulate
-    loop in the vector lane both say `achieved 1` in their own csynth report,
-    and the instruction-dispatch loops above them say `Pipelined: no`.
+    Both halves matter and an earlier version of this dropped one of them: a
+    regex that wanted a plain integer latency matched only the pipelined loops,
+    so the unpipelined instruction dispatch -- the whole reason SPMW is slow
+    here -- was silently absent from the collected evidence.
+
+    Columns are positional rather than matched: name, min, max, latency,
+    achieved, target, count, pipelined.
     """
     found = {}
     for role in ("mac_r4", "vpu_r1"):  # one matrix cell, one vector lane
@@ -150,31 +206,48 @@ def loop_ii(out, size):
         for name in sorted(os.listdir(base)):
             if not name.endswith("_csynth.rpt"):
                 continue
-            text = read(os.path.join(base, name))
-            for line in text.splitlines():
-                m = re.match(
-                    r"\s*\|-?\s*(\S+)\s*\|\s*\d+\|\s*\d+\|\s*(\d+)\|\s*(\d+)\|"
-                    r"\s*(\d+)\|.*\|\s*(yes|no)\|",
-                    line,
+            for line in read(os.path.join(base, name)).splitlines():
+                cells = [c.strip() for c in line.split("|")]
+                if len(cells) < 10 or not cells[1].startswith("- "):
+                    continue
+                loop, latency, achieved, pipelined = (
+                    cells[1][2:],
+                    cells[4],
+                    cells[5],
+                    cells[8],
                 )
-                if m and m.group(5) == "yes":
-                    found.setdefault(f"{role}:{m.group(1)}", int(m.group(3)))
-                elif m:
-                    found.setdefault(f"{role}:{m.group(1)}", "not pipelined")
+                if pipelined not in ("yes", "no"):
+                    continue
+                found[f"{role}:{loop}"] = (
+                    f"II={achieved}"
+                    if pipelined == "yes"
+                    else f"not pipelined (latency {latency})"
+                )
     return found
 
 
-def gemmini(root, size, area_csv):
+def gemmini(root, size, area_csv, harness="xsim"):
     """One Gemmini point: the driver's cycles, and the area already measured.
 
     The area and timing are not rebuilt -- `experiments/e3_tpu/gemmini/` routed
     this exact top at this exact size already, and re-routing it would only
     introduce placer variance between the two halves of one table.
+
+    ``harness`` picks between the two drivers. "xsim" is the emitted Verilog
+    under xsim and covers all three sizes; "chiseltest" is the Chisel driver of
+    record, which only finished at 4 and 8. They differ by a constant cycle --
+    see the README -- and the table quotes xsim, the slower of the two.
     """
-    log = read(os.path.join(root, "logs", f"gem_stream_S{size}.log"))
-    row = {"system": "Gemmini", "size": size, "variant": "MXU+VPU shift"}
+    stem = "gem_xsim" if harness == "xsim" else "gem_stream"
+    log = read(os.path.join(root, "logs", f"{stem}_S{size}.log"))
+    row = {
+        "system": "Gemmini",
+        "size": size,
+        "variant": "MXU+VPU shift",
+        "harness": harness,
+    }
     m = re.search(
-        r"MXUVPU_STREAM dim=(\d+) tiles=(\d+) shift=(\d+) correct=(\w+) "
+        r"MXUVPU_STREAM dim=(\d+) tiles=(\d+) shift=(\d+) correct=\s*(\w+) "
         r"rows_out=(\d+) want_rows=(\d+) wrong_rows=(\d+) "
         r"first_in=(-?\d+) last_out=(-?\d+) latency=(-?\d+) interval=(-?\d+)",
         log,
@@ -213,20 +286,106 @@ def gemmini(root, size, area_csv):
     return row
 
 
+CSV_COLUMNS = (
+    "run_id",
+    "experiment_id",
+    "system",
+    "variant",
+    "workload",
+    "array_size",
+    "tiles",
+    "implementation_mode",
+    "target_mhz",
+    "status",
+    "validation_pass",
+    "latency_cycles",
+    "steady_interval_cycles",
+    "cycles_per_output_row",
+    "array_busy_pct",
+    "lut",
+    "ff",
+    "dsp",
+    "bram_18k_equiv",
+    "uram",
+    "wns_ns",
+    "achieved_ns",
+    "unrouted",
+    "harness",
+    "notes",
+)
+
+
+def write_csv(path, rows):
+    """The rows as a table, with the two derived columns spelled out.
+
+    `cycles_per_output_row` and `array_busy_pct` are arithmetic on the measured
+    interval, not separate measurements: `interval / S`, and `S³` MACs over the
+    `interval x S²` MAC-cycles the array could have done in the same time.
+    """
+    with open(path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            size, iv = row["size"], row.get("interval_cycles")
+            tag = row["variant"]
+            wns = row.get("wns_ns")
+            writer.writerow(
+                {
+                    "run_id": f"e3micro_{row['system'].lower()}_{tag}_S{size}",
+                    "experiment_id": "E3-micro",
+                    "system": row["system"],
+                    "variant": tag,
+                    "workload": (
+                        f"{size}x{size}x{size} int8 GEMM, bias, requantise, "
+                        "ReLU, clip to int8; 16 tiles back to back"
+                        + (", clip removed" if tag == "noclip" else "")
+                    ),
+                    "array_size": f"{size}x{size}",
+                    "tiles": row.get("tiles"),
+                    "implementation_mode": "rtl_sim",
+                    "target_mhz": 300,
+                    "status": "pass" if row.get("validation") == "pass" else "fail",
+                    "validation_pass": row.get("validation") == "pass",
+                    "latency_cycles": row.get("latency_cycles"),
+                    "steady_interval_cycles": iv,
+                    "cycles_per_output_row": None if not iv else round(iv / size, 3),
+                    "array_busy_pct": (
+                        None if not iv else round(100.0 * size / iv, 1)
+                    ),
+                    "lut": row.get("lut"),
+                    "ff": row.get("ff"),
+                    "dsp": row.get("dsp"),
+                    "bram_18k_equiv": row.get("bram_18k_equiv"),
+                    "uram": row.get("uram"),
+                    "wns_ns": wns,
+                    "achieved_ns": None if wns is None else round(3.333 - wns, 3),
+                    "unrouted": row.get("unrouted"),
+                    "harness": row.get("harness"),
+                    "notes": row.get("tokens", ""),
+                }
+            )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default="/scratch/hc676/e3_micro")
     parser.add_argument("--area-csv", required=True, help="gemmini/results.csv")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--csv", help="also write results.csv")
     args = parser.parse_args()
 
     rows = []
     for size in SIZES:
         rows.append(gemmini(args.root, size, args.area_csv))
+        cross = gemmini(args.root, size, args.area_csv, "chiseltest")
+        if cross.get("latency_cycles") is not None:
+            rows.append(cross)
         rows.append(spmw(args.root, size))
         rows.append(spmw(args.root, size, tag="_noclip"))
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(rows, handle, indent=1, sort_keys=True)
+    if args.csv:
+        write_csv(args.csv, rows)
     for row in rows:
         print(
             f"{row['system']:8s} S={row['size']:<3d} {row['variant']:<16s} "
