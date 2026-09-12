@@ -170,6 +170,14 @@ def fft_paired_of(n, batch, lanes=2, name=None, buffer=None):
         advances its angle once every `2**s` slots -- so the table is indexed
         by the slot and holds `half` entries whatever the stage.
 
+        The last two stages draw their twiddles from {1, -i} only, and a
+        rotation by those is a swap and a sign, not a multiply. That is checked
+        against the table rather than asserted about the stage index: the
+        exponents are enumerated and the specialised body is used only if every
+        one of them lands on 1 or -i. It is worth checking because it is the
+        whole of HP-FFT's DSP advantage -- six complex multipliers against
+        eight, 72 against 96.
+
         A stage issues `lag` cycles behind its input, so its results land `2 *
         lag` positions further down the stream than its operands did and every
         stage sees the block boundary in a different place. `base` is that
@@ -179,12 +187,24 @@ def fft_paired_of(n, batch, lanes=2, name=None, buffer=None):
         base = (2 * s * lag) % depth
         off = (-(s + 1) * lag) % n
 
+        mask = ~((1 << s) - 1)
+        exps = {j & mask for j in range(half)}
+        # W^0 is 1 and W^(n/4) is -i; a stage using only those needs no
+        # multiplier. `banked` keeps the general butterfly, because it is here
+        # to measure the buffer and not the twiddle.
+        trivial = exps <= {0, n // 4} and not banked
+
         class StageIO(spmw.Interface):
             a_in = spmw.In(csample, depth=8)
             b_in = spmw.In(csample, depth=8)
             a_out = spmw.Out(csample, depth=8)
             b_out = spmw.Out(csample, depth=8)
-            tw = spmw.MemIn(float32[half, 2])
+            if trivial:
+                # 0 rotates by 1, 1 rotates by -i. An int selector rather than
+                # a float pair, so there is no multiplier for Vitis to find.
+                sel = spmw.MemIn(int32[half])
+            else:
+                tw = spmw.MemIn(float32[half, 2])
             if banked:
                 # One linear address space per component, placed by the
                 # layout. The lowering emits the bank arithmetic and stores the
@@ -293,17 +313,89 @@ def fft_paired_of(n, batch, lanes=2, name=None, buffer=None):
                 io.a_out.put(p)
                 io.b_out.put(q)
 
-        body = banked_body if banked else split_body
+        def trivial_body(io: StageIO):
+            # The same buffer as `split_body`; only the rotation differs.
+            # Multiplying by 1 is nothing and multiplying by -i is
+            # (re, im) -> (im, -re), so this stage costs no DSP at all.
+            z0r: float32[rows]
+            z0i: float32[rows]
+            z1r: float32[rows]
+            z1i: float32[rows]
+            for t in range(cycles):
+                x = io.a_in.get()
+                y = io.b_in.get()
+                w0: int32 = (2 * t) & (depth - 1)
+                wsel: int32 = (w0 >> sbit) & 1
+                rw: int32 = w0 >> 1
+                u: int32 = t + off
+                j: int32 = u & (half - 1)
+                blk: int32 = (u >> sbit) & 1
+                pa: int32 = (base + (blk << stages) + j) & (depth - 1)
+                pb: int32 = (pa + half) & (depth - 1)
+                sel: int32 = (pa & 1) ^ ((pa >> sbit) & 1)
+                ra: int32 = pa >> 1
+                rb: int32 = pb >> 1
+                r0: int32 = ra
+                r1: int32 = rb
+                if sel == 1:
+                    r0 = rb
+                    r1 = ra
+                g0r: float32 = z0r[r0]
+                g0i: float32 = z0i[r0]
+                g1r: float32 = z1r[r1]
+                g1i: float32 = z1i[r1]
+                ar: float32 = g0r
+                ai: float32 = g0i
+                br: float32 = g1r
+                bi: float32 = g1i
+                if sel == 1:
+                    ar = g1r
+                    ai = g1i
+                    br = g0r
+                    bi = g0i
+                if wsel == 0:
+                    z0r[rw] = x[0]
+                    z0i[rw] = x[1]
+                    z1r[rw] = y[0]
+                    z1i[rw] = y[1]
+                else:
+                    z1r[rw] = x[0]
+                    z1i[rw] = x[1]
+                    z0r[rw] = y[0]
+                    z0i[rw] = y[1]
+                dr: float32 = ar - br
+                di: float32 = ai - bi
+                rot: int32 = io.sel[j]
+                p: csample
+                q: csample
+                p[0] = ar + br
+                p[1] = ai + bi
+                q[0] = dr
+                q[1] = di
+                if rot == 1:
+                    q[0] = di
+                    q[1] = 0.0 - dr
+                io.a_out.put(p)
+                io.b_out.put(q)
+
+        if trivial:
+            body = trivial_body
+        else:
+            body = banked_body if banked else split_body
         # A unit takes its name at decoration, and two bodies sharing a name
         # share their captured constants -- `s` differs at every stage.
         body.__name__ = f"bfly{s}"
         body.__qualname__ = f"bfly{s}"
 
-        mask = ~((1 << s) - 1)
-        table = np.zeros((half, 2), dtype=np.float32)
-        for j in range(half):
-            table[j] = _w(j & mask, n)
-        return spmw.unit(body), table
+        if trivial:
+            table = np.array(
+                [1 if (j & mask) else 0 for j in range(half)], dtype=np.int32
+            )
+        else:
+            table = np.zeros((half, 2), dtype=np.float32)
+            for j in range(half):
+                table[j] = _w(j & mask, n)
+        return spmw.unit(body), table, trivial
 
     # ---------------------------------------------------------- the reorder
     # Decimation in frequency leaves the transform in bit-reversed order. The
@@ -405,8 +497,9 @@ def fft_paired_of(n, batch, lanes=2, name=None, buffer=None):
     rd_tab = np.array([bitrev(2 * j, stages) for j in range(half)], dtype=np.int32)
 
     units = [stage_unit(s) for s in range(stages)]
-    stage_tw = [tab for _u, tab in units]
-    stage_units = [u for u, _t in units]
+    stage_tw = [tab for _u, tab, _t in units]
+    stage_units = [u for u, _t, _tr in units]
+    stage_trivial = [tr for _u, _t, tr in units]
 
     # ------------------------------------------------------------ the fabric
     @spmw.fabric
@@ -423,13 +516,26 @@ def fft_paired_of(n, batch, lanes=2, name=None, buffer=None):
         # would otherwise all be called `tw`, and one tensor bound stationary at
         # several placements reaches only the first.
         for s, p in enumerate(S):
-            tw = spmw.mem(
-                float32[half, 2],
-                init=stage_tw[s],
-                layout=spmw.replicate,
-                name=f"twp{s}",
-            )
-            spmw.stationary(tw, at=p.tw)
+            if stage_trivial[s]:
+                spmw.stationary(
+                    spmw.mem(
+                        int32[half],
+                        init=stage_tw[s],
+                        layout=spmw.replicate,
+                        name=f"rot{s}",
+                    ),
+                    at=p.sel,
+                )
+            else:
+                spmw.stationary(
+                    spmw.mem(
+                        float32[half, 2],
+                        init=stage_tw[s],
+                        layout=spmw.replicate,
+                        name=f"twp{s}",
+                    ),
+                    at=p.tw,
+                )
             if banked:
                 zero = np.zeros(depth, dtype=np.float32)
                 spmw.stationary(
