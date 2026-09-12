@@ -1,0 +1,65 @@
+{
+ "status": "fail",
+ "pe_files_ok": false,
+ "pe_files_wrong": 60,
+ "expect_nonzero": 524288,
+ "tiles": 32768,
+ "tiles_ok": 0,
+ "bad_elements": 524288,
+ "first_bad": {
+  "tile": 0,
+  "expected_row0": [
+   234757,
+   118355,
+   93188,
+   120797
+  ],
+  "got_row0": [
+   21365,
+   17510,
+   16275,
+   15665
+  ],
+  "bad_elements": 16
+ },
+ "A0": 12,
+ "F0": 20,
+ "G": 8,
+ "offsets": [],
+ "toggles": [
+  [
+   1,
+   84,
+   1
+  ]
+ ],
+ "toggle_count": 1,
+ "buffers": {
+  "0": [
+   0,
+   0
+  ],
+  "1": [
+   0,
+   0
+  ],
+  "2": [
+   0,
+   0
+  ],
+  "3": [
+   4,
+   0
+  ]
+ },
+ "end_cycle": 131177,
+ "signed_equals_rtl": true,
+ "gen_s": 6.2,
+ "build_s": 7.6,
+ "sim_s": 12.7,
+ "xsim_rc": 0,
+ "build": "/scratch/hc676/feather_loader/builds/feather_loader_pe_N4_T32768_M1_6040dbc699",
+ "rtl": "/scratch/hc676/feather_loader/RTL_new",
+ "loader": "pe",
+ "WLEN": 64
+}

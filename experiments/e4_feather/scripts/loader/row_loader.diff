@@ -1,0 +1,55 @@
+--- a/RTL/feather_pe.v	2026-09-12 18:01:58.819553120 -0400
++++ b/RTL/feather_pe.v	2026-09-12 18:10:40.170191338 -0400
+@@ -132,6 +132,17 @@
+     reg                                                                 r_next_sum_in_prog                                  ;
+     reg                                                                 r_out_data_valid                                    ;
+ 
++    //  [E4 row-wise loader] pe_sel names a row of the array, not one PE.
++    //  THIS_PE_ID is the global DPE_ROW_NUM*col + row, so matching it admitted
++    //  exactly one PE per cycle and the other DPE_COL_NUM-1 bytes of the weight
++    //  word -- which the top already slices out per column, each with its own
++    //  valid -- were dropped. Matching the row field alone admits the whole row
++    //  at once. WEIGHTS_DEPTH is DPE_ROW_NUM, so THIS_PE_ID % WEIGHTS_DEPTH is
++    //  this PE's row. The weights, pe_sel and the ping/pong select all descend
++    //  the same daisy chain a row a cycle, so row r still meets its own pe_sel
++    //  value in the same cycle as its own weight byte.
++    localparam [PE_SEL_WIDTH-1:0] THIS_PE_SEL_MATCH = THIS_PE_ID % WEIGHTS_DEPTH;
++
+     integer i;
+     /*
+         register the iacts, weights, zp data
+@@ -184,7 +195,7 @@
+ 
+             if(i_weights_valid == 1)
+             begin
+-                if(i_pe_sel == THIS_PE_ID)
++                if(i_pe_sel == THIS_PE_SEL_MATCH)
+                 begin
+                     if(r_weights_wr_cntr < WEIGHTS_DEPTH)
+                     begin
+--- a/RTL/feather_controller.v	2026-09-12 18:01:58.819553120 -0400
++++ b/RTL/feather_controller.v	2026-09-12 18:10:40.170191338 -0400
+@@ -542,7 +542,22 @@
+                     begin
+                         r_weights_pingpong_rd_addr          <=  r_weights_pingpong_rd_addr + 1;
+                         r_weights_to_use                    <=  $unsigned(WEIGHTS_DEPTH)-1;
+-                        r_pe_sel                            <=  r_pe_sel + 1;
++                        // [E4 row-wise loader] pe_sel wraps at DPE_ROW_NUM
++                        // (= WEIGHTS_DEPTH) instead of running free through all
++                        // DPE_COL_NUM*DPE_ROW_NUM ids, so it selects a row of the
++                        // array rather than one PE and every column's PE in that
++                        // row stores its own byte of the
++                        // WEIGHTS_SRAM_DATA_WIDTH-wide word in the same cycle.
++                        // A sweep is DPE_ROW_NUM cycles, so a WEIGHTS_DEPTH-deep
++                        // load of the whole array is N^2 cycles, not N^3.
++                        if(r_pe_sel == $unsigned(WEIGHTS_DEPTH)-1)
++                        begin
++                            r_pe_sel                        <=  0;
++                        end
++                        else
++                        begin
++                            r_pe_sel                        <=  r_pe_sel + 1;
++                        end
+                     end
+                 end
+ 

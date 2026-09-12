@@ -1,0 +1,2978 @@
+{
+ "rtl": "/scratch/hc676/feather_loader/RTL_new",
+ "N": 8,
+ "set": "validate",
+ "runs": {
+  "tile_gemm_small_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     8
+    ],
+    "1": [
+     64,
+     9
+    ],
+    "2": [
+     64,
+     7
+    ],
+    "3": [
+     64,
+     7
+    ],
+    "4": [
+     64,
+     10
+    ],
+    "5": [
+     64,
+     6
+    ],
+    "6": [
+     64,
+     11
+    ],
+    "7": [
+     64,
+     7
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 15.4
+  },
+  "tile_gemm_small_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     9
+    ],
+    "1": [
+     64,
+     10
+    ],
+    "2": [
+     64,
+     6
+    ],
+    "3": [
+     64,
+     6
+    ],
+    "4": [
+     64,
+     7
+    ],
+    "5": [
+     64,
+     7
+    ],
+    "6": [
+     64,
+     4
+    ],
+    "7": [
+     64,
+     10
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.9
+  },
+  "tile_gemm_small_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     10
+    ],
+    "1": [
+     64,
+     13
+    ],
+    "2": [
+     64,
+     8
+    ],
+    "3": [
+     64,
+     9
+    ],
+    "4": [
+     64,
+     8
+    ],
+    "5": [
+     64,
+     9
+    ],
+    "6": [
+     64,
+     7
+    ],
+    "7": [
+     64,
+     4
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.4,
+   "wall_s": 5.9
+  },
+  "tile_gemm_small_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.4,
+   "wall_s": 5.9
+  },
+  "tile_gemm_small_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.3
+  },
+  "tile_gemm_small_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 6.0,
+   "wall_s": 6.5
+  },
+  "tile_gemm_small_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.8
+  },
+  "tile_gemm_small_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.8
+  },
+  "tile_gemm_small_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  },
+  "tile_gemm_full_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     1
+    ],
+    "3": [
+     64,
+     1
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.1
+  },
+  "tile_gemm_full_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.2
+  },
+  "tile_gemm_full_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     1
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     2
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  },
+  "tile_gemm_full_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.9,
+   "wall_s": 6.4
+  },
+  "tile_gemm_full_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.1
+  },
+  "tile_gemm_full_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.2
+  },
+  "tile_gemm_full_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.5,
+   "wall_s": 6.0
+  },
+  "tile_gemm_full_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.3
+  },
+  "tile_gemm_full_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.5,
+   "wall_s": 6.0
+  },
+  "tile_gemm_sparse_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 21,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     53
+    ],
+    "1": [
+     64,
+     51
+    ],
+    "2": [
+     64,
+     52
+    ],
+    "3": [
+     64,
+     51
+    ],
+    "4": [
+     64,
+     53
+    ],
+    "5": [
+     64,
+     53
+    ],
+    "6": [
+     64,
+     51
+    ],
+    "7": [
+     64,
+     50
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  },
+  "tile_gemm_sparse_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 27,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     50
+    ],
+    "1": [
+     64,
+     52
+    ],
+    "2": [
+     64,
+     51
+    ],
+    "3": [
+     64,
+     51
+    ],
+    "4": [
+     64,
+     56
+    ],
+    "5": [
+     64,
+     49
+    ],
+    "6": [
+     64,
+     49
+    ],
+    "7": [
+     64,
+     52
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.8,
+   "wall_s": 6.4
+  },
+  "tile_gemm_sparse_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 25,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     50
+    ],
+    "1": [
+     64,
+     53
+    ],
+    "2": [
+     64,
+     44
+    ],
+    "3": [
+     64,
+     51
+    ],
+    "4": [
+     64,
+     53
+    ],
+    "5": [
+     64,
+     52
+    ],
+    "6": [
+     64,
+     51
+    ],
+    "7": [
+     64,
+     51
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.8,
+   "wall_s": 6.3
+  },
+  "tile_gemm_sparse_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 21,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.3
+  },
+  "tile_gemm_sparse_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 27,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.3
+  },
+  "tile_gemm_sparse_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 25,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.8
+  },
+  "tile_gemm_sparse_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 21,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.4,
+   "wall_s": 5.9
+  },
+  "tile_gemm_sparse_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 27,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.7
+  },
+  "tile_gemm_sparse_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 25,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.8
+  },
+  "tile_random_small_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     8
+    ],
+    "1": [
+     64,
+     10
+    ],
+    "2": [
+     64,
+     8
+    ],
+    "3": [
+     64,
+     8
+    ],
+    "4": [
+     64,
+     9
+    ],
+    "5": [
+     64,
+     6
+    ],
+    "6": [
+     64,
+     11
+    ],
+    "7": [
+     64,
+     8
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.5,
+   "wall_s": 6.1
+  },
+  "tile_random_small_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     11
+    ],
+    "1": [
+     64,
+     10
+    ],
+    "2": [
+     64,
+     6
+    ],
+    "3": [
+     64,
+     6
+    ],
+    "4": [
+     64,
+     7
+    ],
+    "5": [
+     64,
+     8
+    ],
+    "6": [
+     64,
+     4
+    ],
+    "7": [
+     64,
+     10
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.5,
+   "wall_s": 6.0
+  },
+  "tile_random_small_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     11
+    ],
+    "1": [
+     64,
+     13
+    ],
+    "2": [
+     64,
+     8
+    ],
+    "3": [
+     64,
+     11
+    ],
+    "4": [
+     64,
+     8
+    ],
+    "5": [
+     64,
+     10
+    ],
+    "6": [
+     64,
+     7
+    ],
+    "7": [
+     64,
+     4
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.1,
+   "wall_s": 5.6
+  },
+  "tile_random_small_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.8
+  },
+  "tile_random_small_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.1,
+   "wall_s": 5.6
+  },
+  "tile_random_small_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.8
+  },
+  "tile_random_small_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.7
+  },
+  "tile_random_small_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.7
+  },
+  "tile_random_small_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.3,
+   "wall_s": 5.8
+  },
+  "tile_random_full_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     1
+    ],
+    "3": [
+     64,
+     1
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.2,
+   "wall_s": 5.6
+  },
+  "tile_random_full_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.1
+  },
+  "tile_random_full_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     1
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     2
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.4,
+   "wall_s": 5.9
+  },
+  "tile_random_full_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.6,
+   "wall_s": 6.2
+  },
+  "tile_random_full_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.9,
+   "wall_s": 6.6
+  },
+  "tile_random_full_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.9,
+   "wall_s": 6.4
+  },
+  "tile_random_full_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  },
+  "tile_random_full_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  },
+  "tile_random_full_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 64,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 6.0,
+   "wall_s": 6.6
+  },
+  "tile_random_sparse_zp0-0_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 28,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     52
+    ],
+    "1": [
+     64,
+     53
+    ],
+    "2": [
+     64,
+     50
+    ],
+    "3": [
+     64,
+     50
+    ],
+    "4": [
+     64,
+     53
+    ],
+    "5": [
+     64,
+     51
+    ],
+    "6": [
+     64,
+     51
+    ],
+    "7": [
+     64,
+     51
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.8,
+   "wall_s": 6.3
+  },
+  "tile_random_sparse_zp0-0_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 42,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     56
+    ],
+    "1": [
+     64,
+     49
+    ],
+    "2": [
+     64,
+     49
+    ],
+    "3": [
+     64,
+     52
+    ],
+    "4": [
+     64,
+     51
+    ],
+    "5": [
+     64,
+     51
+    ],
+    "6": [
+     64,
+     50
+    ],
+    "7": [
+     64,
+     52
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.5,
+   "wall_s": 6.0
+  },
+  "tile_random_sparse_zp0-0_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 39,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     53
+    ],
+    "1": [
+     64,
+     51
+    ],
+    "2": [
+     64,
+     50
+    ],
+    "3": [
+     64,
+     51
+    ],
+    "4": [
+     64,
+     50
+    ],
+    "5": [
+     64,
+     54
+    ],
+    "6": [
+     64,
+     46
+    ],
+    "7": [
+     64,
+     51
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.9,
+   "wall_s": 6.4
+  },
+  "tile_random_sparse_zp7-5_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 28,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.3
+  },
+  "tile_random_sparse_zp7-5_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 42,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 6.0,
+   "wall_s": 6.6
+  },
+  "tile_random_sparse_zp7-5_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 39,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.8,
+   "wall_s": 6.3
+  },
+  "tile_random_sparse_zp128-128_s0": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 28,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 6.1,
+   "wall_s": 6.7
+  },
+  "tile_random_sparse_zp128-128_s1": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 42,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 6.0,
+   "wall_s": 6.6
+  },
+  "tile_random_sparse_zp128-128_s2": {
+   "status": "pass",
+   "tiles": 1,
+   "tiles_ok": 1,
+   "bad_elements": 0,
+   "pe_files_ok": true,
+   "pe_files_wrong": 0,
+   "expect_nonzero": 39,
+   "offsets": [
+    0
+   ],
+   "first_output_cycles": 91,
+   "completion_cycles": 91,
+   "steady_interval_cycles": null,
+   "feed_cycles_between_toggles": null,
+   "toggle_count": 1,
+   "buffers": {
+    "0": [
+     64,
+     0
+    ],
+    "1": [
+     64,
+     0
+    ],
+    "2": [
+     64,
+     0
+    ],
+    "3": [
+     64,
+     0
+    ],
+    "4": [
+     64,
+     0
+    ],
+    "5": [
+     64,
+     0
+    ],
+    "6": [
+     64,
+     0
+    ],
+    "7": [
+     64,
+     0
+    ]
+   },
+   "host_check": null,
+   "signed_equals_rtl": true,
+   "sim_s": 5.7,
+   "wall_s": 6.2
+  }
+ },
+ "elapsed_s": 339.5
+}

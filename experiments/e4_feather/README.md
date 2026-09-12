@@ -1,82 +1,189 @@
 # E4: FEATHER, as published RTL and as an SPMW port
 
 Same layout as E1 to E3: `<framework>/S<n>/{source,generated,report}`.
-`feather_rtl/` is the published Verilog in its two controller variants
-(shipped and corrected); `spmw/` is the port. Report files are prefixed by
-variant and mode, because one array size carries several of both.
+`feather_rtl/` is the published Verilog in its three variants (shipped,
+corrected, and corrected with the row-wise weight loader); `spmw/` is the port.
+Report files are prefixed by variant and mode, because one array size carries
+several of both.
 
-## The compute is identical; the difference is a one-off weight load
+## The compute is identical; the difference was a one-off weight load, and it is now fixed
 
 **`cycles_per_tile` is the same on both sides at every size: 4.0, 8.0, 16.0.**
 Once loaded, the two arrays compute at exactly the same rate, which is what one
-would expect of the same architecture expressed twice.
+would expect of the same architecture expressed twice. That was true before
+this section's change and it is still true after it -- the change touches the
+weight select and nothing else.
 
-Everything that separates them is the initial weight load, and it accounts for
-the end-to-end gap almost exactly:
+Everything that separated them was the initial weight load. The published
+controller admits **one processing element per cycle** (`r_pe_sel <= r_pe_sel +
+1`, free-running) and the array holds `N^2` elements with an `N`-deep weight
+file each, so a load cost `N^3` cycles. That is the whole of the end-to-end
+gap, and at 16x16 it was 4,096 cycles against 8,192 of compute.
 
-| Array | SPMW total | FEATHER total | difference | `N^3` | RTL slower by |
+**It is a controller limitation, not an architectural one.** The weight port is
+already `N` bytes wide, and the loader used one byte of it per cycle. Driving
+the full width loads a whole **row** of the array at a time, `N^2` cycles
+rather than `N^3`. The rest of this section is that change and its measurement,
+not a prediction.
+
+### The change: two lines, both in the select
+
+`scripts/loader/apply_row_loader.py` (and `row_loader.diff`) carries it, on top
+of the corrected controller. Nothing in the datapath, the reduction network or
+the arithmetic moves.
+
+The wires were already there:
+
+| already in the published RTL | |
+|---|---|
+| `feather_top.v:51` | `WEIGHTS_DATA_WIDTH = 8*DPE_COL_NUM` -- the port is `N` bytes |
+| `feather_top.v:523` | `w_dpe_weights[0][COL]` is that port's byte `COL` |
+| `feather_top.v:524` | `w_dpe_weights_valid[0][COL]` -- a valid per column |
+| `feather_controller.v:794` | in a feed state every one of those valids is `~0`, i.e. asserted |
+
+So all `N` columns are already offered their own byte, with their own valid,
+every feed cycle. What threw `N-1` of them away was the select, in two places:
+
+- `feather_pe.v` stored only when `i_pe_sel == THIS_PE_ID`, and `THIS_PE_ID` is
+  the *global* `DPE_ROW_NUM*col + row` spanning `0..N^2-1`. It now matches the
+  **row field** of that id, `THIS_PE_ID % WEIGHTS_DEPTH`.
+- `feather_controller.v` free-ran `r_pe_sel` through all `N^2` ids. It now
+  wraps at `WEIGHTS_DEPTH-1`, so a sweep is `N` cycles, not `N^2`.
+
+The `o_pe_sel` daisy chain does not fight this, which was the thing to check
+before relying on it: the weight bytes, `pe_sel` and the ping/pong select all
+descend the *same* per-column chain a row a cycle, so PE row `r` still meets
+its own `pe_sel` value in the same cycle as its own weight byte. The chain is
+what makes the row-wise select work rather than what blocks it.
+
+The SRAM image is re-packed to match -- `N` distinct weights per word instead
+of one (`e4_feather_gen.py --loader row`). The image is `N` times shorter and
+every one of its byte lanes is live; before, at most one lane of each row was.
+**Each PE ends up holding exactly the same bytes in exactly the same slots.**
+
+### What it measures
+
+Weights resident (MODE 1), the `gemm128 ..._resident_general` rows:
+
+| Array | | published loader | row-wise loader | SPMW port |
+|---|---|---:|---:|---:|
+| 4x4 | first output | 81 | **33** | 50 |
+| | completion | 131,149 | **131,101** | 131,118 |
+| | `cycles_per_tile` | 4.0 | 4.0 | 4.0 |
+| 8x8 | first output | 539 | **91** | 96 |
+| | completion | 33,299 | **32,851** | 32,856 |
+| | `cycles_per_tile` | 8.0 | 8.0 | 8.0 |
+| 16x16 | first output | 4,141 | **301** | 164 |
+| | completion | 12,317 | **8,477** | 8,340 |
+| | `cycles_per_tile` | 16.0 | 16.0 | 16.0 |
+
+The load itself lands exactly on the prediction. The feed is `N^2` cycles --
+16, 64, 256 -- and the first output moves earlier by exactly `N^3 - N^2`:
+
+| Array | `N^3`, published | `N^2`, predicted | measured feed | first output earlier by | `N^3 - N^2` |
 |---|---:|---:|---:|---:|---:|
-| 4x4 | 131,118 | 131,149 | 31 | 64 | 0.0% |
-| 8x8 | 32,856 | 33,299 | 443 | 512 | 1.3% |
-| 16x16 | 8,340 | 12,317 | 3,977 | 4,096 | 47.7% |
+| 4x4 | 64 | 16 | **16** | 48 | 48 |
+| 8x8 | 512 | 64 | **64** | 448 | 448 |
+| 16x16 | 4,096 | 256 | **256** | 3,840 | 3,840 |
 
-FEATHER's first output lands at `N^3` plus a small constant -- 64+17, 512+27,
-4096+45 -- because its controller admits one processing element per cycle
-(`r_pe_sel <= r_pe_sel + 1`, free-running) and the array holds `N^2` elements
-with an `N`-deep weight file each.
+**The compute rate is untouched**, which is the thing that had to hold: 4.0,
+8.0, 16.0 as before, and in every run the steady interval's min, median and max
+are all the same number, so it is not an average hiding a stall.
 
-**This is a controller limitation, not an architectural one, and it should not
-be read as a structural advantage for SPMW.** The weight port is already `N`
-bytes wide -- `WEIGHTS_DATA_WIDTH = 8*DPE_COL_NUM` in `feather_top.v` -- and
-the loader uses one byte of it per cycle. A controller that drove the full
-width would load a column at a time, `N^2` cycles rather than `N^3`, an `N`-fold
-reduction: 4,096 to 256 at 16x16, which is well below SPMW's own 164-cycle
-first output on the same row.
+The end-to-end comparison with SPMW changes shape completely:
 
-### Why 16x16 looks so bad, and why the number is not credible as architecture
+| Array | SPMW total | FEATHER before | after | before | after |
+|---|---:|---:|---:|---:|---:|
+| 4x4 | 131,118 | 131,149 | 131,101 | RTL +0.02% | **RTL 0.01% faster** |
+| 8x8 | 32,856 | 33,299 | 32,851 | RTL +1.35% | **RTL 0.02% faster** |
+| 16x16 | 8,340 | 12,317 | 8,477 | RTL +47.7% | RTL +1.64% |
 
-At 16x16 the load is 4,096 cycles against a compute of 8,192, which is what
-makes the row look dramatic. It is worth taking apart, because it does not
-survive it.
+So the 47.7% figure was the loader, as this section said before it was fixed.
+On first output SPMW is now ahead only at 16x16, 164 against 301, and behind at
+4x4 and 8x8. The earlier "1.6x, 5.6x, 25.2x latency advantage" reading was
+wrong twice over: it compared a startup phase against a compute rate, and the
+startup phase was a controller artefact worth a factor of `N`.
 
-A tile at that size holds `Kt*Nt = 32*16 = 512` **distinct** weights. The array
-has `N^2 * N = 4,096` weight slots. The factor of eight between them is
-replication in FEATHER's own driver: `examples/feather/gemm.py:85` builds
-`C_left = np.array([B_left.transpose()] * (AW // 2))`, one copy per switch
-stage, `AW//2 = 8` at this size.
+Where the load is paid *per tile* rather than once -- MODE 0, the
+`..._feed_general` rows -- the same change is worth the same factor of `N` on
+the whole workload, and those runs also check the assembled 128x128x128 GEMM
+against numpy on the host, which the resident runs cannot:
 
-| what | cycles |
+| Array | `cycles_per_tile` before | after | completion before | after | host reduction |
+|---|---:|---:|---:|---:|---|
+| 4x4 | 64.0 | **16.0** | 2,097,169 | **524,305** | pass |
+| 8x8 | 512.0 | **64.0** | 2,097,179 | **262,171** | pass |
+| 16x16 | 4,096.0 | **256.0** | 2,097,197 | **131,117** | pass |
+
+### How it was checked, because a wrong weight protocol looks fine
+
+A mesh fed the wrong weights still runs: it emits well-formed rows with correct
+handshaking, the right row count and plausible timing. Every number above
+therefore rests on a bit-exact check, not on the output looking sensible.
+
+- **Every run is bit-exact against the model of the RTL's own arithmetic.**
+  32,768 / 4,096 / 512 tiles in the resident runs, the same again in the feed
+  runs, zero bad elements anywhere.
+- **The PEs' weight files are dumped and compared, slot by slot.** The bench
+  reads `r_local_weights_buffer_ping` out of all `N^2` PEs at the end of the
+  feed and checks it against the image the published loader builds: 0 of 64,
+  512 and 4,096 slots wrong. This is now a pass/fail condition of the run, not
+  a diagnostic printout.
+- **The two images are compared directly** (`scripts/loader/compare_images.py`),
+  by replaying each one through the feed rule its own hardware implements: the
+  same `N^2 x N` array of PE files comes out of both, the new image is exactly
+  `N` times shorter, and its rows carry `N` live byte lanes where the old ones
+  carried at most 1.
+- **The full validation matrix passes at every size**: every BIRRD program the
+  drivers ship, x operand pattern (small / full / sparse), x zero point
+  ((0,0), (7,5), (128,128)), x seed -- 162 runs at 4x4 and 54 at 8x8 and 16x16,
+  the same counts the published loader passes, all bit-exact.
+- **Two negative controls cross the image and the hardware** and both fail
+  (`rtl_rowload_negctl_*`): the old select fed the new image, and the new
+  select fed the old image. 0 of 32,768 tiles correct and 60 of 64 PE slots
+  wrong in each. They are on the record because they are what shows the check
+  can fire.
+
+The baselines were re-run through the same harness rather than quoted, and
+reproduce the recorded rows exactly: 81 / 131,149, 539 / 33,299, 4,141 / 12,317
+resident, and 81 / 2,097,169 at 4x4 in feed mode.
+
+### The 8x replication is a different thing, and it is not removable
+
+The old text here said the `AW//2` copies of every weight in
+`examples/feather/gemm.py:85` are "one copy per switch stage". That reading is
+wrong, and it is wrong in a way only 16x16 hides: the copy count is `AW//2`,
+which is 8 at 16x16 where `2*log2(N)` is also 8, but 4 at 8x8 against 6 stages
+and 2 at 4x4 against 4. The coincidence is the whole of the resemblance.
+
+What the copies actually are: the array's **column** dimension is the GEMM's
+`M` dimension. Column `j` carries output row `j mod Mt` of the `A` tile, and
+`j // Mt` picks which half of the `K` split it is reducing. The weight a PE
+needs depends on `(i, k)` and on that half -- **not** on `j`. So the `Mt =
+AW//2` columns of a half all need the same weight byte at the same time, and
+the measurement confirms it: `weights[i, j, k]` is constant across the left
+`Mt` columns and across the right `Mt`, and the two halves differ.
+
+That is ordinary weight-stationary reuse across `M`, not a reduction-network
+artefact. Each PE has a **private** weight file and there is no path from one
+PE's file to another, so the copies must physically exist. **The replication is
+not removable, and it should not be changed.**
+
+Its *load cost*, separately, is not fully removed by this change either. A
+16x16 tile holds `Kt*Nt = 512` distinct weights; the row-wise loader moves
+4,096 bytes in 256 cycles, so it is still sending each distinct weight eight
+times. Delivering only the 512 distinct bytes over the `N`-byte port would be
+32 cycles, but it needs the loader to fan **one** lane out to `Mt` columns --
+a change to the weight write path, not to the select, and outside what this
+one does. So of the two compounding choices the earlier text identified, one is
+now fixed and one is real:
+
+| what | cycles at 16x16 |
 |---|---:|
-| FEATHER's load, one slot a cycle, 8x replicated | **4,096** |
-| the same without the replication | 512 |
-| the same over the `N`-byte port it already has | **32** |
+| the published loader, one slot a cycle | 4,096 |
+| **the row-wise loader, the full `N`-byte port** | **256** |
+| a loader that also broadcast within a `K` half (not built) | 32 |
 | SPMW's entire first output at 16x16 | 164 |
-
-So two independent choices compound: the mapping writes eight copies of every
-weight, and the loader moves one byte per cycle through a port that is `N`
-bytes wide. Neither is in the datapath. A load of 32 cycles would put
-FEATHER's startup an order of magnitude *below* SPMW's.
-
-One caveat on the replication, which is not ours to resolve here: FEATHER's
-reduction network may genuinely require a copy per switch stage, in which case
-the 8x is the architecture and only the 16x port under-use is a controller
-artefact. Even then the load would be 512 rather than 4,096. Either way, the
-47.7% end-to-end gap at 16x16 is not a claim about which array computes
-faster -- the two compute at exactly the same rate.
-
-So the fair statement is:
-
-- **Compute rate: a tie.** Identical cycles per tile at every size.
-- **End-to-end: SPMW ahead by the load**, which is 0.0%, 1.3% and 47.7% as the
-  array grows and the tile count falls -- it is a fixed cost amortised over
-  32,768, 4,096 and 512 tiles.
-- **The load itself is not a property of the architecture.** It is what the
-  published controller does with a port that could carry `N` times more.
-
-An earlier version of this section reported the first-output ratios -- 1.6x,
-5.6x, 25.2x -- as SPMW's latency advantage. That overstated it: it compared a
-startup phase that FEATHER's own datapath could shorten by `N`, and it ignored
-that the compute rates are equal.
 
 ## The shipped RTL is broken, and every number here uses the corrected one
 
@@ -129,13 +236,28 @@ cheaper nor dearer, it just moves the multipliers.
 the SPMW port was never run at that size, so 32x32 supports no comparison at
 all.
 
-## Two controller variants
+## Three controller variants
 
-`results.csv` carries the published controller and a corrected one. The shipped
-controller **fails its own RTL simulation** at 4x4, 8x8 and 16x16 (three `fail`
-rows); the corrected one passes at every size. Both are kept and both are
-placed and routed, because the area and timing numbers are within noise of each
-other and the correction is a control-path fix, not an architectural change.
+`results.csv` carries the published controller, a corrected one, and the
+corrected one with the row-wise weight loader on top.
+
+The shipped controller **fails its own RTL simulation** at 4x4, 8x8 and 16x16
+(three `fail` rows); the corrected one passes at every size. Both are kept and
+both are placed and routed, because the area and timing numbers are within
+noise of each other and the correction is a control-path fix, not an
+architectural change.
+
+The `rtl_rowload_*` rows are the corrected controller plus the row-wise select
+(`scripts/loader/`). Its cycle counts are above; it has **not** been placed and
+routed, so the area and timing table further up is still the shipped-vs-
+corrected pair and says nothing about it. It should not cost anything -- it
+narrows a counter from `2*log2(N)` bits to `log2(N)` and compares fewer bits in
+each PE, so it is strictly less logic than the corrected controller -- but that
+is an expectation, not a measurement, and it is not one of the numbers here.
+
+Two `rtl_rowload_negctl_*` rows are `fail` **on purpose**: they cross the
+weight image with the wrong select, and they are kept as the evidence that the
+bit-exact check catches a wrong weight protocol.
 
 ## Files
 
@@ -149,6 +271,10 @@ other and the correction is a control-path fix, not an architectural change.
 - `report/` -- routed utilisation, hierarchy, timing and route status per
   variant, and the simulation results per workload and mode.
 - `scripts/` -- what drove the runs, split by which agent produced them.
+  `scripts/loader/` is the row-wise weight loader: `apply_row_loader.py` and
+  `row_loader.diff` are the RTL change, `e4_feather_gen.py --loader row` packs
+  the matching image, `compare_images.py` checks the old and new images deliver
+  the same PE files, and `append_rows.py` wrote the `rtl_rowload_*` rows.
 
 Left behind: each RTL simulation's `bus.log` is 2.8 MB of bus trace and
 `tiles.log.gz` its tile dump; nothing in the table reads them. The full tree is
