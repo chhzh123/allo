@@ -1,0 +1,24 @@
+{
+ "cost": {
+  "roles": 12,
+  "instances": 72,
+  "fifos": 272,
+  "streams": 41
+ },
+ "hls_seconds": {
+  "mac_r4": 53.4,
+  "mac_r2": 53.4,
+  "mac_r5": 53.7,
+  "mac_r7": 54.4,
+  "mac_r1": 54.6,
+  "mac_r0": 55.0,
+  "mac_r6": 57.2,
+  "mac_r3": 57.2,
+  "mac_r8": 45.2,
+  "vpu_r0": 47.7,
+  "vpu_r1": 47.6,
+  "vpu_r2": 47.6
+ },
+ "hls_wall_seconds": 102.0,
+ "vivado_seconds": 1114.6
+}

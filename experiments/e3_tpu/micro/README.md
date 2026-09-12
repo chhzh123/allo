@@ -6,10 +6,11 @@ numbers about different things. This is the workload they share.
 
 ## The result
 
-**SPMW loses every measured column.** It is 27 to 36 times slower per tile, 4
-to 5 times larger in lookup tables, about 10 times larger in registers, it
-spends DSP blocks where Gemmini spends none, and it closes timing with less
-slack. Nothing here is close.
+**SPMW loses every measured column.** It is 27 to 36 times slower per tile,
+3.5 to 5.2 times larger in lookup tables, 9 to 10 times larger in registers, it
+spends `S² + 4S` DSP blocks where Gemmini spends none, and it closes timing
+with less slack at all three sizes. BRAM is the only column that ties, and it
+ties at zero. Nothing here is close.
 
 The interesting part is that the loss is one mechanism, and it is measurable:
 SPMW's epilogue is a *program*, and its instruction dispatch does not pipeline.
@@ -71,12 +72,7 @@ BRAM is RAMB18 equivalents, `2 x Block RAM Tile`.
 | 8 | Gemmini MXU+VPU | 38 | **10** | 1.25 | **8,042** | **4,818** | **0** | 0 | **+0.456** |
 | 8 | SPMW stage engine | 428 | 328 | 41 | 33,678 | 46,201 | 96 | 0 | +0.425 |
 | 16 | Gemmini MXU+VPU | 70 | **18** | 1.125 | **31,932** | **18,675** | **0** | 0 | **+0.245** |
-| 16 | SPMW stage engine | 852 | 656 | 41 | not routed | not routed | not routed | not routed | not routed |
-
-**SPMW's 16x16 row is cycles only.** Its place-and-route was still running when
-this was written, and the cells are marked rather than filled from the trend --
-an earlier version of this table carried literal `S16LUT` placeholders, which
-is worse than an empty cell because it looks like data.
+| 16 | SPMW stage engine | 852 | 656 | 41 | 112,860 | 168,377 | 320 | 0 | +0.190 |
 
 Latency is the first input beat to the last output beat of the first tile.
 Interval is the median gap between tile completions over the last three
@@ -115,7 +111,7 @@ SPMW's LUT and FF are the `dut` instance out of `report_utilization
 the array in one LFSR per channel so its stream ports stop being pins, and
 Gemmini's `MxuVpu` is routed bare -- so the array-only figure is the
 like-for-like one. The harness turns out not to matter: 29 LUTs and 509 FFs at
-S=4, 57 and 941 at S=8.
+S=4, 57 and 941 at S=8, 113 and 1,805 at S=16.
 
 ## Where SPMW loses, and by how much
 
@@ -134,16 +130,29 @@ SPMW's is `1/41` at every size, because its cost per output row does not depend
 on the array at all. Gemmini's is `S/(S+2)` and improves as the array grows,
 which is the more damaging half: the gap widens with size, from 27x to 36x.
 
-**Area, by 4-5x in LUTs and about 10x in registers**, and SPMW spends DSP
-blocks that Gemmini does not spend at all. The DSP count is worth reading
-closely: 32 at S=4 and 96 at S=8, which is `S²` for the matrix cells' `a * wt`
-plus **four per vector lane** for the `MUL` opcode -- an int32 by int32
-multiply that this program never executes and still pays for in silicon. That
-is the cost of a general instruction set stated in hardware rather than in
-prose.
+**Area: 3.5 to 5.2x the lookup tables and 9 to 10x the registers**, plus DSP
+blocks Gemmini does not spend at all.
 
-**Clock**, narrowly: +0.371 against +0.591 ns at S=4 and +0.425 against +0.456
-at S=8. Both close.
+| S | LUT | FF | DSP |
+|---:|---:|---:|---:|
+| 4 | 5.21x | 9.86x | 32 vs 0 |
+| 8 | 4.19x | 9.59x | 96 vs 0 |
+| 16 | 3.53x | 9.02x | 320 vs 0 |
+
+The LUT ratio narrows as the array grows -- each cell's instruction decode is a
+fixed overhead and its multiply is not -- but it narrows far more slowly than
+the throughput gap widens, so work done per lookup table falls further behind
+at every size rather than catching up.
+
+The DSP column is worth reading closely: 32, 96, 320 is exactly `S² + 4S`.
+`S²` is the matrix cells' `a * wt`. The `4S` is **four DSPs per vector lane**
+for the `MUL` opcode -- an int32 by int32 multiply this program never executes
+and still pays for in silicon. That is the cost of a general instruction set
+stated in hardware rather than in prose.
+
+**Clock**, at every size: +0.371 against +0.591 ns at S=4, +0.425 against
++0.456 at S=8, +0.190 against +0.245 at S=16. Both designs close timing at
+3.333 ns everywhere with nothing unrouted; SPMW simply has less room.
 
 BRAM is the one column that ties, and it ties at zero: the weight file here is
 four 32-bit words per cell and the instruction buffer sixteen, small enough

@@ -1,0 +1,34 @@
+`timescale 1ns/1ps
+
+module vpu_r1 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  input  wire [63:0] b_dout,
+  input  wire b_empty_n,
+  output wire b_read,
+  input  wire [31:0] op_in_dout,
+  input  wire op_in_empty_n,
+  output wire op_in_read,
+  input  wire [31:0] z_in_dout,
+  input  wire z_in_empty_n,
+  output wire z_in_read,
+  output wire [31:0] y_out_din,
+  input  wire y_out_full_n,
+  output wire y_out_write
+);
+  vpu_r1_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_dout(b_dout),
+      .v0_empty_n(b_empty_n),
+      .v0_read(b_read),
+      .v1_dout(op_in_dout),
+      .v1_empty_n(op_in_empty_n),
+      .v1_read(op_in_read),
+      .v2_dout(z_in_dout),
+      .v2_empty_n(z_in_empty_n),
+      .v2_read(z_in_read),
+      .v3_din(y_out_din),
+      .v3_full_n(y_out_full_n),
+      .v3_write(y_out_write));
+endmodule
