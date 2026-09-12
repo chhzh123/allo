@@ -5,37 +5,47 @@ Same layout as E1 to E3: `<framework>/S<n>/{source,generated,report}`.
 (shipped and corrected); `spmw/` is the port. Report files are prefixed by
 variant and mode, because one array size carries several of both.
 
-## Latency: SPMW's lead grows with the array, and the reason is the weight loader
+## The compute is identical; the difference is a one-off weight load
 
-First output, weights resident on both sides, from the cosimulations:
+**`cycles_per_tile` is the same on both sides at every size: 4.0, 8.0, 16.0.**
+Once loaded, the two arrays compute at exactly the same rate, which is what one
+would expect of the same architecture expressed twice.
 
-| Array | SPMW port | FEATHER RTL | SPMW faster by |
-|---|---:|---:|---:|
-| 4x4 | 50 | 81 | 1.6x |
-| 8x8 | 96 | 539 | **5.6x** |
-| 16x16 | 164 | 4,141 | **25.2x** |
+Everything that separates them is the initial weight load, and it accounts for
+the end-to-end gap almost exactly:
 
-**FEATHER emits nothing until every weight is in.** Its first output lands at
-`N^3` cycles plus a small constant -- 64+17, 512+27, 4096+45 -- because its
-loader admits one processing element per cycle and the array holds `N^2`
-elements with an `N`-deep weight file each. That is the same one-slot-a-cycle
-loader that makes the feed-mode total invariant, measured directly in
-simulation: 64 writes in 64 cycles at 4x4, 4,096 in 4,096 at 16x16.
+| Array | SPMW total | FEATHER total | difference | `N^3` | RTL slower by |
+|---|---:|---:|---:|---:|---:|
+| 4x4 | 131,118 | 131,149 | 31 | 64 | 0.0% |
+| 8x8 | 32,856 | 33,299 | 443 | 512 | 1.3% |
+| 16x16 | 8,340 | 12,317 | 3,977 | 4,096 | 47.7% |
 
-SPMW's port starts draining while operands are still arriving, so its first
-output grows roughly with the array's edge rather than its volume: 50, 96, 164.
+FEATHER's first output lands at `N^3` plus a small constant -- 64+17, 512+27,
+4096+45 -- because its controller admits one processing element per cycle
+(`r_pe_sel <= r_pe_sel + 1`, free-running) and the array holds `N^2` elements
+with an `N`-deep weight file each.
 
-Completion, same rows, is much closer, because once loaded both arrays compute
-at the same rate:
+**This is a controller limitation, not an architectural one, and it should not
+be read as a structural advantage for SPMW.** The weight port is already `N`
+bytes wide -- `WEIGHTS_DATA_WIDTH = 8*DPE_COL_NUM` in `feather_top.v` -- and
+the loader uses one byte of it per cycle. A controller that drove the full
+width would load a column at a time, `N^2` cycles rather than `N^3`, an `N`-fold
+reduction: 4,096 to 256 at 16x16, which is well below SPMW's own 164-cycle
+first output on the same row.
 
-| Array | SPMW | FEATHER RTL |
-|---|---:|---:|
-| 4x4 | 131,118 | 131,149 |
-| 8x8 | 32,856 | 33,299 |
-| 16x16 | 8,340 | 12,317 |
+So the fair statement is:
 
-So the honest summary is that the two compute at nearly the same speed and
-differ in when they can start.
+- **Compute rate: a tie.** Identical cycles per tile at every size.
+- **End-to-end: SPMW ahead by the load**, which is 0.0%, 1.3% and 47.7% as the
+  array grows and the tile count falls -- it is a fixed cost amortised over
+  32,768, 4,096 and 512 tiles.
+- **The load itself is not a property of the architecture.** It is what the
+  published controller does with a port that could carry `N` times more.
+
+An earlier version of this section reported the first-output ratios -- 1.6x,
+5.6x, 25.2x -- as SPMW's latency advantage. That overstated it: it compared a
+startup phase that FEATHER's own datapath could shorten by `N`, and it ignored
+that the compute rates are equal.
 
 ## The shipped RTL is broken, and every number here uses the corrected one
 
