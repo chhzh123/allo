@@ -248,6 +248,20 @@ def design(name, size, lanes=1):
         from gpt_stage_v1 import gpt_stage_of as gpt_stage_v1
 
         return gpt_stage_v1(size)
+    if name == "tpumicro":
+        # E3's microbenchmark on the engine of record: sixteen S x S x S int8
+        # tiles back to back, bias, requantise, ReLU and the clip to int8 all
+        # in the lane's program. The workload Gemmini's MXU+VPU is measured on.
+        from test_spmw_tpu_micro import micro_of
+
+        return micro_of(size)
+    if name == "tpumicro-noclip":
+        # The same netlist and the same tiles, with the five instructions that
+        # spell the clip out of MAX and SUB removed. It computes something else
+        # and is never compared against Gemmini; it prices the clip in cycles.
+        from test_spmw_tpu_micro import micro_of
+
+        return micro_of(size, clip=False)
     if name == "gptstage16k64":
         # The 16x16 stage engine with a 64-tile file: K=1024 in one sweep, one
         # 16-column slab per launch, 8,192 steps; FFN2 is four passes chained
@@ -974,6 +988,8 @@ def main():
             "tpuvpu",
             "tputiled",
             "tpuisa",
+            "tpumicro",
+            "tpumicro-noclip",
             "transformer",
             "transformer16",
             "gptstage",
