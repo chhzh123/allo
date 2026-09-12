@@ -346,6 +346,27 @@ def test_eight_at_the_full_tile_count(target):
     np.testing.assert_array_equal(Y, want.reshape(-1, size).astype(np.int32))
 
 
+@pytest.mark.parametrize("size", [4, 8])
+def test_the_measured_configuration_matches_the_golden(size):
+    """The engine the cosimulation runs must compute the shared golden result.
+
+    This is the join that makes the comparison one. The array cosimulation
+    checks the RTL against ``target="ref"`` on whatever operands the fabric
+    carries -- not against this file's golden -- and the Gemmini driver checks
+    itself against the golden. So if the reference and the golden disagreed at
+    the measured tile count, both systems would report a pass while computing
+    different things, and nothing else here would notice. The other reference
+    tests run four tiles; the measurements run `TILES`, and it is `TILES` that
+    has to be checked.
+    """
+    engine = micro_of(size)
+    want = engine.spmw_micro["expected"]
+    arrays = [engine.spmw_operands[n] for n in ("A", "W", "Bias", "MProg", "VProg")]
+    Y = np.zeros(want.shape, dtype=np.int32)
+    spmw.build(engine, target="ref")(*arrays, Y)
+    np.testing.assert_array_equal(Y, want)
+
+
 def test_micro_of_carries_the_same_answer_it_dumps():
     """The engine's attached operands and the Gemmini text file are one thing.
 
