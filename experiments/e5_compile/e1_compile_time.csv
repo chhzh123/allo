@@ -54,3 +54,9 @@ array,framework,interface,stage,seconds,tool_processes,source
 32x32,spmw_mesh,streams,hls_csynth_export,109.5,8,cost.json
 32x32,spmw_mesh,streams,hls_sum_of_jobs,538.1,1,cost.json
 32x32,spmw_mesh,streams,pnr,4187.5,1,cost.json
+32x32,allo,narrow,csynth,5977.6,1,e1_allo_beats/S32 build.log
+32x32,autosa,narrow,pnr,5818,1,finish_S32.log
+4x4,allo,narrow,pnr_ooc,524,1,allo_ooc_S4.log
+8x8,allo,narrow,pnr_ooc,777,1,allo_ooc_S8.log
+16x16,allo,narrow,pnr_ooc,1194,1,allo_ooc_S16.log
+32x32,allo,narrow,pnr_ooc,5388,1,allo_ooc_S32.log

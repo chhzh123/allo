@@ -15,13 +15,14 @@ Vivado rather than by the flow that fed it.
 |---|---:|---:|---:|---:|
 | 4x4 | 81 s | 375 s | 41 s | 60 s |
 | 8x8 | 84 s | 388 s | 182 s | 80 s |
-| 16x16 | 106 s | 508 s | **1,783 s** | 423 s |
-| 32x32 | 110 s | 538 s | **35,023 s** | not measured |
+| 16x16 | 106 s | 508 s | 1,783 s | 423 s |
+| 32x32 | 110 s | 538 s | 35,023 s | 5,978 s |
 
 **SPMW's synthesis time is nearly flat: 81 to 110 seconds across a
 sixty-four-fold growth in the array.** AutoSA's rises by a factor of 860 over
-the same range, from 41 seconds to **9 hours 44 minutes**. Allo sits between
-them where it was measured.
+the same range, from 41 seconds to **9 hours 44 minutes**, and Allo's by a
+factor of 100, from 60 seconds to **1 hour 40 minutes**. Both of them track the
+size of the kernel text they emit; SPMW does not, because it does not emit one.
 
 The reason is the split backend. SPMW compiles one HLS project per *role* -- per
 wiring class -- and instantiates it once per site, and the number of roles does
@@ -34,29 +35,34 @@ grows superlinearly with it.
 SPMW synthesises its roles concurrently on eight workers; AutoSA and Allo run
 one project. The serial column is the sum of SPMW's own per-role job times,
 which is what a single worker would cost, and it is the fair one against the
-other two. On that column SPMW is *slower* at 4x4 and 8x8 -- 375 against 41 and
-388 against 182 -- and 3.5x then **65x faster** at 16x16 and 32x32. The crossover
-is around 8x8. Parallelism is a real advantage of having many small projects
+other two. On that column SPMW is *slower* at 4x4 and 8x8 -- 375 s against AutoSA's 41 and
+Allo's 60, and 388 against 182 and 80 -- and then 3.5x and **65x** faster than
+AutoSA at 16x16 and 32x32, 1.2x and **11x** faster than Allo. The crossover is
+around 8x8: below it the split backend's fixed cost dominates, above it the
+other two grow and SPMW does not. Parallelism is a real advantage of having many small projects
 rather than one large one, but it is reported separately rather than folded in.
 
 ### Place and route is a different story
 
 | Array | SPMW mesh | AutoSA | Allo |
 |---|---:|---:|---:|
-| 4x4 | 316 s | 369 s | 1,124 s |
-| 8x8 | 462 s | 578 s | 1,280 s |
-| 16x16 | 1,746 s | 1,278 s | not measured |
-| 32x32 | 4,188 s | not measured | not measured |
+| 4x4 | 316 s | 369 s | 524 s |
+| 8x8 | 462 s | 578 s | 777 s |
+| 16x16 | 1,746 s | 1,278 s | 1,194 s |
+| 32x32 | 4,188 s | 5,818 s | 5,388 s |
 
 Place and route grows with the *hardware*, which is the same size in all three
 systems, so nothing here is a property of the flow: SPMW and AutoSA are within
-about 40% of each other in both directions. Allo's column is Vitis
-`export_design -flow impl`, which includes RTL synthesis, so it is not directly
-comparable to the other two and is shown for completeness.
+about 40% of each other in both directions. All three columns are now the same
+out-of-context Vivado recipe, so they are directly comparable; Allo's earlier
+figures used Vitis `export_design -flow impl`, which bundles RTL synthesis in,
+and are not what is shown here.
 
 **So the compile-time result is about the front end, not the back end.** At
-32x32 SPMW spends 110 seconds of synthesis against 4,188 of routing; AutoSA
-spends 35,023 against a routing run that was never completed.
+32x32 the three route in 4,188, 5,818 and 5,388 seconds -- within 40% of each
+other, because it is the same hardware -- while their synthesis takes 110,
+35,023 and 5,978. Routing is the floor everyone pays; synthesis is where the
+flows differ, and it is the only column SPMW changes.
 
 ## Where that scaling comes from: the hardware held fixed
 
