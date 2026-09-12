@@ -172,9 +172,12 @@ def micro_operands(size, A, B, bias, shift, kfile=None, clip=True):
 
     The weight file holds one tile per index, so a single `MLOAD` carries every
     tile's weights and each output row is one `MSWEEP` of count 1 against its
-    own tile.  The 32-bit weight link packs four int8, so that load is
-    ``size * tiles / 4`` beats a row -- a quarter of a beat per tile, against
-    Gemmini's one, which its mesh overlaps with compute and this does not.
+    own tile.  SPMW's weight link is 32 bits and packs four int8, so the load
+    costs ``size * tiles / 4`` beats on a row -- ``size / 4`` a tile, where
+    Gemmini's 8-bit `d` port needs ``size``.  Gemmini overlaps its load with
+    the previous tile's compute and this does not overlap at all, so the
+    advantage is smaller than the ratio suggests; either way the load is not
+    where either design spends its time.
     """
     tiles = A.shape[0]
     kfile = tiles if kfile is None else kfile

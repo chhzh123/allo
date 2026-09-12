@@ -10,7 +10,10 @@ SRC=$ROOT/allo
 rm -rf "$STAGE"; mkdir -p "$STAGE/scripts" "$STAGE/stimulus"
 
 cp "$ROOT"/stim/stim_S*.txt "$STAGE/stimulus/"
-cp "$ROOT"/run_spmw_micro.sh "$ROOT"/run_gem_stream.sh "$ROOT"/spmw_hier.sh "$STAGE/scripts/" 2>/dev/null
+for f in run_spmw_micro.sh run_gem_stream.sh run_gem_xsim.sh spmw_hier.sh \
+         elab_mxuvpu.sh gen_mxuvpu_tb.py collect_micro.py; do
+  cp "$ROOT/$f" "$STAGE/scripts/" 2>/dev/null
+done
 
 for S in 4 8 16; do
   # ---- SPMW -----------------------------------------------------------------
@@ -53,8 +56,22 @@ for S in 4 8 16; do
   mkdir -p "$G/source" "$G/generated" "$G/report"
   cp "$ROOT/gemmini/src/main/scala/gen/MxuVpuStream.scala" "$G/source/" 2>/dev/null
   cp "$ROOT/gemmini/src/main/scala/gen/MxuVpu.scala" "$G/source/" 2>/dev/null
-  grep -E "MXUVPU_STREAM|MXUVPU_TILE" "$ROOT/logs/gem_stream_S$S.log" \
-    2>/dev/null > "$G/report/stream_cycles.txt"
+  # Both harnesses, kept apart: xsim is what the table quotes and chiseltest
+  # is the cross-check, and mixing them in one file would hide which is which.
+  grep -E "MXUVPU_STREAM |MXUVPU_TILE" "$ROOT/logs/gem_xsim_S$S.log" \
+    2>/dev/null > "$G/report/xsim_cycles.txt"
+  grep -E "MXUVPU_STREAM |MXUVPU_TILE" "$ROOT/logs/gem_stream_S$S.log" \
+    2>/dev/null > "$G/report/chiseltest_cycles.txt"
+  [ -s "$G/report/chiseltest_cycles.txt" ] || cat > "$G/report/chiseltest_cycles.txt" <<TXT
+# chiseltest did not finish at this size.
+#
+# With no verilator on the machine chiseltest falls back to a Scala
+# interpreter: 63s at 4x4, 25 minutes at 8x8, and E1 measured six hours for a
+# 16x16 mesh. The run was retired once the xsim harness -- calibrated against
+# chiseltest at 4x4 and 8x8, where the two differ by a constant one cycle of
+# interval -- had covered this size in 16 seconds.
+TXT
+  cp "$ROOT/xsim_S$S/tb.sv" "$G/generated/tb_mxuvpu.sv" 2>/dev/null
   cat > "$G/generated/README.md" <<MD
 # Elaborated Verilog is not committed here
 

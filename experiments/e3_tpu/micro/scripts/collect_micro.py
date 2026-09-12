@@ -179,15 +179,15 @@ def spmw(root, size, tag=""):
             row["lut"] = split["dut"]["lut"]
             row["ff"] = split["dut"]["ff"]
             row["dsp"] = split["dut"]["dsp"]
-            row["bram_18k_equiv"] = 2 * split["dut"]["bram_36k"] + split["dut"][
-                "bram_18k"
-            ]
+            row["bram_18k_equiv"] = (
+                2 * split["dut"]["bram_36k"] + split["dut"]["bram_18k"]
+            )
             row["uram"] = split["dut"]["uram"]
-        row["ii"] = loop_ii(out, size)
+        row["ii"] = loop_ii(out)
     return row
 
 
-def loop_ii(out, size):
+def loop_ii(out):
     """Every loop HLS reported, with its initiation interval or its refusal.
 
     Both halves matter and an earlier version of this dropped one of them: a
@@ -329,9 +329,17 @@ def write_csv(path, rows):
             size, iv = row["size"], row.get("interval_cycles")
             tag = row["variant"]
             wns = row.get("wns_ns")
+            # The two Gemmini harnesses measure the same design and must not
+            # share a run_id; the earlier version gave both the same one, which
+            # silently makes one row look like a duplicate of the other.
+            harness = str(row.get("harness", ""))
+            short = "chiseltest" if harness.startswith("chiseltest") else "xsim"
+            slug = tag.replace("+", "").replace(" ", "_").lower()
             writer.writerow(
                 {
-                    "run_id": f"e3micro_{row['system'].lower()}_{tag}_S{size}",
+                    "run_id": (
+                        f"e3micro_{row['system'].lower()}_{slug}_{short}_S{size}"
+                    ),
                     "experiment_id": "E3-micro",
                     "system": row["system"],
                     "variant": tag,
@@ -342,16 +350,16 @@ def write_csv(path, rows):
                     ),
                     "array_size": f"{size}x{size}",
                     "tiles": row.get("tiles"),
-                    "implementation_mode": "rtl_sim",
+                    "implementation_mode": (
+                        "chisel_interpreter" if short == "chiseltest" else "rtl_sim"
+                    ),
                     "target_mhz": 300,
                     "status": "pass" if row.get("validation") == "pass" else "fail",
                     "validation_pass": row.get("validation") == "pass",
                     "latency_cycles": row.get("latency_cycles"),
                     "steady_interval_cycles": iv,
                     "cycles_per_output_row": None if not iv else round(iv / size, 3),
-                    "array_busy_pct": (
-                        None if not iv else round(100.0 * size / iv, 1)
-                    ),
+                    "array_busy_pct": (None if not iv else round(100.0 * size / iv, 1)),
                     "lut": row.get("lut"),
                     "ff": row.get("ff"),
                     "dsp": row.get("dsp"),
