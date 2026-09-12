@@ -230,17 +230,21 @@ datapaths routed out of context.
     spmw_hier.sh <S>                         # -> util_hier.rpt, the dut/harness split
 
     # Gemmini: cycles against the shared stimulus (area was already measured)
-    run_gem_stream.sh <S>                    # -> MXUVPU_STREAM ... correct=true
+    elab_mxuvpu.sh                           # -> mxuvpu_out_<S>_shift/MxuVpu.v
+    run_gem_xsim.sh <S>                      # the table's numbers, 16s a size
+    run_gem_stream.sh <S>                    # the chiseltest cross-check
 
     # the table
     collect_micro.py --root /scratch/hc676/e3_micro \
-        --area-csv ../gemmini/results.csv --out results.json
+        --area-csv ../gemmini/results.csv --out results.json --csv results.csv
+    stage_micro.sh                           # the tree this directory holds
 
-Each size gets its own copy of the Gemmini project: two `sbt -batch` runs in
-one directory share `target/` and corrupt each other's compilation. And there
-is no verilator on the machine, so chiseltest falls back to a Scala
-interpreter -- E1 measured six hours for a 16x16 mesh that way, which is why
-these runs carry a six-hour cap rather than the two hours that looked ample.
+Two things about the Gemmini runs that cost time to learn. Each size needs its
+own copy of the project: two `sbt -batch` runs in one directory share `target/`
+and corrupt each other's compilation, which is how the first attempt at 8x8 and
+16x16 was spent. And chiseltest's interpreter does not scale, so the xsim path
+above exists -- but it was calibrated against chiseltest before being used, not
+instead of it.
 
 ## Files
 
@@ -253,7 +257,11 @@ these runs carry a six-hour cap rather than the two hours that looked ample.
   hierarchical split, the C synthesis reports the II claims are quoted from,
   and the cosimulation's cycle lines for both variants.
 - `gemmini/S<n>/source/` -- the streaming driver and the top it drives.
-- `gemmini/S<n>/report/` -- the driver's per-tile completion cycles. Area and
+- `gemmini/S<n>/generated/` -- the xsim testbench, and how to re-emit the
+  Verilog rather than commit 2.4 MB of it.
+- `gemmini/S<n>/report/` -- per-tile completion cycles from both harnesses,
+  kept in separate files so it is always clear which produced which. Area and
   timing are not repeated here: `../gemmini/report/S<n>/` already holds them
   for this exact top, and re-routing would only add placer variance between the
   two halves of one table.
+- `scripts/` -- everything above, as it ran.
