@@ -33,6 +33,37 @@ width would load a column at a time, `N^2` cycles rather than `N^3`, an `N`-fold
 reduction: 4,096 to 256 at 16x16, which is well below SPMW's own 164-cycle
 first output on the same row.
 
+### Why 16x16 looks so bad, and why the number is not credible as architecture
+
+At 16x16 the load is 4,096 cycles against a compute of 8,192, which is what
+makes the row look dramatic. It is worth taking apart, because it does not
+survive it.
+
+A tile at that size holds `Kt*Nt = 32*16 = 512` **distinct** weights. The array
+has `N^2 * N = 4,096` weight slots. The factor of eight between them is
+replication in FEATHER's own driver: `examples/feather/gemm.py:85` builds
+`C_left = np.array([B_left.transpose()] * (AW // 2))`, one copy per switch
+stage, `AW//2 = 8` at this size.
+
+| what | cycles |
+|---|---:|
+| FEATHER's load, one slot a cycle, 8x replicated | **4,096** |
+| the same without the replication | 512 |
+| the same over the `N`-byte port it already has | **32** |
+| SPMW's entire first output at 16x16 | 164 |
+
+So two independent choices compound: the mapping writes eight copies of every
+weight, and the loader moves one byte per cycle through a port that is `N`
+bytes wide. Neither is in the datapath. A load of 32 cycles would put
+FEATHER's startup an order of magnitude *below* SPMW's.
+
+One caveat on the replication, which is not ours to resolve here: FEATHER's
+reduction network may genuinely require a copy per switch stage, in which case
+the 8x is the architecture and only the 16x port under-use is a controller
+artefact. Even then the load would be 512 rather than 4,096. Either way, the
+47.7% end-to-end gap at 16x16 is not a claim about which array computes
+faster -- the two compute at exactly the same rate.
+
 So the fair statement is:
 
 - **Compute rate: a tie.** Identical cycles per tile at every size.
