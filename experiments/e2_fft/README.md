@@ -42,19 +42,43 @@ shipped sources reach 8.0% and 28.1% of ideal on this target, for reasons in
 `hpfft/fix/README.md`. Comparing against the shipped ones would flatter SPMW
 by a factor of ten and is not done here.
 
-## Why SPMW is ahead, and it is not efficiency per multiplier
+## Accounting for every difference
 
-**HP-FFT's inner loops all reach II=1.** From `UF4`'s csynth: `FFT_Stage1` at
-iteration latency 7, the spatial-unroll stages at 17 to 19, every one
-reporting `Interval 1`.
+One cause explains most of the table: **what sits between two stages.**
 
-**Its stage *modules* do not.** They report an interval equal to their own
-latency -- `FFT_stage_spatial_unroll_4_s` is latency 51, interval 51. Each
-stage is a per-transform function call inside a dataflow region: invoked, fills
-its float pipeline, streams its trip count of beats, drains, and only then
-restarts.
+HP-FFT declares eight whole transforms' worth of array between its stages --
+`static complex<float> data_1[FFT_NUM] ... data_8[FFT_NUM]` -- inside a
+`#pragma HLS dataflow` region. Array channels in a dataflow region are **PIPO**,
+ping-pong: the consumer task cannot start until the producer task has finished,
+and the buffer is doubled so the next transform can fill one half while this one
+drains the other.
 
-That refill is a constant, and it is the whole efficiency curve:
+SPMW connects its units with **depth-2 register slices** (`spmw_fifo`, 32 of
+them in the W=8 fabric). A consumer starts on the first token, not the last.
+
+Everything below follows from that, and each row is checked rather than
+asserted.
+
+| | SPMW | HP-FFT | ratio | why |
+|---|---:|---:|---:|---|
+| interval | 32.0 | 42.0 | **0.76x** | HP-FFT's stage modules restart per transform |
+| latency | 260 | 408 | **0.64x** | PIPO serialises HP-FFT's stages within a transform |
+| BRAM18 | 40 | 166 | **0.24x** | eight partitioned, ping-ponged inter-stage arrays |
+| LUT | 87,021 | 91,524 | 0.95x | same arithmetic; within noise |
+| DSP | 258 | 246 | 1.05x | same butterfly count; within noise |
+| FF | 102,464 | 90,201 | **1.14x** | SPMW holds in registers what HP-FFT holds in BRAM |
+
+(8 samples a cycle. At 16 the pattern is the same: 0.62x interval, 0.74x
+latency, 0.22x BRAM, 0.94x LUT, 1.03x DSP, 1.32x FF.)
+
+### Interval: a refill HP-FFT pays once per transform
+
+HP-FFT's *inner loops* all reach II=1 -- `FFT_Stage1` at iteration latency 7,
+the spatial-unroll stages at 17 to 19, each reporting `Interval 1`. Its stage
+*modules* do not: `FFT_stage_spatial_unroll_4_s` is latency 51, interval 51. A
+module whose interval equals its latency restarts from empty every transform.
+
+The refill is a constant, and it is the whole efficiency curve:
 
 | config | ideal | measured | overhead |
 |---|---:|---:|---:|
@@ -63,13 +87,64 @@ That refill is a constant, and it is the whole efficiency curve:
 | UF4 | 32 | 42.0 | +10.0 |
 | UF8 | 16 | 26.0 | +10.0 |
 
-About ten cycles at every width. The ideal interval halves each step while the
-constant does not, so its share grows from 9% to 38%.
+Ten cycles at every width. The ideal interval halves each step and the constant
+does not, so its share grows from 9% to 38% -- 91.1% of ideal down to 61.5%.
+SPMW's units are persistent processes at II=1 that never restart, so a stage's
+interval is exactly its trip count.
 
-SPMW's units are persistent processes wired by streams, `yes(flp)` at II=1,
-never restarted between transforms. The pipeline fills once at startup, so a
-stage's interval is exactly its trip count and the array's is exactly `N/W`.
-The advantage is structural, and it widens where the design is fastest.
+### Latency: PIPO makes the stages sequential inside one transform
+
+This is a different mechanism from the interval, and it is the larger effect.
+Because the channels are PIPO, stage `k+1` waits for stage `k` to *finish the
+whole transform*. A transform's latency is therefore the **sum** of the stage
+latencies, and HP-FFT's own csynth says so:
+
+    60 + 39 + 40 + 49 + 51 + 50 + 50 + 50 = 389        measured 408
+
+The 19-cycle remainder is the output stage and the handshakes. Stages overlap
+only *across* transforms, which is why the interval (42) is an eighth of the
+latency (408).
+
+SPMW's stages overlap *within* a transform: a consumer starts on the first
+token, so latency is the sum of the stage pipeline *depths* plus the beats of
+one transform, not the sum of whole stage runtimes. At W=8 that is 260 for 32
+beats -- about 28 cycles of depth per stage, which is one butterfly's float
+pipeline plus its lane buffer.
+
+So the two systems differ on latency for the same reason a bucket brigade beats
+carrying one load at a time to the end of the line and back.
+
+### BRAM: the cost is banks, not capacity
+
+Eight arrays of 256 complex FP32 is 131,072 bits; ping-pong doubles it to
+262,144. That is **14 RAMB18 of capacity**, and UF4 uses **166**.
+
+The difference is `#pragma HLS array_partition ... cyclic factor=UF` (and
+`factor=UF*4` on `data_2`). Partitioning splits each array into banks so the
+unrolled butterflies can read it in parallel, and **each bank becomes its own
+block RAM however little it holds** -- a bank of 16 complex floats is 1 Kb in a
+device primitive that holds 18. Eight arrays, ten-odd banks each, doubled by
+ping-pong, is the 166.
+
+SPMW has no inter-stage arrays to partition. Its block RAM is the twiddle ROMs
+and nothing else, which is why it does not grow the same way: 10, 20, 40, 64
+across the four widths against HP-FFT's 82, 104, 166, 288.
+
+### Registers: the same trade, seen from the other side
+
+SPMW is 14% to 32% *higher* on flip-flops, and it is the direct counterpart of
+the block RAM result. The lane design's per-stage vector buffers and delay lines
+live in registers and SRL; HP-FFT's inter-stage data lives in block RAM. Neither
+is storing much more than the other -- they are storing it in different device
+resources.
+
+### Lookup tables and multipliers: no difference to explain
+
+Within 5% at both widths, in both directions. Both designs instantiate one
+butterfly per stage per lane at matched throughput, and both now bind their
+float adders to fabric, so the arithmetic is the same hardware. **This is the
+part of the comparison where the two systems agree**, and it is what makes the
+other four rows worth reporting: the performance gap is not paid for in logic.
 
 ## Three SPMW designs, and why more than one is kept
 
