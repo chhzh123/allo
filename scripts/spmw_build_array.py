@@ -323,6 +323,16 @@ def design(name, size, lanes=1):
         from test_spmw_fft_paired import fft_paired_of
 
         return fft_paired_of(size, 32, lanes)
+    if name == "fftlanes":
+        # The lane-unrolled FFT: the lane axis is the placement grid, so a bank
+        # index is a site coordinate rather than a runtime value. `lanes/2` sites
+        # a stage, each taking both operands a beat, with a delay-switch-delay
+        # permutation in front of every stage whose butterfly distance spans
+        # beats. 32 transforms a launch, as fftpaired, so the steady interval is
+        # a median of 31 completions.
+        from test_spmw_fft_lanes import fft_lanes_of
+
+        return fft_lanes_of(size, 32, lanes)
     if name == "fft":
         from test_spmw_fft import fft_spatial
 
@@ -951,6 +961,7 @@ def main():
             "fftsdf",
             "fftrolled",
             "fftpaired",
+            "fftlanes",
             "gemm",
             "gemm8",
             "daisy",
