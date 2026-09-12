@@ -71,7 +71,12 @@ BRAM is RAMB18 equivalents, `2 x Block RAM Tile`.
 | 8 | Gemmini MXU+VPU | 38 | **10** | 1.25 | **8,042** | **4,818** | **0** | 0 | **+0.456** |
 | 8 | SPMW stage engine | 428 | 328 | 41 | 33,678 | 46,201 | 96 | 0 | +0.425 |
 | 16 | Gemmini MXU+VPU | 70 | **18** | 1.125 | **31,932** | **18,675** | **0** | 0 | **+0.245** |
-| 16 | SPMW stage engine | 852 | 656 | 41 | S16LUT | S16FF | S16DSP | S16BRAM | S16WNS |
+| 16 | SPMW stage engine | 852 | 656 | 41 | not routed | not routed | not routed | not routed | not routed |
+
+**SPMW's 16x16 row is cycles only.** Its place-and-route was still running when
+this was written, and the cells are marked rather than filled from the trend --
+an earlier version of this table carried literal `S16LUT` placeholders, which
+is worse than an empty cell because it looks like data.
 
 Latency is the first input beat to the last output beat of the first tile.
 Interval is the median gap between tile completions over the last three
