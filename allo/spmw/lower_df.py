@@ -844,6 +844,38 @@ class Lowering:
     def _station_name(port):
         return f"_st_{port.name}"
 
+    def resident_layout(self, placement, port):
+        """The XOR-banked layout behind a memory port, or None if it is plain.
+
+        `stationary_locals` permutes a banked brick's contents into
+        `[banks][rows]`, so *every* path that reads the resident has to address
+        it that way. The array program does it in `_brick_subscript`; the unit
+        path in :mod:`allo.spmw.role_ip` builds its own subscript and needs the
+        same answer. Both asking one function is what stops them drifting --
+        which they had: the unit declared the permuted ROM and then indexed it
+        linearly, so a banked memory was stored banked and read straight.
+        """
+        binding = self.mem_reads.get((placement, port)) or self.mem_writes.get(
+            (placement, port)
+        )
+        if binding is None:
+            return None
+        source = self.resolve_storage(
+            binding.source
+            if binding.kind in {"shard", "stationary"}
+            else binding.target
+        )
+        return _banked_layout(source) if isinstance(source, Brick) else None
+
+    def banked_subscript(self, target, index, layout):
+        """`target[bank, row]` -- the one place a banked resident is addressed."""
+        bank, row = _bank_subscript(index, layout)
+        return ast.Subscript(
+            value=target,
+            slice=ast.Tuple(elts=[bank, row], ctx=ast.Load()),
+            ctx=ast.Load(),
+        )
+
     def _brick_subscript(self, brick, extra, port=None):
         if brick.init is None:
             raise SPMWBindingError(
@@ -854,17 +886,19 @@ class Lowering:
         node = ast.Name(id=self._station_name(port), ctx=ast.Load())
         layout = _banked_layout(brick)
         if layout is not None:
-            if len(extra) != 1:
+            # `extra is None` is the whole-brick read, `io.tab` with no index.
+            # It used to reach `len(None)` and die as a TypeError, which is the
+            # same bug in miniature: the check was there and could not say what
+            # was wrong.
+            if extra is None or len(extra) != 1:
+                given = "no index" if extra is None else f"{len(extra)}"
                 raise SPMWMemoryError(
                     f"`{brick.name}` is banked, so it takes one linear index; "
-                    f"`{port.name if port else '?'}` gave {len(extra)}."
+                    f"`{port.name if port else '?'}` gave {given}. Banking stores "
+                    f"it as [banks][rows], so the whole brick and a multi-axis "
+                    f"index no longer name anything the reader means."
                 )
-            bank, row = _bank_subscript(extra[0], layout)
-            return ast.Subscript(
-                value=node,
-                slice=ast.Tuple(elts=[bank, row], ctx=ast.Load()),
-                ctx=ast.Load(),
-            )
+            return self.banked_subscript(node, extra[0], layout)
         if extra:
             idx = (
                 ast.Tuple(elts=list(extra), ctx=ast.Load())

@@ -31,7 +31,7 @@ import sys
 import tempfile
 import types
 
-from .errors import SPMWBindingError
+from .errors import SPMWBindingError, SPMWMemoryError
 from .lower_df import Lowering, _BodyRewriter, _is_site_rank, _wiring_classes
 from .ports import IN, MEMORY, OUT
 from . import schedule as sched
@@ -43,6 +43,19 @@ from .rtl import StructuralEmitter
 # unit holds each in `_st__pid<k>` -- the same `_st_` prefix a stationary weight
 # gets, because it is the same thing: read once, then used.
 _COORD = "_pid"
+
+
+def _subscript_rank(node):
+    """`(base name, index count)` for a subscript, chained forms included.
+
+    `a[i, j]` and `a[i][j]` are the same two indices written two ways, and a
+    rank check that saw only one of them would pass the other by default.
+    """
+    count = 0
+    while isinstance(node, ast.Subscript):
+        count += len(node.slice.elts) if isinstance(node.slice, ast.Tuple) else 1
+        node = node.value
+    return (node.id if isinstance(node, ast.Name) else None), count
 
 
 class _UnitRewriter(_BodyRewriter):
@@ -104,11 +117,21 @@ class _UnitRewriter(_BodyRewriter):
                 self.coords.add(axis)
         port = self._port_of(node.value)
         if port is not None and port.protocol == MEMORY:
-            return ast.Subscript(
-                value=self._resident(port),
-                slice=node.slice,
-                ctx=node.ctx,
-            )
+            # The index is rewritten first: it may itself mention a coordinate
+            # or another port, and returning early used to hand it back raw.
+            index = self.visit(node.slice)
+            layout = self.low.resident_layout(self.placement, port)
+            target = self._resident(port)
+            if layout is None:
+                return ast.Subscript(value=target, slice=index, ctx=node.ctx)
+            if isinstance(index, ast.Tuple):
+                raise SPMWMemoryError(
+                    f"`{port.name}` is banked, so it takes one linear index; the "
+                    f"unit gave {len(index.elts)}. Banking stores the brick as "
+                    f"[banks][rows] and the swizzle is defined on a single "
+                    f"address."
+                )
+            return self.low.banked_subscript(target, index, layout)
         return super().visit_Subscript(node)
 
     def visit_Attribute(self, node):
@@ -121,6 +144,13 @@ class _UnitRewriter(_BodyRewriter):
             self.coords.update(a for a in range(len(self.pids)) if a not in self.fixed)
         port = self._port_of(node)
         if port is not None and port.protocol == MEMORY:
+            if self.low.resident_layout(self.placement, port) is not None:
+                raise SPMWMemoryError(
+                    f"`{port.name}` is banked and is read whole, with no index. "
+                    f"Banking stores it as [banks][rows], so the bare name is a "
+                    f"differently shaped array than the body was written "
+                    f"against; index it and let the swizzle place the read."
+                )
             return self._resident(port)
         return super().visit_Attribute(node)
 
@@ -264,6 +294,56 @@ class UnitEmitter:
                 f"inputs; this is an emission bug."
             )
 
+    def _check_banked_reads(self, name, rewriter, source):
+        """A banked resident is read at the rank it is stored at, everywhere.
+
+        This is the invariant the array path broke and nothing noticed:
+        `Lowering.stationary_locals` declares a banked brick as `[banks][rows]`
+        while the body carried the single linear address it was written with, so
+        the unit read a different element than the array program did and said
+        nothing. Both halves looked right on their own; what was missing was the
+        comparison.
+
+        So the check *is* the comparison, enumerated over the emitted text --
+        not a rule restated beside one of the two halves, where it could only
+        ever agree with itself. It reads the source the unit will actually be
+        built from, which is the thing that can be wrong.
+        """
+        banked = {
+            f"_st_{port_name}"
+            for port_name, port in rewriter.residents.items()
+            if self.low.resident_layout(rewriter.placement, port) is not None
+        }
+        if not banked:
+            return
+        tree = ast.parse(source)
+        inner = {
+            id(node.value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Subscript)
+        }
+        seen = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Subscript) or id(node) in inner:
+                continue
+            local, rank = _subscript_rank(node)
+            if local not in banked:
+                continue
+            seen.add(local)
+            if rank != 2:
+                raise SPMWMemoryError(
+                    f"`{name}` reads the banked local `{local}` with {rank} "
+                    f"index(es); banking stores it as [banks][rows], so it takes "
+                    f"exactly 2. The swizzle has not been applied to this read."
+                )
+        missing = sorted(banked - seen)
+        if missing:
+            raise SPMWMemoryError(
+                f"`{name}` holds the banked local(s) {', '.join(missing)} and "
+                f"never subscripts them, so the [banks][rows] contents are being "
+                f"used whole. Index them and let the swizzle place the read."
+            )
+
     def _held(self, rewriter):
         """Declarations for everything this unit reads once and holds.
 
@@ -316,6 +396,7 @@ class UnitEmitter:
         plain = _unparse(body)
         self._check_uniform(placement, order, plain)
         source = "\n".join(self._held(rewriter) + [plain])
+        self._check_banked_reads(name, rewriter, source)
         decls, extras = self._declarations(placement, order)
         indented = "\n".join("        " + line for line in source.splitlines())
         text = (

@@ -276,3 +276,146 @@ def test_the_solver_refuses_a_stride_inside_the_bank_bits_too():
 
     with pytest.raises(AssertionError, match="must be >="):
         fft_swizzle(N, WIDTH, LOG2_W - 1)
+
+
+# -- the layout on the array path ---------------------------------------------
+#
+# `lower_df` honours the layout: it permutes the brick into `[banks][rows]` and
+# emits the bank arithmetic. The array path emits *units* instead, through
+# `role_ip`, and that half rewrote `io.mem[i]` to the resident local using the
+# original linear index. Stored banked, read straight -- the wrong element, with
+# nothing raised. These are that gap, from three sides: the arithmetic is
+# missing, the element read is wrong, and the shapes disagree.
+
+
+def _unit_source(layout, order=0):
+    """The role IP's source for the banked probe -- what the array path builds."""
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw.role_ip import UnitEmitter
+
+    emitter = UnitEmitter(spmw.elaborate(_fabric_with(layout)))
+    placement = emitter.placements()[0]
+    text, _extras = emitter.program(placement, order)
+    return text
+
+
+def _rom(layout):
+    """The permuted contents `stationary_locals` gives the unit."""
+    out = np.zeros((layout.banks, SIZE // layout.banks), dtype=np.float32)
+    for index in range(SIZE):
+        out[layout.place(index)] = index
+    return out
+
+
+def _unit_read(text, local, rom, index):
+    """Evaluate the unit's own subscript of `local`, at one linear index.
+
+    Not "does the text contain a caret" -- what element does this unit actually
+    fetch. A swizzle that is emitted but wrong passes the first question and
+    fails this one.
+    """
+    import ast  # pylint: disable=import-outside-toplevel
+
+    reads = [
+        node
+        for node in ast.walk(ast.parse(text))
+        if isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == local
+    ]
+    assert reads, f"the unit never reads {local}"
+    expr = reads[0]
+    free = {n.id for n in ast.walk(expr) if isinstance(n, ast.Name)} - {local}
+    env = {local: rom, **{name: index for name in free}}
+    return eval(  # pylint: disable=eval-used
+        compile(ast.Expression(body=expr), "<unit>", "eval"), {}, env
+    )
+
+
+def test_the_swizzle_reaches_the_unit_and_not_only_the_array():
+    """The array program swizzles; the unit it builds must swizzle identically.
+
+    `mem_subscript` -- the function that applies the bank/row transform -- was
+    reachable only from `lower_df`. `role_ip` never called it, so this held for
+    `spmw.source` and not for the IP that goes on the fabric.
+    """
+    plain = _unit_source(spmw.replicate)
+    banked = _unit_source(spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2))
+    assert "^" not in plain
+    assert "^" in banked and ">>" in banked, (
+        "the unit reads a banked brick with no bank arithmetic, so it reads it "
+        "linearly out of storage that is not linear"
+    )
+
+
+def test_the_unit_fetches_the_element_the_index_names():
+    """The failure this bug produces is a wrong number, not an error.
+
+    The contents are `arange(SIZE)`, so element `k` is `k`: anything else is the
+    swizzle and the permutation disagreeing, which is the one way this layout
+    can be wrong and still run.
+    """
+    layout = spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2)
+    text = _unit_source(layout)
+    rom = _rom(layout)
+    for index in range(SIZE):
+        try:
+            got = _unit_read(text, "_st_tab", rom, index)
+        except IndexError as exc:
+            pytest.fail(
+                f"the unit's read of element {index} is out of range on the "
+                f"[{layout.banks}][{SIZE // layout.banks}] storage it was given: "
+                f"{exc}"
+            )
+        assert np.ndim(got) == 0, (
+            f"element {index} came back with shape {np.shape(got)}: the unit is "
+            f"indexing banked storage as if it were flat"
+        )
+        assert got == index, f"element {index} read back as {got}"
+
+
+def test_a_banked_brick_read_whole_is_refused_rather_than_reshaped():
+    """The check that has to fire once the swizzle is applied per read.
+
+    Indexing is where the swizzle lives, so a brick used without an index has
+    nowhere to put it -- and silently hands the body `[banks][rows]` where it
+    expects `[size]`. `_brick_subscript` did have a rank check for this, but it
+    reached `len(None)` and died as a TypeError that named nothing.
+    """
+    grid = spmw.Grid((SIZE,))
+
+    class WholeIO(spmw.Interface):
+        x_in = spmw.In(float32)
+        y_out = spmw.Out(float32)
+        tab = spmw.MemIn(float32[SIZE])
+
+    @spmw.unit
+    def whole(io: WholeIO, site: spmw.Site):
+        table = io.tab
+        io.y_out.put(io.x_in.get() + table[0])
+
+    @spmw.fabric
+    def fab(X: float32[SIZE], Y: float32[SIZE]):
+        P = spmw.place(whole, on=grid)
+        t = spmw.mem(
+            float32[SIZE],
+            init=np.arange(SIZE, dtype=np.float32),
+            layout=spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2),
+        )
+        spmw.stationary(t, at=P.tab)
+        (lane,) = P.axes
+        spmw.stream_in(X, into=P.x_in, index=(lane,))
+        spmw.gather(Y, from_=P.y_out, index=(lane,))
+
+    with pytest.raises(SPMWMemoryError, match="whole|no index"):
+        spmw.source(fab)
+    with pytest.raises(SPMWMemoryError, match="whole|no index"):
+        _unit_source_of(fab)
+
+
+def _unit_source_of(fabric, order=0):
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw.role_ip import UnitEmitter
+
+    emitter = UnitEmitter(spmw.elaborate(fabric))
+    return emitter.program(emitter.placements()[0], order)[0]
