@@ -331,3 +331,53 @@ prefixed by stage. SPMW's `generated/` was re-staged from the same
 `scripts/spmw_build_array.py` entry point the measured builds used -- the role
 counts match its `results.csv` at every size, which is the check that it is the
 same code.
+
+## Binding the butterfly's adders to fabric
+
+HP-FFT carries six `#pragma HLS bind_op ... impl=fabric` in its butterfly and
+keeps only its multiplies in DSP blocks. SPMW emitted no binding at all, so
+part of the DSP gap was a comparison of who remembered the pragma rather than
+of the two designs. `spmw_bind_fabric` on a fabric now emits the same pragma
+for every feed-forward float add and subtract in every role; multiplies are
+left alone, as HP-FFT leaves its own.
+
+N=256, both routed out of context at 3.333 ns, nothing unrouted:
+
+| W | | LUT | FF | DSP | BRAM18 | WNS |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | in DSPs | 12,304 | 29,792 | 159 | 12 | +0.411 ns |
+| | in fabric | 18,496 | 25,143 | **87** | 4 | +0.253 ns |
+| 2 | in DSPs | 24,318 | 55,109 | 318 | 12 | +0.335 ns |
+| | in fabric | 36,567 | 46,704 | **174** | 6 | +0.345 ns |
+
+**It is a trade, not a saving.** The multiplier count falls 45% at both widths
+-- 159 to 87 and 318 to 174, almost exactly the four adds per butterfly the
+decomposition predicted -- and lookup tables rise 50% to pay for it. Registers
+and block RAM both *fall*, which was not predicted: a DSP-implemented float
+adder carries its own pipeline registers, and moving it into fabric gives those
+up along with the DSP.
+
+Timing survives at both widths. W=2 is unchanged within noise, +0.335 to
++0.345 ns; W=1 loses 0.158 ns and still closes with a quarter-nanosecond to
+spare.
+
+### What it does to the comparison
+
+At matched width, two samples a cycle, against HP-FFT UF1:
+
+| | LUT | FF | DSP |
+|---|---:|---:|---:|
+| SPMW, adds in DSPs | 1.09x | 2.48x | **4.42x** |
+| SPMW, adds in fabric | **1.63x** | 2.10x | **2.42x** |
+
+Binding removes the part of the DSP gap that was ours to remove: 4.42x becomes
+**2.42x**, and what is left is architectural -- one physical butterfly per
+stage per lane, each with its own complex multiplier, which is what buys the
+exact interval. But it does not make the two designs similar. It moves the
+disagreement from the DSP column to the lookup-table column, where SPMW goes
+from parity to 1.63x.
+
+Both variants are kept in `results.csv`. The bound one is the like-for-like
+configuration, because it is the choice HP-FFT itself makes; the unbound one is
+what SPMW produces if a design says nothing, and the gap between them is the
+cost of that silence.
