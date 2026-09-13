@@ -35,6 +35,8 @@ would turn SPMW's barrel shifter into wiring and win the area column by
 answering a different question.
 """
 
+import os
+
 import numpy as np
 import pytest
 
@@ -209,6 +211,13 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
         (lane,) = V.axes
         spmw.gather(Y, from_=V.y_out, index=(..., lane))
 
+    # Gemmini's `MxuVpu` routes with **zero** DSP blocks at every size: its
+    # PE's multiply is Chisel arithmetic that Vivado maps to fabric. This
+    # cell's identical `a * wt` is inferred into one DSP per element unless
+    # bound, so without this the lookup-table columns are not measuring the
+    # same thing -- one design has moved its arithmetic off the fabric being
+    # counted. `SPMW_BIND_MUL=0` measures the DSP-inferred form instead.
+    engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_parts = (mac, vpu, dim, kfile, outs)
     return engine
 

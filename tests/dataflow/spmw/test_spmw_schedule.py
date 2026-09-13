@@ -249,3 +249,56 @@ def test_the_two_conditions_for_a_binding_recurrence():
         "    acc += a_in[0].get() * b_in[0].get()\nc[0].put(acc)\n"
     )
     assert sched.accumulators(integer) == ["acc"]
+
+
+# -- binding the integer multiply to fabric -----------------------------------
+#
+# FEATHER's published RTL routes with zero DSP blocks and the SPMW port's
+# identical multiply is inferred into one per element. Two lookup-table counts
+# only compare if both designs put their multiplier in the same place.
+
+MUL_CODE = """\
+void pe_r0_0(hls::stream< int8_t >& v0) {	// L2
+  int8_t v10 = v0.read();	// L20
+  int64_t v30 = v28 * v29;	// L33
+  int64_t v39 = v37 * v38;	// L43
+  ap_int<40> v57 = v55 * v56;	// L79
+  float v61 = v59 * v60;	// L84
+  int32_t v70 = v68 + v69;	// L91
+  int32_t v80 = v78 * 3;	// L95
+}
+"""
+
+
+def test_bind_fabric_mul_takes_the_integer_multiplies_and_only_those():
+    """Integers yes, the float no, and nothing that is not a multiply."""
+    out, bound = sched.bind_fabric_mul(MUL_CODE)
+    assert bound == ["v30", "v39", "v57"], bound
+    for value in bound:
+        assert f"#pragma HLS bind_op variable={value} op=mul impl=fabric" in out
+    # The float multiply is what a DSP exists for and the FFT designs depend on
+    # keeping theirs there.
+    assert "variable=v61" not in out
+    # An add is not a multiply, and neither is a multiply by a literal, which
+    # synthesis turns into shifts and adds rather than a DSP.
+    assert "variable=v70" not in out and "variable=v80" not in out
+
+
+def test_bind_fabric_mul_puts_the_pragma_after_the_statement():
+    """The pragma binds the *variable*, so it has to follow the assignment.
+
+    Allo puts a `// L33` provenance comment after the semicolon, so a pattern
+    anchored at end-of-line matches nothing -- the same trap `bind_recurrences`
+    and `bind_fabric_arith` document.
+    """
+    out, _ = sched.bind_fabric_mul(MUL_CODE)
+    lines = out.splitlines()
+    at = lines.index("  int64_t v30 = v28 * v29;\t// L33")
+    assert "bind_op variable=v30" in lines[at + 1]
+
+
+def test_bind_fabric_mul_is_idempotent_on_code_with_no_multiply():
+    """A design without an integer multiply is left byte-identical."""
+    plain = "int32_t v1 = v2 + v3;\t// L1\n"
+    out, bound = sched.bind_fabric_mul(plain)
+    assert out == plain and bound == []

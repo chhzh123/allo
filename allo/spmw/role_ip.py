@@ -692,6 +692,13 @@ def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwa
     built.spmw_bind_fabric = bool(
         getattr(getattr(graph, "fabric", None), "spmw_bind_fabric", False)
     )
+    # And the same question for the integer multiplier, asked separately: a
+    # design binds its float adds to fabric to *save* DSPs and its integer
+    # multiplies to fabric to *match a baseline that has none*. Those are
+    # different reasons and a design may want one without the other.
+    built.spmw_bind_mul_fabric = bool(
+        getattr(getattr(graph, "fabric", None), "spmw_bind_mul_fabric", False)
+    )
     return built
 
 
@@ -726,6 +733,13 @@ def optimise(code, built):
     # design changes.
     if getattr(built, "spmw_bind_fabric", False):
         code, extra = sched.bind_fabric_arith(code)
+        bound = list(bound) + [v for v in extra if v not in bound]
+    # An integer multiply goes to a DSP unless told otherwise, which is right
+    # for area and wrong for a comparison against a baseline whose multiplier
+    # is in fabric. Off by default; FEATHER's port sets it because FEATHER's
+    # RTL routes with zero DSPs.
+    if getattr(built, "spmw_bind_mul_fabric", False):
+        code, extra = sched.bind_fabric_mul(code)
         bound = list(bound) + [v for v in extra if v not in bound]
     # A banked memory has to be partitioned on its bank axis or the banks are
     # one memory with one set of ports, and the swizzle has bought nothing but

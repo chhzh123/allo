@@ -25,6 +25,7 @@ drivers' (`examples/feather/gemm.py`, `convolution.py`), reimplemented here
 as functions of (AW, AH) so a launch can be checked against numpy exactly.
 """
 
+import os
 from math import log2
 
 import numpy as np
@@ -160,6 +161,14 @@ def feather(AW, AH):
         spmw.gather(YL, from_=B.out_l, index=(..., sw))
         spmw.gather(YR, from_=B.out_r, index=(..., sw))
 
+    # FEATHER's published RTL routes with **zero** DSP blocks at every size:
+    # its multiply is a plain `*` in Verilog and Vivado maps it to fabric. The
+    # port's identical multiply is inferred into one DSP per element unless
+    # this says otherwise -- 16, 64, 256 -- and then the two lookup-table
+    # columns are not measuring the same thing, because one design has moved
+    # its arithmetic off the fabric being counted. Set `SPMW_BIND_MUL=0` to
+    # measure the DSP-inferred form instead; both are in `results.csv`.
+    engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_parts = (pe, switch, AW, AH, P0, P1)
     # The array cosim drives random operands; BIRRD's program has to be a
     # real one, so the GEMM layout program is what the cosim runs.
@@ -283,6 +292,14 @@ def feather_stream(AW, AH, NT):
         spmw.gather(YL, from_=B.out_l, index=(..., sw))
         spmw.gather(YR, from_=B.out_r, index=(..., sw))
 
+    # FEATHER's published RTL routes with **zero** DSP blocks at every size:
+    # its multiply is a plain `*` in Verilog and Vivado maps it to fabric. The
+    # port's identical multiply is inferred into one DSP per element unless
+    # this says otherwise -- 16, 64, 256 -- and then the two lookup-table
+    # columns are not measuring the same thing, because one design has moved
+    # its arithmetic off the fabric being counted. Set `SPMW_BIND_MUL=0` to
+    # measure the DSP-inferred form instead; both are in `results.csv`.
+    engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_parts = (pe, switch, AW, AH, P0, P1, NT)
     inst = np.zeros((NT, P0, P1), dtype=np.int32)
     inst[:] = gemm_insts(AW)
@@ -407,6 +424,14 @@ def feather_stream_x(AW, AH, NT):
         spmw.gather(YL, from_=B.out_l, index=(..., sw))
         spmw.gather(YR, from_=B.out_r, index=(..., sw))
 
+    # FEATHER's published RTL routes with **zero** DSP blocks at every size:
+    # its multiply is a plain `*` in Verilog and Vivado maps it to fabric. The
+    # port's identical multiply is inferred into one DSP per element unless
+    # this says otherwise -- 16, 64, 256 -- and then the two lookup-table
+    # columns are not measuring the same thing, because one design has moved
+    # its arithmetic off the fabric being counted. Set `SPMW_BIND_MUL=0` to
+    # measure the DSP-inferred form instead; both are in `results.csv`.
+    engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_parts = (pe, switch, AW, AH, P0, P1, NT)
     inst = np.zeros((P0, P1, 2), dtype=np.int8)
     inst[:, :, 0] = gemm_insts(AW)

@@ -240,6 +240,56 @@ def bind_fabric_arith(code):
     return "".join(out), bound
 
 
+def bind_fabric_mul(code):
+    """Bind every integer multiply in generated HLS C++ to fabric.
+
+    `bind_fabric_arith` moves float *adds* out of DSP blocks because Vitis puts
+    them there by default. This is the opposite direction and it exists for a
+    comparison rather than for area: when the baseline implements its
+    multiplier in lookup tables, a port that lets Vivado infer a DSP is not
+    being measured against it.
+
+    FEATHER is the case. Its published RTL routes with **zero** DSPs at every
+    size -- a plain `*` in Verilog that Vivado maps to fabric -- while the SPMW
+    port's identical multiply is inferred into one DSP per element: 16, 64 and
+    256. The lookup-table columns then sit beside each other as though they
+    meant the same thing, and they do not, because one of the two designs has
+    moved its arithmetic off the fabric being counted. This pragma puts it
+    back, so both designs spend the same kind of resource and the LUT column
+    becomes a comparison.
+
+    It is not free and is not meant to be: an `int8 x int8` multiply in fabric
+    is lookup tables the DSP was doing for nothing, so the port's LUT count
+    goes *up*. That is the honest number.
+
+    Matching mirrors `bind_fabric_arith`: Allo emits one operation per
+    statement, ``int64_t v30 = v28 * v29;``, with a ``// L33`` provenance
+    comment after the semicolon, so the pattern stops at the semicolon. Only
+    integer types are matched -- a float multiply is what a DSP is for, and
+    the FFT designs depend on keeping theirs there.
+
+    Returns the rewritten code and the values bound.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    out, bound = [], []
+    for line in code.splitlines(True):
+        out.append(line)
+        match = re.match(
+            r"(\s*)(?:ap_u?int<\d+>|u?int\d+_t|unsigned\s+\w+|int|long)\s+"
+            r"(v\d+)\s*=\s*v\d+\s*\*\s*v\d+\s*;",
+            line,
+        )
+        if match:
+            indent, value = match.group(1), match.group(2)
+            out.append(
+                f"{indent}#pragma HLS bind_op variable={value} "
+                f"op=mul impl=fabric\n"
+            )
+            bound.append(value)
+    return "".join(out), bound
+
+
 def partition_banks(code, banked):
     """Give every banked memory one set of ports per bank.
 

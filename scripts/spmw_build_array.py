@@ -125,7 +125,7 @@ proc stage {{name body}} {{
   uplevel 1 $body
   puts "SPMW STAGE $name [expr {{([clock milliseconds] - $t0) / 1000.0}}]"
 }}
-stage synth  {{ synth_design -top {top} -part {part} }}
+stage synth  {{ synth_design -top {top} -part {part}{max_dsp} }}
 report_utilization -file util_synth.rpt
 {grid_hook}
 stage opt    {{ opt_design }}
@@ -147,7 +147,7 @@ puts "IMPLEMENTATION OK"
 # array's clock: the fabric adds the FIFOs, the fanout of a shared boundary
 # stream, and the routing between instances, none of which HLS ever saw.
 SYNTHESISE = """add_files -fileset constrs_1 {root}/clock.xdc
-synth_design -top {top} -part {part}
+synth_design -top {top} -part {part}{max_dsp}
 report_utilization -file util.rpt
 report_timing_summary -file timing.rpt
 set wns [get_property SLACK [get_timing_paths -delay_type max]]
@@ -828,6 +828,7 @@ def assemble(
     pnr=False,
     floorplan="",
     effort=False,
+    max_dsp=None,
 ):
     """Vivado reads the exported IPs and builds the array.
 
@@ -857,6 +858,7 @@ def assemble(
                 if os.path.exists(os.path.join(out, "grid.tcl"))
                 else ""
             ),
+            max_dsp="" if max_dsp is None else f" -max_dsp {max_dsp}",
             place_directive="-directive ExtraTimingOpt" if effort else "",
             physopt_directive="-directive AggressiveExplore" if effort else "",
             route_directive="-directive AggressiveExplore" if effort else "",
@@ -1129,6 +1131,19 @@ def main():
         "whose pipelines drain when their loop ends)",
     )
     parser.add_argument(
+        "--max-dsp",
+        type=int,
+        default=None,
+        help=(
+            "cap the array's DSP blocks at synth_design. Bind a design's "
+            "multiply to fabric in HLS and Vivado may still infer a DSP when it "
+            "re-synthesises the assembled array -- it did at 16x16 and not at "
+            "4x4 or 8x8, from the same role code with the same pragma -- so a "
+            "comparison against a baseline that uses none needs this too. "
+            "Defaults to 0 for a design that sets `spmw_bind_mul_fabric`."
+        ),
+    )
+    parser.add_argument(
         "--frp",
         action="store_true",
         help="free-running pipelines in the roles: each role's body behind a "
@@ -1273,6 +1288,15 @@ def main():
         pnr=args.pnr,
         floorplan=floorplan,
         effort=args.effort,
+        # A design that binds its multiply to fabric in HLS means it: Vivado
+        # re-synthesises the assembled array and will infer a DSP anyway unless
+        # capped, which it did at 16x16 while leaving 4x4 and 8x8 in fabric
+        # from the same role code with the same pragma.
+        max_dsp=(
+            args.max_dsp
+            if args.max_dsp is not None
+            else (0 if getattr(fabric, "spmw_bind_mul_fabric", False) else None)
+        ),
         top="spmw_harness" if args.pnr else "spmw_top",
     )
     verb = (
