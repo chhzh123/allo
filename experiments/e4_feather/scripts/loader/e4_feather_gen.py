@@ -208,13 +208,138 @@ def gemm_insts(AW):
     return np.zeros((P0, P1), dtype=np.int8)
 
 
-def conv_insts():
-    return [
-        np.array([[AL, AL], [AL, PS], [PS, PS]], dtype=np.int8),
-        np.array([[AL, AL], [AL, PS], [SW, PS]], dtype=np.int8),
-        np.array([[AL, AL], [AR, PS], [PS, PS]], dtype=np.int8),
-        np.array([[AL, AL], [AR, PS], [PS, SW]], dtype=np.int8),
-    ]
+def conv_insts(AW=4):
+    """One program per output position in a line: every column sum of the
+    tile into output column `pos`. AW = 4: the drivers' four programs
+    (examples/feather/convolution.py). AW = 8 and 16: found by
+    `find_reduce_program` under the same semantics, checked by the selftest."""
+    if AW == 4:
+        return [
+            np.array([[AL, AL], [AL, PS], [PS, PS]], dtype=np.int8),
+            np.array([[AL, AL], [AL, PS], [SW, PS]], dtype=np.int8),
+            np.array([[AL, AL], [AR, PS], [PS, PS]], dtype=np.int8),
+            np.array([[AL, AL], [AR, PS], [PS, SW]], dtype=np.int8),
+        ]
+    if AW not in _CONV_CACHE:
+        _CONV_CACHE[AW] = [find_reduce_program(AW, pos) for pos in range(AW)]
+    return _CONV_CACHE[AW]
+
+
+_CONV_CACHE = {}
+
+
+def find_reduce_program(AW, pos):
+    """A BIRRD program (the drivers' semantics: PS/AR/AL/SW, the bit-reversal
+    links of `stage_bits`) whose output column `pos` carries the sum of all AW
+    column sums; the other output columns are unconstrained.
+
+    Two phases over the ports' column sets (a bit set a port). Reduction:
+    whenever two disjoint sets meet at a switch they are merged, on the left
+    output except at the last merge, where both AL and AR are tried (at AW = 4
+    that choice is the only routing there is). Routing: in every later stage
+    the switch holding the total passes or swaps, the others pass. The
+    remaining stages form a butterfly, so the total reaches any column; if a
+    layout ever did not, the exhaustive search over all four commands a switch
+    (`_reduce_program_exhaustive`) is the fallback."""
+    import itertools
+
+    P0, P1 = birrd_shape(AW)
+    full = (1 << AW) - 1
+
+    def dest(s, q):
+        return q if s == P0 - 1 else reverse_bits(q, stage_bits(s, AW))
+
+    def step(s, masks, cmds):
+        # A merge's other output keeps a copy of its input (AR: (l, l + r)); the
+        # workload never reads it, and a later switch must not take it for a
+        # live partial sum, so the model drops it (only the live sets are kept).
+        nxt = [0] * AW
+        for j, c in enumerate(cmds):
+            l, r = masks[2 * j], masks[2 * j + 1]
+            ol, orr = (l | r, 0) if c == AL else (0, l | r) if c == AR else (r, l) if c == SW else (l, r)
+            nxt[dest(s, 2 * j)] = ol
+            nxt[dest(s, 2 * j + 1)] = orr
+        return tuple(nxt)
+
+    def route(s, masks, prog):
+        if s == P0:
+            return prog if masks[pos] == full else None
+        holders = [j for j in range(P1) if masks[2 * j] or masks[2 * j + 1]]
+        assert len(holders) == 1
+        for c in (PS, SW):
+            cmds = [PS] * P1
+            cmds[holders[0]] = c
+            found = route(s + 1, step(s, masks, cmds), prog + [cmds])
+            if found is not None:
+                return found
+        return None
+
+    def reduce_(s, masks, prog):
+        pairs = [j for j in range(P1) if masks[2 * j] and masks[2 * j + 1]]
+        if not pairs:
+            return route(s, masks, prog)
+        assert all(not (masks[2 * j] & masks[2 * j + 1]) for j in pairs)
+        choices = [AL, AR] if len(pairs) == 1 else [AL]
+        for c in choices:
+            cmds = [PS] * P1
+            for j in pairs:
+                cmds[j] = c
+            found = reduce_(s + 1, step(s, masks, cmds), prog + [cmds])
+            if found is not None:
+                return found
+        return None
+
+    prog = reduce_(0, tuple(1 << q for q in range(AW)), [])
+    if prog is None:
+        prog = _reduce_program_exhaustive(AW, pos)
+    inst = np.array(prog, dtype=np.int8)
+    assert inst.shape == (P0, P1), inst.shape
+    return inst
+
+
+def _reduce_program_exhaustive(AW, pos):
+    """Depth-first over every command of every switch (a (stage, state) pair
+    visited once; merges only of disjoint sets). Exact, and slow at AW = 16."""
+    import itertools
+
+    P0, P1 = birrd_shape(AW)
+    full = (1 << AW) - 1
+    seen = set()
+
+    def dest(s, q):
+        return q if s == P0 - 1 else reverse_bits(q, stage_bits(s, AW))
+
+    def dfs(s, masks, prog):
+        if s == P0:
+            return prog if masks[pos] == full else None
+        key = (s, masks)
+        if key in seen:
+            return None
+        seen.add(key)
+        opts = []
+        for j in range(P1):
+            l, r = masks[2 * j], masks[2 * j + 1]
+            if l and r and not (l & r):
+                opts.append([(AL, l | r, r), (AR, l, l | r), (PS, l, r), (SW, r, l)])
+            elif l and r:
+                opts.append([(PS, l, r), (SW, r, l)])
+            elif l or r:
+                opts.append([(PS, l, r), (SW, r, l)])
+            else:
+                opts.append([(PS, 0, 0)])
+        for combo in itertools.product(*opts):
+            nxt = [0] * AW
+            for j, (_c, ol, orr) in enumerate(combo):
+                nxt[dest(s, 2 * j)] = ol
+                nxt[dest(s, 2 * j + 1)] = orr
+            found = dfs(s + 1, tuple(nxt), prog + [[c for (c, _, _) in combo]])
+            if found is not None:
+                return found
+        return None
+
+    prog = dfs(0, tuple(1 << q for q in range(AW)), [])
+    assert prog is not None, (AW, pos)
+    return prog
 
 
 GEMM_EXTRACT = {16: [8, 10, 11, 9, 5, 6, 7, 4], 8: [6, 5, 2, 1], 4: [2, 0]}
@@ -264,8 +389,8 @@ def gemm_workload(M, K, Nn, AW, AH, rng, zpa, zpw, rng_hi):
     """A [M, K], B [K, Nn] as stored uint8 (zp + d, d in [0, rng_hi)); the tiles in
     the drivers' order (n, m, k), each (iActs_u, weights_u, inst, (n, m, k))."""
     Mt, Kt, Nt = AW // 2, 2 * AH, AH
-    A = (rng.integers(0, rng_hi, size=(M, K)) + zpa).astype(np.uint8)
-    B = (rng.integers(0, rng_hi, size=(K, Nn)) + zpw).astype(np.uint8)
+    A = ((rng.integers(0, rng_hi, size=(M, K)) + zpa) % 256).astype(np.uint8)
+    B = ((rng.integers(0, rng_hi, size=(K, Nn)) + zpw) % 256).astype(np.uint8)
     inst = gemm_insts(AW)
     tiles = []
     for n in range(Nn // Nt):
@@ -297,17 +422,16 @@ def conv_workload(Cin, H, Wd, M, R, S, pad, AW, AH, rng, zpa, zpw, rng_hi):
     test_conv_4x4_matches_numpy with 'same' padding and the RS reduction padded
     up to a multiple of AH with zero-difference operands. Returns the stored
     tensors and the tiles (iActs_u, weights_u, inst, (p, q, mt, ct, vn))."""
-    assert AW == 4, "the drivers' conv programs exist for AW = 4"
     P, Q = H + 2 * pad - R + 1, Wd + 2 * pad - S + 1
-    x = (rng.integers(0, rng_hi, size=(H, Wd, Cin)) + zpa).astype(np.uint8)  # HWC
-    w = (rng.integers(0, rng_hi, size=(M, Cin, R, S)) + zpw).astype(np.uint8)
+    x = ((rng.integers(0, rng_hi, size=(H, Wd, Cin)) + zpa) % 256).astype(np.uint8)  # HWC
+    w = ((rng.integers(0, rng_hi, size=(M, Cin, R, S)) + zpw) % 256).astype(np.uint8)
     RS = R * S
     RS_pad = ((RS + AH - 1) // AH) * AH
     x_pad = np.full((H + 2 * pad, Wd + 2 * pad, Cin), zpa, dtype=np.uint8)
     x_pad[pad : pad + H, pad : pad + Wd, :] = x
     w_flat = np.full((M, Cin, RS_pad), zpw, dtype=np.uint8)
     w_flat[:, :, :RS] = w.reshape(M, Cin, RS)
-    insts = conv_insts()
+    insts = conv_insts(AW)
     tiles = []
     for p in range(P):
         for q in range(Q):
@@ -432,7 +556,10 @@ def write_sparse_hex(path, blocks, digits):
 def pattern_range(pattern, zp):
     """The range of the difference d for a 'legal' operand zp + d."""
     hi = 256 - zp
-    return {"small": min(8, hi), "mid": min(32, hi), "full": hi, "sparse": hi}[pattern]
+    # `mixed`: the stored byte covers all of [0, 256) whatever the zero point, so
+    # d = u - zp is negative for u < zp -- the operands the RTL's unsigned
+    # datapath cannot handle (the checker reports `signed_equals_rtl`).
+    return {"small": min(8, hi), "mid": min(32, hi), "full": hi, "sparse": hi, "mixed": 256}[pattern]
 
 
 def make_tiles(args, rng):
@@ -456,7 +583,7 @@ def make_tiles(args, rng):
         if args.program == "gemm":
             inst = gemm_insts(N)
         elif args.program.startswith("conv"):
-            inst = conv_insts()[int(args.program[4:])]
+            inst = conv_insts(N)[int(args.program[4:])]
         elif args.program == "pass":
             inst = np.zeros(birrd_shape(N), dtype=np.int8)
         elif args.program == "random":
@@ -465,7 +592,7 @@ def make_tiles(args, rng):
             # a different program per tile: the four conv programs in turn at
             # N = 4, the GEMM program alternating with a random one elsewhere
             if N == 4:
-                inst = conv_insts()[t % 4]
+                inst = conv_insts(N)[t % 4]
             elif t % 2 == 0:
                 inst = gemm_insts(N)
             else:
@@ -478,8 +605,8 @@ def make_tiles(args, rng):
         else:
             iActs = rng.integers(0, ra, size=(N, N))
             weights = rng.integers(0, rw, size=(N, N, N))
-        iActs = (iActs + zpa).astype(np.uint8)
-        weights = (weights + zpw).astype(np.uint8)
+        iActs = ((iActs + zpa) % 256).astype(np.uint8)
+        weights = ((weights + zpw) % 256).astype(np.uint8)
         tiles.append((iActs, weights, inst, (t,)))
     return tiles, {}
 
@@ -632,7 +759,10 @@ def check(out, xsim_log):
     for t in range(T):
         t0 = A0 + meta["A_BASE"] + t * meta["A_STRIDE"] + LAT
         hit = -1
-        for x in range(t0 - 4, t0 + 5):
+        # the predicted cycle first, then the nearest offsets: a tile whose
+        # expected rows are all zero (a padding-only conv window) also matches
+        # the idle bus before its slot, which must not be read as an early output
+        for x in sorted(range(t0 - 4, t0 + 5), key=lambda v: (abs(v - t0), v)):
             ok = True
             for r in range(N):
                 row = rows.get(x + r)
@@ -736,7 +866,14 @@ def selftest():
     """The mapping against feather_ref on tiles, for every program the drivers ship."""
     rng = np.random.default_rng(0)
     for N in (4, 8, 16):
-        progs = [gemm_insts(N)] + (conv_insts() if N == 4 else []) + [
+        # every conv program sums all N column sums into its output column
+        for pos, inst in enumerate(conv_insts(N)):
+            iActs = rng.integers(-128, 128, size=(N, N)).astype(np.int8)
+            weights = rng.integers(-128, 128, size=(N, N, N)).astype(np.int8)
+            ref = feather_ref(iActs, weights, inst, N, N).astype(np.int64)
+            cols = np.einsum("kj,ijk->ij", iActs.astype(np.int64), weights.astype(np.int64))
+            assert np.array_equal(ref[:, pos], cols.sum(axis=1)), ("conv program", N, pos)
+        progs = [gemm_insts(N)] + list(conv_insts(N)) + [
             rng.integers(0, 4, size=birrd_shape(N)).astype(np.int8) for _ in range(5)
         ]
         for inst in progs:

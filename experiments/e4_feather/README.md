@@ -178,11 +178,11 @@ this one re-fed.
 |---|---:|---:|---:|---:|---|
 | 4x4 | 64.0 | **16.0** | 12,582,929 | **3,145,745** | pass |
 | 8x8 | 512.0 | **64.0** | 16,777,243 | **2,097,179** | pass |
-| 16x16 | 4,096.0 | not yet run | 16,777,261 | | |
+| 16x16 | 4,096.0 | **256.0** | 16,777,261 | **1,048,621** | pass |
 
-The 16x16 MODE 0 pair is a 16.7-million-cycle xsim and is still running; its
-`before` column is the recorded `rtl_fixed_conv_N16_feed_general` row. The
-other five conv rows are in `results.csv` as `rtl_rowload_conv_*`.
+A factor of `N` at every size, exactly as on the GEMM rows, and every one of
+these also reduces on the host and checks against numpy. All six conv rows are
+in `results.csv` as `rtl_rowload_conv_*`.
 
 ### How it was checked, because a wrong weight protocol looks fine
 
@@ -322,8 +322,11 @@ noise of each other and the correction is a control-path fix, not an
 architectural change.
 
 The `rtl_rowload_*` rows are the corrected controller plus the row-wise select
-(`scripts/loader/`), and it is placed and routed too, at the same 3.333 ns out
-of context on the same part:
+(`scripts/loader/`) -- on the GEMM workload and, since the conv re-measurement
+above, on the conv one as well -- and it is placed and routed too, at the same
+3.333 ns out of context on the same part. There is one place and route per
+variant, not one per workload: the select is the same hardware whichever
+workload runs on it.
 
 | Array | LUT corrected | LUT row-wise | FF corrected | FF row-wise | slack corrected | slack row-wise |
 |---|---:|---:|---:|---:|---:|---:|
@@ -366,7 +369,14 @@ bit-exact check catches a wrong weight protocol.
   `scripts/loader/` is the row-wise weight loader: `apply_row_loader.py` and
   `row_loader.diff` are the RTL change, `e4_feather_gen.py --loader row` packs
   the matching image, `compare_images.py` checks the old and new images deliver
-  the same PE files, and `append_rows.py` wrote the `rtl_rowload_*` rows.
+  the same PE files, and `append_rows.py` wrote the `rtl_rowload_*` GEMM rows.
+  That generator is now the merge of the two copies that had diverged -- the
+  conv reduction programs for `AW = 8` and `16` were in the reporting copy and
+  `--loader row` in this one -- so one file runs either workload with either
+  loader, and `append_conv_rows.py` wrote the conv rows it produced.
+  `scripts/reporting/render_bundle_tables.py` renders the results bundle from
+  `results.csv`, replacing the collectors that looked rows up by a hard-coded
+  list of ids and silently dropped everything else.
 
 Left behind: each RTL simulation's `bus.log` is 2.8 MB of bus trace and
 `tiles.log.gz` its tile dump; nothing in the table reads them. The full tree is
