@@ -92,19 +92,40 @@ The load itself lands exactly on the prediction. The feed is `N^2` cycles --
 8.0, 16.0 as before, and in every run the steady interval's min, median and max
 are all the same number, so it is not an average hiding a stall.
 
-The end-to-end comparison with SPMW changes shape completely:
+### Two numbers describe each design, and only one of them differs
 
-| Array | SPMW total | FEATHER before | after | before | after |
-|---|---:|---:|---:|---:|---:|
-| 4x4 | 131,118 | 131,149 | 131,101 | RTL +0.02% | **RTL 0.01% faster** |
-| 8x8 | 32,856 | 33,299 | 32,851 | RTL +1.35% | **RTL 0.02% faster** |
-| 16x16 | 8,340 | 12,317 | 8,477 | RTL +47.7% | RTL +1.64% |
+A completion figure is not an independent measurement here. Each run is exactly
 
-So the 47.7% figure was the loader, as this section said before it was fixed.
-On first output SPMW is now ahead only at 16x16, 164 against 301, and behind at
-4x4 and 8x8. The earlier "1.6x, 5.6x, 25.2x latency advantage" reading was
-wrong twice over: it compared a startup phase against a compute rate, and the
-startup phase was a controller artefact worth a factor of `N`.
+    completion = startup + tiles x cycles_per_tile
+
+and that closes **to the cycle on all twelve rows**, GEMM and conv, at every
+size. So the pair `(startup, rate)` says everything, and a completion number
+for some particular tile count is a third number derived from them:
+
+| Array | | startup | cycles / tile | completion at the tile count run |
+|---|---|---:|---:|---:|
+| 4x4 | FEATHER RTL, row loader | **29** | 4.0 | 131,101 over 32,768 tiles |
+| | SPMW port | 46 | 4.0 | 131,118 |
+| 8x8 | FEATHER RTL, row loader | **83** | 8.0 | 32,851 over 4,096 tiles |
+| | SPMW port | 88 | 8.0 | 32,856 |
+| 16x16 | FEATHER RTL, row loader | 285 | 16.0 | 8,477 over 512 tiles |
+| | SPMW port | **148** | 16.0 | **8,340** |
+
+**The rate is identical, so the startup is the entire difference** -- and the
+completion delta equals the first-output delta exactly, +17, +5 and -137, on
+both workloads. That identity is the evidence that nothing else separates the
+two designs; it is not a coincidence to be reported as a percentage.
+
+Percentages of completion are worth avoiding for that reason. The same 137
+cycles read as 1.6% of the 16x16 GEMM and 0.21% of the 16x16 conv purely
+because conv runs eight times as many tiles, and running more tiles would
+shrink it further without changing either design. The startup is 137; that is
+the number.
+
+So the 47.7% figure quoted before the loader fix was the loader, as this
+section said. The earlier "1.6x, 5.6x, 25.2x latency advantage" reading was
+wrong twice over: it compared a startup against a compute rate, and the startup
+was a controller artefact worth a factor of `N`.
 
 Where the load is paid *per tile* rather than once -- MODE 0, the
 `..._feed_general` rows -- the same change is worth the same factor of `N` on
@@ -157,16 +178,12 @@ architecture expressed twice. Everything that separated them was the load, and
 the saving is `N^3 - N^2` to the cycle -- 48, 448 and 3,840 -- the same law the
 GEMM runs obey.
 
-End to end the shape matches as well:
-
-| Array | SPMW total | FEATHER before | after | before | after |
-|---|---:|---:|---:|---:|---:|
-| 4x4 | 786,478 | 786,509 | 786,461 | RTL +0.004% | **RTL 0.002% faster** |
-| 8x8 | 262,232 | 262,675 | 262,227 | RTL +0.17% | **RTL 0.002% faster** |
-| 16x16 | 65,684 | 69,661 | 65,821 | RTL +6.05% | RTL +0.21% |
-
-On first output SPMW is ahead only at 16x16, 164 against 301, and behind at 4x4
-and 8x8 -- the same crossover the GEMM rows show, for the same reason.
+End to end the shape matches as well, and it matches in the strong sense: the
+startup and the rate are the *same numbers* as the GEMM runs -- 29 against 46,
+83 against 88, 285 against 148, at 4.0, 8.0 and 16.0 cycles a tile -- so the
+completion figures differ from the GEMM ones only in how many tiles each
+workload has. SPMW is ahead on startup only at 16x16, and behind at 4x4 and
+8x8, the same crossover for the same reason.
 
 Where the load is paid **per tile** (MODE 0), the change is worth the same
 factor of `N`, and these runs also check the host reduction against numpy,
