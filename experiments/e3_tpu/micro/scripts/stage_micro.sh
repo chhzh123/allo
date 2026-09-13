@@ -2,6 +2,13 @@
 # Stage the E3 microbenchmark's sources, generated code and reports into the
 # <framework>/<size>/{source,generated,report} shape E1, E2 and E4 use.
 #
+# Three frameworks, because three designs are compared and each has its own
+# netlist: `spmw` is the programmable stage engine, `spmw-fixed` is the same
+# workload on a fixed-function datapath, and `gemmini` is the baseline. Each
+# framework's one-parameter ablation -- `noclip` for the programmable engine,
+# `slice` for the fixed one -- lives in its parent's report/ rather than in a
+# framework directory of its own, since it is the same source.
+#
 # Run on brg-zhang-xcel; rsync $STAGE back into the repo afterwards.
 set -u
 ROOT=/scratch/hc676/e3_micro
@@ -15,41 +22,72 @@ for f in run_spmw_micro.sh run_gem_stream.sh run_gem_xsim.sh spmw_hier.sh \
   cp "$ROOT/$f" "$STAGE/scripts/" 2>/dev/null
 done
 
-for S in 4 8 16; do
-  # ---- SPMW -----------------------------------------------------------------
-  D=$STAGE/spmw/S$S
-  mkdir -p "$D/source" "$D/generated" "$D/report"
-  cp "$SRC/tests/dataflow/spmw/test_spmw_tpu_micro.py" "$D/source/"
+# The interior matrix cell, whichever role index it landed on. Hard-coding
+# `mac_r4` was right for the programmable engine and wrong for anything else,
+# so the role with the most instances is looked up instead.
+interior () {                        # interior <build dir> <prefix>
+  local top
+  top=$(ls "$1/spmw_top.sv" "$1/sim/spmw_top.sv" 2>/dev/null | head -1)
+  [ -n "$top" ] || return 1
+  grep -oE "role ${2}_r[0-9]+: [0-9]+ instance" "$top" \
+    | awk '{gsub(":","",$2); print $3, $2}' | sort -nr | head -1 | awk '{print $2}'
+}
 
-  P=$ROOT/spmw_pnr_S$S             # the routed build: generated code and area
-  C=$ROOT/spmw_cosim_S$S           # the cosimulated build: cycles
+stage_spmw () {                      # stage_spmw <framework dir> <size> <tag> <source file>
+  local fw=$1 S=$2 tag=$3 srcfile=$4
+  local D=$STAGE/$fw/S$S
+  local P=$ROOT/spmw_pnr${tag}_S$S   # the routed build: generated code and area
+  mkdir -p "$D/source" "$D/generated" "$D/report"
+  cp "$SRC/tests/dataflow/spmw/$srcfile" "$D/source/"
+
   for f in spmw_top.sv spmw_fifo.sv spmw_const.sv spmw_harness.sv; do
     cp "$P/$f" "$D/generated/" 2>/dev/null
   done
   for r in "$P"/*/; do
-    n=$(basename "$r")
+    local n; n=$(basename "$r")
     [ -f "$r/kernel.cpp" ] || continue
     cp "$r/kernel.cpp" "$D/generated/$n.cpp" 2>/dev/null
     cp "$r/$n.sv" "$D/generated/" 2>/dev/null
   done
-
   for f in util.rpt timing.rpt route.rpt util_hier.rpt util_synth.rpt cost.json; do
     cp "$P/$f" "$D/report/" 2>/dev/null
   done
   # One matrix cell and one vector lane's C synthesis, for the initiation
   # intervals: the numbers are quoted from these, not inferred from cycles.
-  for r in mac_r4 vpu_r1; do
+  local mac vpu
+  mac=$(interior "$P" mac); vpu=$(interior "$P" vpu)
+  for r in $mac $vpu; do
     for f in "$P/$r/prj/sol/syn/report/"*_csynth.rpt; do
       [ -f "$f" ] && cp "$f" "$D/report/$(basename "$f")"
     done
   done
-  grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" "$ROOT/logs/spmw_cosim_S$S.log" \
-    2>/dev/null | sed 's/^ *//' | sort -u -k1,3 > "$D/report/cosim_cycles.txt"
+  echo "$mac $vpu" > "$D/report/roles_reported.txt"
+  grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
+    "$ROOT/logs/spmw_cosim${tag}_S$S.log" 2>/dev/null | sed 's/^ *//' \
+    | sort -u -k1,3 > "$D/report/cosim_cycles.txt"
+  grep -E "SPMW STAGE|ARRAY WNS|SPMW UNROUTED|IMPLEMENTATION OK|array clock|HLS:" \
+    "$ROOT/logs/spmw_pnr${tag}_S$S.log" 2>/dev/null > "$D/report/pnr_stages.txt"
+}
+
+for S in 4 8 16; do
+  # ---- SPMW, the programmable stage engine ----------------------------------
+  stage_spmw spmw "$S" "" test_spmw_tpu_micro.py
+  # its ablation: the same netlist with the clip's five instructions dropped
   grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
     "$ROOT/logs/spmw_cosim_noclip_S$S.log" 2>/dev/null | sed 's/^ *//' \
-    | sort -u -k1,3 > "$D/report/cosim_cycles_noclip.txt"
-  grep -E "SPMW STAGE|ARRAY WNS|SPMW UNROUTED|IMPLEMENTATION OK|array clock|HLS:" \
-    "$ROOT/logs/spmw_pnr_S$S.log" 2>/dev/null > "$D/report/pnr_stages.txt"
+    | sort -u -k1,3 > "$STAGE/spmw/S$S/report/cosim_cycles_noclip.txt"
+
+  # ---- SPMW, the fixed-function datapath ------------------------------------
+  stage_spmw spmw-fixed "$S" "_fixed" test_spmw_tpu_micro_fixed.py
+  # its ablation: the same design on SPMW's default depth-two register slices,
+  # which is a different netlist, so it brings its own area and timing.
+  F=$STAGE/spmw-fixed/S$S/report
+  grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
+    "$ROOT/logs/spmw_cosim_slice_S$S.log" 2>/dev/null | sed 's/^ *//' \
+    | sort -u -k1,3 > "$F/cosim_cycles_slice.txt"
+  for f in util.rpt timing.rpt util_hier.rpt; do
+    cp "$ROOT/spmw_pnr_slice_S$S/$f" "$F/slice_$f" 2>/dev/null
+  done
 
   # ---- Gemmini --------------------------------------------------------------
   G=$STAGE/gemmini/S$S
