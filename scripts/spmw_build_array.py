@@ -270,6 +270,30 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_fixed import micro_fixed_of
 
         return micro_fixed_of(size, link_depth=int(name[len("tpumicro-fixed") :]))
+    if name.startswith("tpumicro-fixedt") and name[len("tpumicro-fixedt") :].isdigit():
+        # `tpumicro-fixedt<t>`: the fixed datapath with `t` tiles resident
+        # rather than sixteen. Not a benchmark row -- it computes a shorter
+        # workload -- but the weight file is `t/4` words a cell, so varying `t`
+        # varies the load prologue and nothing else, which is how the latency
+        # is split between the load and the mesh's own fill.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(size, tiles=int(name[len("tpumicro-fixedt") :]))
+    if name.startswith("tpumicro-fixedw") and name[len("tpumicro-fixedw") :].isdigit():
+        # `tpumicro-fixedw<d>`: the fixed datapath with the *weight* link `d`
+        # deep. The weight load is serial down each row, so if the default
+        # slice halves it the first-tile latency says so.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(size, weight_depth=int(name[len("tpumicro-fixedw") :]))
+    if name == "tpumicro-wslice":
+        # The fixed datapath with its *weight* link on SPMW's default slice and
+        # its data links deep. The load is serial down each row, so this is
+        # what a half-rate weight link costs in first-tile latency, on the same
+        # netlist as `tpumicro-fixed` in every other respect.
+        from test_spmw_tpu_micro_fixed import LINK_SLICE, micro_fixed_of
+
+        return micro_fixed_of(size, weight_depth=LINK_SLICE)
     if name == "tpumicro-slice":
         # The fixed datapath on SPMW's default depth-two register slices. Both
         # of its loops still report II=1 and the array runs at half that,
@@ -1018,7 +1042,12 @@ def main():
             "tpumicro-fixed3",
             "tpumicro-fixed4",
             "tpumicro-fixed6",
+            "tpumicro-fixedt4",
+            "tpumicro-fixedw4",
+            "tpumicro-fixedw8",
+            "tpumicro-fixedt8",
             "tpumicro-slice",
+            "tpumicro-wslice",
             "transformer",
             "transformer16",
             "gptstage",
