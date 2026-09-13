@@ -35,6 +35,8 @@ would turn SPMW's barrel shifter into wiring and win the area column by
 answering a different question.
 """
 
+import os
+
 import numpy as np
 import pytest
 
@@ -72,7 +74,7 @@ LINK_DEPTH = 4
 LINK_SLICE = 2
 
 
-def fixed_engine(dim, tiles, link_depth=LINK_DEPTH):
+def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
     """A `dim x dim` weight-stationary mesh with a hardwired requantise epilogue.
 
     `tiles` tiles live in the cell's weight file at once, so a launch is one
@@ -83,23 +85,29 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH):
     if kfile % 4:
         raise ValueError(f"the packed weight file needs a multiple of 4, got {kfile}")
     kw = kfile // 4  # the file, in 32-bit words
+    weight_depth = link_depth if weight_depth is None else weight_depth
     outs = tiles * dim  # one output row per activation step
     sbits = _log2(dim)  # step -> tile is a shift, not a divide
 
     class CellIO(spmw.Interface):
         """No `op` port: there is no instruction to carry.
 
-        `a_in` and `p_in` carry a beat every cycle in the steady state and are
-        the two the credit limit binds on.  `w_in` runs once per launch, so it
-        keeps the default slice -- a deeper weight link would buy nothing and
-        cost a LUT-RAM per cell.
+        All three links are `link_depth` deep.  `a_in` and `p_in` carry a beat
+        every cycle in the steady state, so the rate limit obviously binds on
+        them; `w_in` moves only during the load, which is why it kept SPMW's
+        default slice at first.  That was wrong, and measurably so: the load is
+        *serial down the row*, every cell forwarding the words for the cells
+        beyond it, so a half-rate weight link is paid `S x kw` times inside the
+        first-tile latency.  Deepening it took 16x16 from 235 cycles to 213
+        with the interval untouched, and the clock improved as well;
+        `weight_depth` keeps the shallow one measurable.
         """
 
         a_in = spmw.In(int8, depth=link_depth)
         a_out = spmw.Out(int8)
         p_in = spmw.In(int32, depth=link_depth)
         p_out = spmw.Out(int32)
-        w_in = spmw.In(int32)
+        w_in = spmw.In(int32, depth=weight_depth)
         w_out = spmw.Out(int32)
 
     class LaneIO(spmw.Interface):
@@ -126,6 +134,15 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH):
         # weight stream rather than an instruction stream: a cell has to know
         # how many words belong to the cells beyond it, and that is the only
         # thing about this launch it does not know at compile time.
+        #
+        # The weights stay **packed**, four int8 to a 32-bit word, and are
+        # unpacked in the step loop. Unpacking them here instead was tried,
+        # because Gemmini's weight-stationary PE multiplies by a register
+        # rather than by a file lookup, and it was a regression: the cell's
+        # iteration latency stayed at 5 either way -- HLS was already hiding
+        # the shift and mask -- while writing four int8 per word instead of one
+        # int32 lengthened the load, which is serial down the row, and took
+        # 8x8's first-tile latency from 112 cycles to 178. See the README.
         wf: int32[kw]
         n: int32 = io.w_in.get()
         io.w_out.put(n - kw)
@@ -135,11 +152,24 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH):
             fwd: int32 = io.w_in.get()
             io.w_out.put(fwd)
 
-        # One flat loop with a compile-time trip count, and no branch on an
-        # opcode inside it. This is the whole difference: the programmable
-        # cell's step loop is nested inside a dispatch whose trip count is an
-        # instruction field, so the dispatch cannot pipeline and the steps pay
-        # for it; here there is nothing above the steps.
+        # The step loop. Two things had to go from it, and the second was only
+        # visible next to Gemmini's PE.
+        #
+        # The first is the instruction: the programmable cell's step loop is
+        # nested inside a dispatch whose trip count is an instruction field, so
+        # the dispatch cannot pipeline and the steps pay for it. Here there is
+        # nothing above the steps.
+        #
+        # The second is the *weight fetch*. Gemmini's weight-stationary PE
+        # multiplies by a register -- `mac_unit.io.in_b := c2`, with `c1 := d`
+        # shifting the next tile's weight in behind it -- so its per-cycle work
+        # is one multiply-add and its PE is one register deep. The first
+        # version of this cell read `wf[idx >> 2]`, shifted, masked and
+        # sign-extended on *every beat*, which is not weight-stationary at all;
+        # HLS gave that loop five pipeline stages, and since a partial sum
+        # crosses `dim` cells the five were paid `dim` times in the latency.
+        # Hoisting the unpack to the tile boundary leaves `a * wt + p` against
+        # a loop-invariant register, which is Gemmini's PE.
         for r in range(outs):
             a = io.a_in.get()
             p = io.p_in.get()
@@ -181,6 +211,13 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH):
         (lane,) = V.axes
         spmw.gather(Y, from_=V.y_out, index=(..., lane))
 
+    # Gemmini's `MxuVpu` routes with **zero** DSP blocks at every size: its
+    # PE's multiply is Chisel arithmetic that Vivado maps to fabric. This
+    # cell's identical `a * wt` is inferred into one DSP per element unless
+    # bound, so without this the lookup-table columns are not measuring the
+    # same thing -- one design has moved its arithmetic off the fabric being
+    # counted. `SPMW_BIND_MUL=0` measures the DSP-inferred form instead.
+    engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_parts = (mac, vpu, dim, kfile, outs)
     return engine
 
@@ -208,10 +245,12 @@ def fixed_operands(size, A, B, bias, shift):
     )
 
 
-def micro_fixed_of(size, tiles=TILES, seed=0, link_depth=LINK_DEPTH):
+def micro_fixed_of(
+    size, tiles=TILES, seed=0, link_depth=LINK_DEPTH, weight_depth=None
+):
     """The fixed-function engine with the shared stimulus attached."""
     A, B, bias, shift, want = stimulus(size, tiles, seed)
-    engine = fixed_engine(size, tiles, link_depth)
+    engine = fixed_engine(size, tiles, link_depth, weight_depth)
     names = ("A", "W", "Bias")
     engine.spmw_operands = dict(zip(names, fixed_operands(size, A, B, bias, shift)))
     engine.spmw_tokens_per_transform = size * size
@@ -221,6 +260,7 @@ def micro_fixed_of(size, tiles=TILES, seed=0, link_depth=LINK_DEPTH):
         "shift": int(shift),
         "fixed": True,
         "link_depth": link_depth,
+        "weight_depth": link_depth if weight_depth is None else weight_depth,
         "expected": want.reshape(tiles * size, size).astype(np.int32),
     }
     return engine

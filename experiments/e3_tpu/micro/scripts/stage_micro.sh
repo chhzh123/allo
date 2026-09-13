@@ -81,12 +81,17 @@ for S in 4 8 16; do
   stage_spmw spmw-fixed "$S" "_fixed" test_spmw_tpu_micro_fixed.py
   # its ablation: the same design on SPMW's default depth-two register slices,
   # which is a different netlist, so it brings its own area and timing.
+  # Its two link-depth ablations: `slice` is every link on SPMW's default
+  # depth-2 register slice, `wslice` only the weight link. Both are different
+  # netlists, so both bring their own area and timing.
   F=$STAGE/spmw-fixed/S$S/report
-  grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
-    "$ROOT/logs/spmw_cosim_slice_S$S.log" 2>/dev/null | sed 's/^ *//' \
-    | sort -u -k1,3 > "$F/cosim_cycles_slice.txt"
-  for f in util.rpt timing.rpt util_hier.rpt; do
-    cp "$ROOT/spmw_pnr_slice_S$S/$f" "$F/slice_$f" 2>/dev/null
+  for v in slice wslice; do
+    grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
+      "$ROOT/logs/spmw_cosim_${v}_S$S.log" 2>/dev/null | sed 's/^ *//' \
+      | sort -u -k1,3 > "$F/cosim_cycles_${v}.txt"
+    for f in util.rpt timing.rpt util_hier.rpt; do
+      cp "$ROOT/spmw_pnr_${v}_S$S/$f" "$F/${v}_$f" 2>/dev/null
+    done
   done
 
   # ---- Gemmini --------------------------------------------------------------

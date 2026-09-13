@@ -72,6 +72,7 @@ void mac_r6_0(
     ap_int<40> v46 = v44;	// L68
     ap_int<40> v47 = v45;	// L69
     ap_int<40> v48 = v46 * v47;	// L70
+    #pragma HLS bind_op variable=v48 op=mul impl=fabric
     ap_int<41> v49 = v43;	// L71
     ap_int<41> v50 = v48;	// L72
     ap_int<41> v51 = v49 + v50;	// L73
@@ -89,7 +90,7 @@ void top(
   hls::stream< int32_t > v53;
   #pragma HLS stream variable=v53 depth=2	// L80
   hls::stream< int32_t > v54;
-  #pragma HLS stream variable=v54 depth=2	// L81
+  #pragma HLS stream variable=v54 depth=4	// L81
   mac_r6_0(v54, v52, v53);	// L82
 }
 

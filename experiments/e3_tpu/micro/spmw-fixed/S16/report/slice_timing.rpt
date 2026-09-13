@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 --------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
-| Date              : Sun Sep 13 00:34:30 2026
+| Date              : Sun Sep 13 18:09:25 2026
 | Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
 | Command           : report_timing_summary -file timing.rpt
 | Design            : spmw_harness
@@ -139,7 +139,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-      0.567        0.000                      0               334422        0.009        0.000                      0               334422        1.134        0.000                       0                121541  
+      0.468        0.000                      0               298259        0.009        0.000                      0               298259        1.134        0.000                       0                132045  
 
 
 All user specified timing constraints are met.
@@ -162,7 +162,7 @@ ap_clk  {0.000 1.666}        3.333           300.030
 
 Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-ap_clk              0.567        0.000                      0               334422        0.009        0.000                      0               334422        1.134        0.000                       0                121541  
+ap_clk              0.468        0.000                      0               298259        0.009        0.000                      0               298259        1.134        0.000                       0                132045  
 
 
 ------------------------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing 
 From Clock:  ap_clk
   To Clock:  ap_clk
 
-Setup :            0  Failing Endpoints,  Worst Slack        0.567ns,  Total Violation        0.000ns
+Setup :            0  Failing Endpoints,  Worst Slack        0.468ns,  Total Violation        0.000ns
 Hold  :            0  Failing Endpoints,  Worst Slack        0.009ns,  Total Violation        0.000ns
 PW    :            0  Failing Endpoints,  Worst Slack        1.134ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
@@ -201,27 +201,27 @@ PW    :            0  Failing Endpoints,  Worst Slack        1.134ns,  Total Vio
 
 Max Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.567ns  (required time - arrival time)
-  Source:                 dut/u_mac_r0_8_4/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mac_muladd_8s_8s_32s_32_4_1_U18/mac_r0_0_mac_muladd_8s_8s_32s_32_4_1_DSP48_0_U/p_reg_reg/DSP_OUTPUT_INST/CLK
-                            (rising edge-triggered cell DSP_OUTPUT clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
-  Destination:            dut/g_mac_p_out_p_in[148].u/slice.q0_reg[0]/D
+Slack (MET) :             0.468ns  (required time - arrival time)
+  Source:                 dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_256_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_reg_267_reg[31]/D
                             (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
   Path Group:             ap_clk
   Path Type:              Setup (Max at Slow Process Corner)
   Requirement:            3.333ns  (ap_clk rise@3.333ns - ap_clk rise@0.000ns)
-  Data Path Delay:        2.628ns  (logic 0.263ns (10.009%)  route 2.365ns (89.991%))
-  Logic Levels:           1  (LUT3=1)
-  Clock Path Skew:        -0.128ns (DCD - SCD + CPR)
-    Destination Clock Delay (DCD):    2.704ns = ( 6.037 - 3.333 ) 
-    Source Clock Delay      (SCD):    3.285ns
-    Clock Pessimism Removal (CPR):    0.452ns
+  Data Path Delay:        2.806ns  (logic 1.214ns (43.264%)  route 1.592ns (56.736%))
+  Logic Levels:           12  (CARRY8=7 LUT2=1 LUT3=1 LUT4=1 LUT6=2)
+  Clock Path Skew:        -0.049ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    2.660ns = ( 5.993 - 3.333 ) 
+    Source Clock Delay      (SCD):    3.158ns
+    Clock Pessimism Removal (CPR):    0.448ns
   Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
     Total System Jitter     (TSJ):    0.071ns
     Total Input Jitter      (TIJ):    0.000ns
     Discrete Jitter          (DJ):    0.000ns
     Phase Error              (PE):    0.000ns
-  Clock Net Delay (Source):      2.298ns (routing 1.169ns, distribution 1.129ns)
-  Clock Net Delay (Destination): 2.010ns (routing 1.062ns, distribution 0.948ns)
+  Clock Net Delay (Source):      2.171ns (routing 1.169ns, distribution 1.002ns)
+  Clock Net Delay (Destination): 1.966ns (routing 1.062ns, distribution 0.904ns)
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
@@ -236,16 +236,49 @@ Slack (MET) :             0.567ns  (required time - arrival time)
                          net (fo=1, routed)           0.323     0.959    ap_clk_IBUF
     BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
                                                       0.028     0.987 r  ap_clk_IBUF_BUFG_inst/O
-    X3Y1 (CLOCK_ROOT)    net (fo=122564, routed)      2.298     3.285    dut/u_mac_r0_8_4/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mac_muladd_8s_8s_32s_32_4_1_U18/mac_r0_0_mac_muladd_8s_8s_32s_32_4_1_DSP48_0_U/p_reg_reg/CLK
-    DSP48E2_X15Y16       DSP_OUTPUT                                   r  dut/u_mac_r0_8_4/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mac_muladd_8s_8s_32s_32_4_1_U18/mac_r0_0_mac_muladd_8s_8s_32s_32_4_1_DSP48_0_U/p_reg_reg/DSP_OUTPUT_INST/CLK
+    X3Y1 (CLOCK_ROOT)    net (fo=132044, routed)      2.171     3.158    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/ap_clk_IBUF_BUFG
+    SLICE_X102Y110       FDRE                                         r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_256_reg[1]/C
   -------------------------------------------------------------------    -------------------
-    DSP48E2_X15Y16       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_CLK_P[0])
-                                                      0.213     3.498 r  dut/u_mac_r0_8_4/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mac_muladd_8s_8s_32s_32_4_1_U18/mac_r0_0_mac_muladd_8s_8s_32s_32_4_1_DSP48_0_U/p_reg_reg/DSP_OUTPUT_INST/P[0]
-                         net (fo=2, routed)           2.316     5.813    dut/g_mac_p_out_p_in[148].u/p_out_din[0]
-    SLICE_X116Y57        LUT3 (Prop_D6LUT_SLICEL_I1_O)
-                                                      0.050     5.863 r  dut/g_mac_p_out_p_in[148].u/slice.q0[0]_i_1__70/O
-                         net (fo=1, routed)           0.049     5.912    dut/g_mac_p_out_p_in[148].u/slice.q0[0]_i_1__70_n_0
-    SLICE_X116Y57        FDRE                                         r  dut/g_mac_p_out_p_in[148].u/slice.q0_reg[0]/D
+    SLICE_X102Y110       FDRE (Prop_FFF_SLICEM_C_Q)
+                                                      0.076     3.234 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_256_reg[1]/Q
+                         net (fo=18, routed)          0.442     3.675    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__59_carry_0[1]
+    SLICE_X103Y109       LUT6 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.148     3.823 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry_i_3__158/O
+                         net (fo=2, routed)           0.229     4.052    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry_i_3__158_n_0
+    SLICE_X102Y109       LUT6 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.037     4.089 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry_i_10__158/O
+                         net (fo=1, routed)           0.022     4.111    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry_i_10__158_n_0
+    SLICE_X102Y109       CARRY8 (Prop_CARRY8_SLICEM_S[5]_CO[7])
+                                                      0.159     4.270 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry/CO[7]
+                         net (fo=1, routed)           0.026     4.296    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry_n_0
+    SLICE_X102Y110       CARRY8 (Prop_CARRY8_SLICEM_CI_O[1])
+                                                      0.076     4.372 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry__0/O[1]
+                         net (fo=2, routed)           0.330     4.703    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__0_carry__0_n_14
+    SLICE_X103Y109       LUT3 (Prop_G6LUT_SLICEL_I2_O)
+                                                      0.089     4.792 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry_i_2__158/O
+                         net (fo=2, routed)           0.188     4.980    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry_i_2__158_n_0
+    SLICE_X103Y110       LUT4 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.097     5.077 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry_i_10__158/O
+                         net (fo=1, routed)           0.008     5.085    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry_i_10__158_n_0
+    SLICE_X103Y110       CARRY8 (Prop_CARRY8_SLICEL_S[6]_CO[7])
+                                                      0.115     5.200 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry/CO[7]
+                         net (fo=1, routed)           0.026     5.226    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry_n_0
+    SLICE_X103Y111       CARRY8 (Prop_CARRY8_SLICEL_CI_O[1])
+                                                      0.076     5.302 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/tmp_product__85_carry__0/O[1]
+                         net (fo=1, routed)           0.221     5.523    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/sext_ln91_fu_231_p1[13]
+    SLICE_X104Y110       LUT2 (Prop_F6LUT_SLICEM_I1_O)
+                                                      0.051     5.574 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18/add_ln91_fu_235_p2_carry__0_i_3__149/O
+                         net (fo=1, routed)           0.022     5.596    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/mul_8s_8s_16_1_1_U18_n_12
+    SLICE_X104Y110       CARRY8 (Prop_CARRY8_SLICEM_S[5]_CO[7])
+                                                      0.159     5.755 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2_carry__0/CO[7]
+                         net (fo=1, routed)           0.026     5.781    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2_carry__0_n_0
+    SLICE_X104Y111       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015     5.796 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2_carry__1/CO[7]
+                         net (fo=1, routed)           0.026     5.822    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2_carry__1_n_0
+    SLICE_X104Y112       CARRY8 (Prop_CARRY8_SLICEM_CI_O[7])
+                                                      0.116     5.938 r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2_carry__2/O[7]
+                         net (fo=1, routed)           0.026     5.964    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_fu_235_p2[31]
+    SLICE_X104Y112       FDRE                                         r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_reg_267_reg[31]/D
   -------------------------------------------------------------------    -------------------
 
                          (clock ap_clk rise edge)     3.333     3.333 r  
@@ -259,17 +292,17 @@ Slack (MET) :             0.567ns  (required time - arrival time)
                          net (fo=1, routed)           0.286     4.004    ap_clk_IBUF
     BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
                                                       0.024     4.028 r  ap_clk_IBUF_BUFG_inst/O
-    X3Y1 (CLOCK_ROOT)    net (fo=122564, routed)      2.010     6.037    dut/g_mac_p_out_p_in[148].u/ap_clk_IBUF_BUFG
-    SLICE_X116Y57        FDRE                                         r  dut/g_mac_p_out_p_in[148].u/slice.q0_reg[0]/C
-                         clock pessimism              0.452     6.489    
-                         clock uncertainty           -0.035     6.454    
-    SLICE_X116Y57        FDRE (Setup_DFF_SLICEL_C_D)
-                                                      0.025     6.479    dut/g_mac_p_out_p_in[148].u/slice.q0_reg[0]
+    X3Y1 (CLOCK_ROOT)    net (fo=132044, routed)      1.966     5.993    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/ap_clk_IBUF_BUFG
+    SLICE_X104Y112       FDRE                                         r  dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_reg_267_reg[31]/C
+                         clock pessimism              0.448     6.442    
+                         clock uncertainty           -0.035     6.407    
+    SLICE_X104Y112       FDRE (Setup_HFF_SLICEM_C_D)
+                                                      0.025     6.432    dut/u_mac_r0_6_9/u/grp_mac_r0_0_Pipeline_l_S_r_2_r_fu_124/add_ln91_reg_267_reg[31]
   -------------------------------------------------------------------
-                         required time                          6.479    
-                         arrival time                          -5.912    
+                         required time                          6.432    
+                         arrival time                          -5.964    
   -------------------------------------------------------------------
-                         slack                                  0.567    
+                         slack                                  0.468    
 
 
 
@@ -278,21 +311,21 @@ Slack (MET) :             0.567ns  (required time - arrival time)
 Min Delay Paths
 --------------------------------------------------------------------------------------
 Slack (MET) :             0.009ns  (arrival time - required time)
-  Source:                 gen_mac_a_in_bind[6].lf_mac_a_in_bind_reg[4]/C
+  Source:                 dut/u_vpu_r0_8/u/v0_read_reg_85_reg[53]/C
                             (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
-  Destination:            dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_236_pp0_iter2_reg_reg[4]_srl2/D
-                            (rising edge-triggered cell SRL16E clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/v6_fu_46_reg[21]/D
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
   Path Group:             ap_clk
   Path Type:              Hold (Min at Slow Process Corner)
   Requirement:            0.000ns  (ap_clk rise@0.000ns - ap_clk rise@0.000ns)
-  Data Path Delay:        0.152ns  (logic 0.057ns (37.547%)  route 0.095ns (62.453%))
+  Data Path Delay:        0.191ns  (logic 0.061ns (31.994%)  route 0.130ns (68.006%))
   Logic Levels:           0  
-  Clock Path Skew:        0.116ns (DCD - SCD - CPR)
-    Destination Clock Delay (DCD):    3.259ns
-    Source Clock Delay      (SCD):    2.691ns
-    Clock Pessimism Removal (CPR):    0.452ns
-  Clock Net Delay (Source):      1.996ns (routing 1.062ns, distribution 0.934ns)
-  Clock Net Delay (Destination): 2.273ns (routing 1.169ns, distribution 1.104ns)
+  Clock Path Skew:        0.119ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    3.429ns
+    Source Clock Delay      (SCD):    2.845ns
+    Clock Pessimism Removal (CPR):    0.464ns
+  Clock Net Delay (Source):      2.151ns (routing 1.062ns, distribution 1.089ns)
+  Clock Net Delay (Destination): 2.442ns (routing 1.169ns, distribution 1.273ns)
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
@@ -307,13 +340,13 @@ Slack (MET) :             0.009ns  (arrival time - required time)
                          net (fo=1, routed)           0.286     0.671    ap_clk_IBUF
     BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
                                                       0.024     0.695 r  ap_clk_IBUF_BUFG_inst/O
-    X3Y1 (CLOCK_ROOT)    net (fo=122564, routed)      1.996     2.691    ap_clk_IBUF_BUFG
-    SLICE_X107Y15        FDRE                                         r  gen_mac_a_in_bind[6].lf_mac_a_in_bind_reg[4]/C
+    X3Y1 (CLOCK_ROOT)    net (fo=132044, routed)      2.151     2.845    dut/u_vpu_r0_8/u/ap_clk_IBUF_BUFG
+    SLICE_X127Y140       FDRE                                         r  dut/u_vpu_r0_8/u/v0_read_reg_85_reg[53]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X107Y15        FDRE (Prop_FFF_SLICEM_C_Q)
-                                                      0.057     2.748 r  gen_mac_a_in_bind[6].lf_mac_a_in_bind_reg[4]/Q
-                         net (fo=3, routed)           0.095     2.843    dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_236_pp0_iter3_reg_reg[7]__0_1[4]
-    SLICE_X106Y15        SRL16E                                       r  dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_236_pp0_iter2_reg_reg[4]_srl2/D
+    SLICE_X127Y140       FDRE (Prop_DFF2_SLICEL_C_Q)
+                                                      0.061     2.906 r  dut/u_vpu_r0_8/u/v0_read_reg_85_reg[53]/Q
+                         net (fo=2, routed)           0.130     3.036    dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/v4_fu_42_reg[31]_1[21]
+    SLICE_X130Y142       FDRE                                         r  dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/v6_fu_46_reg[21]/D
   -------------------------------------------------------------------    -------------------
 
                          (clock ap_clk rise edge)     0.000     0.000 r  
@@ -327,14 +360,14 @@ Slack (MET) :             0.009ns  (arrival time - required time)
                          net (fo=1, routed)           0.323     0.959    ap_clk_IBUF
     BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
                                                       0.028     0.987 r  ap_clk_IBUF_BUFG_inst/O
-    X3Y1 (CLOCK_ROOT)    net (fo=122564, routed)      2.273     3.259    dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/ap_clk_IBUF_BUFG
-    SLICE_X106Y15        SRL16E                                       r  dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_236_pp0_iter2_reg_reg[4]_srl2/CLK
-                         clock pessimism             -0.452     2.807    
-    SLICE_X106Y15        SRL16E (Hold_E6LUT_SLICEM_CLK_D)
-                                                      0.026     2.833    dut/u_mac_r4_6_0/u/grp_mac_r4_0_Pipeline_l_S_r_2_r_fu_124/v24_reg_236_pp0_iter2_reg_reg[4]_srl2
+    X3Y1 (CLOCK_ROOT)    net (fo=132044, routed)      2.442     3.429    dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/ap_clk_IBUF_BUFG
+    SLICE_X130Y142       FDRE                                         r  dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/v6_fu_46_reg[21]/C
+                         clock pessimism             -0.464     2.965    
+    SLICE_X130Y142       FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.062     3.027    dut/u_vpu_r0_8/u/grp_vpu_r0_0_Pipeline_VITIS_LOOP_20_1_fu_48/v6_fu_46_reg[21]
   -------------------------------------------------------------------
-                         required time                         -2.833    
-                         arrival time                           2.843    
+                         required time                         -3.027    
+                         arrival time                           3.036    
   -------------------------------------------------------------------
                          slack                                  0.009    
 
@@ -349,10 +382,10 @@ Waveform(ns):       { 0.000 1.666 }
 Period(ns):         3.333
 Sources:            { ap_clk }
 
-Check Type        Corner  Lib Pin     Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location      Pin
-Min Period        n/a     BUFGCE/I    n/a            1.290         3.333       2.043      BUFGCE_X0Y72  ap_clk_IBUF_BUFG_inst/I
-Low Pulse Width   Slow    SRL16E/CLK  n/a            0.532         1.667       1.135      SLICE_X97Y55  gen_mac_a_in_bind[0].lf_mac_a_in_bind_reg[19]_srl12___gen_mac_a_in_bind_r_10/CLK
-High Pulse Width  Slow    SRL16E/CLK  n/a            0.532         1.666       1.134      SLICE_X97Y55  gen_mac_a_in_bind[0].lf_mac_a_in_bind_reg[19]_srl12___gen_mac_a_in_bind_r_10/CLK
+Check Type        Corner  Lib Pin     Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location        Pin
+Min Period        n/a     BUFGCE/I    n/a            1.290         3.333       2.043      BUFGCE_X0Y72    ap_clk_IBUF_BUFG_inst/I
+Low Pulse Width   Slow    SRL16E/CLK  n/a            0.532         1.666       1.134      SLICE_X102Y207  gen_mac_a_in_bind[0].lf_mac_a_in_bind_reg[19]_srl12___gen_mac_a_in_bind_r_10/CLK
+High Pulse Width  Slow    SRL16E/CLK  n/a            0.532         1.666       1.134      SLICE_X102Y207  gen_mac_a_in_bind[0].lf_mac_a_in_bind_reg[19]_srl12___gen_mac_a_in_bind_r_10/CLK
 
 
 
