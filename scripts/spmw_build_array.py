@@ -262,6 +262,14 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro import micro_of
 
         return micro_of(size, clip=False)
+    if name.startswith("tpumicro-fixed") and name[len("tpumicro-fixed") :].isdigit():
+        # `tpumicro-fixed<d>`: the fixed datapath with its mesh links `d` deep.
+        # The depth sweep is what turns "two slots cannot cover the credit round
+        # trip" from an assertion into a measurement -- the smallest depth that
+        # reaches II=1 *is* the round trip.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(size, link_depth=int(name[len("tpumicro-fixed") :]))
     if name == "tpumicro-slice":
         # The fixed datapath on SPMW's default depth-two register slices. Both
         # of its loops still report II=1 and the array runs at half that,
@@ -1007,6 +1015,9 @@ def main():
             "tpumicro",
             "tpumicro-noclip",
             "tpumicro-fixed",
+            "tpumicro-fixed3",
+            "tpumicro-fixed4",
+            "tpumicro-fixed6",
             "tpumicro-slice",
             "transformer",
             "transformer16",

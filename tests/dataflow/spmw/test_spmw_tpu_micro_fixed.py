@@ -55,15 +55,20 @@ def _log2(n):
     return bits
 
 
-#: Depth of the mesh's data links.  Two -- SPMW's default, a register slice --
-#: is a *credit* limit and not just a buffer: a producer writing into a slice
-#: can only run as fast as the slot it filled comes back, and across the split
-#: fabric that round trip is four cycles, so two slots sustain one beat every
-#: two cycles no matter what the units achieve.  Both units here run at II=1
-#: and the assembled array still measured `2S - 2` cycles a tile, which is
-#: exactly half rate; at eight the credit stops binding and the array runs at
-#: the II its loops report.  `LINK_SLICE` keeps the default measurable.
-LINK_DEPTH = 8
+#: Depth of the mesh's data links.  Two -- SPMW's default -- is not a buffer
+#: here but a *rate* limit, and it took the fixed datapath to expose it: both
+#: units report II=1 and the assembled array still ran at `2S - 2` cycles a
+#: tile, exactly half rate.  At depth two `spmw_fifo` is a bare register slice
+#: whose `full_n` is a flop (`~v1`), and the producer's pipelined loop cannot
+#: re-offer inside that turnaround; at three and above the same module becomes
+#: a LUT-RAM behind that slice and `full_n` comes from a count instead.
+#:
+#: Depths 3, 4, 6 and 8 were measured at S=8 and produced byte-identical cycle
+#: traces, so anything past the slice suffices and the choice is an area one:
+#: four is the smallest power of two that clears it, it fits the same LUT-RAM
+#: primitives as eight (416 either way at S=4) and it routed smaller and with
+#: more slack.  `LINK_SLICE` keeps the default measurable on the same design.
+LINK_DEPTH = 4
 LINK_SLICE = 2
 
 
