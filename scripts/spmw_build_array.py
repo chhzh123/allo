@@ -262,6 +262,22 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro import micro_of
 
         return micro_of(size, clip=False)
+    if name == "tpumicro-slice":
+        # The fixed datapath on SPMW's default depth-two register slices. Both
+        # of its loops still report II=1 and the array runs at half that,
+        # because two slots cannot cover a four-cycle credit round trip. It
+        # prices the link depth, on the same netlist as `tpumicro-fixed`.
+        from test_spmw_tpu_micro_fixed import LINK_SLICE, micro_fixed_of
+
+        return micro_fixed_of(size, link_depth=LINK_SLICE)
+    if name == "tpumicro-fixed":
+        # The same workload and the same operands on a fixed-function datapath:
+        # no instruction fetch in the cell, no program in the lane, the clip a
+        # comparison rather than five MAX/SUB instructions. The ablation that
+        # prices SPMW's programmability against Gemmini's hardwired MxuVpu.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(size)
     if name == "gptstage16k64":
         # The 16x16 stage engine with a 64-tile file: K=1024 in one sweep, one
         # 16-column slab per launch, 8,192 steps; FFN2 is four passes chained
@@ -990,6 +1006,8 @@ def main():
             "tpuisa",
             "tpumicro",
             "tpumicro-noclip",
+            "tpumicro-fixed",
+            "tpumicro-slice",
             "transformer",
             "transformer16",
             "gptstage",

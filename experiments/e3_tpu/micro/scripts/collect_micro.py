@@ -161,11 +161,13 @@ def spmw(root, size, tag=""):
         row["interval_cycles"] = steady(done)
         row["last_out"] = done[-1]
 
-    if not tag:  # the ablation shares the netlist, so it has no route of its own
-        out = os.path.join(root, f"spmw_pnr_S{size}")
+    # A variant is routed only if it is its own netlist: `noclip` reprograms the
+    # `micro` one, so it has no directory here and correctly gets no area.
+    out = os.path.join(root, f"spmw_pnr{tag}_S{size}")
+    if os.path.isdir(out):
         row.update(utilisation(os.path.join(out, "util.rpt")))
         row.update(timing(os.path.join(out, "timing.rpt")))
-        plog = read(os.path.join(root, "logs", f"spmw_pnr_S{size}.log"))
+        plog = read(os.path.join(root, "logs", f"spmw_pnr{tag}_S{size}.log"))
         m = re.search(r"^\s*unrouted (\d+)", plog, re.M)
         if m:
             row["unrouted"] = int(m.group(1))
@@ -199,7 +201,18 @@ def loop_ii(out):
     achieved, target, count, pipelined.
     """
     found = {}
-    for role in ("mac_r4", "vpu_r1"):  # one matrix cell, one vector lane
+    if not os.path.isdir(out):
+        return found
+    # Which role index is the interior cell depends on the design, so the roles
+    # are discovered rather than named: an earlier version hard-coded `mac_r4`
+    # and `vpu_r1`, which are the programmable engine's and nothing else's.
+    roles = sorted(
+        d
+        for d in os.listdir(out)
+        if (d.startswith("mac_r") or d.startswith("vpu_r"))
+        and os.path.isdir(os.path.join(out, d))
+    )
+    for role in roles:
         base = os.path.join(out, role, "prj", "sol", "syn", "report")
         if not os.path.isdir(base):
             continue
@@ -347,6 +360,12 @@ def write_csv(path, rows):
                         f"{size}x{size}x{size} int8 GEMM, bias, requantise, "
                         "ReLU, clip to int8; 16 tiles back to back"
                         + (", clip removed" if tag == "noclip" else "")
+                        + (
+                            "; fixed-function datapath"
+                            if tag in ("fixed", "slice")
+                            else ""
+                        )
+                        + ("; depth-2 links" if tag == "slice" else "")
                     ),
                     "array_size": f"{size}x{size}",
                     "tiles": row.get("tiles"),
@@ -390,6 +409,8 @@ def main():
             rows.append(cross)
         rows.append(spmw(args.root, size))
         rows.append(spmw(args.root, size, tag="_noclip"))
+        rows.append(spmw(args.root, size, tag="_fixed"))
+        rows.append(spmw(args.root, size, tag="_slice"))
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(rows, handle, indent=1, sort_keys=True)
     if args.csv:
