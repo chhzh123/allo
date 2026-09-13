@@ -1,0 +1,79 @@
+{
+ "status": "pass",
+ "pe_files_ok": true,
+ "pe_files_wrong": 0,
+ "expect_nonzero": 3012672,
+ "tiles": 196608,
+ "tiles_ok": 196608,
+ "bad_elements": 0,
+ "first_bad": null,
+ "A0": 12,
+ "F0": 20,
+ "G": 8,
+ "offsets": [
+  0
+ ],
+ "toggles": [
+  [
+   1,
+   36,
+   1
+  ]
+ ],
+ "toggle_count": 1,
+ "buffers": {
+  "0": [
+   16,
+   0
+  ],
+  "1": [
+   16,
+   0
+  ],
+  "2": [
+   16,
+   1
+  ],
+  "3": [
+   16,
+   0
+  ]
+ },
+ "end_cycle": 786489,
+ "signed_equals_rtl": true,
+ "tile_done_cycles_rel_F0": [
+  33,
+  37,
+  41,
+  45,
+  49,
+  53,
+  57,
+  61,
+  786433,
+  786437,
+  786441,
+  786445,
+  786449,
+  786453,
+  786457,
+  786461
+ ],
+ "first_output_cycles": 33,
+ "completion_cycles": 786461,
+ "steady_interval_cycles": {
+  "min": 4,
+  "median": 4.0,
+  "max": 4,
+  "mean": 4.0
+ },
+ "steady_interval_last32": 4.0,
+ "gen_s": 35.1,
+ "build_s": 8.1,
+ "sim_s": 60.9,
+ "xsim_rc": 0,
+ "build": "/scratch/hc676/feather_loader/builds/feather_conv_row_N4_T196608_M1_4490664182",
+ "rtl": "/scratch/hc676/feather_conv/RTL_new",
+ "loader": "row",
+ "WLEN": 16
+}

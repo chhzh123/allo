@@ -8,11 +8,13 @@ several of both.
 
 ## The compute is identical; the difference was a one-off weight load, and it is now fixed
 
-**`cycles_per_tile` is the same on both sides at every size: 4.0, 8.0, 16.0.**
-Once loaded, the two arrays compute at exactly the same rate, which is what one
-would expect of the same architecture expressed twice. That was true before
-this section's change and it is still true after it -- the change touches the
-weight select and nothing else.
+**`cycles_per_tile` is the same on both sides at every size: 4.0, 8.0, 16.0 --
+on the GEMM workload and on the conv one alike.** Once loaded, the two arrays
+compute at exactly the same rate, which is what one would expect of the same
+architecture expressed twice. That was true before this section's change and it
+is still true after it -- the change touches the weight select and nothing
+else. Both workloads are measured below; conv is the one FEATHER's own paper
+evaluates on, and it does not change the conclusion.
 
 Everything that separated them was the initial weight load. The published
 controller admits **one processing element per cycle** (`r_pe_sel <= r_pe_sel +
@@ -114,6 +116,73 @@ against numpy on the host, which the resident runs cannot:
 | 4x4 | 64.0 | **16.0** | 2,097,169 | **524,305** | pass |
 | 8x8 | 512.0 | **64.0** | 2,097,179 | **262,171** | pass |
 | 16x16 | 4,096.0 | **256.0** | 2,097,197 | **131,117** | pass |
+
+### The conv workload, re-measured
+
+The section above is the 128x128x128 GEMM. `results.csv` also carries a conv
+workload -- **16x16x64 -> 64 channels, 3x3, stride 1, pad 1, NHWC int8**, the
+drivers' own tiling with `RS = 9` padded up to a multiple of the array side,
+the host accumulating over channel and tap blocks -- and its FEATHER column was
+measured *before* the loader fix, so it was still carrying an `N^3` feed. It is
+re-measured here on the same three variants.
+
+Getting there needed one piece of housekeeping. Two copies of the generator had
+diverged: the conv programs for `AW = 8` and `16` live in the one this
+experiment's reporting used, and `--loader row` in the one the loader fix used.
+They are merged (`scripts/loader/e4_feather_gen.py`, a clean three-way merge --
+the two changesets touch disjoint code, and `selftest` covers both the
+conv-at-any-`AW` reduction programs and the two loaders agreeing on every PE's
+weight file). **The merged generator reproduces every recorded conv baseline to
+the cycle** -- 81/786,509, 539/262,675, 4,141/69,661 -- which is what makes the
+new rows comparable to the old ones rather than merely adjacent to them.
+
+Weights resident (MODE 1), the comparable pair:
+
+| Array | | published loader | row-wise loader | SPMW port |
+|---|---|---:|---:|---:|
+| 4x4 | first output | 81 | **33** | 50 |
+| | completion | 786,509 | **786,461** | 786,478 |
+| | `cycles_per_tile` | 4.0 | 4.0 | 4.0 |
+| 8x8 | first output | 539 | **91** | 96 |
+| | completion | 262,675 | **262,227** | 262,232 |
+| | `cycles_per_tile` | 8.0 | 8.0 | 8.0 |
+| 16x16 | first output | 4,141 | **301** | 164 |
+| | completion | 69,661 | **65,821** | 65,684 |
+| | `cycles_per_tile` | 16.0 | 16.0 | 16.0 |
+
+**The conv workload says exactly what the GEMM one says**, which is the point
+of running it. `cycles_per_tile` is identical on both sides at every size and
+was identical before the change too, so the compute rate is the same
+architecture expressed twice. Everything that separated them was the load, and
+the saving is `N^3 - N^2` to the cycle -- 48, 448 and 3,840 -- the same law the
+GEMM runs obey.
+
+End to end the shape matches as well:
+
+| Array | SPMW total | FEATHER before | after | before | after |
+|---|---:|---:|---:|---:|---:|
+| 4x4 | 786,478 | 786,509 | 786,461 | RTL +0.004% | **RTL 0.002% faster** |
+| 8x8 | 262,232 | 262,675 | 262,227 | RTL +0.17% | **RTL 0.002% faster** |
+| 16x16 | 65,684 | 69,661 | 65,821 | RTL +6.05% | RTL +0.21% |
+
+On first output SPMW is ahead only at 16x16, 164 against 301, and behind at 4x4
+and 8x8 -- the same crossover the GEMM rows show, for the same reason.
+
+Where the load is paid **per tile** (MODE 0), the change is worth the same
+factor of `N`, and these runs also check the host reduction against numpy,
+which the resident runs cannot. There is no SPMW column here: SPMW's per-tile
+variant is `feather_stream`, a different design that streams every operand, not
+this one re-fed.
+
+| Array | `cycles_per_tile` before | after | completion before | after | host reduction |
+|---|---:|---:|---:|---:|---|
+| 4x4 | 64.0 | **16.0** | 12,582,929 | **3,145,745** | pass |
+| 8x8 | 512.0 | **64.0** | 16,777,243 | **2,097,179** | pass |
+| 16x16 | 4,096.0 | not yet run | 16,777,261 | | |
+
+The 16x16 MODE 0 pair is a 16.7-million-cycle xsim and is still running; its
+`before` column is the recorded `rtl_fixed_conv_N16_feed_general` row. The
+other five conv rows are in `results.csv` as `rtl_rowload_conv_*`.
 
 ### How it was checked, because a wrong weight protocol looks fine
 

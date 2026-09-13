@@ -7,3 +7,5 @@ array,design,scale_form,lut,ff,dsp,bram_tiles,wns_ns,unrouted,top,note,bram_18k_
 16x16,MXU + VPU,shift,31932,18675,0,0,0.245,0,MxuVpu,requantise by arithmetic shift then ReLU,0,16,70,18,xsim on the emitted Verilog,True
 4x4,MXU + VPU,multiply,2436,1403,16,0,-1.373,0,MxuVpu,multiply-then-shift scale; misses timing,0,,,,,
 8x8,MXU + VPU,multiply,8585,4882,32,0,-1.280,0,MxuVpu,multiply-then-shift scale; misses timing,0,,,,,
+32x32,MXU only,--,118562,74940,0,0,0.010,0,MxuOnly,MeshWithDelays alone,0,,,,,
+32x32,MXU + VPU,shift,122484,75295,0,0,0.060,0,MxuVpu,requantise by arithmetic shift then ReLU,0,16,134,34,xsim on the emitted Verilog,True

@@ -122,16 +122,22 @@ every E1 design uses, nothing unrouted anywhere. `results.csv` is the table and
 | 4x4 | 1,932 LUT / 1,372 FF | 2,132 / 1,378 | **+200 LUT (10.4%)** | +0.592 -> +0.591 ns |
 | 8x8 | 7,535 / 4,759 | 8,042 / 4,818 | **+507 LUT (6.7%)** | +0.432 -> +0.456 ns |
 | 16x16 | 30,357 / 18,536 | 31,932 / 18,675 | **+1,575 LUT (5.2%)** | +0.207 -> +0.245 ns |
+| 32x32 | 118,562 / 74,940 | 122,484 / 75,295 | **+3,922 LUT (3.3%)** | +0.010 -> +0.060 ns |
 
 **The VPU is cheap and gets cheaper.** Scale-plus-ReLU costs a tenth of the
-array at 4x4 and a twentieth at 16x16, and it does not cost clock: slack is
-unchanged at 4x4 and slightly better at the two larger sizes, which is
+array at 4x4 and a thirtieth at 32x32, and it does not cost clock: slack is
+unchanged at 4x4 and slightly better at every larger size, which is
 place-and-route variance rather than a real gain.
 
 The trend is structural, not incidental. The MXU grows as the square of the
-array -- 1,932, 7,535, 30,357 is almost exactly 4x per size step -- while the
-VPU processes one row per beat and grows far more slowly, 200, 507, 1,575. A
-vector unit of this shape amortises as the array scales.
+array -- 1,932, 7,535, 30,357, 118,562 is almost exactly 4x per size step --
+while the VPU processes one row per beat and grows far more slowly: 200, 507,
+1,575, 3,922. A vector unit of this shape amortises as the array scales, and
+the cost halves roughly every size step: 10.4%, 6.7%, 5.2%, 3.3%.
+
+**Both 32x32 tops close timing**, at +0.010 ns and +0.060 ns with nothing
+unrouted, which is tighter than anything smaller and worth reading beside E1,
+where Gemmini's output-stationary `Mesh` at 32x32 misses at -0.065 ns.
 
 ## The baseline had to be built, not borrowed
 
@@ -198,11 +204,14 @@ sixteen tiles take seventeen passes.
 | 4x4 | 22 | 6 | 66.7% |
 | 8x8 | 38 | 10 | 80.0% |
 | 16x16 | 70 | 18 | 88.9% |
+| 32x32 | 134 | 34 | 94.1% |
 
 Latency is the first input beat to the last output beat of the first tile;
 interval is the gap between tile completions, which is identical for every tile
-at every size. The interval is `S + 2` cycles: `S` rows of activations and a
-two-cycle request handshake between passes.
+at every size (`interval_min == interval_max` in every run). The interval is
+`S + 2` cycles: `S` rows of activations and a two-cycle request handshake
+between passes, and it holds at 32x32 as well -- 544 of 544 output rows correct
+against the shared stimulus.
 
 **These are xsim's numbers, not chiseltest's.** There is no verilator on the
 machine, so chiseltest falls back to a Scala interpreter: 63 seconds at 4x4, 25
@@ -255,12 +264,10 @@ tile's compute. The full account is in `../micro/README.md`.
 
 ### What is not measured
 
-**32x32 cycles.** Area and timing at 32x32 exist for E1's `Mesh` rows but no
-Gemmini design here has a cycle count at that size: chiseltest falls back to a
-Scala interpreter without verilator, and E1 measured six hours for a 16x16
-mesh that way. The xsim route above has no interpreter in it and does not care
-about mesh size, so this is a matter of elaborating `MESH_DIM=32` rather than
-of a missing tool.
+**A 32x32 SPMW counterpart.** Gemmini's 32x32 row is complete -- cycles, area
+and timing -- but `../micro/` stops at 16x16, so the 32x32 numbers stand alone
+and support no comparison. They are here because they finish the `S + 2` law
+and the VPU's amortisation curve, not because they are half of a pair.
 
 **E1's GEMM workload, on any Gemmini row.** E1 reports Gemmini area and timing
 and deliberately no cycles: its shipped `MeshWithDelaysUnitTest` does not
