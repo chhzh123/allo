@@ -44,11 +44,32 @@ all five components for that reason.
 ## The comparison against Gemmini
 
 The rows above are SPMW on its own. `gemmini/` measures Gemmini's MXU+VPU as a
-TPU at the same scope, and `micro/` is the workload both systems run -- a tiled
-int8 GEMM with bias, requantisation, ReLU and the clip to int8, entirely on
-device, at 4x4, 8x8 and 16x16. That is where the two are set side by side; the
-short version is that SPMW loses every measured column, by 27-36x on
-throughput, and `micro/README.md` says why.
+TPU at the same scope -- 4x4 up to 32x32, cycles and area, with every
+configuration parameter written down -- and `micro/` is the workload both
+systems run: a tiled int8 GEMM with bias, requantisation, ReLU and the clip to
+int8, entirely on device, one shared stimulus, bit-exact on both sides.
+
+`micro/` runs it on **three** designs, and the answer depends on which one:
+
+| | interval / tile (S = 4, 8, 16) | against Gemmini's `S + 2` |
+|---|---|---|
+| SPMW, the stage engine above | 164, 328, 656 | 27x to 36x slower |
+| SPMW, fixed-function | **4, 8, 16** | **1.50x, 1.25x, 1.125x faster** |
+| Gemmini MXU+VPU | 6, 10, 18 | -- |
+
+**All of the loss is the programmability, and it is worth exactly 41x.** The
+engine above spends 41 cycles an output row whatever the array size, because
+its epilogue is a program and its instruction dispatch cannot pipeline. Strip
+the dispatch and the interval becomes exactly `S`, which is one output row a
+cycle and the best of the three. What that costs is the netlist's generality:
+the fixed datapath computes one thing, where the engine above ran a whole GPT-2
+block, softmax included, by changing sixteen words in a stream.
+
+The area column does not flip. Even fixed-function, SPMW is 2.5-2.6x Gemmini's
+lookup tables and 5.6-6.5x its registers, and that residue is the composition
+model rather than the instruction set: a handshaked FIFO on every link where
+Gemmini's systolic mesh has a bare register. `micro/README.md` has the full
+account, including the sixteen-tile burst, which Gemmini still wins.
 
 Note that `micro/` also moves the requantisation onto the device. The rows
 above do it on the host, which is one of the reasons `pack_s` dominates them.
@@ -64,6 +85,13 @@ above do it on the host, which is one of the reasons `pack_s` dominates them.
   `spmw_const.sv`, `spmw_harness.sv`). 16 roles.
 - `report/` -- the routed timing and utilisation for the kernel, the link and
   package logs, and both board runs with their scripts and result JSON.
+- `gemmini/` -- Gemmini's MXU+VPU as the baseline: the exact configuration,
+  area and timing at 4x4 to 32x32 in two scale forms, and cycles.
+- `micro/` -- the workload both systems run, in the
+  `<framework>/<size>/{source,generated,report}` shape E1, E2 and E4 use:
+  `spmw/` is the stage engine, `spmw-fixed/` the fixed-function datapath,
+  `gemmini/` the baseline, `stimulus/` the operands all three are checked
+  against.
 
 The full build tree is 3.2 GB on the machine; what is here is the subset that
 reproduces the table.
