@@ -35,7 +35,13 @@ def side(row):
     """Which system a row is, short enough for a table cell."""
     v, s = row["variant"], row["system"]
     if s.startswith("SPMW"):
-        return "SPMW " + ("resident" if "resident" in v or "single tile" in v else "streamed")
+        kind = "resident" if "resident" in v or "single tile" in v else "streamed"
+        # The multiply's binding is the difference between two rows that are
+        # otherwise the same design, and it moves the LUT count by half: label
+        # it, or the pair reads as one row printed twice.
+        if "bound to\nfabric" in v or "bound to fabric" in v:
+            kind += ", fabric mul"
+        return "SPMW " + kind
     for tag, label in (
         ("row-wise weight loader", "RTL row loader"),
         ("corrected controller", "RTL corrected"),

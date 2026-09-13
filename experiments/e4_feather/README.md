@@ -277,29 +277,53 @@ weights)** is a port of what the RTL does; `feather_stream` streams every
 operand instead and is a different design, three to ten times larger, failing
 timing at 16x16. The table below is the comparable pair.
 
+**Both sides now put the multiplier in the same place.** FEATHER's RTL routes
+with **zero** DSP blocks at every size -- a plain `*` in Verilog that Vivado
+maps to fabric -- and the port's identical multiply was being inferred into one
+DSP per element. Two lookup-table counts only compare if the arithmetic is in
+the same part of the device, so the port is now bound to fabric as well
+(`#pragma HLS bind_op ... op=mul impl=fabric`, `SPMW_BIND_MUL=1`, the default).
+Both columns below are DSP-free.
+
 | Array | System | LUT | FF | DSP | Slack |
 |---|---|---:|---:|---:|---:|
-| 4x4 | SPMW port | 2,305 | 3,639 | **16** | +1.200 ns |
-| | FEATHER RTL, corrected | 2,309 | 3,378 | **0** | +1.174 ns |
-| 8x8 | SPMW port | 9,974 | 14,989 | **64** | +0.866 ns |
-| | FEATHER RTL, corrected | 9,694 | 15,332 | **0** | +0.355 ns |
-| 16x16 | SPMW port | 31,019 | 49,673 | **256** | +0.338 ns |
-| | FEATHER RTL, corrected | 57,499 | 91,251 | **0** | +0.120 ns |
+| 4x4 | SPMW port | 3,505 | 4,291 | 0 | +0.869 ns |
+| | FEATHER RTL, corrected | **2,309** | **3,378** | 0 | **+1.174 ns** |
+| 8x8 | SPMW port | 14,863 | 18,453 | 0 | **+0.707 ns** |
+| | FEATHER RTL, corrected | **9,694** | **15,332** | 0 | +0.355 ns |
+| 16x16 | SPMW port | **54,439** | **72,585** | 0 | **+0.291 ns** |
+| | FEATHER RTL, corrected | 57,499 | 91,251 | 0 | +0.120 ns |
 | 32x32 | SPMW port | not run | | | |
-| | FEATHER RTL, corrected | 338,694 | 624,270 | **0** | **-0.227 ns** |
+| | FEATHER RTL, corrected | 338,694 | 624,270 | 0 | **-0.227 ns** |
 
-**The DSP column is the caveat.** FEATHER's RTL routes with **zero DSPs** at
-every size; the SPMW port uses one per element -- 16, 64, 256. So the LUT
-comparison is not like for like: at 16x16 the port's 26,000 fewer lookup tables
-and 41,000 fewer registers are bought with 256 DSP blocks the RTL does not use.
-Vivado is inferring DSPs from the port's multiply and implementing FEATHER's in
-fabric. Anyone reading the LUT column as an area win should read the DSP column
-in the same row; the honest statement is that the two designs land in different
-parts of the device, not that one is half the size of the other.
+**This changed the answer, and the previous one was wrong.** With the port's
+multiply in DSPs it read 2,305 / 9,974 / 31,019 lookup tables -- "within 3 per
+cent" of the RTL at 4x4 and 8x8, and 46 per cent *smaller* at 16x16. None of
+that survives binding the multiply the way the baseline does:
 
-At 4x4 and 8x8 the lookup-table counts are within 3 per cent of each other,
-which is the more informative result: at those sizes the port is neither
-cheaper nor dearer, it just moves the multipliers.
+| Array | port, DSP inferred | port, multiply in fabric | against the RTL |
+|---|---:|---:|---|
+| 4x4 | 2,305 LUT / 16 DSP | 3,505 LUT / 0 DSP | was -0.2%, is **+51.8%** |
+| 8x8 | 9,974 / 64 | 14,863 / 0 | was +2.9%, is **+53.3%** |
+| 16x16 | 31,019 / 256 | 54,439 / 0 | was -46.1%, is **-5.3%** |
+
+So the port is **half again as large** as the RTL at 4x4 and 8x8, not the same
+size, and at 16x16 it is 5% smaller rather than half the size. The registers
+tell the same story more mildly: +27.0%, +20.4%, **-20.5%**. The binding costs
+the port 52%, 49% and 76% of its lookup tables and 18%, 23% and 46% of its
+registers, which is what those 16, 64 and 256 DSP blocks had been doing.
+
+What survives is the 16x16 row and the clock. At the largest size the port is
+smaller on both lookup tables and registers with no DSPs on either side, and it
+closes timing with more margin than the RTL at 8x8 and 16x16 (+0.707 against
++0.355, +0.291 against +0.120). The crossover with size is the real result: the
+port's per-element overhead is fixed and the RTL's grows, so the port loses at
+4x4, loses at 8x8 and wins at 16x16.
+
+Both forms are in `results.csv` -- `pnr_spmw_feather_N*` is the DSP-inferred
+one and `pnr_spmw_feather_fabmul_N*` the fabric-bound one -- because which
+resource a multiply lands in is a real choice and the pair is what shows what
+it costs.
 
 The row-wise loader lands on top of the corrected RTL's row of this table
 without moving it -- within 1.7% on LUTs, within 0.03 ns on slack, and it is
