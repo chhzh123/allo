@@ -353,5 +353,22 @@ refactor touches, and it is 1.5x to 2.7x shorter. The nine mesh roles
 synthesised in 80 to 86 s of wall clock (before: 80 to 105 s, on a busier
 machine); a role's generated C++ is identical to the recorded
 `spmw_mesh/S*/generated/pe_r0.cpp` except for the order of its stream
-parameters, which the wrapper maps by name. E5 below re-measures the
-compilation time under its own protocol.
+parameters, which the wrapper maps by name. E5 re-measures the compilation
+time under its own protocol (`e5_compile/README.md`).
+
+The mesh was then taken through place and route at 300 MHz with the same
+command as the original `pnr` runs (`e1_pnr_refactor.sh`):
+
+| Array | LUT | FF | DSP | Slack | Clock | Recorded row |
+|---|---:|---:|---:|---:|---:|---|
+| 4x4 | 560 | 1,021 | 16 | +1.167 ns | 462 MHz | identical |
+| 8x8 | 2,225 | 4,301 | 64 | +0.996 ns | 428 MHz | identical |
+| 16x16 | 9,026 | 18,048 | 256 | +0.428 ns | 344 MHz | identical |
+| 32x32 | 37,846 | 74,953 | 1,024 | +0.382 ns | 339 MHz | 37,917 / 74,945 / +0.431 ns / 345 MHz |
+
+Three of the four routed arrays are the recorded ones to the lookup table
+and the picosecond. At 32x32 the netlist differs in the order of each role's
+stream ports, which is enough for Vivado to place a 1,024-cell array a little
+differently: 0.2 per cent fewer lookup tables, 8 more registers, and 49 ps
+less slack, within the run-to-run movement a design of that size shows. Every
+array routed with nothing unrouted.
