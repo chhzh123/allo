@@ -57,21 +57,25 @@ def _log2(n):
     return bits
 
 
-#: Depth of the mesh's data links.  Two -- SPMW's default -- is not a buffer
-#: here but a *rate* limit, and it took the fixed datapath to expose it: both
-#: units report II=1 and the assembled array still ran at `2S - 2` cycles a
-#: tile, exactly half rate.  At depth two `spmw_fifo` is a bare register slice
-#: whose `full_n` is a flop (`~v1`), and the producer's pipelined loop cannot
-#: re-offer inside that turnaround; at three and above the same module becomes
-#: a LUT-RAM behind that slice and `full_n` comes from a count instead.
+#: Depth of the mesh's links.  SPMW's default of two is what this uses, and
+#: getting there took two measurements that interact.
 #:
-#: Depths 3, 4, 6 and 8 were measured at S=8 and produced byte-identical cycle
-#: traces, so anything past the slice suffices and the choice is an area one:
-#: four is the smallest power of two that clears it, it fits the same LUT-RAM
-#: primitives as eight (416 either way at S=4) and it routed smaller and with
-#: more slack.  `LINK_SLICE` keeps the default measurable on the same design.
-LINK_DEPTH = 4
-LINK_SLICE = 2
+#: With the multiply inferred into a DSP the cell's iteration latency was 5,
+#: and at that depth the assembled array ran at **half rate** -- `2S - 2`
+#: cycles a tile with every loop reporting II=1 -- because a depth-2
+#: `spmw_fifo` is a bare register slice whose `full_n` is a flop and the
+#: producer could not re-offer inside that turnaround.  Depths 3, 4, 6 and 8
+#: all fixed it and all gave byte-identical traces, so `LINK_DEPTH` was 4.
+#:
+#: Binding the multiply to fabric -- which the comparison against Gemmini
+#: requires, since Gemmini spends no DSPs -- took the cell to an iteration
+#: latency of **4**, and at 4 the depth-2 slice sustains full rate on its own.
+#: So the deep links became a workaround for a problem that no longer exists,
+#: and a costly one: at 16x16 they are 15,050 more lookup tables, 6,952 more
+#: registers and 2 more cycles of first-tile latency for an identical
+#: interval.  `LINK_DEEP` keeps that configuration measurable.
+LINK_DEPTH = 2
+LINK_DEEP = 4
 
 
 def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):

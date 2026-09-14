@@ -6,17 +6,17 @@
   "streams": 64
  },
  "hls_seconds": {
-  "mac_r3": 52.2,
-  "mac_r2": 52.7,
-  "mac_r4": 53.0,
-  "mac_r0": 53.6,
-  "mac_r5": 54.3,
-  "mac_r1": 54.8,
-  "mac_r8": 46.9,
-  "mac_r7": 48.1,
-  "mac_r6": 48.7,
-  "vpu_r0": 47.7
+  "mac_r1": 66.9,
+  "mac_r4": 67.0,
+  "mac_r2": 67.7,
+  "mac_r0": 67.9,
+  "mac_r3": 68.3,
+  "mac_r5": 65.8,
+  "vpu_r0": 65.7,
+  "mac_r6": 67.1,
+  "mac_r7": 66.7,
+  "mac_r8": 67.1
  },
- "hls_wall_seconds": 101.3,
- "vivado_seconds": 2705.0
+ "hls_wall_seconds": 135.0,
+ "vivado_seconds": 2037.5
 }

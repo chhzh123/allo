@@ -96,13 +96,13 @@ void top(
 ) {	// L86
   #pragma HLS dataflow
   hls::stream< int8_t > v59;
-  #pragma HLS stream variable=v59 depth=4	// L87
+  #pragma HLS stream variable=v59 depth=2	// L87
   hls::stream< int8_t > v60;
   #pragma HLS stream variable=v60 depth=2	// L88
   hls::stream< int32_t > v61;
   #pragma HLS stream variable=v61 depth=2	// L89
   hls::stream< int32_t > v62;
-  #pragma HLS stream variable=v62 depth=4	// L90
+  #pragma HLS stream variable=v62 depth=2	// L90
   hls::stream< int32_t > v63;
   #pragma HLS stream variable=v63 depth=2	// L91
   mac_r2_0(v62, v63, v59, v60, v61);	// L92

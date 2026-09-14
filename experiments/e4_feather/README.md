@@ -65,19 +65,62 @@ every one of its byte lanes is live; before, at most one lane of each row was.
 
 ### What it measures
 
-Weights resident (MODE 1), the `gemm128 ..._resident_general` rows:
+Weights resident (MODE 1), the `gemm128 ..._resident_general` rows. **The SPMW
+column is not the same measurement as the RTL columns**, and the split matters
+enough that the table gives it:
 
 | Array | | published loader | row-wise loader | SPMW port |
 |---|---|---:|---:|---:|
-| 4x4 | first output | 81 | **33** | 50 |
-| | completion | 131,149 | **131,101** | 131,118 |
+| 4x4 | array fill, weights in place | 17 | **17** | 42 |
+| | + weight feed | 64 | **16** | none: resident |
+| | = first output | 81 | **33** | 42 |
+| | completion | 131,149 | **131,101** | 131,110 |
 | | `cycles_per_tile` | 4.0 | 4.0 | 4.0 |
-| 8x8 | first output | 539 | **91** | 96 |
-| | completion | 33,299 | **32,851** | 32,856 |
+| 8x8 | array fill, weights in place | 27 | **27** | 80 |
+| | + weight feed | 512 | **64** | none: resident |
+| | = first output | 539 | **91** | 80 |
+| | completion | 33,299 | **32,851** | 32,840 |
 | | `cycles_per_tile` | 8.0 | 8.0 | 8.0 |
-| 16x16 | first output | 4,141 | **301** | 164 |
-| | completion | 12,317 | **8,477** | 8,340 |
+| 16x16 | array fill, weights in place | 45 | **45** | 132 |
+| | + weight feed | 4,096 | **256** | none: resident |
+| | = first output | 4,141 | **301** | 132 |
+| | completion | 12,317 | **8,477** | 8,308 |
 | | `cycles_per_tile` | 16.0 | 16.0 | 16.0 |
+
+**Read the first row, not the third.** The RTL's figure is measured from `F0`,
+the first cycle of its weight feed -- `first_output_cycles = done[0] - F0 + 1`
+in `e4_feather_gen.py` -- so it contains the feed. The SPMW variant is
+`feather_stream_x`, whose weights are a `spmw.MemIn`: resident before the clock
+starts, with no feed to contain. Comparing the two totals charges FEATHER for a
+load SPMW never performs.
+
+The split is not a fit. The testbench defines `A_BASE = G + WLEN`, so tile 0's
+activations begin after the feed, and tile 0's first row lands at
+`A0 + A_BASE + LAT` with `LAT = N + 5 + 2 log2 N`; the reported figure is tile 0
+*complete*, so it is `WLEN + LAT + N`. That reconstructs 33, 91 and 301
+exactly, which is what licenses subtracting `WLEN` to get the fill.
+
+**On the comparable row SPMW loses at every size, by 2.5x to 3.0x** -- 42
+against 17, 80 against 27, 132 against 45. That is the same factor E3 measures
+against Gemmini (2.6x to 2.8x), from the same cause: a partial sum crossing
+`dim` cells pays an independently synthesised HLS pipeline plus a handshaked
+FIFO at each hop, where a systolic array pays a register. Two unrelated
+baselines, one number.
+
+An earlier version of this section read the third row instead and concluded
+SPMW won above N≈8. That was wrong, and wrong in SPMW's favour.
+
+The `completion` row still favours SPMW at 8x8 and 16x16 for the same reason
+the third row does -- it inherits the missing feed -- so it is not a comparison
+either. The honest summary is the pair (`array fill`, `cycles_per_tile`): SPMW
+is 2.5-3.0x slower to fill and exactly as fast once full.
+
+**What the port cannot do**, and this is the finding underneath: SPMW's FEATHER
+port has no "load the weights once through a port, then compute" mode.
+`feather_stream_x` has them resident and `feather_stream` re-streams every
+operand per tile; neither matches the RTL's MODE 1. So the `+ weight feed` row
+cannot be filled for SPMW at all, and its absence is a gap in the port rather
+than an advantage.
 
 The load itself lands exactly on the prediction. The feed is `N^2` cycles --
 16, 64, 256 -- and the first output moves earlier by exactly `N^3 - N^2`:
@@ -102,19 +145,25 @@ and that closes **to the cycle on all twelve rows**, GEMM and conv, at every
 size. So the pair `(startup, rate)` says everything, and a completion number
 for some particular tile count is a third number derived from them:
 
-| Array | | startup | cycles / tile | completion at the tile count run |
-|---|---|---:|---:|---:|
-| 4x4 | FEATHER RTL, row loader | **29** | 4.0 | 131,101 over 32,768 tiles |
-| | SPMW port | 46 | 4.0 | 131,118 |
-| 8x8 | FEATHER RTL, row loader | **83** | 8.0 | 32,851 over 4,096 tiles |
-| | SPMW port | 88 | 8.0 | 32,856 |
-| 16x16 | FEATHER RTL, row loader | 285 | 16.0 | 8,477 over 512 tiles |
-| | SPMW port | **148** | 16.0 | **8,340** |
+| Array | | startup | of which weight feed | cycles / tile | completion at the tile count run |
+|---|---|---:|---:|---:|---:|
+| 4x4 | FEATHER RTL, row loader | 29 | 16 | 4.0 | 131,101 over 32,768 tiles |
+| | SPMW port | 38 | none | 4.0 | 131,110 |
+| 8x8 | FEATHER RTL, row loader | 83 | 64 | 8.0 | 32,851 over 4,096 tiles |
+| | SPMW port | 72 | none | 8.0 | 32,840 |
+| 16x16 | FEATHER RTL, row loader | 285 | 256 | 16.0 | 8,477 over 512 tiles |
+| | SPMW port | 116 | none | 16.0 | 8,308 |
 
 **The rate is identical, so the startup is the entire difference** -- and the
-completion delta equals the first-output delta exactly, +17, +5 and -137, on
+completion delta equals the first-output delta exactly, +9, -11 and -169, on
 both workloads. That identity is the evidence that nothing else separates the
 two designs; it is not a coincidence to be reported as a percentage.
+
+The startup column is not like for like either, for the reason above: the RTL's
+contains a weight feed and SPMW's does not. Net the feed out and the RTL's
+startups are **13, 19 and 29** -- exactly its `LAT = N + 5 + 2 log2 N` --
+against SPMW's **38, 72 and 116**, so SPMW is 2.9x, 3.8x and 4.0x slower to
+start at every size.
 
 Percentages of completion are worth avoiding for that reason. The same 137
 cycles read as 1.6% of the 16x16 GEMM and 0.21% of the 16x16 conv purely
@@ -179,11 +228,24 @@ the saving is `N^3 - N^2` to the cycle -- 48, 448 and 3,840 -- the same law the
 GEMM runs obey.
 
 End to end the shape matches as well, and it matches in the strong sense: the
-startup and the rate are the *same numbers* as the GEMM runs -- 29 against 46,
-83 against 88, 285 against 148, at 4.0, 8.0 and 16.0 cycles a tile -- so the
+startup and the rate are the *same numbers* as the GEMM runs -- 29 against 38,
+83 against 72, 285 against 116, at 4.0, 8.0 and 16.0 cycles a tile -- so the
 completion figures differ from the GEMM ones only in how many tiles each
-workload has. SPMW is ahead on startup only at 16x16, and behind at 4x4 and
-8x8, the same crossover for the same reason.
+workload has:
+
+| Array | | fill | + weight feed | = first output | completion | cycles / tile |
+|---|---|---:|---:|---:|---:|---:|
+| 4x4 | FEATHER RTL, row loader | **17** | 16 | 33 | **786,461** | 4.0 |
+| | SPMW port | 42 | none | 42 | 786,470 | 4.0 |
+| 8x8 | FEATHER RTL, row loader | **27** | 64 | 91 | 262,227 | 8.0 |
+| | SPMW port | 80 | none | 80 | **262,216** | 8.0 |
+| 16x16 | FEATHER RTL, row loader | **45** | 256 | 301 | 65,821 | 16.0 |
+| | SPMW port | 132 | none | 132 | **65,652** | 16.0 |
+
+On the like-for-like column -- the fill, with the RTL's weight feed netted out
+-- SPMW is behind at every size, by 2.5x, 3.0x and 2.9x. It appears ahead on
+first output and on completion only because both charge the RTL for a feed
+SPMW does not perform.
 
 Where the load is paid **per tile** (MODE 0), the change is worth the same
 factor of `N`, and these runs also check the host reduction against numpy,

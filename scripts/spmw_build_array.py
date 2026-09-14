@@ -286,22 +286,15 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_fixed import micro_fixed_of
 
         return micro_fixed_of(size, weight_depth=int(name[len("tpumicro-fixedw") :]))
-    if name == "tpumicro-wslice":
-        # The fixed datapath with its *weight* link on SPMW's default slice and
-        # its data links deep. The load is serial down each row, so this is
-        # what a half-rate weight link costs in first-tile latency, on the same
-        # netlist as `tpumicro-fixed` in every other respect.
-        from test_spmw_tpu_micro_fixed import LINK_SLICE, micro_fixed_of
+    if name == "tpumicro-deep":
+        # The fixed datapath with its mesh links four deep instead of SPMW's
+        # default two. That was the design until the multiply was bound to
+        # fabric: with the multiply in a DSP the cell was a pipeline stage
+        # deeper and the depth-2 register slice halved the array's rate, and
+        # at the shallower cell it does not. Kept to price the workaround.
+        from test_spmw_tpu_micro_fixed import LINK_DEEP, micro_fixed_of
 
-        return micro_fixed_of(size, weight_depth=LINK_SLICE)
-    if name == "tpumicro-slice":
-        # The fixed datapath on SPMW's default depth-two register slices. Both
-        # of its loops still report II=1 and the array runs at half that,
-        # because two slots cannot cover a four-cycle credit round trip. It
-        # prices the link depth, on the same netlist as `tpumicro-fixed`.
-        from test_spmw_tpu_micro_fixed import LINK_SLICE, micro_fixed_of
-
-        return micro_fixed_of(size, link_depth=LINK_SLICE)
+        return micro_fixed_of(size, link_depth=LINK_DEEP)
     if name == "tpumicro-fixed":
         # The same workload and the same operands on a fixed-function datapath:
         # no instruction fetch in the cell, no program in the lane, the clip a
@@ -1048,8 +1041,7 @@ def main():
             "tpumicro-fixedw4",
             "tpumicro-fixedw8",
             "tpumicro-fixedt8",
-            "tpumicro-slice",
-            "tpumicro-wslice",
+            "tpumicro-deep",
             "transformer",
             "transformer16",
             "gptstage",

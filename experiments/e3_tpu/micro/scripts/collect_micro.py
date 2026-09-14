@@ -365,12 +365,7 @@ def write_csv(path, rows):
                             if tag in ("fixed", "slice")
                             else ""
                         )
-                        + ("; depth-2 links" if tag == "slice" else "")
-                        + (
-                            "; depth-2 weight link"
-                            if tag == "wslice"
-                            else ""
-                        )
+                        + ("; depth-4 links" if tag == "deep" else "")
                     ),
                     "array_size": f"{size}x{size}",
                     "tiles": row.get("tiles"),
@@ -415,8 +410,7 @@ def main():
         rows.append(spmw(args.root, size))
         rows.append(spmw(args.root, size, tag="_noclip"))
         rows.append(spmw(args.root, size, tag="_fixed"))
-        rows.append(spmw(args.root, size, tag="_slice"))
-        rows.append(spmw(args.root, size, tag="_wslice"))
+        rows.append(spmw(args.root, size, tag="_deep"))
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(rows, handle, indent=1, sort_keys=True)
     if args.csv:

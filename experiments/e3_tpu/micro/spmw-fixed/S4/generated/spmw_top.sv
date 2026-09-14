@@ -16,7 +16,7 @@ module spmw_top (
   input  wire vpu_b_mem_empty_n [0:3],
   output wire vpu_b_mem_read [0:3]
 );
-  // family mac_a_out_a_in: 16 channel(s), 8-bit, depth 4
+  // family mac_a_out_a_in: 16 channel(s), 8-bit, depth 2
   wire [7:0] mac_a_out_a_in_din [0:15];
   wire [7:0] mac_a_out_a_in_dout [0:15];
   wire mac_a_out_a_in_full_n [0:15];
@@ -26,10 +26,10 @@ module spmw_top (
   genvar mac_a_out_a_in_i;
   generate
     for (mac_a_out_a_in_i = 0; mac_a_out_a_in_i < 16; mac_a_out_a_in_i = mac_a_out_a_in_i + 1) begin : g_mac_a_out_a_in
-      spmw_fifo #(.DW(8), .DEPTH(4)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_a_out_a_in_din[mac_a_out_a_in_i]), .full_n(mac_a_out_a_in_full_n[mac_a_out_a_in_i]), .write(mac_a_out_a_in_write[mac_a_out_a_in_i]), .dout(mac_a_out_a_in_dout[mac_a_out_a_in_i]), .empty_n(mac_a_out_a_in_empty_n[mac_a_out_a_in_i]), .read(mac_a_out_a_in_read[mac_a_out_a_in_i]));
+      spmw_fifo #(.DW(8), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_a_out_a_in_din[mac_a_out_a_in_i]), .full_n(mac_a_out_a_in_full_n[mac_a_out_a_in_i]), .write(mac_a_out_a_in_write[mac_a_out_a_in_i]), .dout(mac_a_out_a_in_dout[mac_a_out_a_in_i]), .empty_n(mac_a_out_a_in_empty_n[mac_a_out_a_in_i]), .read(mac_a_out_a_in_read[mac_a_out_a_in_i]));
     end
   endgenerate
-  // family mac_w_out_w_in: 16 channel(s), 32-bit, depth 4
+  // family mac_w_out_w_in: 16 channel(s), 32-bit, depth 2
   wire [31:0] mac_w_out_w_in_din [0:15];
   wire [31:0] mac_w_out_w_in_dout [0:15];
   wire mac_w_out_w_in_full_n [0:15];
@@ -39,10 +39,10 @@ module spmw_top (
   genvar mac_w_out_w_in_i;
   generate
     for (mac_w_out_w_in_i = 0; mac_w_out_w_in_i < 16; mac_w_out_w_in_i = mac_w_out_w_in_i + 1) begin : g_mac_w_out_w_in
-      spmw_fifo #(.DW(32), .DEPTH(4)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_w_out_w_in_din[mac_w_out_w_in_i]), .full_n(mac_w_out_w_in_full_n[mac_w_out_w_in_i]), .write(mac_w_out_w_in_write[mac_w_out_w_in_i]), .dout(mac_w_out_w_in_dout[mac_w_out_w_in_i]), .empty_n(mac_w_out_w_in_empty_n[mac_w_out_w_in_i]), .read(mac_w_out_w_in_read[mac_w_out_w_in_i]));
+      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_w_out_w_in_din[mac_w_out_w_in_i]), .full_n(mac_w_out_w_in_full_n[mac_w_out_w_in_i]), .write(mac_w_out_w_in_write[mac_w_out_w_in_i]), .dout(mac_w_out_w_in_dout[mac_w_out_w_in_i]), .empty_n(mac_w_out_w_in_empty_n[mac_w_out_w_in_i]), .read(mac_w_out_w_in_read[mac_w_out_w_in_i]));
     end
   endgenerate
-  // family mac_p_out_p_in: 16 channel(s), 32-bit, depth 4
+  // family mac_p_out_p_in: 16 channel(s), 32-bit, depth 2
   wire [31:0] mac_p_out_p_in_din [0:15];
   wire [31:0] mac_p_out_p_in_dout [0:15];
   wire mac_p_out_p_in_full_n [0:15];
@@ -52,10 +52,10 @@ module spmw_top (
   genvar mac_p_out_p_in_i;
   generate
     for (mac_p_out_p_in_i = 0; mac_p_out_p_in_i < 16; mac_p_out_p_in_i = mac_p_out_p_in_i + 1) begin : g_mac_p_out_p_in
-      spmw_fifo #(.DW(32), .DEPTH(4)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_p_out_p_in_din[mac_p_out_p_in_i]), .full_n(mac_p_out_p_in_full_n[mac_p_out_p_in_i]), .write(mac_p_out_p_in_write[mac_p_out_p_in_i]), .dout(mac_p_out_p_in_dout[mac_p_out_p_in_i]), .empty_n(mac_p_out_p_in_empty_n[mac_p_out_p_in_i]), .read(mac_p_out_p_in_read[mac_p_out_p_in_i]));
+      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(mac_p_out_p_in_din[mac_p_out_p_in_i]), .full_n(mac_p_out_p_in_full_n[mac_p_out_p_in_i]), .write(mac_p_out_p_in_write[mac_p_out_p_in_i]), .dout(mac_p_out_p_in_dout[mac_p_out_p_in_i]), .empty_n(mac_p_out_p_in_empty_n[mac_p_out_p_in_i]), .read(mac_p_out_p_in_read[mac_p_out_p_in_i]));
     end
   endgenerate
-  // family vpu_z_in_bind: 4 channel(s), 32-bit, depth 4
+  // family vpu_z_in_bind: 4 channel(s), 32-bit, depth 2
   wire [31:0] vpu_z_in_bind_din [0:3];
   wire [31:0] vpu_z_in_bind_dout [0:3];
   wire vpu_z_in_bind_full_n [0:3];
@@ -65,7 +65,7 @@ module spmw_top (
   genvar vpu_z_in_bind_i;
   generate
     for (vpu_z_in_bind_i = 0; vpu_z_in_bind_i < 4; vpu_z_in_bind_i = vpu_z_in_bind_i + 1) begin : g_vpu_z_in_bind
-      spmw_fifo #(.DW(32), .DEPTH(4)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(vpu_z_in_bind_din[vpu_z_in_bind_i]), .full_n(vpu_z_in_bind_full_n[vpu_z_in_bind_i]), .write(vpu_z_in_bind_write[vpu_z_in_bind_i]), .dout(vpu_z_in_bind_dout[vpu_z_in_bind_i]), .empty_n(vpu_z_in_bind_empty_n[vpu_z_in_bind_i]), .read(vpu_z_in_bind_read[vpu_z_in_bind_i]));
+      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(vpu_z_in_bind_din[vpu_z_in_bind_i]), .full_n(vpu_z_in_bind_full_n[vpu_z_in_bind_i]), .write(vpu_z_in_bind_write[vpu_z_in_bind_i]), .dout(vpu_z_in_bind_dout[vpu_z_in_bind_i]), .empty_n(vpu_z_in_bind_empty_n[vpu_z_in_bind_i]), .read(vpu_z_in_bind_read[vpu_z_in_bind_i]));
     end
   endgenerate
   // role mac_r0: 4 instance(s)

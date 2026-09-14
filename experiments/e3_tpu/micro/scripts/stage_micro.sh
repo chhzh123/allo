@@ -81,11 +81,11 @@ for S in 4 8 16; do
   stage_spmw spmw-fixed "$S" "_fixed" test_spmw_tpu_micro_fixed.py
   # its ablation: the same design on SPMW's default depth-two register slices,
   # which is a different netlist, so it brings its own area and timing.
-  # Its two link-depth ablations: `slice` is every link on SPMW's default
-  # depth-2 register slice, `wslice` only the weight link. Both are different
-  # netlists, so both bring their own area and timing.
+  # Its link-depth ablation: `deep` is every link four deep instead of SPMW's
+  # default two, which is what this design carried until the multiply was bound
+  # to fabric. A different netlist, so it brings its own area and timing.
   F=$STAGE/spmw-fixed/S$S/report
-  for v in slice wslice; do
+  for v in deep; do
     grep -hE "SPMW COSIM|SPMW CYCLES|SPMW XFORM" \
       "$ROOT/logs/spmw_cosim_${v}_S$S.log" 2>/dev/null | sed 's/^ *//' \
       | sort -u -k1,3 > "$F/cosim_cycles_${v}.txt"

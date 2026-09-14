@@ -69,7 +69,7 @@ void top(
   hls::stream< int32_t > v27;
   #pragma HLS stream variable=v27 depth=2	// L45
   hls::stream< int32_t > v28;
-  #pragma HLS stream variable=v28 depth=4	// L46
+  #pragma HLS stream variable=v28 depth=2	// L46
   vpu_r0_0(v26, v28, v27);	// L47
 }
 

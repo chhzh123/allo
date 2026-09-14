@@ -12,14 +12,14 @@ fixed-function SPMW datapath, and Gemmini.
 
 | S | | interval / tile | cycles / output row | array busy | first tile | LUT | FF | DSP | slack |
 |---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4 | Gemmini | 6 | 1.500 | 66.7% | **22** | **2,132** | **1,378** | 0 | **+0.591** |
-| | SPMW, fixed | **4** | **1.000** | **100%** | 63 | 6,775 | 8,664 | 0 | +0.544 |
+| 4 | Gemmini | 6 | 1.500 | 66.7% | **22** | **2,132** | **1,378** | 0 | +0.591 |
+| | SPMW, fixed | **4** | **1.000** | **100%** | 57 | 5,818 | 7,568 | 0 | **+0.834** |
 | | SPMW, programmable | 164 | 41.0 | 2.4% | 219 | 11,098 | 13,585 | 32 | +0.371 |
-| 8 | Gemmini | 10 | 1.250 | 80.0% | **38** | **8,042** | **4,818** | 0 | +0.456 |
-| | SPMW, fixed | **8** | **1.000** | **100%** | 112 | 27,037 | 34,488 | 0 | **+0.616** |
+| 8 | Gemmini | 10 | 1.250 | 80.0% | **38** | **8,042** | **4,818** | 0 | **+0.456** |
+| | SPMW, fixed | **8** | **1.000** | **100%** | 103 | 22,922 | 32,116 | 0 | +0.328 |
 | | SPMW, programmable | 328 | 41.0 | 2.4% | 428 | 33,678 | 46,201 | 96 | +0.425 |
 | 16 | Gemmini | 18 | 1.125 | 88.9% | **70** | **31,932** | **18,675** | 0 | +0.245 |
-| | SPMW, fixed | **16** | **1.000** | **100%** | 213 | 107,930 | 137,728 | 0 | **+0.289** |
+| | SPMW, fixed | **16** | **1.000** | **100%** | 194 | 92,880 | 130,776 | 0 | **+0.468** |
 | | SPMW, programmable | 656 | 41.0 | 2.4% | 852 | 112,860 | 168,377 | 320 | +0.190 |
 
 Cycles from xsim on the assembled array and from the Gemmini driver, bit-exact
@@ -31,9 +31,12 @@ harness total. BRAM is zero in every row.
 blocks -- its PE's multiply is Chisel arithmetic Vivado maps to fabric -- and
 the fixed datapath's identical `a * wt` was being inferred into one DSP per
 element, so the lookup-table columns were not measuring the same thing. It is
-now bound to fabric as well and both are DSP-free. That cost the port 26%, 29%
-and 30% of its lookup tables and 12%, 13% and 13% of its registers, and it is
-why the numbers here are larger than an earlier version of this table.
+now bound to fabric as well and both are DSP-free. It is not only a resource
+directive: a fabric multiplier schedules a pipeline stage shallower than the
+DSP one, so the cell's iteration latency fell from 5 to 4 and, since a partial
+sum crosses `dim` cells, the first tile got *faster*. It also removed the need
+for the deeper links this design used to carry -- see below -- so the area
+here is lower than an earlier version of this table, not higher.
 The programmable row is left DSP-inferred: it is SPMW-against-SPMW context
 rather than half of the comparison, and its `S² + 4S` is a fact about the ISA.
 
@@ -46,20 +49,19 @@ array. Gemmini's is `S + 2`, so the fixed datapath is 1.50x, 1.25x and 1.125x
 faster per tile, and it is the one design here that keeps its multiply array
 busy every cycle.
 
-**It loses the latency column by about 3x**, and that is a different mechanism
-from the interval, described under "the first tile" below. Gemmini's first
-tile is `4S + 6` exactly -- 22, 38, 70, and 134 at 32x32, which was measured
-separately and lands on the same law. SPMW's is `14.2S + 8.5` before the weight
-link was deepened and `12.5S + 13` after.
+**It loses the latency column by 2.6x to 2.8x**, and that is a different
+mechanism from the interval, described under "the first tile" below. Gemmini's
+first tile is `4S + 6` exactly -- 22, 38, 70, and 134 at 32x32, which was
+measured separately and lands on the same law. SPMW's is `11.4S + 11.5`.
 
 **It does not win the area column, and the gap widens once both multipliers
-are in the same place:** 3.2x, 3.4x and 3.4x the lookup tables, 6.3x, 7.2x and
-7.4x the registers. That is *after* removing everything the workload does not
+are in the same place:** 2.7x, 2.9x and 2.9x the lookup tables, 5.5x, 6.7x and
+7.0x the registers. That is *after* removing everything the workload does not
 use. What remains is not the instruction set -- it is the composition model,
 and the registers are where it shows.
 
 **Against its own programmable self the fixed datapath is a straight win**:
-41x the throughput for 61%, 80% and 96% of the lookup tables, and no DSPs at
+41x the throughput for 52%, 68% and 82% of the lookup tables, and no DSPs at
 all against `S² + 4S`. Nothing here is a trade between the two SPMW rows; the
 programmable engine is paying for a generality this workload never asks for.
 
@@ -165,55 +167,47 @@ clip removed, and the interval falls from 41 to 23 cycles per output row --
 the VPU ISA has `MAX` and no `MIN`.** Adding `MIN` would have taken 41 to 23
 and left SPMW 15x to 20x behind Gemmini. Removing the dispatch took it to 1.
 
-## The second overhead, which only the fixed datapath could expose
+## The second overhead, and the fair-comparison fix that dissolved it
 
 With every loop at II=1 the assembled array still ran at **half rate** --
 `2S - 2` cycles a tile rather than `S`. That is not the units and not the
-workload: it is SPMW's default link.
+workload: at depth two `spmw_fifo` is a bare register slice whose `full_n` is
+a flop (`~v1`), and a producer's pipelined loop could not re-offer inside that
+turnaround. Depths 3, 4, 6 and 8 were all measured at S=8, all produced
+byte-identical traces, and the design carried depth-4 links for it.
 
-At depth two `spmw_fifo` is a bare register slice whose `full_n` is a flop
-(`~v1`), and a producer's pipelined loop cannot re-offer inside that
-turnaround. At three and above the same module becomes a LUT-RAM behind that
-slice, and `full_n` comes from a count instead. Depths 3, 4, 6 and 8 were all
-measured at S=8 and produced **byte-identical cycle traces**, so anything past
-the slice suffices; four is the smallest power of two that clears it, it fits
-the same LUT-RAM primitives as eight (416 either way at S=4), and it routed
-smaller and with more slack than eight.
+**Binding the multiply to fabric made that unnecessary.** A fabric multiplier
+schedules a stage shallower than the DSP one, the cell's iteration latency went
+from 5 to 4, and at 4 the default depth-2 slice sustains full rate on its own.
+The two findings are one 2x2, and only one corner is slow:
 
-**And the weight link was the same mistake a second time.** It kept the default
-slice on the reasoning that it "moves only during the load" -- but the load is
-*serial down each row*, every cell forwarding the words for the cells beyond
-it, so a half-rate weight link is paid `S x kw` times inside the first-tile
-latency. Three rows, differing in one parameter each, all routed DSP-free under
-the same binding:
+| multiply | link depth | interval / tile | first tile | LUT / FF / slack at 16x16 |
+|---|---:|---|---|---|
+| DSP | 2 | **6 / 14 / 30** | 68 / 137 / 278 | not routed |
+| DSP | 4 | 4 / 8 / 16 | 63 / 112 / 213 | not routed |
+| fabric | 2 | 4 / 8 / 16 | **57 / 103 / 194** | **92,880 / 130,776 / +0.468** |
+| fabric | 4 | 4 / 8 / 16 | 59 / 105 / 196 | 107,930 / 137,728 / +0.289 |
 
-| S | a / p link | w link | interval / tile | cycles / row | first tile | LUT | FF | slack |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4 | 2 | 2 | 6 | 1.500 | 68 | **5,818** | **7,568** | **+0.834** |
-| | 4 | 2 | **4** | **1.000** | 65 | 6,676 | 8,580 | +0.568 |
-| | 4 | 4 | **4** | **1.000** | **63** | 6,775 | 8,664 | +0.544 |
-| 8 | 2 | 2 | 14 | 1.750 | 137 | **22,922** | **32,116** | +0.328 |
-| | 4 | 2 | **8** | **1.000** | 122 | 26,399 | 34,096 | +0.514 |
-| | 4 | 4 | **8** | **1.000** | **112** | 27,037 | 34,488 | **+0.616** |
-| 16 | 2 | 2 | 30 | 1.875 | 278 | **92,880** | **130,776** | **+0.468** |
-| | 4 | 2 | **16** | **1.000** | 235 | 104,430 | 136,048 | +0.210 |
-| | 4 | 4 | **16** | **1.000** | **213** | 107,930 | 137,728 | +0.289 |
+The deep configuration's other sizes, for completeness: 6,775 / 8,664 lookup
+tables and registers at 4x4 with +0.544 ns of slack, and 27,037 / 34,488 with
++0.616 ns at 8x8, against the default depth's 5,818 / 7,568 (+0.834) and
+22,922 / 32,116 (+0.328).
 
-Deepening the **data** links buys 1.50x, 1.75x and 1.88x the throughput for
-15%, 15% and 12% more lookup tables. Deepening the **weight** link on top of
-that buys nothing in interval -- it cannot, the links it fixes are idle in the
-steady state -- and takes 3%, 8% and 9% off the first tile for 1%, 2% and 3%
-more lookup tables. Both are worth taking; the first is the larger effect by
-far.
+So the deep links were a workaround for a cell one stage too deep, and once
+the comparison forced the multiply into fabric they became pure cost: at 16x16
+**15,050 more lookup tables, 6,952 more registers and two more cycles of first
+tile, for an identical interval.** The design is back on SPMW's default depth
+two; `tpumicro-deep` keeps the deep configuration measurable and its rows are
+the fourth line above.
 
 Three things worth saying plainly. The half-rate default was invisible for as
 long as the epilogue was a program -- at 41 cycles an output row nothing about
 the links could matter -- so it is a defect the *fast* design found. "II=1 in
 every report" turned out not to imply "II=1 on the array": the loops are a
-per-unit property and the rate is a property of the assembled fabric. And the
-reasoning that kept the weight link shallow -- "it only moves during the load"
--- was true and irrelevant, because a serial load pays a per-beat cost `S x kw`
-times.
+per-unit property and the rate is a property of the assembled fabric. And a
+resource binding is not only a resource binding -- `impl=fabric` changed the
+schedule, which is why the cycle rows here were re-measured rather than carried
+over from the DSP-inferred builds.
 
 ## What is left, and why it is registers
 
@@ -224,16 +218,16 @@ array whose PE-to-PE connection is a bare register with no handshake at all.
 
 At S=16 that is 256 activation links, 256 partial-sum links, 256 weight links
 and 16 lane links, each a LUT-RAM plus a two-entry output slice, and the cell
-itself carries a five-stage HLS pipeline. The measured cost is **538
-flip-flops per cell against Gemmini's 73**, and it is the whole of the 7.4x
+itself carries a four-stage HLS pipeline. The measured cost is **511
+flip-flops per cell against Gemmini's 73**, and it is the whole of the 7.0x
 register ratio.
 
-That five-stage pipeline is the same thing the latency section blames, and it
+That four-stage pipeline is the same thing the latency section blames, and it
 is *not* the weight fetch. Unpacking the weights at load time so the step loop
 multiplies by an array element rather than by a shift-and-mask left the
-iteration latency at 5 and made the latency worse; the five stages are HLS's
-pipelining of a streaming multiply-add, and they were 5 across three different
-cell bodies. Fusing several cells into one HLS unit would remove hops rather
+iteration latency where it was and made the latency worse; the stages are HLS's
+pipelining of a streaming multiply-add, and the count did not move across three
+different cell bodies -- only binding the multiplier moved it, from 5 to 4. Fusing several cells into one HLS unit would remove hops rather
 than shorten them, which is what `spmw.place`'s `fold` and `unroll` are
 declared for -- and `driver.py` raises `SPMWPlacementError` for both, so it is
 not expressible today.
@@ -269,18 +263,18 @@ latency and in the whole-launch span:
 | S | | first tile (cycles) | 16-tile span | span / tile |
 |---:|---|---:|---:|---:|
 | 4 | Gemmini | **22** | **111** | **6.94** |
-| | SPMW, fixed | 63 | 130 | 8.12 |
+| | SPMW, fixed | 57 | 120 | 7.50 |
 | 8 | Gemmini | **38** | **187** | **11.69** |
-| | SPMW, fixed | 112 | 251 | 15.69 |
+| | SPMW, fixed | 103 | 232 | 14.50 |
 | 16 | Gemmini | **70** | **339** | **21.19** |
-| | SPMW, fixed | 213 | 494 | 30.88 |
+| | SPMW, fixed | 194 | 456 | 28.50 |
 
 **Over exactly this sixteen-tile burst Gemmini finishes first at every size**,
-by 1.17x, 1.34x and 1.46x, even though its steady interval is the slower of the
+by 1.08x, 1.24x and 1.35x, even though its steady interval is the slower of the
 two. Whether the steady interval or the burst span is the number that matters
 depends entirely on how long the stream is. Both are here, measured, and
 fitting each side's own span as `overhead + interval x tiles` puts the crossover
-at **26 tiles at 4x4, 48 at 8x8 and 94 at 16x16** -- SPMW's steady rate wins
+at **20 tiles at 4x4, 38 at 8x8 and 74 at 16x16** -- SPMW's steady rate wins
 any run longer than that and loses every run shorter.
 
 ### The first tile, and what is in it
@@ -291,7 +285,7 @@ slopes are what separate them:
 | | law | 4 | 8 | 16 | 32 |
 |---|---|---:|---:|---:|---:|
 | Gemmini | `4S + 6` | 22 | 38 | 70 | 134 |
-| SPMW, fixed | `12.5S + 13` | 63 | 112 | 213 | -- |
+| SPMW, fixed | `11.4S + 11.5` | 57 | 103 | 194 | -- |
 
 Gemmini's law was checked at a fourth point: 32x32 was elaborated and run
 separately and came out at 134, which `4S + 6` predicts exactly. Its latency
@@ -308,11 +302,17 @@ partial sum crosses `dim` cells and each crossing is an independently
 synthesised HLS pipeline plus a handshaked FIFO where Gemmini's is one
 flip-flop.
 
-E4 measures the same slope from the other side. FEATHER's port has a
-first-output law of `9.4N + 16` -- the same ~10 cycles an array dimension --
-against the RTL's `1.11N² + 17`, and there SPMW *wins* above N≈8. The per-hop
-cost is a fixed handicap against a tightly pipelined systolic array and an
-asset against a baseline whose load is quadratic.
+**E4 measures the same thing against a second, unrelated baseline and gets the
+same factor.** With the weight feed netted out of FEATHER's figure -- its
+number is taken from the first cycle of that feed, SPMW's port has its weights
+resident and performs no feed -- the two arrays' fills are 17, 27 and 45
+against 42, 80 and 132, so SPMW is 2.5x to 3.0x behind there too. Against
+Gemmini it is 2.6x to 2.8x. One number, two baselines, and it is the per-hop
+cost in both.
+
+An earlier version of this paragraph said SPMW *won* against FEATHER above
+N≈8. That compared SPMW's fill against FEATHER's fill *plus* an `N²` weight
+load, and it was wrong in SPMW's favour.
 
 **The programmable engine's row is near its worst case.** A tile with `K = S`
 gives `ACCN` exactly one partial sum to fold, so the dispatch has nothing to
