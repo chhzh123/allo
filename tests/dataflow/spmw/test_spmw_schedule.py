@@ -116,9 +116,9 @@ def test_scheduling_does_not_change_the_design():
     before = spmw.elaborate(gemm_of(3))
     after = spmw.elaborate(gemm_of(3))
     spmw.pipeline(after.placements[0], ii=4)
-    from allo.spmw.lower_df import render_source
+    from allo.spmw.lower_mlir import render_module
 
-    assert render_source(before) == render_source(after)
+    assert render_module(before) == render_module(after)
 
 
 @pytest.mark.parametrize("design", [gemm_of(3), tpu_matmul])

@@ -198,8 +198,10 @@ def test_the_swizzle_reaches_the_emitted_design():
     """
     plain = spmw.source(_fabric_with(spmw.replicate))
     banked = spmw.source(_fabric_with(spmw.xor_bank(BANKS, stride_bit=LOG2_W - 2)))
-    assert "^" not in plain
-    assert "^" in banked and ">>" in banked
+    # The swizzle is an xor of a shifted address bit; a plain layout has neither.
+    assert "arith.xori" not in plain
+    assert "arith.xori" in banked
+    assert "arith.shrsi" in banked or "arith.shrui" in banked
 
 
 def test_a_multidimensional_brick_cannot_be_banked_silently():

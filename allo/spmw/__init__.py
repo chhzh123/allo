@@ -91,10 +91,11 @@ def build(fabric_fn, target="simulator", **kwargs):
 
 
 def source(fabric_fn, **kwargs):
-    """The dataflow program a fabric lowers to, without compiling it.
+    """The rolled program a fabric lowers to, as MLIR text, without compiling it.
 
-    Useful for asserting structural properties of the emitted program -- that
-    its body count tracks the role count rather than the grid, for instance.
+    One ``spmw.map`` per placement and one function per role, so structural
+    properties -- that the body count tracks the role count rather than the
+    grid, for instance -- can be asserted on it directly.
     """
     from .driver import source as _source
 

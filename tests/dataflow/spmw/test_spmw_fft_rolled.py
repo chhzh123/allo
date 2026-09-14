@@ -573,14 +573,17 @@ def test_stationary_index_on_a_brick_is_ignored():
         spmw.stream_in(X, into=P.x_in, index=(P.rows,))
         spmw.gather(Y, from_=P.y_out, index=(P.rows,))
 
+    # The resident is a constant global named after the port, read by the role.
     decl = [
-        line.strip() for line in spmw.source(fab).splitlines() if "_st_tab:" in line
+        line.strip()
+        for line in spmw.source(fab).splitlines()
+        if "memref.get_global @_st_tab" in line
     ]
     assert len(decl) == 1, decl
     # The whole table at every site -- the map consumed nothing.
-    assert "[3, 2]" in decl[0], decl[0]
+    assert "memref<3x2xf32>" in decl[0], decl[0]
     # What the port declares, and what the slice would have been.
-    assert "[2]" not in decl[0].replace("[3, 2]", ""), decl[0]
+    assert "memref<2xf32>" not in decl[0], decl[0]
 
 
 def test_at_one_lane_it_is_the_folded_pipeline():

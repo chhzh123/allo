@@ -108,7 +108,9 @@ def test_seed_folds_into_the_body():
     """A rank-0 source needs no brick and no loader; it folds into the site."""
     text = spmw.source(tpu_matmul)
     assert "p_in_load" not in text
-    assert "p = 0" in text
+    # The seed is a constant in the body, not a stream the site reads.
+    assert '{name = "p"}' in text
+    assert 'ports = ["p_in"' not in text
 
 
 def test_reference_matches():

@@ -30,15 +30,15 @@ role counts diverge, 15 against 18.
 
 ## The two paths, and where they diverge
 
-A fabric is elaborated once, then lowered two ways.
+A fabric is elaborated once, built as MLIR directly, then compiled two ways.
 
 | | file | what it is |
 |---|---|---|
-| **1** | `01_dataflow.py` | the `allo.dataflow` program the fabric lowers to — one kernel per grid point |
-| **2** | `02_rolled.mlir` | the same design *rolled*: one `spmw.map` op carrying the grid, the channel families, per-port routing and the site→role table |
-| **3** | `03_array.cpp` | **whole-array path**: the dataflow program as HLS C++ |
+| **1** | `01_rolled.mlir` | the program the fabric lowers to, *rolled*: one `spmw.map` op per placement and per loader or drain, carrying the grid, the channel families, per-port routing and the site→role table, and one `func.func` per role with the unit's body |
+| **2** | `02_expanded.mlir` | the same module with every map replaced by one call per site — what the backends consume; the bodies are the same functions |
+| **3** | `03_array.cpp` | **whole-array path**: the expanded program as HLS C++, one function per role called once per site |
 | **4** | `04_array.mlir` | the MLIR behind it |
-| **5** | `05_unit_*.py` | **unit path**: one role as its own single-kernel dataflow program — one per placement, so a two-component design shows both |
+| **5** | `05_unit_*.py` | **unit path**: one role as a self-contained function with every port a stream, as the IR builder sees it — one per placement, so a two-component design shows both |
 | **6** | `06_unit_*.cpp` | that role as standalone HLS C++, with unused headers trimmed |
 | **7** | `07_unit_*_wrapper.sv` | the shim giving the synthesised IP the fabric's port names |
 | **8** | `08_spmw_fifo.sv` | the FIFO primitive, one per channel |
@@ -69,14 +69,17 @@ stream ports disappear and mover instances drive those FIFOs from inside.
 
 ## Things worth looking at
 
-**How much bigger the array program is.** Compare `03_array.cpp` (one function
-per site plus loaders and drains) with `06_unit_*.cpp` (one function). At 3×3
-that is 16 functions against 1; the unit does not change with the grid.
+**How the array program is instantiated.** `03_array.cpp` holds one function
+per role plus the loaders and drains, and the top calls each role once per
+site; `06_unit_*.cpp` is one of those roles on its own. At 3×3 the array top
+makes nine calls of nine bodies; at 32×32 it makes 1,024 calls of the same
+nine, and the bodies do not change with the grid.
 
-**What the rolled form keeps.** `02_rolled.mlir` states the design without
-expanding it — the same nine roles whatever the array's size. Its role bodies are
-empty: the rolled path carries the structure, and the numerics come through the
-other two.
+**What the rolled form keeps.** `01_rolled.mlir` states the design without
+expanding it — the same nine roles whatever the array's size, each a real
+body built from the unit's own source, and the instantiation as attributes on
+the map rather than as calls. `02_expanded.mlir` is what those attributes
+spell out.
 
 **Why the array needs partitioning.** `03_array.cpp` carries
 `#pragma HLS array_partition ... complete`. Without it `csynth` rejects the
@@ -139,7 +142,7 @@ drain column — and the chain heads stay at one however large the array gets,
 which is the whole reason the chain is worth writing.
 
 **The same mesh, two number formats.** `gemm` and `gemm8` are structurally
-identical — diff `01_dataflow.py` between them and only the types move. What
+identical — diff `01_rolled.mlir` between them and only the types move. What
 changes downstream is large: the float PE carries `acc` through an fp32 add in a
 distance-1 cycle, so its interval is the adder's latency (II=7, or 4 with a
 shorter adder); the int8 PE's add is single-cycle, so it runs at II=1. Compare

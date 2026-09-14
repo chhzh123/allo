@@ -7,6 +7,7 @@ which is exactly what key form is for: both ends name a shared label and the
 compiler completes the pairing.
 """
 
+import re
 import tempfile
 
 import numpy as np
@@ -352,12 +353,15 @@ def test_the_streaming_butterfly_has_a_loop_to_pipeline():
     """
     one_shot = spmw.source(fft_spatial)
     streaming = spmw.source(fft_stream)
-    # The arithmetic is the same in both.
-    assert "wr * c[0] - wi * c[1]" in one_shot
-    assert "wr * c[0] - wi * c[1]" in streaming
+    # The arithmetic is the same in both: a complex multiply is four products
+    # and two sums per butterfly body.
+    for text in (one_shot, streaming):
+        assert text.count("arith.mulf") == 4 * len(
+            re.findall(r"func\.func @\w+_r\d+\(", text)
+        )
     # Only the streaming form loops over a batch.
-    assert f"range({BATCH})" in streaming
-    assert f"range({BATCH})" not in one_shot
+    assert f" to {BATCH} " in streaming
+    assert f" to {BATCH} " not in one_shot
 
 
 def test_the_streaming_index_is_affine():
@@ -386,9 +390,9 @@ def test_bit_reversal_is_a_permutation():
 def test_body_is_written_once():
     """Both boundaries share one program; only the wiring differs."""
     text = spmw.source(fft_spatial)
-    # One array kernel plus two loaders and two drains.
-    assert text.count("df.kernel") == 5
-    assert text.count("wr * c[0] - wi * c[1]") <= 3  # one per stage class
+    # One array map plus two loaders and two drains.
+    assert text.count("spmw.map") == 5
+    assert len(re.findall(r"func\.func @\w+_r\d+\(", text)) <= 3  # per stage class
 
 
 if __name__ == "__main__":

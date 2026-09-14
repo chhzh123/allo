@@ -191,7 +191,11 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   TopologyAttr topo = getTopology();
   ArrayRef<int64_t> grid = topo.getGrid().asArrayRef();
 
-  llvm::StringMap<FamilyAttr> famOfPort;
+  // A port may address more than one family -- a rim site's input comes from
+  // a loader's channels where the interior's comes from a neighbour -- so a
+  // port name resolves to every family a map gives it, and a role's stream is
+  // accepted if it matches any of them.
+  llvm::StringMap<SmallVector<FamilyAttr, 2>> famsOfPort;
   llvm::StringMap<FamilyAttr> byName;
   for (Attribute a : topo.getFamilies()) {
     auto fam = llvm::cast<FamilyAttr>(a);
@@ -201,7 +205,7 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
     auto pm = llvm::cast<PortMapAttr>(a);
     auto it = byName.find(pm.getFamily());
     if (it != byName.end())
-      famOfPort.insert({pm.getPort(), it->second});
+      famsOfPort[pm.getPort()].push_back(it->second);
   }
 
   for (Attribute a : getRoles()) {
@@ -238,21 +242,26 @@ LogicalResult MapOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
         return emitOpError("role '")
                << role.getUnit().getValue() << "' parameter for port '"
                << ports[i] << "' is not an !allo.stream";
-      auto it = famOfPort.find(ports[i]);
-      if (it == famOfPort.end())
+      auto it = famsOfPort.find(ports[i]);
+      if (it == famsOfPort.end())
         return emitOpError("role '")
                << role.getUnit().getValue() << "' declares port '" << ports[i]
                << "', which no port map mentions";
-      FamilyAttr fam = it->second;
-      if (stream.getDepth() != fam.getDepth())
-        return emitOpError("port '")
-               << ports[i] << "' is declared depth " << stream.getDepth()
-               << " but its family '" << fam.getName() << "' is depth "
-               << fam.getDepth();
-      if (stream.getBaseType() != fam.getElementType().getValue())
-        return emitOpError("port '")
-               << ports[i] << "' carries a different type than its family '"
-               << fam.getName() << "'";
+      bool matched = false;
+      for (FamilyAttr fam : it->second)
+        if (stream.getDepth() == fam.getDepth() &&
+            stream.getBaseType() == fam.getElementType().getValue())
+          matched = true;
+      if (!matched) {
+        auto diag = emitOpError("role '")
+                    << role.getUnit().getValue() << "' takes port '" << ports[i]
+                    << "' as " << stream
+                    << ", which matches none of the families the port addresses:";
+        for (FamilyAttr fam : it->second)
+          diag << " '" << fam.getName() << "' (depth " << fam.getDepth()
+               << ", " << fam.getElementType().getValue() << ")";
+        return diag;
+      }
     }
   }
 

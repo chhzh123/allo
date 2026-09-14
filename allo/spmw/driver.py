@@ -2,44 +2,72 @@
 # SPDX-License-Identifier: Apache-2.0
 """Compiling an SPMW fabric.
 
-Elaborate the fabric, lower it to a dataflow program, and hand that to the
-existing backends.  The targets are the dataflow ones, unchanged:
+Elaborate the fabric, build its program as MLIR -- one ``spmw.map`` per
+placement and per mover, one function per role -- and hand the expanded form
+to the existing backends.  The targets are the dataflow ones, unchanged:
 ``simulator`` for functional checks, ``vitis_hls`` and friends for hardware.
 """
 
 from . import schedule as sched
 from .errors import SPMWPlacementError
 from .graph import elaborate
-from .lower_df import build_dataflow, render_source
+from .lower_mlir import TOP, build_program
 
 
-def customize(fabric_fn, tensor_specs=None, keep=None, verbose=False):
-    """Elaborate a fabric and return its dataflow schedule.
+def _top_of(module):
+    for op in module.body.operations:
+        name = getattr(getattr(op, "name", None), "value", None)
+        if name == TOP:
+            return op
+    raise SPMWPlacementError(f"the built module has no `{TOP}` function.")
 
-    The intermediate program is kept on the returned object so a failure in the
-    backend can be read against the source that produced it.
+
+def _schedule(built):
+    """Wrap a built program as an Allo schedule, ready for the HLS backends."""
+    # pylint: disable=import-outside-toplevel
+    from allo._mlir.ir import InsertionPoint
+    from allo.customize import Schedule
+    from allo.ir.utils import MockBuffer
+
+    top = _top_of(built.module)
+    schedule = Schedule(
+        built.module,
+        top,
+        built.func_args,
+        InsertionPoint.at_block_terminator(top.entry_block),
+        ext_libs=built.ext_libs,
+        inst_list=[],
+        func_instances={},
+    )
+    schedule.stateful_var_map = {}
+    # The top's tensors, addressable the way `customize` exposes a function's
+    # arguments, so `partition` can name them.
+    for idx, name in enumerate(built.arg_order):
+        setattr(schedule, name, MockBuffer(TOP, name, idx))
+    schedule.spmw_graph = built.graph
+    schedule.spmw_source = built.rolled
+    schedule.spmw_arg_order = list(built.arg_order)
+    return schedule
+
+
+def customize(fabric_fn, tensor_specs=None, verbose=False):
+    """Elaborate a fabric and return its schedule, before any backend runs.
+
+    The rolled program is kept on the returned object as ``spmw_source`` so a
+    failure in the backend can be read against the IR that produced it.
     """
-    import allo.dataflow as df  # pylint: disable=import-outside-toplevel
-
     graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
     _check_realised(graph)
-    top = build_dataflow(graph, keep=keep)
+    built = build_program(graph)
     if verbose:
-        print(top._spmw_source)
-    schedule = df.customize(top)
-    schedule.spmw_graph = graph
-    schedule.spmw_source = top._spmw_source
-    # The built module takes its arguments in this order, which is the union of
-    # the kernels' arguments in first-seen order rather than the fabric's own.
-    schedule.spmw_arg_order = top._spmw_arg_order
-    return schedule
+        print(built.rolled)
+    return _schedule(built)
 
 
 def build(
     fabric_fn,
     target="simulator",
     tensor_specs=None,
-    keep=None,
     verbose=False,
     partition=True,
     **kwargs,
@@ -69,31 +97,30 @@ def build(
 
         return build_ref(graph, **kwargs)
 
-    import allo.dataflow as df  # pylint: disable=import-outside-toplevel
-
-    top = build_dataflow(graph, keep=keep)
+    built = build_program(graph)
     if verbose:
-        print(top._spmw_source)
-    if partition and target not in ("simulator", "aie"):
-        module = _build_partitioned(df, top, graph, target, **kwargs)
+        print(built.rolled)
+    if target == "simulator":
+        # pylint: disable=import-outside-toplevel
+        from allo.backend.simulator import LLVMOMPModule
+
+        module = LLVMOMPModule(built.module, TOP)
     else:
-        module = df.build(top, target=target, **kwargs)
+        schedule = _schedule(built)
+        if partition:
+            module = _build_partitioned(schedule, graph, target, **kwargs)
+        else:
+            module = schedule.build(target=target, **kwargs)
     module.spmw_graph = graph
-    module.spmw_source = top._spmw_source
-    return _Callable(module, graph, top)
+    module.spmw_source = built.rolled
+    return _Callable(module, graph, built.arg_order)
 
 
-def _build_partitioned(df, top, graph, target, **kwargs):
-    """Customize, partition every tensor, then build.
-
-    ``df.build`` customizes and builds in one step, so the partitioning has to
-    happen between them.
-    """
-    schedule = df.customize(top, enable_tensor=kwargs.pop("enable_tensor", False))
-    # Pipeline every kernel's innermost loop. The array path has the same gap the
-    # unit path did: without this, each site's loop is scheduled sequentially.
-    # One interval for the whole program -- the kernels are not separable here,
-    # unlike a unit, which is built on its own and takes its placement's own.
+def _build_partitioned(schedule, graph, target, **kwargs):
+    """Pipeline every body, partition every tensor, then build."""
+    # Without this each site's loop is scheduled sequentially. One interval
+    # for the whole program -- the bodies are not separable here, unlike a
+    # unit, which is built on its own and takes its placement's own.
     intervals = {sched.interval(p) for p in graph.placements} or {1}
     sched.apply(schedule, sched.function_names(schedule), min(intervals))
     for tensor in graph.tensors.values():
@@ -115,27 +142,25 @@ def _build_partitioned(df, top, graph, target, **kwargs):
 class _Callable:
     """The built module, called with the fabric's own argument order.
 
-    The dataflow backend builds its top signature from the union of the kernels'
-    arguments in first-seen order, which is the order the kernels happen to be
-    emitted in. The fabric declares its own order, and that is the one the caller
-    wrote against, so the permutation between them is applied here rather than
-    left as a trap.
+    The program's top takes its tensors inputs-first in the order the maps use
+    them, which is what the HLS backend requires.  The fabric declares its own
+    order, and that is the one the caller wrote against, so the permutation
+    between them is applied here rather than left as a trap.
     """
 
-    def __init__(self, module, graph, top):
+    def __init__(self, module, graph, backend_order):
         self._module = module
         self.spmw_graph = graph
-        self.spmw_source = top._spmw_source
+        self.spmw_source = getattr(module, "spmw_source", None)
         declared = [t.name for t in graph.tensors.values()]
-        backend = top._spmw_arg_order
-        missing = [name for name in declared if name not in backend]
+        missing = [name for name in declared if name not in backend_order]
         if missing:
             raise SPMWPlacementError(
                 f"`{graph.fabric.name}` declares {', '.join(missing)} but nothing "
                 f"in the fabric reads or writes it, so the built module has no "
                 f"argument for it."
             )
-        self._order = [declared.index(name) for name in backend]
+        self._order = [declared.index(name) for name in backend_order]
         self._declared = declared
 
     def __call__(self, *arrays):
@@ -173,8 +198,8 @@ def _check_realised(graph):
 
 
 def source(fabric_fn, tensor_specs=None):
-    """The dataflow program a fabric lowers to, without compiling it."""
-    return render_source(elaborate(fabric_fn, tensor_specs=tensor_specs))
+    """The rolled program a fabric lowers to, as MLIR text."""
+    return build_program(elaborate(fabric_fn, tensor_specs=tensor_specs)).rolled
 
 
 __all__ = ["build", "customize", "source"]

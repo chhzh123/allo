@@ -273,18 +273,25 @@ Targets
 .. code-block:: python
 
    spmw.build(fab, target="ref")        # run the graph directly: one task per site
-   spmw.build(fab, target="simulator")  # via allo.dataflow, JIT to CPU
+   spmw.build(fab, target="simulator")  # the dataflow simulator, JIT to CPU
    spmw.build(fab, target="vitis_hls", mode="csim", project="top.prj")
-   spmw.source(fab)                     # the dataflow program it lowers to
+   spmw.source(fab)                     # the rolled program it lowers to, as MLIR
 
 ``target="ref"`` needs no compiler at all: it gives each site a thread and each
 channel a bounded queue, so blocking *is* the handshake.  It answers "does this
 compute the right thing, and does it deadlock?" fastest, and makes a good oracle.
 
-Everything else elaborates the fabric and lowers it to an ``allo.dataflow``
-program: placements become kernels dispatched by site signature, channel families
-become stream arrays, and movers become their own kernels.  ``spmw.source`` shows
-that program, which is worth reading when a build surprises you.
+Everything else elaborates the fabric and builds its program as MLIR directly:
+one ``spmw.map`` per placement and per loader or drain, carrying the grid, the
+channel families, how each port addresses them and which body runs where; and
+one ``func.func`` per role, built from the unit's own AST through Allo's IR
+builder with the site's coordinates as ``index`` parameters and its ports as
+streams.  Nothing is rendered as Python source or executed on the way.
+``spmw.source`` shows that program, which is worth reading when a build
+surprises you.  The backends consume its *expanded* form, in which each map
+becomes one call per site of the same role function -- so the number of bodies
+HLS schedules is the role count, nine for a mesh at any size, and the
+instantiation is a loop of calls.
 
 
 What is checked
@@ -333,6 +340,8 @@ Current limits
 * A placed fabric is expanded per site, so a tiled design emits one kernel per
   tile rather than instantiating one engine. That is correct but not yet the
   hierarchical IP reuse the model is built for.
-* The lowered program is a dataflow region, so HLS still schedules per instance.
-  Keeping the rolled form all the way to codegen is the next step, and is what
-  turns the constant signature count into a constant synthesis time.
+* The whole-array HLS target calls one role function per site, so a site's
+  coordinates are runtime arguments rather than constants folded into each
+  body.  The split backend -- one HLS project per role, the array assembled in
+  RTL -- is the flow that turns the constant role count into a constant
+  synthesis time; see ``scripts/spmw_build_array.py``.

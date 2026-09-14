@@ -3,9 +3,10 @@
 """One role as a standalone streaming kernel -- the thing HLS synthesises once.
 
 :mod:`allo.spmw.rtl` builds the array; this builds the unit that goes in it.  A
-role is emitted as its own single-kernel dataflow program in which *every* port,
-including a memory port, is an ``hls::stream``, so the synthesised IP is
-free-running and drops onto the fabric's FIFOs.
+role is built as a function of its own in which *every* port, including a
+memory port, is an ``hls::stream``, so the synthesised IP is free-running and
+drops onto the fabric's FIFOs.  The function goes to Allo's IR builder as an
+AST and comes back as MLIR; no program is rendered or executed on the way.
 
 Turning a memory port into a stream is what lets the unit stand alone.  In the
 array every site stores into the same result tensor, which HLS dataflow accepts
@@ -25,14 +26,11 @@ two different sites and refused if they disagree.
 """
 
 import ast
-import os
 import re
-import sys
-import tempfile
-import types
 
 from .errors import SPMWBindingError, SPMWMemoryError
 from .lower_df import Lowering, _BodyRewriter, _is_site_rank, _wiring_classes
+from .lower_mlir import build_functions, hoist_streams, stream_decl
 from .ports import IN, MEMORY, OUT
 from . import schedule as sched
 from .abi import AXI_ADDR_WIDTH, CoordPort, _port_signals, _width, _WIDTH, axi_signals
@@ -372,43 +370,43 @@ class UnitEmitter:
         return out
 
     def _declarations(self, placement, order):
-        """The region's stream declarations, and the types they need in scope."""
-        decls, extras = [], {}
+        """The unit's port streams, declared in the order its parameters take."""
+        decls, streams = [], []
         for port, _fam in self.ports(placement, order):
-            ann = self.low.type_ann(port.dtype, port.shape)
             decls.append(
-                f"    {port.name}: Stream[{ast.unparse(ann)}, "
-                f"{placement.depths.get(port, port.depth)}][1]"
+                stream_decl(
+                    port.name,
+                    self.low.type_ann(port.dtype, port.shape),
+                    placement.depths.get(port, port.depth),
+                )
             )
-            extras[_base_name(ann)] = port.dtype
-        return decls, extras
+            streams.append(f"{port.name}_0")
+        return decls, streams
 
-    def program(self, placement, order):
-        """One role as a complete, self-contained dataflow program.
+    def function(self, placement, order):
+        """One role as a self-contained function, named as the HLS kernel is.
 
         Every port is a stream, memory ports included -- that is what makes the
         unit synthesisable. The whole-array program is not: each site stores into
         the same result tensor and HLS dataflow allows one writer per array.
+
+        Returns the function AST and its stream names in parameter order; the
+        streams are declared in the body and hoisted after building.
         """
         _sig, _routing, sites = self.classes(placement)[order]
         name = self.role_name(placement, order)
         body, _pids, rewriter = self.body_for(placement, order, sites[0])
         plain = _unparse(body)
         self._check_uniform(placement, order, plain)
-        source = "\n".join(self._held(rewriter) + [plain])
-        self._check_banked_reads(name, rewriter, source)
-        decls, extras = self._declarations(placement, order)
-        indented = "\n".join("        " + line for line in source.splitlines())
-        text = (
-            "import allo\n"
-            "import allo.dataflow as df\n"
-            "from allo.ir.types import Stream\n\n"
-            "@df.region()\n"
-            "def top():\n" + "\n".join(decls) + "\n\n"
-            "    @df.kernel(mapping=[1])\n"
-            f"    def {name}():\n{indented}\n"
-        )
-        return text, extras
+        held = self._held(rewriter)
+        self._check_banked_reads(name, rewriter, "\n".join(held + [plain]))
+        decls, streams = self._declarations(placement, order)
+        return _function(f"{name}_0", [], decls + _parse_stmts(held) + body), streams
+
+    def program(self, placement, order):
+        """The unit's function as source, for reading; ``function`` is what builds."""
+        fn, streams = self.function(placement, order)
+        return _unparse([fn]), streams
 
     def banked_residents(self, placement, order):
         """The `_st_` locals this role holds banked, by bank count.
@@ -427,67 +425,13 @@ class UnitEmitter:
         return out
 
     def programs(self):
-        """Every role in the design, as `(name, source, extras)`."""
+        """Every role in the design, as `(name, source, streams)`."""
         out = []
         for placement in self.placements():
             for order in range(len(self.classes(placement))):
-                text, extras = self.program(placement, order)
-                out.append((self.role_name(placement, order), text, extras))
+                text, streams = self.program(placement, order)
+                out.append((self.role_name(placement, order), text, streams))
         return out
-
-
-class _MoverRewriter(ast.NodeTransformer):
-    """Rewrites a mover's body to talk to a bare stream and its own coordinates.
-
-    A mover is the loader or drain a binding synthesises: it walks a tensor and
-    moves elements to or from one channel of a family. In the array program it
-    addresses `fam[member]` and gets its position from `df.get_pid()`; standing
-    alone it addresses a port and takes its position as an input, exactly as a
-    role does.
-    """
-
-    def __init__(self, family_name, pids):
-        super().__init__()
-        self.family = family_name
-        self.pids = list(pids)
-        self.coords = set()
-
-    def visit_Subscript(self, node):
-        self.generic_visit(node)
-        if isinstance(node.value, ast.Name) and node.value.id == self.family:
-            # One channel, and this instance owns it.
-            return ast.Subscript(
-                value=ast.Name(id="chan", ctx=ast.Load()),
-                slice=ast.Constant(value=0),
-                ctx=node.ctx,
-            )
-        return node
-
-    def visit_Assign(self, node):
-        call = node.value
-        if (
-            isinstance(call, ast.Call)
-            and isinstance(call.func, ast.Attribute)
-            and call.func.attr == "get_pid"
-        ):
-            self.coords.update(range(len(self.pids)))
-            names = [ast.Name(id=p, ctx=ast.Load()) for p in self.pids]
-            unpacking = len(node.targets) == 1 and isinstance(
-                node.targets[0], (ast.Tuple, ast.List)
-            )
-            if not names:
-                # A mover whose bundle is a single site -- the head of a
-                # distribution chain -- has no coordinate to be told: there is
-                # one instance and its position is 0. It takes no `_pid` input
-                # at all, which is what lets one AXI master feed a whole array.
-                value = ast.Constant(value=0)
-            elif unpacking or len(names) > 1:
-                value = ast.Tuple(elts=names, ctx=ast.Load())
-            else:
-                value = names[0]
-            return ast.Assign(targets=node.targets, value=value)
-        self.generic_visit(node)
-        return node
 
 
 class MoverEmitter:
@@ -570,60 +514,80 @@ class MoverEmitter:
         mover = self.low.movers[index]
         return _WIDTH[str(mover.tensor.dtype)]
 
-    def program(self, index):
-        """One mover as a self-contained program: a tensor in, a stream out."""
+    def function(self, index):
+        """One mover as a self-contained function: a tensor in, a stream out.
+
+        The rolled mover takes its coordinates as ``index`` parameters; the
+        standalone IP reads them from streams instead, once, the way a unit
+        holds a stationary weight.  A mover whose bundle is a single site --
+        the head of a distribution chain -- has no coordinate to be told and
+        takes no ``_pid`` input at all, which is what lets one AXI master feed
+        a whole array.
+
+        Returns the function AST, named as the HLS kernel is, and its stream
+        names in parameter order.
+        """
         mover = self.low.movers[index]
-        kernel = self.low._mover_kernel(mover)
+        fn, _chan = self.low.mover_function(mover)
         # A mover's coordinates are its *bundle's*, not the placement's: the
         # west loader walks one column, so it has one index however many axes
         # the mesh has.
         rank = len(mover.bundle.shape or ())
-        pids = [f"_st_{_COORD}{k}" for k in range(rank)]
-        rewriter = _MoverRewriter(mover.family.name, pids)
-        body = [rewriter.visit(stmt) for stmt in kernel.body]
-        body = [b for b in body if b is not None] or [ast.Pass()]
+        pids = [arg.arg for arg in fn.args.args[1:]]
+        decls, held = [], []
+        for axis, pid in enumerate(pids):
+            if axis < rank:
+                port = CoordPort(axis)
+                ann = self.low.type_ann(port.dtype, port.shape)
+                decls.append(stream_decl(f"{_COORD}{axis}", ann, 1))
+                held.append(f"{pid}: {ast.unparse(ann)} = {_COORD}{axis}[0].get()")
+            else:
+                held.append(f"{pid} = 0")
+        fn.name = f"{self.name(index)}_0"
+        fn.args.args = fn.args.args[:1]
+        fn.body = [fn.body[0]] + decls + _parse_stmts(held) + fn.body[1:]
+        self._orders[index] = ["chan"] + [f"{_COORD}{axis}" for axis in range(rank)]
+        return fn, [f"{name}_0" for name in self._orders[index]]
 
-        held = [
-            f"_st_{_COORD}{axis}: int32 = {_COORD}{axis}[0].get()"
-            for axis in sorted(rewriter.coords)
-        ]
-        source = "\n".join(held + [_unparse(body)])
-        indented = "\n".join("        " + line for line in source.splitlines())
+    def program(self, index):
+        """The mover's function as source, for reading; ``function`` builds."""
+        fn, streams = self.function(index)
+        return _unparse([fn]), streams
 
-        fam = mover.family
-        elem = ast.unparse(self.low.type_ann(fam.dtype, fam.block))
-        tensor = mover.tensor
-        tensor_ann = ast.unparse(self.low.type_ann(tensor.dtype, tensor.base.shape))
-        decls = [f"    chan: Stream[{elem}, {fam.depth}][1]"]
-        for axis in sorted(rewriter.coords):
-            ann = ast.unparse(self.low.type_ann(CoordPort(axis).dtype, ()))
-            decls.append(f"    {_COORD}{axis}: Stream[{ann}, 1][1]")
-        name = self.name(index)
-        self._orders[index] = ["chan"] + [
-            f"{_COORD}{axis}" for axis in sorted(rewriter.coords)
-        ]
-        extras = {}
-        coord = CoordPort(0)
-        extras[_base_name(self.low.type_ann(coord.dtype, ()))] = coord.dtype
-        extras[_base_name(self.low.type_ann(tensor.dtype, ()))] = tensor.dtype
-        extras[_base_name(self.low.type_ann(fam.dtype, ()))] = fam.dtype
 
-        text = (
-            "import allo\n"
-            "import allo.dataflow as df\n"
-            "from allo.ir.types import Stream\n\n"
-            "@df.region()\n"
-            # The region argument and the kernel parameter must differ: Allo
-            # rejects a kernel parameter that shadows a region symbol, which is
-            # why the array path names them `A` and `local_A`.
-            f"def top({tensor.name}: {tensor_ann}):\n" + "\n".join(decls) + "\n\n"
-            f"    @df.kernel(mapping=[1], args=[{tensor.name}])\n"
-            f"    def {name}(local_{tensor.name}: {tensor_ann}):\n{indented}\n"
+def _standalone(fn, streams, low):
+    """Build one function into a module of its own and wrap it as a schedule.
+
+    The function is the module's top, so what HLS synthesises is exactly the
+    function the emitter wrote, with its streams as the interface.
+    """
+    # pylint: disable=import-outside-toplevel
+    from allo._mlir.dialects import func as func_d
+    from allo._mlir.ir import InsertionPoint, Location
+    from allo.customize import Schedule
+
+    module, ctx = build_functions([fn], dict(low.injected))
+    with module.context, Location.unknown():
+        func = next(
+            op
+            for op in module.body.operations
+            if isinstance(op, func_d.FuncOp) and op.name.value == fn.name
         )
-        return text, extras
+        hoist_streams(func, streams, ctx.func_args)
+    schedule = Schedule(
+        module,
+        func,
+        ctx.func_args,
+        InsertionPoint.at_block_terminator(func.entry_block),
+        ext_libs=ctx.ext_libs,
+        inst_list=[],
+        func_instances={},
+    )
+    schedule.stateful_var_map = {}
+    return schedule
 
 
-def build_mover(graph, index, target="vhls", keep=None, **kwargs):
+def build_mover(graph, index, target="vhls", **kwargs):
     """Compile one mover on its own: the loader or drain a binding asks for.
 
     This is what gives the structural fabric a memory interface. The tensor
@@ -631,39 +595,29 @@ def build_mover(graph, index, target="vhls", keep=None, **kwargs):
     array can be fed from DRAM rather than from a testbench holding its edge
     streams.
     """
-    import allo.dataflow as df  # pylint: disable=import-outside-toplevel
-
     emitter = MoverEmitter(graph)
     name = emitter.name(index)
-    src, extras = emitter.program(index)
-    namespace = dict(emitter.low.injected)
-    namespace.update(extras)
-    module = _import_program(f"_spmw_mover_{name}", src, namespace, keep)
-    built = df.build(module.top, target=target, **kwargs)  # pylint: disable=no-member
-    built.spmw_mover_source = src
+    fn, streams = emitter.function(index)
+    built = _standalone(fn, streams, emitter.low).build(target=target, **kwargs)
+    built.spmw_mover_source = _unparse([fn])
     built.spmw_mover_name = name
     return built
 
 
-def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwargs):
+def build_unit(graph, placement, order, target="vhls", ii=None, **kwargs):
     """Compile one role on its own.
 
-    Imported the way :func:`allo.spmw.lower_df.build_dataflow` imports the array
-    program -- from a real file, with the body's captured names in the module's
-    namespace -- because the tracer reads the source back off disk.
+    The function goes to the IR builder in memory with the body's captured
+    names as its globals, the same way the whole program is built.
 
     The unit's loops are pipelined before it is built. Without that Vitis
     schedules a PE's inner loop sequentially, which is a spatial design's entire
     inner loop; see :mod:`allo.spmw.schedule`.
     """
-    import allo.dataflow as df  # pylint: disable=import-outside-toplevel
-
     emitter = UnitEmitter(graph)
     name = emitter.role_name(placement, order)
-    src, extras = emitter.program(placement, order)
-    namespace = dict(emitter.low.injected)
-    namespace.update(extras)
-    module = _import_program(f"_spmw_unit_{name}", src, namespace, keep)
+    fn, streams = emitter.function(placement, order)
+    schedule = _standalone(fn, streams, emitter.low)
     # The requested interval is a *recurrence budget*: it buys interval by
     # spending combinational delay on the accumulator's adder. A unit that
     # carries nothing has no recurrence to trade against, so peak is free and
@@ -673,10 +627,9 @@ def build_unit(graph, placement, order, target="vhls", keep=None, ii=None, **kwa
     want = sched.interval(placement, default=0) if ii is None else ii
     if not carried and want:
         want = 1
-    schedule = df.customize(module.top)  # pylint: disable=no-member
-    pipelined = sched.apply(schedule, [name, f"{name}_0"], want)
+    pipelined = sched.apply(schedule, [fn.name], want)
     built = schedule.build(target=target, **kwargs)
-    built.spmw_unit_source = src
+    built.spmw_unit_source = _unparse([fn])
     built.spmw_unit_name = name
     # Banking without partitioning is banking in name only: the banks share one
     # memory's ports and the interval multiplies. `optimise` emits the pragma.
@@ -751,35 +704,34 @@ def optimise(code, built):
     return code, bound
 
 
-def _import_program(stem, src, namespace, keep):
-    """Import generated source from a real file, with the body's names in scope.
+def _function(name, params, body):
+    """A function definition with no decorators, from a parameter list."""
+    return ast.FunctionDef(
+        name=name,
+        args=ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg=n, annotation=ann) for n, ann in params],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[],
+        ),
+        body=body,
+        decorator_list=[],
+        returns=None,
+        type_params=[],
+    )
 
-    A file on disk rather than a string, because the tracer reads the body back
-    with ``inspect.getsourcelines`` rather than from the code object -- the same
-    reason :func:`allo.spmw.lower_df.build_dataflow` does it this way.
+
+def _parse_stmts(lines):
+    """Statements written as source lines, as AST.
+
+    The held-value declarations are spelled as text because they are one line
+    each and the spelling is the documentation; parsing them back is a
+    convenience within the emitter, not a program that runs.
     """
-    seq = _MODULE_SEQ[0] = _MODULE_SEQ[0] + 1
-    modname = f"{stem}_{seq}"
-    directory = keep or tempfile.mkdtemp(prefix="spmw_unit_")
-    path = os.path.join(directory, f"{modname}.py")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(src)
-    module = types.ModuleType(modname)
-    module.__file__ = path
-    module.__dict__.update(namespace)
-    sys.modules[modname] = module
-    exec(compile(src, path, "exec"), module.__dict__)  # pylint: disable=exec-used
-    return module
-
-
-_MODULE_SEQ = [0]
-
-
-def _base_name(node):
-    """The root name of a type annotation: `float32[2]` -> `float32`."""
-    while isinstance(node, ast.Subscript):
-        node = node.value
-    return node.id
+    return ast.parse("\n".join(lines)).body
 
 
 _COORD_CACHE = {}
@@ -875,16 +827,15 @@ def unit_interface(code, name, ports):
     """Map the synthesised unit's parameters back to port names.
 
     Allo renames every value, so the generated unit is ``pe_r2_0(v0, v1, v2,
-    v3)`` and nothing in it says which parameter is ``west``.  The mapping is
-    recovered from the program's own structure -- the region declares the
-    streams in the order this module emitted them, and the call in ``top`` says
-    which declaration reaches which parameter.
+    v3)`` and nothing in it says which parameter is ``west``.  The streams are
+    hoisted into the signature in the order this module declared them, so the
+    mapping is positional.
 
-    That is a positional argument, so it is *checked* against a second,
-    independent signal: whether the body reads or writes each parameter has to
-    agree with the port's declared direction.  A mapping that silently slipped
-    would wire a reader to a writer's FIFO, which is the kind of error that
-    produces wrong numbers rather than a failure.
+    A positional argument is *checked* against a second, independent signal:
+    whether the body reads or writes each parameter has to agree with the
+    port's declared direction.  A mapping that silently slipped would wire a
+    reader to a writer's FIFO, which is the kind of error that produces wrong
+    numbers rather than a failure.
 
     Returns ``[(param, port), ...]`` in parameter order.
     """
@@ -900,20 +851,10 @@ def unit_interface(code, name, ports):
             f"`{name}` was synthesised with {len(params)} stream parameters but "
             f"the role has {len(ports)} ports."
         )
-    # A block-carrying port is `hls::stream< hls::vector< float, 2 > >`, so the
-    # element type nests -- one level of angle brackets has to be allowed for.
-    decls = re.findall(r"hls::stream<(?:[^<>]|<[^<>]*>)*>\s*(\w+);", code)
-    call = re.search(rf"{re.escape(kernel.group(1))}\(([^)]*)\);", code)
-    if call is None or len(decls) != len(ports):
-        raise SPMWBindingError(
-            f"cannot read `{name}`'s wiring out of the generated program."
-        )
-    order = [decls.index(a.strip()) for a in call.group(1).split(",")]
     body = code[kernel.end() :]
     body = body[: body.index("\n}")]
     mapping = []
-    for pos, param in enumerate(params):
-        port = ports[order[pos]][0]
+    for param, (port, _fam) in zip(params, ports):
         _confirm_direction(name, param, port, body)
         mapping.append((param, port))
     return mapping
@@ -960,8 +901,8 @@ def mover_interface(code, name, ports=None):
 
     A mover has one parameter the others do not: the tensor, passed as an array
     rather than a stream reference, which the ``m_axi`` directive turns into an
-    AXI master.  The streams are recovered exactly as a unit's are -- from the
-    region's declaration order and the call in ``top``.
+    AXI master.  The streams are recovered exactly as a unit's are -- by the
+    order this module declared them in.
 
     Returns ``(tensor_param, [(param, port_name), ...])``.
     """
@@ -982,28 +923,15 @@ def mover_interface(code, name, ports=None):
             f"`{name}` was synthesised with {len(tensors)} array parameters; a "
             f"mover walks exactly one tensor."
         )
-    decls = re.findall(r"hls::stream<(?:[^<>]|<[^<>]*>)*>\s*(\w+);", code)
-    call = re.search(rf"{re.escape(kernel.group(1))}\(([^)]*)\);", code)
-    if call is None:
+    # The names come from the emitter that wrote the function; without them
+    # the streams are only counted.
+    named = list(ports) if ports is not None else [f"s{i}" for i in range(len(streams))]
+    if len(named) != len(streams):
         raise SPMWBindingError(
-            f"cannot read `{name}`'s wiring out of the generated program."
-        )
-    args = [a.strip() for a in call.group(1).split(",")]
-    order = [decls.index(a) for a in args if a in decls]
-    if len(order) != len(streams):
-        raise SPMWBindingError(
-            f"`{name}` takes {len(streams)} streams but `top` passes "
-            f"{len(order)} of its {len(decls)} declarations."
-        )
-    # Allo renames the region's declarations too, so `decls` holds `v9`, not
-    # `chan`. The names come from the emitter that wrote the program.
-    named = list(ports) if ports is not None else decls
-    if len(named) != len(decls):
-        raise SPMWBindingError(
-            f"`{name}` declares {len(decls)} streams but the emitter named "
+            f"`{name}` takes {len(streams)} streams but the emitter named "
             f"{len(named)}."
         )
-    return tensors[0], [(param, named[order[i]]) for i, param in enumerate(streams)]
+    return tensors[0], list(zip(streams, named))
 
 
 def mover_wrapper_sv(

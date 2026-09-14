@@ -138,10 +138,13 @@ def test_bit_identical_to_dataflow_oracle():
 
 def test_lowered_program_is_rolled():
     """The emitted program has one body per signature class, not one per site."""
+    import re
+
     text = spmw.source(gemm)
-    assert text.count("df.kernel") == 3  # the array plus two loaders
-    arms = text.count("meta_if") + text.count("meta_elif") + text.count("meta_else")
-    assert arms <= 9, f"expected at most one arm per signature class, got {arms}"
+    assert text.count("spmw.map") == 3  # the array plus two loaders
+    bodies = len(re.findall(r"func\.func @pe_r\d+\(", text))
+    assert bodies <= 9, f"expected at most one body per signature class, got {bodies}"
+    assert bodies == 9  # interior, four edges, four corners
 
 
 def test_arguments_are_ordered_for_the_backend():

@@ -1,15 +1,15 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Where the rolling holds, and where it is lost.
+"""Where the rolling holds, all the way down.
 
 The design's load-bearing claim is that the number of *bodies* a spatial design
 compiles to tracks its role count, not its grid: a 2-D mesh has nine site
 signatures at any size, so it should emit nine bodies at any size.
 
-The frontend delivers that, and the first two tests pin it.  The third records
-where it is currently lost -- the dataflow builder expands one kernel instance
-per grid point, so HLS sees one function per site.  Closing that gap is what the
-rolled path is for, and this test is the number it has to move.
+The frontend delivers that, the program keeps it -- one function per role and a
+``spmw.map`` carrying the instantiation -- and the HLS code the backend emits
+keeps it too, because the expanded form calls the same nine functions from
+every site rather than copying them.
 """
 
 import re
@@ -21,6 +21,11 @@ import allo.spmw as spmw
 from allo.ir.types import float32
 
 SIZES = [2, 3, 4, 6]
+
+
+def role_functions(text):
+    """The role bodies in a rolled program: the functions a map names."""
+    return len(re.findall(r"^\s*func\.func @\w+_r\d+\(", text, re.M))
 
 
 def gemm_of(size):
@@ -63,46 +68,46 @@ def test_signature_count_goes_flat(size):
 
 
 @pytest.mark.parametrize("size", SIZES)
-def test_emitted_arms_track_signatures_not_sites(size):
-    """One arm per signature class in the emitted program, whatever the grid."""
+def test_emitted_bodies_track_signatures_not_sites(size):
+    """One function per signature class in the program, whatever the grid."""
     text = spmw.source(gemm_of(size))
-    arms = text.count("meta_if") + text.count("meta_elif") + text.count("meta_else")
+    bodies = role_functions(text)
     expected = 9 if size >= 3 else 4
-    assert arms == expected, f"{size}x{size}: {arms} arms for {expected} signatures"
+    assert bodies == expected, f"{size}x{size}: {bodies} bodies for {expected}"
+    # The instantiation is an attribute on the map, not more functions.
+    assert text.count("spmw.map") == 3  # the array and its two loaders
 
 
 @pytest.mark.parametrize("size", SIZES)
-def test_hls_body_count_is_the_gap(size):
-    """The count HLS actually sees, which is still one body per site.
+def test_hls_body_count_is_flat(size):
+    """The count HLS actually sees: the roles, the loaders, and the top.
 
-    Pinned rather than asserted-flat because it is not flat yet: the dataflow
-    builder expands `mapping=[R, C]` into one kernel instance per grid point.
-    When the rolled path lands this becomes an assertion that the count does not
-    grow with the grid, and the change in this test is the evidence.
+    This used to be one body per site -- the dataflow builder expanded one
+    kernel instance per grid point -- and this test pinned that gap.  The
+    expanded program now calls the same role function from every site, so the
+    count is bounded by the role count rather than by the grid.
     """
     mod = spmw.build(gemm_of(size), target="vhls")
     bodies = len(re.findall(r"^void\s+\w+\(", mod.hls_code, re.M))
-    # sites + one loader per edge column + one per edge row + the top.
-    assert bodies == size * size + 2 * size + 1
+    roles = 9 if size >= 3 else 4
+    # roles + one loader per operand + the top.
+    assert bodies == roles + 2 + 1
 
 
-def test_the_gap_is_quadratic_while_the_frontend_is_flat():
-    """State the two curves side by side, since that contrast is the whole point."""
-    arms, bodies = {}, {}
+def test_the_hls_body_count_is_as_flat_as_the_frontend():
+    """State the two curves side by side, since that contrast was the whole point."""
+    bodies, functions = {}, {}
     for size in SIZES:
         fab = gemm_of(size)
-        text = spmw.source(fab)
-        arms[size] = (
-            text.count("meta_if") + text.count("meta_elif") + text.count("meta_else")
-        )
+        bodies[size] = role_functions(spmw.source(fab))
         mod = spmw.build(fab, target="vhls")
-        bodies[size] = len(re.findall(r"^void\s+\w+\(", mod.hls_code, re.M))
+        functions[size] = len(re.findall(r"^void\s+\w+\(", mod.hls_code, re.M))
 
     big = [s for s in SIZES if s >= 3]
-    assert len({arms[s] for s in big}) == 1, f"arms should be flat, got {arms}"
+    assert len({bodies[s] for s in big}) == 1, f"bodies should be flat, got {bodies}"
     assert (
-        bodies[max(big)] > bodies[min(big)]
-    ), f"bodies should still grow, got {bodies}"
+        len({functions[s] for s in big}) == 1
+    ), f"HLS functions should be flat too, got {functions}"
 
 
 # --------------------------------------------------------------------------
@@ -127,9 +132,8 @@ def test_the_rolled_form_verifies(size):
 def test_the_rolled_body_count_does_not_grow():
     """Nine roles at nine sites and at two hundred and fifty-six.
 
-    This is the design's load-bearing claim, and the contrast with
-    `test_hls_body_count_is_the_gap` above is the whole point: the same designs
-    expand to one body per site through the dataflow path and stay flat here.
+    This is the design's load-bearing claim: the same designs used to expand to
+    one body per site through the dataflow path, and stay flat here.
     """
     from allo._mlir.dialects import allo as allo_d
     from allo._mlir.ir import Context, Module
@@ -152,17 +156,30 @@ def test_the_rolled_body_count_does_not_grow():
 
     assert set(roles.values()) == {9}, f"roles should be flat at 9, got {roles}"
     assert len(set(funcs.values())) == 1, f"functions should be flat, got {funcs}"
-    # The largest grid here has 256 sites; the dataflow path would emit 289.
+    # The largest grid here has 256 sites; one body per site would be 289.
     assert max(ROLLED_SIZES) ** 2 // roles[max(ROLLED_SIZES)] > 25
+
+
+def test_the_rolled_bodies_are_real():
+    """The role functions carry the unit's arithmetic, not an empty shell.
+
+    Tensors, then one index per grid axis, then one stream per wired port -- and
+    the body stores its result through the map's tensor at its own coordinates.
+    """
+    text = spmw.source(gemm_of(4))
+    interior = re.search(r"func\.func @pe_r0\(([^)]*)\)", text).group(1)
+    assert interior.count("memref<4x4xf32>") == 1
+    assert interior.count("index") == 2
+    assert interior.count("!allo.stream<f32, 2>") == 4
+    assert "arith.mulf" in text and "arith.addf" in text
+    assert "allo.stream_get" in text and "allo.stream_put" in text
 
 
 def test_the_rolled_form_emits_flat_hls():
     """The number that the whole exercise is about.
 
-    Same designs, same nine roles, and now the HLS function count does not grow
-    with the array: ten functions whether the mesh has nine sites or two hundred
-    and fifty-six. Compare `test_hls_body_count_is_the_gap`, which measures the
-    dataflow path emitting one body per site for exactly these fabrics.
+    Same designs, same nine roles, and the HLS function count does not grow
+    with the array whether the mesh has nine sites or two hundred and fifty-six.
     """
     import io
 

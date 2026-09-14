@@ -71,11 +71,11 @@ def test_a_role_may_not_touch_its_unbound_ports():
 
 def test_the_tail_elides_its_put():
     """The last stage's `next` has nowhere to go, so the put disappears."""
+    import re
+
     text = spmw.source(chain)
-    # Three arms: the head's role, the interior body, and the tail with no put.
-    assert (
-        text.count("meta_if") + text.count("meta_elif") + text.count("meta_else") == 3
-    )
+    # Three bodies: the head's role, the interior body, and the tail with no put.
+    assert len(re.findall(r"func\.func @\w+_r\d+\(", text)) == 3
 
 
 @pytest.mark.parametrize("target", ["ref", "simulator"])

@@ -378,10 +378,12 @@ class ASTTransformer(ASTBuilder):
                     f"Step in for loop range should be positive, got: {step}"
                 )
             step = build_stmt(ctx, args[2] if len(args) >= 3 else ast.Constant(1))
+            # With one argument the lower bound is the literal 0 built above,
+            # an i32, whatever the type of the bound that was given.
             lb_expr = ASTTransformer.build_cast_op(
                 ctx,
                 lb_expr,
-                args[0].dtype if len(args) >= 1 else Int(32),
+                args[0].dtype if len(args) > 1 else Int(32),
                 Index(),
             )
             ub_expr = ASTTransformer.build_cast_op(
@@ -1343,7 +1345,15 @@ class ASTTransformer(ASTBuilder):
                 ast.BitXor: lambda l, r: l ^ r,
                 ast.BitAnd: lambda l, r: l & r,
             }.get(type(node.op))
-            return op(lhs, rhs)
+            if op is None:
+                return None
+            try:
+                return op(lhs, rhs)
+            except TypeError:
+                # Not an affine operation on affine expressions -- a bit
+                # operation on a loop variable or an index argument -- so the
+                # subscript is built with arithmetic instead.
+                return None
         if isinstance(node, ast.Constant):
             return AffineConstantExpr.get(node.value)
         return None

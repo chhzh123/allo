@@ -202,6 +202,27 @@ def _process_function_streams(
                 if Value(stream_construct_op.result) == arg_instance:
                     arg_def = func_def_op.arguments[i]
                     arg_stream_table[arg_def] = stream_name
+        # Hand this call its FIFO structs, and give the callee's arguments the
+        # struct type. Done for every call rather than once per callee: one
+        # function may be called from many sites with different streams, and
+        # only the first call used to see its operands rewritten.
+        retyped = False
+        for stream_arg, stream_name in arg_stream_table.items():
+            stream_memref = stream_struct_table[stream_name]
+            call_op.operands_[stream_arg.arg_number] = stream_memref
+            if stream_arg.type != stream_memref.type:
+                stream_arg.set_type(stream_memref.type)
+                retyped = True
+        if retyped:
+            old_func_type = func_def_op.type
+            new_func_type = FunctionType.get(
+                inputs=[arg.type for arg in func_def_op.arguments],
+                results=old_func_type.results,
+                context=old_func_type.context,
+            )
+            func_def_op.attributes["function_type"] = TypeAttr.get(
+                new_func_type, module.context
+            )
         # Collect and replace `stream_get`s and `stream_put`s
         func_stream_ops = []
         recursive_collect_ops(
@@ -227,20 +248,6 @@ def _process_function_streams(
             stream_name = arg_stream_table[stream_arg]
             stream_type = stream_type_table[stream_name]
             stream_memref = stream_struct_table[stream_name]
-            # Change argument definitions
-            stream_arg.set_type(stream_memref.type)
-            old_func_type = func_def_op.type
-            new_inputs = old_func_type.inputs.copy()
-            new_inputs[stream_arg.arg_number] = stream_memref.type
-            new_func_type = FunctionType.get(
-                inputs=new_inputs,
-                results=old_func_type.results,
-                context=old_func_type.context,
-            )
-            func_def_op.attributes["function_type"] = TypeAttr.get(
-                new_func_type, module.context
-            )
-            call_op.operands_[stream_arg.arg_number] = stream_memref
             # FIFO access
             # Spin and wait for the FIFO to be not full
             assert isinstance(stream_memref.type, MemRefType)

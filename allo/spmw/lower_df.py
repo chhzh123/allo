@@ -1,38 +1,29 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Lowering an elaborated SPMW graph to an ``allo.dataflow`` program.
+"""Planning the lowering of an elaborated SPMW graph.
 
-This is a compiler pass over the graph, not a set of pattern recognisers:
-placements become kernels, channel families become stream arrays, movers become
-their own kernels, and memory bindings become subscripts.  Anything the
-elaborator can represent, this can emit.
+This is the analysis half of the compiler: placements become roles, channel
+families become stream arrays, movers -- the loaders and drains a binding asks
+for -- become bodies of their own, and memory bindings become subscripts.
+Everything here is a table or a rewrite over the unit's own AST; the IR is
+built from these by :mod:`allo.spmw.lower_mlir`, which hands the rewritten
+bodies to Allo's IR builder in memory.  No Python source is rendered, written
+or executed on the way.
 
-Role dispatch rides ``meta_if``, whose condition is evaluated at compile time
-against the pids.  One arm per *site signature* -- nine for a mesh, at any size
--- so the emitted program has a number of bodies bounded by the role count
-rather than by the grid.
-
-The program is built as an AST and unparsed, never assembled from format
-strings, so a malformed emission is a syntax error at generation time rather
-than a mystery three passes later.
+The rewrites produce ASTs rather than text, so a malformed emission is a
+structural error at generation time rather than a mystery three passes later.
 """
 
 import ast
-import os
-import sys
-import tempfile
-import types
 
 from . import channels as ch
 from .abi import EDGE_DEPTH
 from .bricks import Brick, Tensor
-from .component import _io_param_name, captured_env, rename_free
+from .component import captured_env, rename_free
 from .errors import SPMWBindingError, SPMWMemoryError
 from .index import IndexMap, SliceMap, TIME, to_source
 from .placement import Bundle, MemGrid
-from .ports import OUT, STREAM
-
-_MODULE_SEQ = [0]
+from .ports import STREAM
 
 
 class Mover:
@@ -334,8 +325,8 @@ class Lowering:
                 written.add(binding.target.base.name)
         return written
 
-    def _check_outputs_last(self):
-        """The backend takes its outputs at the end of the top signature."""
+    def check_outputs_last(self):
+        """The HLS backend takes its outputs at the end of the top signature."""
         order = self.arg_order()
         written = self.written_tensors()
         seen_output = None
@@ -351,12 +342,12 @@ class Lowering:
                 )
 
     def arg_order(self):
-        """Region tensors in the order the dataflow backend will expect them.
+        """The top function's tensors: inputs first, outputs last.
 
-        ``_build_top`` builds the top function's signature from the union of the
-        kernels' arguments in *first-seen* order, which is the order the kernels
-        are emitted in -- not the order the fabric declares. Computing the same
-        order here lets the caller keep the fabric's own signature.
+        Loaders, then the arrays, then drains -- the order the maps are laid
+        out in -- with each tensor at its first use.  A fabric may declare its
+        tensors in any order; the built module takes this one, and the caller
+        permutes.
         """
         seen = []
 
@@ -364,184 +355,16 @@ class Lowering:
             if name not in seen:
                 seen.append(name)
 
-        # Must mirror the emission order in `_region`.
         for mover in self.movers:
             if mover.role == "load":
                 note(mover.tensor.base.name)
         for placement in self.placements:
-            for tensor in self._tensors_used(placement):
+            for tensor in self.tensors_used(placement):
                 note(tensor.base.name)
         for mover in self.movers:
             if mover.role != "load":
                 note(mover.tensor.base.name)
         return seen
-
-    def render(self):
-        """The generated module's source."""
-        body = []
-        body += _parse_stmts(
-            "import allo\n"
-            "import allo.dataflow as df\n"
-            "from allo.ir.types import Stream\n"
-        )
-        body += self.consts
-        body.append(self._region())
-        module = ast.Module(body=body, type_ignores=[])
-        ast.fix_missing_locations(module)
-        self._check_names(module)
-        self._check_kernel_args(module)
-        return ast.unparse(module)
-
-    def _check_kernel_args(self, module):
-        """A kernel's parameter must be typed exactly like the region argument.
-
-        The dataflow tracer asserts this, and the failure it produces there names
-        neither the kernel nor which of dtype and shape disagreed. Mirroring the
-        assertion here is what turns "df.kernel argument local_C do not match C"
-        into something that points at the emission that caused it.
-        """
-        region = None
-        for node in module.body:
-            if isinstance(node, ast.FunctionDef) and node.name == "top":
-                region = node
-                break
-        if region is None:
-            return
-        declared = {arg.arg: _annotation_of(arg.annotation) for arg in region.args.args}
-        for node in region.body:
-            if not isinstance(node, ast.FunctionDef):
-                continue
-            names = _kernel_arg_names(node)
-            if names is None:
-                continue
-            if len(names) != len(node.args.args):
-                raise SPMWBindingError(
-                    f"kernel `{node.name}` lists {len(names)} args= but takes "
-                    f"{len(node.args.args)} parameters. This is a lowering bug."
-                )
-            for name, param in zip(names, node.args.args):
-                want = declared.get(name)
-                got = _annotation_of(param.annotation)
-                if want is None:
-                    raise SPMWBindingError(
-                        f"kernel `{node.name}` names `{name}` in args=, which the "
-                        f"region does not take. This is a lowering bug."
-                    )
-                if want != got:
-                    raise SPMWBindingError(
-                        f"kernel `{node.name}`'s parameter `{param.arg}` is typed "
-                        f"{got} but the region argument `{name}` it stands for is "
-                        f"{want}. This is a lowering bug: the tracer types the "
-                        f"parameter from its annotation, so the two must agree."
-                    )
-
-    def _check_names(self, module):
-        """Every name the emitted program reads must be one it can resolve.
-
-        A lowering bug usually shows up as a name nobody defines, and that is far
-        cheaper to diagnose here than as a tracer failure three passes later.
-        """
-        import builtins  # pylint: disable=import-outside-toplevel
-
-        known = set(self.injected) | set(dir(builtins))
-        known |= {"allo", "df", "Stream"}
-        for node in ast.walk(module):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                known.add(node.name)
-                known.update(a.arg for a in node.args.args)
-            elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-                known.add(node.id)
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                known.add(node.target.id)
-        missing = sorted(
-            {
-                node.id
-                for node in ast.walk(module)
-                if isinstance(node, ast.Name)
-                and isinstance(node.ctx, ast.Load)
-                and node.id not in known
-            }
-        )
-        if missing:
-            raise SPMWBindingError(
-                f"the lowered program reads {', '.join(missing)}, which nothing "
-                f"defines. This is a lowering bug, not a program error."
-            )
-
-    def _region(self):
-        args = []
-        for tensor in self.graph.tensors.values():
-            args.append(
-                ast.arg(
-                    arg=tensor.name,
-                    annotation=self.type_ann(tensor.dtype, tensor.shape),
-                )
-            )
-        body = self._stream_decls()
-        # Loaders, then the arrays, then drains. The backend builds the top
-        # signature from the union of the kernels' arguments in first-seen order
-        # and requires the outputs to come last, so the emission order is what
-        # decides whether the program is acceptable at all.
-        for mover in self.movers:
-            if mover.role == "load":
-                body.append(self._mover_kernel(mover))
-        for placement in self.placements:
-            body.append(self._placement_kernel(placement))
-        for mover in self.movers:
-            if mover.role != "load":
-                body.append(self._mover_kernel(mover))
-        self._check_outputs_last()
-        fn = ast.FunctionDef(
-            name="top",
-            args=ast.arguments(
-                posonlyargs=[],
-                args=args,
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
-            body=body,
-            decorator_list=[_call("df.region", [])],
-            returns=None,
-            type_params=[],
-        )
-        return fn
-
-    def _stream_decls(self):
-        decls = []
-        for res in self.resolutions.values():
-            for fam in res.families.values():
-                decls.append(self._stream_decl(fam))
-        for fam in dict.fromkeys(self.bind_families.values()):
-            decls.append(self._stream_decl(fam))
-        return decls
-
-    def _stream_decl(self, fam):
-        elem = self.type_ann(fam.dtype, fam.block)
-        stream = ast.Subscript(
-            value=ast.Name(id="Stream", ctx=ast.Load()),
-            slice=ast.Tuple(elts=[elem, ast.Constant(value=fam.depth)], ctx=ast.Load()),
-            ctx=ast.Load(),
-        )
-        ann = ast.Subscript(
-            value=stream,
-            slice=(
-                ast.Tuple(
-                    elts=[ast.Constant(value=int(s)) for s in fam.shape], ctx=ast.Load()
-                )
-                if len(fam.shape) > 1
-                else ast.Constant(value=int(fam.shape[0]))
-            ),
-            ctx=ast.Load(),
-        )
-        return ast.AnnAssign(
-            target=ast.Name(id=fam.name, ctx=ast.Store()),
-            annotation=ann,
-            value=None,
-            simple=1,
-        )
 
     def canonical_annotation(self, node):
         """Rewrite a declaration's type into the subscript spelling.
@@ -599,101 +422,8 @@ class Lowering:
 
     # -- placement kernels -------------------------------------------------
 
-    def _placement_kernel(self, placement):
-        name = self.kernel_names[placement]
-        grid = placement.grid
-        pids = [f"_p{i}" for i in range(len(grid))]
-        used = self._tensors_used(placement)
-
-        body = [self._pid_assign(pids)]
-        body.extend(self.stationary_locals(placement))
-        classes = _wiring_classes(placement, self.resolutions[placement])
-        arms = []
-        for order, (sig, routing, sites) in enumerate(classes):
-            arm_body = self._transcribe(placement, sig, routing, sites, pids)
-            arms.append((sig, sites, arm_body or [ast.Pass()], order))
-
-        if len(arms) == 1:
-            # Every site runs the same body; there is nothing to dispatch on.
-            body.extend(arms[0][2])
-        else:
-            for _sig, sites, arm_body, order in arms:
-                if order == len(arms) - 1:
-                    body.append(_with(_call("allo.meta_else", []), arm_body))
-                    continue
-                cond = self._class_condition(placement, pids, name, order, arms)
-                verb = "meta_if" if order == 0 else "meta_elif"
-                body.append(_with(_call(f"allo.{verb}", [cond]), arm_body))
-
-        args = [
-            ast.arg(
-                arg=f"local_{t.base.name}",
-                # The argument passed is the base tensor and the subscripts are
-                # shifted into it, so the annotation must be the base's shape --
-                # a view's shape here would type the parameter smaller than the
-                # indices reach.
-                annotation=self.type_ann(t.dtype, t.base.shape),
-            )
-            for t in used
-        ]
-        return ast.FunctionDef(
-            name=name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=args,
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
-            body=body,
-            decorator_list=[self._kernel_decorator(grid, used)],
-            returns=None,
-            type_params=[],
-        )
-
-    def _kernel_decorator(self, grid, tensors):
-        keywords = {
-            "mapping": ast.List(
-                elts=[ast.Constant(value=int(g)) for g in grid], ctx=ast.Load()
-            )
-        }
-        if tensors:
-            keywords["args"] = ast.List(
-                elts=[ast.Name(id=t.base.name, ctx=ast.Load()) for t in tensors],
-                ctx=ast.Load(),
-            )
-        return _call("df.kernel", [], keywords=keywords)
-
-    def _class_condition(self, placement, pids, name, order, arms):
-        """A compile-time predicate selecting one signature class.
-
-        A table indexed by the pids is exact for any topology; the pids are
-        constants when ``meta_if`` evaluates, so the lookup folds away.
-        """
-        table = _nested_table(placement.grid, arms)
-        tname = self._inject(f"ROLE_{name}_", table)
-        expr = ast.Name(id=tname, ctx=ast.Load())
-        for pid in pids:
-            expr = ast.Subscript(
-                value=expr, slice=ast.Name(id=pid, ctx=ast.Load()), ctx=ast.Load()
-            )
-        return ast.Compare(
-            left=expr, ops=[ast.Eq()], comparators=[ast.Constant(value=order)]
-        )
-
-    def _pid_assign(self, pids):
-        target = (
-            ast.Tuple(
-                elts=[ast.Name(id=p, ctx=ast.Store()) for p in pids], ctx=ast.Store()
-            )
-            if len(pids) > 1
-            else ast.Name(id=pids[0], ctx=ast.Store())
-        )
-        return ast.Assign(targets=[target], value=_call("df.get_pid", []))
-
-    def _tensors_used(self, placement):
+    def tensors_used(self, placement):
+        """The tensors a placement's memory bindings reach, first-seen order."""
         used = []
         for (pl, _port), binding in list(self.mem_reads.items()) + list(
             self.mem_writes.items()
@@ -710,81 +440,7 @@ class Lowering:
 
     # -- body transcription ------------------------------------------------
 
-    def _transcribe(self, placement, signature, routing, sites, pids):
-        """Rewrite one unit body for one signature class.
-
-        Everything that is not a port touch is carried through verbatim, which
-        is what keeps the arithmetic -- and so the numerics -- identical to the
-        program the user wrote.
-        """
-        body = placement.roles.get(sites[0])
-        if body is None:
-            raise SPMWBindingError(
-                f"`{placement.name}` is a fabric placed on a topology. Hierarchical "
-                f"placement elaborates, but it is not lowered on the dataflow path "
-                f"yet -- inline the sub-fabric, or place its unit directly."
-            )
-        tree = body.tree
-        io_name = _io_param_name(tree)
-        site_name = _site_param_name(tree)
-        rewriter = _BodyRewriter(
-            self, placement, signature, routing, sites, pids, io_name, site_name
-        )
-        stmts = [
-            rewriter.visit(ast.fix_missing_locations(_copy(s)))
-            for s in tree.body
-            if not _is_docstring(s)
-        ]
-        kept = [s for s in stmts if s is not None]
-        for stmt in kept:
-            _fill_empty_suites(stmt)
-        return kept
-
     # -- addressing --------------------------------------------------------
-
-    def port_subscript(self, placement, port, pids, bound=True, family=None, sites=()):
-        """The stream-array subscript naming this site's end of ``port``.
-
-        Which family serves a port is a per-site question: where the link rule
-        binds it, the topology's family; where it does not, the family the
-        binding's loaders and drains write to.
-        """
-        res = self.resolutions[placement]
-        fam = res.families.get(family) if (bound and family) else None
-        if fam is None:
-            fam = self.bind_families.get((placement, port))
-            if fam is None:
-                return None
-        if fam.kind == ch.AFFINE:
-            offs = fam.offset if port.direction == OUT else (0,) * len(pids)
-            elts = []
-            for pid, off in zip(pids, offs):
-                elts.append(
-                    ast.Name(id=pid, ctx=ast.Load())
-                    if off == 0
-                    else ast.BinOp(
-                        left=ast.Name(id=pid, ctx=ast.Load()),
-                        op=ast.Add() if off > 0 else ast.Sub(),
-                        right=ast.Constant(value=abs(off)),
-                    )
-                )
-            idx = ast.Tuple(elts=elts, ctx=ast.Load()) if len(elts) > 1 else elts[0]
-        else:
-            geom = fam.geometry.get(port)
-            idx = geom.member_from_pids(pids) if geom is not None else None
-            if idx is None:
-                table = _slot_table(placement.grid, fam, port, sites)
-                tname = self._inject(f"CH_{fam.name}_{port.name}_", table)
-                idx = ast.Name(id=tname, ctx=ast.Load())
-                for pid in pids:
-                    idx = ast.Subscript(
-                        value=idx,
-                        slice=ast.Name(id=pid, ctx=ast.Load()),
-                        ctx=ast.Load(),
-                    )
-        return ast.Subscript(
-            value=ast.Name(id=fam.name, ctx=ast.Load()), slice=idx, ctx=ast.Load()
-        )
 
     def mem_subscript(self, placement, port, pids, extra=None):
         """The tensor subscript this site's memory port reads or writes."""
@@ -908,66 +564,147 @@ class Lowering:
             node = ast.Subscript(value=node, slice=idx, ctx=ast.Load())
         return node
 
-    # -- mover kernels -----------------------------------------------------
+    # -- movers ------------------------------------------------------------
 
-    def _mover_kernel(self, mover):
+    def mover_function(self, mover):
+        """One loader or drain as a function over its bundle.
+
+        It takes the tensor it walks and one ``index`` per bundle axis, and
+        declares its channel as a one-element stream array, which
+        :func:`allo.spmw.lower_mlir.hoist_streams` turns into the trailing
+        parameter.  Returns the function and its stream names in that order.
+        """
         bundle = mover.bundle
         geom = _geometry(bundle)
         pids = [f"_q{i}" for i in range(len(geom.dense))]
-        body = [self._pid_assign(pids)]
+        # A table the body indexes at runtime -- which site a member is, or
+        # where a lambda index map sends it -- is declared as a constant local
+        # of the function, the shape the builder loads from.
+        prologue = []
 
-        site_exprs = geom.site_exprs(pids, inject=self._inject)
-        member = geom.member_expr(pids)
+        def declare(prefix, table):
+            local = f"_tab{len(prologue)}"
+            prologue.append(
+                ast.AnnAssign(
+                    target=ast.Name(id=local, ctx=ast.Store()),
+                    annotation=self.type_ann(table_type(), tuple(table.shape)),
+                    value=ast.Name(id=self._inject(prefix, table), ctx=ast.Load()),
+                    simple=1,
+                )
+            )
+            return local
+
+        site_exprs = geom.site_exprs(pids, declare=declare)
         chan = ast.Subscript(
-            value=ast.Name(id=mover.family.name, ctx=ast.Load()),
-            slice=member,
+            value=ast.Name(id="chan", ctx=ast.Load()),
+            slice=ast.Constant(value=0),
             ctx=ast.Load(),
         )
         tensor = mover.tensor
         names = {axis: site_exprs[i] for i, axis in enumerate(bundle.placement.axes)}
-
         loop_var = "_t"
         extent = mover.extent if mover.extent is not None else 1
-        prologue = []
-        subs = self._mover_subscripts(mover, names, loop_var, geom, pids, prologue)
-        subs = _offset(subs, tensor)
+        subs = _offset(
+            self._mover_subscripts(mover, names, loop_var, geom, pids, declare),
+            tensor,
+        )
         elem = ast.Subscript(
             value=ast.Name(id=f"local_{tensor.base.name}", ctx=ast.Load()),
             slice=ast.Tuple(elts=subs, ctx=ast.Load()) if len(subs) > 1 else subs[0],
             ctx=ast.Load(),
         )
         block = mover.binding.extras.get("block", ())
-        inner = self._transfer(mover, chan, elem, block)
-        body.extend(prologue)
+        fam = mover.family
+        stream = ast.Subscript(
+            value=ast.Name(id="Stream", ctx=ast.Load()),
+            slice=ast.Tuple(
+                elts=[
+                    self.type_ann(fam.dtype, fam.block),
+                    ast.Constant(value=int(fam.depth)),
+                ],
+                ctx=ast.Load(),
+            ),
+            ctx=ast.Load(),
+        )
+        decl = ast.AnnAssign(
+            target=ast.Name(id="chan", ctx=ast.Store()),
+            annotation=ast.Subscript(
+                value=stream, slice=ast.Constant(value=1), ctx=ast.Load()
+            ),
+            value=None,
+            simple=1,
+        )
         loop = ast.For(
             target=ast.Name(id=loop_var, ctx=ast.Store()),
             iter=_call("range", [ast.Constant(value=int(extent))]),
-            body=inner,
+            body=self._transfer(mover, chan, elem, block),
             orelse=[],
         )
-        body.append(loop)
-        args = [
+        params = [
             ast.arg(
-                arg=f"local_{tensor.name}",
+                arg=f"local_{tensor.base.name}",
                 annotation=self.type_ann(tensor.dtype, tensor.base.shape),
             )
         ]
-        return ast.FunctionDef(
+        params += [
+            ast.arg(arg=pid, annotation=self.type_ann(pid_type(), ())) for pid in pids
+        ]
+        fn = ast.FunctionDef(
             name=mover.name,
             args=ast.arguments(
                 posonlyargs=[],
-                args=args,
+                args=params,
                 vararg=None,
                 kwonlyargs=[],
                 kw_defaults=[],
                 kwarg=None,
                 defaults=[],
             ),
-            body=body,
-            decorator_list=[self._kernel_decorator(geom.dense, [tensor])],
+            body=[decl] + prologue + [loop],
+            decorator_list=[],
             returns=None,
             type_params=[],
         )
+        return fn, ["chan_0"]
+
+    def _mover_subscripts(self, mover, names, loop_var, geom, pids, declare):
+        imap = mover.imap
+        block = mover.binding.extras.get("block", ())
+        if isinstance(imap, IndexMap) and not imap.is_lambda:
+            subs = []
+            for entry in imap.spec:
+                if entry is TIME:
+                    subs.append(ast.Name(id=loop_var, ctx=ast.Load()))
+                elif isinstance(entry, int):
+                    subs.append(ast.Constant(value=entry))
+                else:
+                    subs.append(
+                        _parse_expr(to_source(entry, _src_names(names), loop_var))
+                    )
+        else:
+            # A lambda is the escape hatch: it is evaluated over the whole
+            # (member, step) domain at elaboration and carried as a constant
+            # table the body indexes by its own position and step.
+            tname = declare(f"IX_{mover.name}_", _lambda_table(mover, geom))
+            rank = mover.tensor.rank - len(block)
+            subs = [
+                ast.Subscript(
+                    value=ast.Name(id=tname, ctx=ast.Load()),
+                    slice=ast.Tuple(
+                        elts=[
+                            _copy_expr(geom.member_expr(pids)),
+                            ast.Name(id=loop_var, ctx=ast.Load()),
+                            ast.Constant(value=k),
+                        ],
+                        ctx=ast.Load(),
+                    ),
+                    ctx=ast.Load(),
+                )
+                for k in range(rank)
+            ]
+        for k in range(len(block)):
+            subs.append(ast.Name(id=f"_b{k}", ctx=ast.Load()))
+        return subs
 
     def _transfer(self, mover, chan, elem, block):
         """Move one token between a tensor element and a channel.
@@ -1037,59 +774,6 @@ class Lowering:
             ]
         return [decl] + loops + tail
 
-    def _mover_subscripts(self, mover, names, loop_var, geom, pids, prologue):
-        imap = mover.imap
-        block = mover.binding.extras.get("block", ())
-        if isinstance(imap, IndexMap) and not imap.is_lambda:
-            subs = []
-            for entry in imap.spec:
-                if entry is TIME:
-                    subs.append(ast.Name(id=loop_var, ctx=ast.Load()))
-                elif isinstance(entry, int):
-                    subs.append(ast.Constant(value=entry))
-                else:
-                    subs.append(
-                        _parse_expr(to_source(entry, _src_names(names), loop_var))
-                    )
-        else:
-            # A lambda is the escape hatch; evaluate it over the whole domain and
-            # emit the result as a constant this member slices at compile time.
-            # A bare tuple global is not something the tracer can read, but a
-            # pid-sliced numpy constant is.
-            table = _lambda_table(mover, geom)
-            tname = self._inject(f"IX_{mover.name}_", table)
-            local = f"_ix{len(prologue)}"
-            prologue.append(
-                ast.AnnAssign(
-                    target=ast.Name(id=local, ctx=ast.Store()),
-                    annotation=self.type_ann(_index_type(), table.shape[1:]),
-                    value=ast.Subscript(
-                        value=ast.Name(id=tname, ctx=ast.Load()),
-                        slice=geom.member_expr(pids),
-                        ctx=ast.Load(),
-                    ),
-                    simple=1,
-                )
-            )
-            rank = mover.tensor.rank - len(block)
-            subs = [
-                ast.Subscript(
-                    value=ast.Name(id=local, ctx=ast.Load()),
-                    slice=ast.Tuple(
-                        elts=[
-                            ast.Name(id=loop_var, ctx=ast.Load()),
-                            ast.Constant(value=k),
-                        ],
-                        ctx=ast.Load(),
-                    ),
-                    ctx=ast.Load(),
-                )
-                for k in range(rank)
-            ]
-        for k in range(len(block)):
-            subs.append(ast.Name(id=f"_b{k}", ctx=ast.Load()))
-        return subs
-
 
 # ---------------------------------------------------------------------------
 # Body rewriting
@@ -1099,8 +783,20 @@ class Lowering:
 class _BodyRewriter(ast.NodeTransformer):
     """Rewrites port touches into channel and tensor accesses."""
 
+    # pylint: disable=too-many-instance-attributes,too-many-arguments
+
     def __init__(
-        self, lowering, placement, signature, routing, sites, pids, io_name, site_name
+        self,
+        lowering,
+        placement,
+        signature,
+        routing,
+        sites,
+        pids,
+        io_name,
+        site_name,
+        fixed=None,
+        tree=None,
     ):
         super().__init__()
         self.low = lowering
@@ -1113,6 +809,19 @@ class _BodyRewriter(ast.NodeTransformer):
         self.site = site_name
         self.iface = placement.iface
         self.drops = 0
+        # Coordinates known at compile time, because the placement specialises
+        # those axes: the body sees a literal, so a loop bounded by one has a
+        # constant trip count. The rest arrive as the function's parameters.
+        self.fixed = dict(fixed or {})
+        # Names a body binds to its coordinates -- `row, _col = site.rank` --
+        # stand for the parameters directly wherever they are read, so a loop
+        # bounded by one keeps an affine bound. A name the body also assigns
+        # elsewhere is left as the variable it is.
+        self.aliases = {}
+        self._stores = {}
+        for node in ast.walk(tree) if tree is not None else ():
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                self._stores[node.id] = self._stores.get(node.id, 0) + 1
 
     # -- helpers
 
@@ -1129,15 +838,28 @@ class _BodyRewriter(ast.NodeTransformer):
         return port in self.signature
 
     def _subscript(self, port):
-        """This site's channel for ``port``, or None when it has none at all."""
-        return self.low.port_subscript(
-            self.placement,
-            port,
-            self.pids,
-            bound=self._bound(port),
-            family=self.routing.get(port),
-            sites=self.sites,
+        """This site's end of ``port`` as an expression, or None if it has none."""
+        raise NotImplementedError("a rewriter says how its ports are reached")
+
+    def _coord(self, axis):
+        """The site's coordinate on ``axis``: a literal if specialised, else a pid."""
+        if axis in self.fixed:
+            return ast.Constant(value=int(self.fixed[axis]))
+        return ast.Name(id=self.pids[axis], ctx=ast.Load())
+
+    def _rank_value(self, node):
+        """What ``s, b = site.rank`` binds: the coordinates, shaped like the target.
+
+        `(slot,) = site.rank` on a 1-D placement unpacks a one-tuple, and handing
+        it a bare name would emit `slot, = _p0`, which is a scalar unpack.
+        """
+        names = [self._coord(a) for a in range(len(self.pids))]
+        unpacking = len(node.targets) == 1 and isinstance(
+            node.targets[0], (ast.Tuple, ast.List)
         )
+        if unpacking or len(names) > 1:
+            return ast.Tuple(elts=names, ctx=ast.Load())
+        return names[0]
 
     # -- visits
 
@@ -1213,10 +935,21 @@ class _BodyRewriter(ast.NodeTransformer):
             )
         return ast.Assign(targets=[target], value=arg)
 
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Load) and node.id in self.aliases:
+            return _copy_expr(self.aliases[node.id])
+        return node
+
     def visit_Assign(self, node):
-        # `s, b = site.rank` restates the pids the kernel already has.
+        # `s, b = site.rank` restates the coordinates the function takes. Bound
+        # once to plain names, those names become the coordinates themselves.
         if self.site and _is_site_rank(node.value, self.site):
-            return ast.Assign(targets=node.targets, value=_call("df.get_pid", []))
+            names = _plain_targets(node)
+            if names is not None and all(self._stores.get(n, 0) == 1 for n in names):
+                for axis, name in enumerate(names):
+                    self.aliases[name] = self._coord(axis)
+                return None
+            return ast.Assign(targets=node.targets, value=self._rank_value(node))
         block_port = self._block_get(node)
         node.value = self.visit(node.value)
         node.targets = [self._store_target(t) for t in node.targets]
@@ -1278,10 +1011,10 @@ class _BodyRewriter(ast.NodeTransformer):
             and isinstance(node.slice, ast.Constant)
             and isinstance(node.slice.value, int)
         ):
-            # `site.rank[k]` is this site's k-th coordinate, which the kernel
-            # already has a name for; a tuple subscript would leave the tracer
+            # `site.rank[k]` is this site's k-th coordinate, which the function
+            # already has a name for; a tuple subscript would leave the builder
             # to fold it.
-            return ast.Name(id=self.pids[node.slice.value], ctx=ast.Load())
+            return self._coord(node.slice.value)
         port = self._port_of(node.value)
         if port is not None and port.protocol != STREAM:
             extra = [self.visit(e) for e in _index_elts(node.slice)]
@@ -1305,7 +1038,7 @@ class _BodyRewriter(ast.NodeTransformer):
                 )
             if node.attr == "rank":
                 return ast.Tuple(
-                    elts=[ast.Name(id=p, ctx=ast.Load()) for p in self.pids],
+                    elts=[self._coord(a) for a in range(len(self.pids))],
                     ctx=ast.Load(),
                 )
         self.generic_visit(node)
@@ -1346,19 +1079,28 @@ class _Geometry:
             self.varying = [a for a in range(self.rank) if len(self.axes[a][0]) > 1]
             self.dense = [len(self.axes[a][0]) for a in self.varying] or [1]
 
-    def site_exprs(self, pids, inject=None):
+    def site_exprs(self, pids, declare=None):
         """Per grid axis, the source expression giving this member's coordinate."""
         if self.flat:
-            table = tuple(tuple(int(c) for c in site) for site in self.bundle.sites)
-            name = inject("SITE_", table)
+            import numpy as np  # pylint: disable=import-outside-toplevel
+
+            # A constant table the body indexes by its own position: a
+            # numpy array rather than a tuple, because a numpy constant is a
+            # memory the builder can load from at a runtime index.
+            table = np.array(
+                [[int(c) for c in site] for site in self.bundle.sites], dtype=np.int32
+            ).reshape(len(self.bundle.sites), self.rank)
+            name = declare("SITE_", table)
             return [
                 ast.Subscript(
-                    value=ast.Subscript(
-                        value=ast.Name(id=name, ctx=ast.Load()),
-                        slice=ast.Name(id=pids[0], ctx=ast.Load()),
+                    value=ast.Name(id=name, ctx=ast.Load()),
+                    slice=ast.Tuple(
+                        elts=[
+                            ast.Name(id=pids[0], ctx=ast.Load()),
+                            ast.Constant(value=a),
+                        ],
                         ctx=ast.Load(),
                     ),
-                    slice=ast.Constant(value=a),
                     ctx=ast.Load(),
                 )
                 for a in range(self.rank)
@@ -1525,50 +1267,6 @@ def _wiring_classes(placement, resolution):
     ]
 
 
-def _nested_table(grid, arms):
-    """A grid-shaped table naming each site's class index."""
-    index = {}
-    for _sig, members, _body, order in arms:
-        for site in members:
-            index[site] = order
-
-    def build(prefix):
-        depth = len(prefix)
-        if depth == len(grid):
-            return index.get(tuple(prefix), -1)
-        return tuple(build(prefix + [v]) for v in range(grid[depth]))
-
-    return build([])
-
-
-def _slot_table(grid, fam, port, sites):
-    """A grid-shaped table naming the channel each site's port attaches to.
-
-    Sites outside this arm never read their entry, so they get -1 rather than a
-    plausible zero: a site routed to the wrong family would otherwise address
-    channel 0 and corrupt it instead of failing.
-    """
-    live = set(sites)
-
-    def build(prefix):
-        depth = len(prefix)
-        if depth == len(grid):
-            site = tuple(prefix)
-            if site not in live:
-                return -1
-            slot = fam.slots.get((site, port))
-            if slot is None:
-                raise SPMWBindingError(
-                    f"`{port}` at site {site} has no channel in family "
-                    f"`{fam.name}`. This is a lowering bug: the site was routed "
-                    f"to a family it does not belong to."
-                )
-            return slot
-        return tuple(build(prefix + [v]) for v in range(grid[depth]))
-
-    return build([])
-
-
 def _lambda_table(mover, geom):
     """Evaluate a lambda index map over the whole (member, step) domain.
 
@@ -1672,10 +1370,6 @@ def _src_names(names):
 # ---------------------------------------------------------------------------
 
 
-def _parse_stmts(src):
-    return ast.parse(src).body
-
-
 def _parse_expr(src):
     return ast.parse(src, mode="eval").body
 
@@ -1695,13 +1389,6 @@ def _call(name, args, keywords=None):
 
 def _call_node(func, args):
     return ast.Call(func=func, args=list(args), keywords=[])
-
-
-def _with(ctx_expr, body):
-    return ast.With(
-        items=[ast.withitem(context_expr=ctx_expr, optional_vars=None)],
-        body=body,
-    )
 
 
 def _store(node):
@@ -1754,33 +1441,6 @@ def _fill_empty_suites(node):
                 child.body = [ast.Pass()]
 
 
-def _annotation_of(node):
-    """A parameter annotation as a comparable (name, shape) pair."""
-    if isinstance(node, ast.Subscript):
-        base = node.value.id if isinstance(node.value, ast.Name) else "?"
-        idx = node.slice
-        elts = idx.elts if isinstance(idx, ast.Tuple) else [idx]
-        shape = tuple(e.value for e in elts if isinstance(e, ast.Constant))
-        return (base, shape)
-    if isinstance(node, ast.Name):
-        return (node.id, ())
-    return ("?", ())
-
-
-def _kernel_arg_names(node):
-    """The `args=[...]` names on a df.kernel decorator, or None if it has none."""
-    for dec in node.decorator_list:
-        if not (isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute)):
-            continue
-        if dec.func.attr != "kernel":
-            continue
-        for kw in dec.keywords:
-            if kw.arg == "args" and isinstance(kw.value, ast.List):
-                return [e.id for e in kw.value.elts if isinstance(e, ast.Name)]
-        return []
-    return None
-
-
 def _is_docstring(node):
     """A bare string statement documents the source, not the emitted program."""
     return (
@@ -1788,6 +1448,22 @@ def _is_docstring(node):
         and isinstance(node.value, ast.Constant)
         and isinstance(node.value.value, str)
     )
+
+
+def _plain_targets(node):
+    """The names an assignment binds, one per grid axis, or None.
+
+    `s, b = site.rank` and `(slot,) = site.rank` bind names; `xs = site.rank`
+    binds the tuple, which is not a coordinate and is left alone.
+    """
+    if len(node.targets) != 1:
+        return None
+    target = node.targets[0]
+    if not isinstance(target, (ast.Tuple, ast.List)):
+        return None
+    if not all(isinstance(elt, ast.Name) for elt in target.elts):
+        return None
+    return [elt.id for elt in target.elts]
 
 
 def _is_site_rank(node, site_name):
@@ -1816,76 +1492,44 @@ def _same(a, b):
         return False
 
 
-class _IndexType:
-    """Stand-in for the integer type an index constant is declared with.
+def _ident(name):
+    return "".join(c if c.isalnum() or c == "_" else "_" for c in name)
 
-    Only reached where Allo cannot be imported -- rendering a program for
-    inspection. A real build resolves the type from Allo itself. It mirrors an
-    Allo scalar type closely enough to be subscripted into an annotation.
+
+class _TypeStandIn:
+    """A stand-in for an Allo scalar type when Allo is not importable.
+
+    The elaboration core runs without a built compiler; only building needs
+    the real type, and by then Allo is there.
     """
 
-    __slots__ = ("shape",)
+    shape = ()
 
-    def __init__(self, shape=()):
-        self.shape = tuple(shape)
-
-    @property
-    def dtype(self):
-        return _IndexType()
-
-    def __getitem__(self, sizes):
-        return _IndexType(sizes if isinstance(sizes, tuple) else (sizes,))
+    def __init__(self, spelling):
+        self.spelling = spelling
 
     def __str__(self):
-        return "i32"
+        return self.spelling
 
 
-def _index_type():
+def pid_type():
+    """The type a site coordinate has as a function parameter: MLIR's ``index``."""
+    try:
+        from allo.ir.types import index  # pylint: disable=import-outside-toplevel
+
+        return index
+    except Exception:  # pylint: disable=broad-except
+        return _TypeStandIn("index")
+
+
+def table_type():
+    """The element type of a coordinate or index table: a 32-bit integer."""
     try:
         from allo.ir.types import int32  # pylint: disable=import-outside-toplevel
 
         return int32
     except Exception:  # pylint: disable=broad-except
-        return _IndexType()
+        return _TypeStandIn("i32")
 
 
-def _ident(name):
-    return "".join(c if c.isalnum() or c == "_" else "_" for c in name)
-
-
-# ---------------------------------------------------------------------------
-# Materialisation
-# ---------------------------------------------------------------------------
-
-
-def build_dataflow(graph, keep=None):
-    """Emit the dataflow program and import it, returning its ``top`` region."""
-    low = Lowering(graph)
-    src = low.render()
-    seq = _MODULE_SEQ[0] = _MODULE_SEQ[0] + 1
-    name = f"_spmw_{_ident(graph.fabric.name)}_{seq}"
-    directory = keep or tempfile.mkdtemp(prefix="spmw_")
-    path = os.path.join(directory, f"{name}.py")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(src)
-    module = types.ModuleType(name)
-    module.__file__ = path
-    module.__dict__.update(low.injected)
-    sys.modules[name] = module
-    # A real file on disk, because the tracer reads the body back with
-    # inspect.getsourcelines rather than from the code object.
-    exec(compile(src, path, "exec"), module.__dict__)  # pylint: disable=exec-used
-    top = module.top
-    top._spmw_source = src
-    top._spmw_path = path
-    top._spmw_arg_order = low.arg_order()
-    top._spmw_declared = [t.name for t in graph.tensors.values()]
-    return top
-
-
-def render_source(graph):
-    """The dataflow program this graph lowers to, as source."""
-    return Lowering(graph).render()
-
-
-__all__ = ["Lowering", "build_dataflow", "render_source"]
+__all__ = ["Lowering", "pid_type", "table_type"]

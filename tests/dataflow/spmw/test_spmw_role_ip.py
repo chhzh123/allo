@@ -48,9 +48,8 @@ def test_every_role_becomes_a_unit(size):
     emitter = UnitEmitter(graph)
     placement = emitter.placements()[0]
     for order in range(len(emitter.classes(placement))):
-        text, _extras = emitter.program(placement, order)
-        assert "@df.kernel" in text
-        assert emitter.role_name(placement, order) in text
+        text, _streams = emitter.program(placement, order)
+        assert f"def {emitter.role_name(placement, order)}_0(" in text
 
 
 def test_a_unit_takes_only_streams():
@@ -120,8 +119,8 @@ def test_every_role_of_every_design_builds(name):
     built = 0
     for placement in emitter.placements():
         for order in range(len(emitter.classes(placement))):
-            text, _extras = emitter.program(placement, order)
-            assert "@df.kernel" in text
+            text, _streams = emitter.program(placement, order)
+            assert f"def {emitter.role_name(placement, order)}_0(" in text
             built += 1
     assert built > 0
 
@@ -211,7 +210,9 @@ def test_the_parameter_mapping_is_recovered_and_checked():
     built = build_unit(graph, placement, 2, target="vhls")
     ports = emitter.ports(placement, 2)
     mapping = unit_interface(str(built.hls_code), "pe_r2", ports)
-    assert [p.name for _param, p in mapping] == ["west", "north", "east", "c"]
+    # The parameters come in the order the fabric's stub declares the ports.
+    assert [p.name for _param, p in mapping] == [p.name for p, _f in ports]
+    assert sorted(p.name for _param, p in mapping) == ["c", "east", "north", "west"]
     for _param, port in mapping:
         assert port.direction in ("in", "out")
 

@@ -23,8 +23,7 @@ sys.path.insert(
 import allo.spmw as spmw  # pylint: disable=wrong-import-position
 from allo.spmw import rtl  # pylint: disable=wrong-import-position
 from allo.spmw.cosim import render_testbench  # pylint: disable=wrong-import-position
-from allo.spmw.lower_df import render_source  # pylint: disable=wrong-import-position
-from allo.spmw.lower_mlir import render_module  # pylint: disable=wrong-import-position
+from allo.spmw.lower_mlir import build_program  # pylint: disable=wrong-import-position
 from allo.spmw.dram import (  # pylint: disable=wrong-import-position
     ram_module,
     render_memory_testbench,
@@ -86,8 +85,10 @@ def dump(name, out, size):
         with open(os.path.join(directory, filename), "w", encoding="utf-8") as handle:
             handle.write(text)
 
-    write("01_dataflow.py", render_source(graph))
-    write("02_rolled.mlir", render_module(graph))
+    # The rolled program is the IR; the expanded form is what the backends get.
+    built = build_program(graph)
+    write("01_rolled.mlir", built.rolled)
+    write("02_expanded.mlir", str(built.module))
     module = spmw.build(fabric, target="vhls")
     write("03_array.cpp", str(module.hls_code))
     write("04_array.mlir", str(module.module))
@@ -100,7 +101,7 @@ def dump(name, out, size):
     for placement in emitter.placements():
         order = min(2, len(emitter.classes(placement)) - 1)
         role = emitter.role_name(placement, order)
-        program, _extras = emitter.program(placement, order)
+        program, _streams = emitter.program(placement, order)
         write(f"05_unit_{role}.py", program)
         code = trim_includes(
             str(build_unit(graph, placement, order, target="vhls").hls_code)
