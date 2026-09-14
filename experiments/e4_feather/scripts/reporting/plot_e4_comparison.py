@@ -67,7 +67,7 @@ def main():
     a.bar([i - w / 2 for i in x], rtl_feed, w, bottom=rtl_fill, color=FEED,
           hatch="//", edgecolor="white", linewidth=0.5,
           label="FEATHER RTL: $N^2$ weight feed")
-    a.bar([i + w / 2 for i in x], sp_fill, w, color=SPMW, label="SPMW port: array fill")
+    a.bar([i + w / 2 for i in x], sp_fill, w, color=SPMW, label="SPMW port: array fill (1-beat wide-port load)")
     for i, n in enumerate(SIZES):
         a.text(i - w / 2, rtl_fill[i] + rtl_feed[i], f"{rtl_fill[i]+rtl_feed[i]}",
                ha="center", va="bottom", fontsize=7.5, color="#444")
@@ -80,7 +80,8 @@ def main():
     a.set_ylim(0, max(rtl_fill[i] + rtl_feed[i] for i in range(3)) * 1.30)
     a.legend(fontsize=7, frameon=False, loc="upper left")
     a.annotate("compare the solid bars: the hatched segment is a\n"
-               "weight feed the SPMW port does not perform",
+               "weight feed the SPMW port takes in one beat,\n"
+               "on an interface $N^2$ times wider",
                xy=(0.03, 0.46), xycoords="axes fraction", fontsize=7.5,
                color="#666", ha="left")
 
@@ -127,7 +128,8 @@ def main():
 
     fig.suptitle(
         "FEATHER: the published RTL against the SPMW port  "
-        "(int8 GEMM 128$^3$, weights resident, xcu280 at 3.333 ns)",
+        "(int8 GEMM 128$^3$, weights resident, xcu280 at 3.333 ns).  "
+        "Panel (a): only the solid bars compare.",
         fontsize=10, y=1.02, x=0.01, ha="left",
     )
     fig.tight_layout()

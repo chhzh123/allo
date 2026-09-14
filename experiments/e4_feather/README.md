@@ -72,17 +72,17 @@ enough that the table gives it:
 | Array | | published loader | row-wise loader | SPMW port |
 |---|---|---:|---:|---:|
 | 4x4 | array fill, weights in place | 17 | **17** | 42 |
-| | + weight feed | 64 | **16** | none: resident |
+| | + weight feed | 64 | **16** | 1 beat (512-bit port) |
 | | = first output | 81 | **33** | 42 |
 | | completion | 131,149 | **131,101** | 131,110 |
 | | `cycles_per_tile` | 4.0 | 4.0 | 4.0 |
 | 8x8 | array fill, weights in place | 27 | **27** | 80 |
-| | + weight feed | 512 | **64** | none: resident |
+| | + weight feed | 512 | **64** | 1 beat (4,096-bit port) |
 | | = first output | 539 | **91** | 80 |
 | | completion | 33,299 | **32,851** | 32,840 |
 | | `cycles_per_tile` | 8.0 | 8.0 | 8.0 |
 | 16x16 | array fill, weights in place | 45 | **45** | 132 |
-| | + weight feed | 4,096 | **256** | none: resident |
+| | + weight feed | 4,096 | **256** | 1 beat (32,768-bit port) |
 | | = first output | 4,141 | **301** | 132 |
 | | completion | 12,317 | **8,477** | 8,308 |
 | | `cycles_per_tile` | 16.0 | 16.0 | 16.0 |
@@ -90,9 +90,39 @@ enough that the table gives it:
 **Read the first row, not the third.** The RTL's figure is measured from `F0`,
 the first cycle of its weight feed -- `first_output_cycles = done[0] - F0 + 1`
 in `e4_feather_gen.py` -- so it contains the feed. The SPMW variant is
-`feather_stream_x`, whose weights are a `spmw.MemIn`: resident before the clock
-starts, with no feed to contain. Comparing the two totals charges FEATHER for a
-load SPMW never performs.
+`feather_stream_x`, whose weights are a `spmw.MemIn`, and that is **not** a
+build-time constant: the generated fabric carries
+`pe_w_mem_dout [0:N²/2-1]`, one wide port per processing element, and the
+weights arrive through it. The load is one beat only because the port is
+enormous.
+
+### The weight interface is not the same, and this is the real asymmetry
+
+Both designs move the same `8N³` bits of weight. They move them through
+interfaces that differ by a factor of `N²`:
+
+| N | SPMW port | width | FEATHER `8 x DPE_COL_NUM` | ratio | beats: SPMW / FEATHER |
+|---:|---|---:|---:|---:|---|
+| 4 | 8 ports x 64 bits | 512 | 32 | 16x | 1 / 16 |
+| 8 | 32 ports x 128 bits | 4,096 | 64 | 64x | 1 / 64 |
+| 16 | 128 ports x 256 bits | 32,768 | 128 | 256x | 1 / 256 |
+
+So SPMW does not have a faster loader; it declares the **whole array's weight
+file as one parallel port** and receives it in a single beat. At 16x16 that is
+a 32,768-bit interface, which no memory system on the device can actually feed
+-- and the routed `spmw_harness` drives it with LFSRs, so nothing in SPMW's
+area accounts for feeding it either.
+
+Three consequences, and they should be read together:
+
+- **The fill column is a fair comparison.** Both arrays are computing with
+  weights in place, and it is the only column that is.
+- **The first-output and completion columns are not**, and not because SPMW
+  "skips" a load: because its load is one beat on a port `N²` times wider.
+- **The area column is affected too.** FEATHER's lookup tables include the
+  controller, the select daisy chain and the ping/pong buffers that deliver
+  weights over a narrow port. SPMW's include the storage but not the delivery,
+  because the delivery is a port someone else would have to build.
 
 The split is not a fit. The testbench defines `A_BASE = G + WLEN`, so tile 0's
 activations begin after the feed, and tile 0's first row lands at
@@ -116,11 +146,12 @@ either. The honest summary is the pair (`array fill`, `cycles_per_tile`): SPMW
 is 2.5-3.0x slower to fill and exactly as fast once full.
 
 **What the port cannot do**, and this is the finding underneath: SPMW's FEATHER
-port has no "load the weights once through a port, then compute" mode.
-`feather_stream_x` has them resident and `feather_stream` re-streams every
-operand per tile; neither matches the RTL's MODE 1. So the `+ weight feed` row
-cannot be filled for SPMW at all, and its absence is a gap in the port rather
-than an advantage.
+port has no "load the weights once through a *narrow* port, then compute" mode.
+`feather_stream_x` takes the whole file in one beat on an `N²`-times-wider
+interface and `feather_stream` re-streams every operand per tile; neither
+matches the RTL's MODE 1. Making this comparison honest end to end needs a
+port-width-matched SPMW variant -- weights arriving `8N` bits a cycle -- which
+does not exist yet. Until it does, quote the fill.
 
 The load itself lands exactly on the prediction. The feed is `N^2` cycles --
 16, 64, 256 -- and the first output moves earlier by exactly `N^3 - N^2`:
