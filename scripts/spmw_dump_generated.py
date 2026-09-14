@@ -69,6 +69,9 @@ MEMORY = ("autosa", "autosa-spec", "split")
 # `autosa`. From 4x4 there is an interior to split, and the role counts diverge:
 # 15 against 18 at 4x4, 15 against 21 at 5x5.
 SIZES = {"autosa": 4, "autosa-spec": 4, "split": 4}
+# `size` is the group count for attention, and it has to divide the array's
+# width of four.
+SIZES["attention"] = 2
 
 
 def dump(name, out, size):

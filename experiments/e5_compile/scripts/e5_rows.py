@@ -21,6 +21,11 @@ for line in open(log, encoding="utf-8", errors="replace"):
         if "=" in token:
             k, v = token.split("=", 1)
             row[k] = v
+    # A run that timed out or failed writes only its run id, `<design>_<size>_<mode>_r<rep>`;
+    # the point it belongs to is read back out of that.
+    if "design" not in row and "run" in row:
+        design, size, mode = row["run"].rsplit("_r", 1)[0].split("_", 2)
+        row.update(design=design, size=size, mode=mode)
     rows.append(row)
 
 def num(row, key):
@@ -47,6 +52,9 @@ for (design, size, mode), rs in sorted(groups.items(), key=lambda kv: (kv[0][0],
         "instances": rs[0].get("instances", ""), "projects": rs[0].get("projects", ""),
         "repetitions": len(rs), "completed_jobs": rs[0].get("completed_jobs", ""),
         "status": "pass" if walls and not bad else ("timeout" if bad else "environment_blocked"),
+        "timed_out_repetitions": len(bad),
+        "completed_jobs_when_timed_out": ", ".join(r.get("completed_jobs", "") for r in bad),
+        "timeout_s": bad[0].get("timeout", "") if bad else "",
         "frontend_s_median": round(statistics.median(front), 2) if front else "",
         "hls_wall_s_median": round(statistics.median(walls), 1) if walls else "",
         "hls_wall_s_min": round(min(walls), 1) if walls else "",

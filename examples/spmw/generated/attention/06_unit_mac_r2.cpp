@@ -8,6 +8,7 @@
 #include <hls_stream.h>
 #include <stdint.h>
 using namespace std;
+/// This is top function.
 void mac_r2_0(
   hls::stream< int8_t >& v0,
   hls::stream< int8_t >& v1,
@@ -35,21 +36,5 @@ void mac_r2_0(
     ap_int<33> v19 = v17 + v18;	// L21
     v3.write(v19);	// L22
   }
-}
-
-/// This is top function.
-void top(
-
-) {	// L26
-  #pragma HLS dataflow
-  hls::stream< int8_t > v20;
-  #pragma HLS stream variable=v20 depth=2	// L27
-  hls::stream< int8_t > v21;
-  #pragma HLS stream variable=v21 depth=2	// L28
-  hls::stream< int32_t > v22;
-  #pragma HLS stream variable=v22 depth=2	// L29
-  hls::stream< int32_t > v23;
-  #pragma HLS stream variable=v23 depth=2	// L30
-  mac_r2_0(v20, v21, v22, v23);	// L31
 }
 

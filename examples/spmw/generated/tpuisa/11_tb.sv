@@ -6,6 +6,8 @@ module tb;
   integer errors = 0;
   integer produced = 0;
   integer first = -1;
+  integer first_in = -1;
+  integer reported = 0;
   localparam integer TOTAL = 16;
   wire [7:0] mac_a_in_bind_dout [0:3];
   wire mac_a_in_bind_empty_n [0:3];
@@ -57,49 +59,53 @@ module tb;
   wire [31:0] mac_op_in_bind_dout [0:3];
   wire mac_op_in_bind_empty_n [0:3];
   wire mac_op_in_bind_read [0:3];
-  reg [31:0] mac_op_in_bind_src0 [0:3];
+  reg [31:0] mac_op_in_bind_src0 [0:4];
   integer mac_op_in_bind_p0 = 0;
   initial begin
-    mac_op_in_bind_src0[0] = 32'h01010000;
+    mac_op_in_bind_src0[0] = 32'h00000004;
     mac_op_in_bind_src0[1] = 32'h01010000;
     mac_op_in_bind_src0[2] = 32'h01010000;
     mac_op_in_bind_src0[3] = 32'h01010000;
+    mac_op_in_bind_src0[4] = 32'h01010000;
   end
-  assign mac_op_in_bind_dout[0] = mac_op_in_bind_src0[mac_op_in_bind_p0 < 4 ? mac_op_in_bind_p0 : 3];
-  assign mac_op_in_bind_empty_n[0] = (mac_op_in_bind_p0 < 4);
+  assign mac_op_in_bind_dout[0] = mac_op_in_bind_src0[mac_op_in_bind_p0 < 5 ? mac_op_in_bind_p0 : 4];
+  assign mac_op_in_bind_empty_n[0] = (mac_op_in_bind_p0 < 5);
   always @(posedge clk) if (rst_n && mac_op_in_bind_read[0] && mac_op_in_bind_empty_n[0]) mac_op_in_bind_p0 <= mac_op_in_bind_p0 + 1;
-  reg [31:0] mac_op_in_bind_src1 [0:3];
+  reg [31:0] mac_op_in_bind_src1 [0:4];
   integer mac_op_in_bind_p1 = 0;
   initial begin
-    mac_op_in_bind_src1[0] = 32'h01010000;
+    mac_op_in_bind_src1[0] = 32'h00000004;
     mac_op_in_bind_src1[1] = 32'h01010000;
     mac_op_in_bind_src1[2] = 32'h01010000;
     mac_op_in_bind_src1[3] = 32'h01010000;
+    mac_op_in_bind_src1[4] = 32'h01010000;
   end
-  assign mac_op_in_bind_dout[1] = mac_op_in_bind_src1[mac_op_in_bind_p1 < 4 ? mac_op_in_bind_p1 : 3];
-  assign mac_op_in_bind_empty_n[1] = (mac_op_in_bind_p1 < 4);
+  assign mac_op_in_bind_dout[1] = mac_op_in_bind_src1[mac_op_in_bind_p1 < 5 ? mac_op_in_bind_p1 : 4];
+  assign mac_op_in_bind_empty_n[1] = (mac_op_in_bind_p1 < 5);
   always @(posedge clk) if (rst_n && mac_op_in_bind_read[1] && mac_op_in_bind_empty_n[1]) mac_op_in_bind_p1 <= mac_op_in_bind_p1 + 1;
-  reg [31:0] mac_op_in_bind_src2 [0:3];
+  reg [31:0] mac_op_in_bind_src2 [0:4];
   integer mac_op_in_bind_p2 = 0;
   initial begin
-    mac_op_in_bind_src2[0] = 32'h01010000;
+    mac_op_in_bind_src2[0] = 32'h00000004;
     mac_op_in_bind_src2[1] = 32'h01010000;
     mac_op_in_bind_src2[2] = 32'h01010000;
     mac_op_in_bind_src2[3] = 32'h01010000;
+    mac_op_in_bind_src2[4] = 32'h01010000;
   end
-  assign mac_op_in_bind_dout[2] = mac_op_in_bind_src2[mac_op_in_bind_p2 < 4 ? mac_op_in_bind_p2 : 3];
-  assign mac_op_in_bind_empty_n[2] = (mac_op_in_bind_p2 < 4);
+  assign mac_op_in_bind_dout[2] = mac_op_in_bind_src2[mac_op_in_bind_p2 < 5 ? mac_op_in_bind_p2 : 4];
+  assign mac_op_in_bind_empty_n[2] = (mac_op_in_bind_p2 < 5);
   always @(posedge clk) if (rst_n && mac_op_in_bind_read[2] && mac_op_in_bind_empty_n[2]) mac_op_in_bind_p2 <= mac_op_in_bind_p2 + 1;
-  reg [31:0] mac_op_in_bind_src3 [0:3];
+  reg [31:0] mac_op_in_bind_src3 [0:4];
   integer mac_op_in_bind_p3 = 0;
   initial begin
-    mac_op_in_bind_src3[0] = 32'h01010000;
+    mac_op_in_bind_src3[0] = 32'h00000004;
     mac_op_in_bind_src3[1] = 32'h01010000;
     mac_op_in_bind_src3[2] = 32'h01010000;
     mac_op_in_bind_src3[3] = 32'h01010000;
+    mac_op_in_bind_src3[4] = 32'h01010000;
   end
-  assign mac_op_in_bind_dout[3] = mac_op_in_bind_src3[mac_op_in_bind_p3 < 4 ? mac_op_in_bind_p3 : 3];
-  assign mac_op_in_bind_empty_n[3] = (mac_op_in_bind_p3 < 4);
+  assign mac_op_in_bind_dout[3] = mac_op_in_bind_src3[mac_op_in_bind_p3 < 5 ? mac_op_in_bind_p3 : 4];
+  assign mac_op_in_bind_empty_n[3] = (mac_op_in_bind_p3 < 5);
   always @(posedge clk) if (rst_n && mac_op_in_bind_read[3] && mac_op_in_bind_empty_n[3]) mac_op_in_bind_p3 <= mac_op_in_bind_p3 + 1;
   wire [31:0] mac_w_mem_dout [0:15];
   wire mac_w_mem_empty_n [0:15];
@@ -235,13 +241,13 @@ module tb;
   wire [31:0] vpu_op_in_bind_dout [0:0];
   wire vpu_op_in_bind_empty_n [0:0];
   wire vpu_op_in_bind_read [0:0];
-  reg [31:0] vpu_op_in_bind_src0 [0:15];
+  reg [31:0] vpu_op_in_bind_src0 [0:16];
   integer vpu_op_in_bind_p0 = 0;
   initial begin
-    vpu_op_in_bind_src0[0] = 32'h03000000;
-    vpu_op_in_bind_src0[1] = 32'h09000000;
-    vpu_op_in_bind_src0[2] = 32'h08000000;
-    vpu_op_in_bind_src0[3] = 32'h00000000;
+    vpu_op_in_bind_src0[0] = 32'h00040003;
+    vpu_op_in_bind_src0[1] = 32'h03000000;
+    vpu_op_in_bind_src0[2] = 32'h09000000;
+    vpu_op_in_bind_src0[3] = 32'h08000000;
     vpu_op_in_bind_src0[4] = 32'h00000000;
     vpu_op_in_bind_src0[5] = 32'h00000000;
     vpu_op_in_bind_src0[6] = 32'h00000000;
@@ -254,9 +260,10 @@ module tb;
     vpu_op_in_bind_src0[13] = 32'h00000000;
     vpu_op_in_bind_src0[14] = 32'h00000000;
     vpu_op_in_bind_src0[15] = 32'h00000000;
+    vpu_op_in_bind_src0[16] = 32'h00000000;
   end
-  assign vpu_op_in_bind_dout[0] = vpu_op_in_bind_src0[vpu_op_in_bind_p0 < 16 ? vpu_op_in_bind_p0 : 15];
-  assign vpu_op_in_bind_empty_n[0] = (vpu_op_in_bind_p0 < 16);
+  assign vpu_op_in_bind_dout[0] = vpu_op_in_bind_src0[vpu_op_in_bind_p0 < 17 ? vpu_op_in_bind_p0 : 16];
+  assign vpu_op_in_bind_empty_n[0] = (vpu_op_in_bind_p0 < 17);
   always @(posedge clk) if (rst_n && vpu_op_in_bind_read[0] && vpu_op_in_bind_empty_n[0]) vpu_op_in_bind_p0 <= vpu_op_in_bind_p0 + 1;
   wire [63:0] vpu_b_mem_dout [0:3];
   wire vpu_b_mem_empty_n [0:3];
@@ -293,6 +300,7 @@ module tb;
   assign vpu_b_mem_dout[3] = vpu_b_mem_src3[vpu_b_mem_p3 < 1 ? vpu_b_mem_p3 : 0];
   assign vpu_b_mem_empty_n[3] = (vpu_b_mem_p3 < 1);
   always @(posedge clk) if (rst_n && vpu_b_mem_read[3] && vpu_b_mem_empty_n[3]) vpu_b_mem_p3 <= vpu_b_mem_p3 + 1;
+  wire any_input_handshake = (mac_a_in_bind_read[0] && mac_a_in_bind_empty_n[0]) || (mac_a_in_bind_read[1] && mac_a_in_bind_empty_n[1]) || (mac_a_in_bind_read[2] && mac_a_in_bind_empty_n[2]) || (mac_a_in_bind_read[3] && mac_a_in_bind_empty_n[3]) || (mac_op_in_bind_read[0] && mac_op_in_bind_empty_n[0]) || (mac_op_in_bind_read[1] && mac_op_in_bind_empty_n[1]) || (mac_op_in_bind_read[2] && mac_op_in_bind_empty_n[2]) || (mac_op_in_bind_read[3] && mac_op_in_bind_empty_n[3]) || (mac_w_mem_read[0] && mac_w_mem_empty_n[0]) || (mac_w_mem_read[1] && mac_w_mem_empty_n[1]) || (mac_w_mem_read[2] && mac_w_mem_empty_n[2]) || (mac_w_mem_read[3] && mac_w_mem_empty_n[3]) || (mac_w_mem_read[4] && mac_w_mem_empty_n[4]) || (mac_w_mem_read[5] && mac_w_mem_empty_n[5]) || (mac_w_mem_read[6] && mac_w_mem_empty_n[6]) || (mac_w_mem_read[7] && mac_w_mem_empty_n[7]) || (mac_w_mem_read[8] && mac_w_mem_empty_n[8]) || (mac_w_mem_read[9] && mac_w_mem_empty_n[9]) || (mac_w_mem_read[10] && mac_w_mem_empty_n[10]) || (mac_w_mem_read[11] && mac_w_mem_empty_n[11]) || (mac_w_mem_read[12] && mac_w_mem_empty_n[12]) || (mac_w_mem_read[13] && mac_w_mem_empty_n[13]) || (mac_w_mem_read[14] && mac_w_mem_empty_n[14]) || (mac_w_mem_read[15] && mac_w_mem_empty_n[15]) || (vpu_op_in_bind_read[0] && vpu_op_in_bind_empty_n[0]) || (vpu_b_mem_read[0] && vpu_b_mem_empty_n[0]) || (vpu_b_mem_read[1] && vpu_b_mem_empty_n[1]) || (vpu_b_mem_read[2] && vpu_b_mem_empty_n[2]) || (vpu_b_mem_read[3] && vpu_b_mem_empty_n[3]);
   wire [31:0] vpu_y_out_bind_din [0:3];
   wire vpu_y_out_bind_write [0:3];
   wire vpu_y_out_bind_full_n [0:3];
@@ -391,15 +399,16 @@ module tb;
   spmw_top dut (.ap_clk(clk), .ap_rst_n(rst_n), .mac_a_in_bind_dout(mac_a_in_bind_dout), .mac_a_in_bind_empty_n(mac_a_in_bind_empty_n), .mac_a_in_bind_read(mac_a_in_bind_read), .mac_op_in_bind_dout(mac_op_in_bind_dout), .mac_op_in_bind_empty_n(mac_op_in_bind_empty_n), .mac_op_in_bind_read(mac_op_in_bind_read), .mac_w_mem_dout(mac_w_mem_dout), .mac_w_mem_empty_n(mac_w_mem_empty_n), .mac_w_mem_read(mac_w_mem_read), .vpu_op_in_bind_dout(vpu_op_in_bind_dout), .vpu_op_in_bind_empty_n(vpu_op_in_bind_empty_n), .vpu_op_in_bind_read(vpu_op_in_bind_read), .vpu_b_mem_dout(vpu_b_mem_dout), .vpu_b_mem_empty_n(vpu_b_mem_empty_n), .vpu_b_mem_read(vpu_b_mem_read), .vpu_y_out_bind_din(vpu_y_out_bind_din), .vpu_y_out_bind_write(vpu_y_out_bind_write), .vpu_y_out_bind_full_n(vpu_y_out_bind_full_n));
   initial begin
     repeat (4) @(posedge clk);
-    rst_n = 1;
+    @(negedge clk) rst_n = 1;
     for (integer c = 0; c < 200000; c = c + 1) begin
       @(posedge clk);
       if (produced > 0 && first < 0) first = c;
+      if (any_input_handshake && first_in < 0) first_in = c;
       if (produced == TOTAL) begin
         $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",
                  errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);
-        $display("SPMW CYCLES total=%0d first_out=%0d",
-                 c + 1, first + 1);
+        $display("SPMW CYCLES total=%0d first_out=%0d first_in=%0d",
+                 c + 1, first + 1, first_in + 1);
         $finish;
       end
     end

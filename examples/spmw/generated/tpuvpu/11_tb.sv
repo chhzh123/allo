@@ -6,6 +6,8 @@ module tb;
   integer errors = 0;
   integer produced = 0;
   integer first = -1;
+  integer first_in = -1;
+  integer reported = 0;
   localparam integer TOTAL = 24;
   wire [7:0] mac_a_in_bind_dout [0:3];
   wire mac_a_in_bind_empty_n [0:3];
@@ -246,6 +248,7 @@ module tb;
   assign vpu_b_mem_dout[3] = vpu_b_mem_src3[vpu_b_mem_p3 < 1 ? vpu_b_mem_p3 : 0];
   assign vpu_b_mem_empty_n[3] = (vpu_b_mem_p3 < 1);
   always @(posedge clk) if (rst_n && vpu_b_mem_read[3] && vpu_b_mem_empty_n[3]) vpu_b_mem_p3 <= vpu_b_mem_p3 + 1;
+  wire any_input_handshake = (mac_a_in_bind_read[0] && mac_a_in_bind_empty_n[0]) || (mac_a_in_bind_read[1] && mac_a_in_bind_empty_n[1]) || (mac_a_in_bind_read[2] && mac_a_in_bind_empty_n[2]) || (mac_a_in_bind_read[3] && mac_a_in_bind_empty_n[3]) || (mac_w_mem_read[0] && mac_w_mem_empty_n[0]) || (mac_w_mem_read[1] && mac_w_mem_empty_n[1]) || (mac_w_mem_read[2] && mac_w_mem_empty_n[2]) || (mac_w_mem_read[3] && mac_w_mem_empty_n[3]) || (mac_w_mem_read[4] && mac_w_mem_empty_n[4]) || (mac_w_mem_read[5] && mac_w_mem_empty_n[5]) || (mac_w_mem_read[6] && mac_w_mem_empty_n[6]) || (mac_w_mem_read[7] && mac_w_mem_empty_n[7]) || (mac_w_mem_read[8] && mac_w_mem_empty_n[8]) || (mac_w_mem_read[9] && mac_w_mem_empty_n[9]) || (mac_w_mem_read[10] && mac_w_mem_empty_n[10]) || (mac_w_mem_read[11] && mac_w_mem_empty_n[11]) || (mac_w_mem_read[12] && mac_w_mem_empty_n[12]) || (mac_w_mem_read[13] && mac_w_mem_empty_n[13]) || (mac_w_mem_read[14] && mac_w_mem_empty_n[14]) || (mac_w_mem_read[15] && mac_w_mem_empty_n[15]) || (vpu_op_in_bind_read[0] && vpu_op_in_bind_empty_n[0]) || (vpu_b_mem_read[0] && vpu_b_mem_empty_n[0]) || (vpu_b_mem_read[1] && vpu_b_mem_empty_n[1]) || (vpu_b_mem_read[2] && vpu_b_mem_empty_n[2]) || (vpu_b_mem_read[3] && vpu_b_mem_empty_n[3]);
   wire [31:0] vpu_y_out_bind_din [0:3];
   wire vpu_y_out_bind_write [0:3];
   wire vpu_y_out_bind_full_n [0:3];
@@ -352,15 +355,16 @@ module tb;
   spmw_top dut (.ap_clk(clk), .ap_rst_n(rst_n), .mac_a_in_bind_dout(mac_a_in_bind_dout), .mac_a_in_bind_empty_n(mac_a_in_bind_empty_n), .mac_a_in_bind_read(mac_a_in_bind_read), .mac_w_mem_dout(mac_w_mem_dout), .mac_w_mem_empty_n(mac_w_mem_empty_n), .mac_w_mem_read(mac_w_mem_read), .vpu_op_in_bind_dout(vpu_op_in_bind_dout), .vpu_op_in_bind_empty_n(vpu_op_in_bind_empty_n), .vpu_op_in_bind_read(vpu_op_in_bind_read), .vpu_b_mem_dout(vpu_b_mem_dout), .vpu_b_mem_empty_n(vpu_b_mem_empty_n), .vpu_b_mem_read(vpu_b_mem_read), .vpu_y_out_bind_din(vpu_y_out_bind_din), .vpu_y_out_bind_write(vpu_y_out_bind_write), .vpu_y_out_bind_full_n(vpu_y_out_bind_full_n));
   initial begin
     repeat (4) @(posedge clk);
-    rst_n = 1;
+    @(negedge clk) rst_n = 1;
     for (integer c = 0; c < 200000; c = c + 1) begin
       @(posedge clk);
       if (produced > 0 && first < 0) first = c;
+      if (any_input_handshake && first_in < 0) first_in = c;
       if (produced == TOTAL) begin
         $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",
                  errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);
-        $display("SPMW CYCLES total=%0d first_out=%0d",
-                 c + 1, first + 1);
+        $display("SPMW CYCLES total=%0d first_out=%0d first_in=%0d",
+                 c + 1, first + 1, first_in + 1);
         $finish;
       end
     end

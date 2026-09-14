@@ -14,1159 +14,901 @@
 #include <math.h>
 #include <stdint.h>
 using namespace std;
-void feed_up_load_0(
+void feed_up_load(
   int8_t v0[4][4],
-  hls::stream< hls::vector< int8_t, 4 > >& v1
+  int v1,
+  hls::stream< hls::vector< int8_t, 4 > >& v2
 ) {	// L3
   #pragma HLS array_partition variable=v0 complete dim=1
   #pragma HLS array_partition variable=v0 complete dim=2
 
-  l_S__t_0__t: for (int _t = 0; _t < 4; _t++) {	// L5
-    int8_t _blk[4];	// L6
-    for (int v4 = 0; v4 < 4; v4++) {	// L7
-      _blk[v4] = 0;	// L7
+  l_S__t_0__t: for (int _t = 0; _t < 4; _t++) {	// L4
+    int8_t _blk[4];	// L7
+    for (int v5 = 0; v5 < 4; v5++) {	// L8
+      _blk[v5] = 0;	// L8
     }
-    l_S__b0_0__b0: for (int _b0 = 0; _b0 < 4; _b0++) {	// L8
+    l_S__b0_0__b0: for (int _b0 = 0; _b0 < 4; _b0++) {	// L9
     #pragma HLS pipeline II=1
-      int8_t v6 = v0[_t][_b0];	// L9
-      _blk[_b0] = v6;	// L10
+      int8_t v7 = v0[_t][_b0];	// L10
+      _blk[_b0] = v7;	// L11
     }
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
         _vec[_iv0] = _blk[_iv0];
       }
-      v1.write(_vec);
-    }	// L12
+      v2.write(_vec);
+    }	// L13
   }
 }
 
-void feed_2_up_load_0(
-  int8_t v7[4][4],
-  hls::stream< hls::vector< int8_t, 4 > >& v8
-) {	// L16
-  #pragma HLS array_partition variable=v7 complete dim=1
-  #pragma HLS array_partition variable=v7 complete dim=2
+void feed_2_up_load(
+  int8_t v8[4][4],
+  int v9,
+  hls::stream< hls::vector< int8_t, 4 > >& v10
+) {	// L17
+  #pragma HLS array_partition variable=v8 complete dim=1
+  #pragma HLS array_partition variable=v8 complete dim=2
 
   l_S__t_0__t1: for (int _t1 = 0; _t1 < 4; _t1++) {	// L18
-    int8_t _blk1[4];	// L19
-    for (int v11 = 0; v11 < 4; v11++) {	// L20
-      _blk1[v11] = 0;	// L20
+    int8_t _blk1[4];	// L21
+    for (int v13 = 0; v13 < 4; v13++) {	// L22
+      _blk1[v13] = 0;	// L22
     }
-    l_S__b0_0__b01: for (int _b01 = 0; _b01 < 4; _b01++) {	// L21
+    l_S__b0_0__b01: for (int _b01 = 0; _b01 < 4; _b01++) {	// L23
     #pragma HLS pipeline II=1
-      int8_t v13 = v7[_t1][_b01];	// L22
-      _blk1[_b01] = v13;	// L23
+      int8_t v15 = v8[_t1][_b01];	// L24
+      _blk1[_b01] = v15;	// L25
     }
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
         _vec[_iv0] = _blk1[_iv0];
       }
-      v8.write(_vec);
-    }	// L25
+      v10.write(_vec);
+    }	// L27
   }
 }
 
-void pe_0_0(
-  hls::stream< int8_t >& v14,
-  hls::stream< int8_t >& v15,
-  hls::stream< int8_t >& v16,
-  hls::stream< int8_t >& v17,
-  hls::stream< int32_t >& v18
-) {	// L29
-  int32_t acc;	// L31
-  acc = 0;	// L32
-  l_S_k_0_k: for (int k = 0; k < 4; k++) {	// L33
+void pe_r0(
+  int v16,
+  int v17,
+  hls::stream< int32_t >& v18,
+  hls::stream< int8_t >& v19,
+  hls::stream< int8_t >& v20,
+  hls::stream< int8_t >& v21,
+  hls::stream< int8_t >& v22
+) {	// L31
+  int32_t acc;	// L33
+  acc = 0;	// L34
+  l_S_k_0_k: for (int k = 0; k < 4; k++) {	// L35
   #pragma HLS pipeline II=1
-    int8_t v21 = v14.read();	// L34
-    int8_t a;	// L35
-    a = v21;	// L36
-    int8_t v23 = v15.read();	// L37
-    int8_t b;	// L38
-    b = v23;	// L39
-    int8_t v25 = a;	// L40
-    int8_t v26 = b;	// L41
-    int16_t v27 = v25;	// L42
-    int16_t v28 = v26;	// L43
-    int16_t v29 = v27 * v28;	// L44
-    int32_t v30 = acc;	// L45
-    ap_int<33> v31 = v30;	// L46
-    ap_int<33> v32 = v29;	// L47
-    ap_int<33> v33 = v31 + v32;	// L48
-    int32_t v34 = v33;	// L49
-    acc = v34;	// L50
-    int8_t v35 = a;	// L51
-    v16.write(v35);	// L52
-    int8_t v36 = b;	// L53
-    v17.write(v36);	// L54
+    int8_t v25 = v22.read();	// L36
+    int8_t a;	// L37
+    a = v25;	// L38
+    int8_t v27 = v20.read();	// L39
+    int8_t b;	// L40
+    b = v27;	// L41
+    int8_t v29 = a;	// L42
+    int8_t v30 = b;	// L43
+    int16_t v31 = v29;	// L44
+    int16_t v32 = v30;	// L45
+    int16_t v33 = v31 * v32;	// L46
+    int32_t v34 = acc;	// L47
+    ap_int<33> v35 = v34;	// L48
+    ap_int<33> v36 = v33;	// L49
+    ap_int<33> v37 = v35 + v36;	// L50
+    int32_t v38 = v37;	// L51
+    acc = v38;	// L52
+    int8_t v39 = a;	// L53
+    v19.write(v39);	// L54
+    int8_t v40 = b;	// L55
+    v21.write(v40);	// L56
   }
-  int32_t v37 = acc;	// L56
-  v18.write(v37);	// L57
-  l_S__i_1__i: for (int _i = 0; _i < 0; _i++) {	// L58
+  int32_t v41 = acc;	// L58
+  v18.write(v41);	// L59
+  l_S__i_1__i: for (int _i = 0; _i < 0; _i++) {	// L60
   #pragma HLS pipeline II=1
-    v18.write(0);	// L59
-  }
-}
-
-void pe_0_1(
-  hls::stream< int8_t >& v39,
-  hls::stream< int8_t >& v40,
-  hls::stream< int8_t >& v41,
-  hls::stream< int8_t >& v42,
-  hls::stream< int32_t >& v43
-) {	// L63
-  int32_t acc1;	// L65
-  acc1 = 0;	// L66
-  l_S_k_0_k1: for (int k1 = 0; k1 < 4; k1++) {	// L67
-  #pragma HLS pipeline II=1
-    int8_t v46 = v39.read();	// L68
-    int8_t a1;	// L69
-    a1 = v46;	// L70
-    int8_t v48 = v40.read();	// L71
-    int8_t b1;	// L72
-    b1 = v48;	// L73
-    int8_t v50 = a1;	// L74
-    int8_t v51 = b1;	// L75
-    int16_t v52 = v50;	// L76
-    int16_t v53 = v51;	// L77
-    int16_t v54 = v52 * v53;	// L78
-    int32_t v55 = acc1;	// L79
-    ap_int<33> v56 = v55;	// L80
-    ap_int<33> v57 = v54;	// L81
-    ap_int<33> v58 = v56 + v57;	// L82
-    int32_t v59 = v58;	// L83
-    acc1 = v59;	// L84
-    int8_t v60 = a1;	// L85
-    v41.write(v60);	// L86
-    int8_t v61 = b1;	// L87
-    v42.write(v61);	// L88
-  }
-  int32_t v62 = acc1;	// L90
-  v43.write(v62);	// L91
-  l_S__i_1__i1: for (int _i1 = 0; _i1 < 0; _i1++) {	// L92
-  #pragma HLS pipeline II=1
-    v43.write(0);	// L93
+    v18.write(0);	// L61
   }
 }
 
-void pe_0_2(
-  hls::stream< int8_t >& v64,
-  hls::stream< int8_t >& v65,
-  hls::stream< int8_t >& v66,
-  hls::stream< int8_t >& v67,
-  hls::stream< int32_t >& v68
-) {	// L97
-  int32_t acc2;	// L99
-  acc2 = 0;	// L100
-  l_S_k_0_k2: for (int k2 = 0; k2 < 4; k2++) {	// L101
+void pe_r1(
+  int v43,
+  int v44,
+  hls::stream< int32_t >& v45,
+  hls::stream< int32_t >& v46,
+  hls::stream< int8_t >& v47,
+  hls::stream< int8_t >& v48,
+  hls::stream< int8_t >& v49,
+  hls::stream< int8_t >& v50
+) {	// L65
+  int32_t acc1;	// L67
+  acc1 = 0;	// L68
+  l_S_k_0_k1: for (int k1 = 0; k1 < 4; k1++) {	// L69
   #pragma HLS pipeline II=1
-    int8_t v71 = v64.read();	// L102
-    int8_t a2;	// L103
-    a2 = v71;	// L104
-    int8_t v73 = v65.read();	// L105
-    int8_t b2;	// L106
-    b2 = v73;	// L107
-    int8_t v75 = a2;	// L108
-    int8_t v76 = b2;	// L109
-    int16_t v77 = v75;	// L110
-    int16_t v78 = v76;	// L111
-    int16_t v79 = v77 * v78;	// L112
-    int32_t v80 = acc2;	// L113
-    ap_int<33> v81 = v80;	// L114
-    ap_int<33> v82 = v79;	// L115
-    ap_int<33> v83 = v81 + v82;	// L116
-    int32_t v84 = v83;	// L117
-    acc2 = v84;	// L118
-    int8_t v85 = a2;	// L119
-    v66.write(v85);	// L120
-    int8_t v86 = b2;	// L121
-    v67.write(v86);	// L122
+    int8_t v53 = v50.read();	// L70
+    int8_t a1;	// L71
+    a1 = v53;	// L72
+    int8_t v55 = v48.read();	// L73
+    int8_t b1;	// L74
+    b1 = v55;	// L75
+    int8_t v57 = a1;	// L76
+    int8_t v58 = b1;	// L77
+    int16_t v59 = v57;	// L78
+    int16_t v60 = v58;	// L79
+    int16_t v61 = v59 * v60;	// L80
+    int32_t v62 = acc1;	// L81
+    ap_int<33> v63 = v62;	// L82
+    ap_int<33> v64 = v61;	// L83
+    ap_int<33> v65 = v63 + v64;	// L84
+    int32_t v66 = v65;	// L85
+    acc1 = v66;	// L86
+    int8_t v67 = a1;	// L87
+    v47.write(v67);	// L88
+    int8_t v68 = b1;	// L89
+    v49.write(v68);	// L90
   }
-  int32_t v87 = acc2;	// L124
-  v68.write(v87);	// L125
-  l_S__i_1__i2: for (int _i2 = 0; _i2 < 0; _i2++) {	// L126
+  int32_t v69 = acc1;	// L92
+  v46.write(v69);	// L93
+  l_S__i_1__i1: for (int _i1 = 0; _i1 < 1; _i1++) {	// L94
   #pragma HLS pipeline II=1
-    v68.write(0);	// L127
-  }
-}
-
-void pe_0_3(
-  hls::stream< int8_t >& v89,
-  hls::stream< int8_t >& v90,
-  hls::stream< int8_t >& v91,
-  hls::stream< int32_t >& v92
-) {	// L131
-  int32_t acc3;	// L133
-  acc3 = 0;	// L134
-  l_S_k_0_k3: for (int k3 = 0; k3 < 4; k3++) {	// L135
-  #pragma HLS pipeline II=1
-    int8_t v95 = v89.read();	// L136
-    int8_t a3;	// L137
-    a3 = v95;	// L138
-    int8_t v97 = v90.read();	// L139
-    int8_t b3;	// L140
-    b3 = v97;	// L141
-    int8_t v99 = a3;	// L142
-    int8_t v100 = b3;	// L143
-    int16_t v101 = v99;	// L144
-    int16_t v102 = v100;	// L145
-    int16_t v103 = v101 * v102;	// L146
-    int32_t v104 = acc3;	// L147
-    ap_int<33> v105 = v104;	// L148
-    ap_int<33> v106 = v103;	// L149
-    ap_int<33> v107 = v105 + v106;	// L150
-    int32_t v108 = v107;	// L151
-    acc3 = v108;	// L152
-    int8_t v109 = b3;	// L153
-    v91.write(v109);	// L154
-  }
-  int32_t v110 = acc3;	// L156
-  v92.write(v110);	// L157
-  l_S__i_1__i3: for (int _i3 = 0; _i3 < 0; _i3++) {	// L158
-  #pragma HLS pipeline II=1
-    v92.write(0);	// L159
+    int32_t v71 = v45.read();	// L95
+    v46.write(v71);	// L96
   }
 }
 
-void pe_1_0(
-  hls::stream< int8_t >& v112,
-  hls::stream< int8_t >& v113,
-  hls::stream< int8_t >& v114,
-  hls::stream< int8_t >& v115,
-  hls::stream< int32_t >& v116,
-  hls::stream< int32_t >& v117
-) {	// L163
-  int32_t acc4;	// L165
-  acc4 = 0;	// L166
-  l_S_k_0_k4: for (int k4 = 0; k4 < 4; k4++) {	// L167
+void pe_r2(
+  int v72,
+  int v73,
+  hls::stream< int32_t >& v74,
+  hls::stream< int32_t >& v75,
+  hls::stream< int8_t >& v76,
+  hls::stream< int8_t >& v77,
+  hls::stream< int8_t >& v78,
+  hls::stream< int8_t >& v79
+) {	// L100
+  int32_t acc2;	// L102
+  acc2 = 0;	// L103
+  l_S_k_0_k2: for (int k2 = 0; k2 < 4; k2++) {	// L104
   #pragma HLS pipeline II=1
-    int8_t v120 = v112.read();	// L168
-    int8_t a4;	// L169
-    a4 = v120;	// L170
-    int8_t v122 = v113.read();	// L171
-    int8_t b4;	// L172
-    b4 = v122;	// L173
-    int8_t v124 = a4;	// L174
-    int8_t v125 = b4;	// L175
-    int16_t v126 = v124;	// L176
-    int16_t v127 = v125;	// L177
-    int16_t v128 = v126 * v127;	// L178
-    int32_t v129 = acc4;	// L179
-    ap_int<33> v130 = v129;	// L180
-    ap_int<33> v131 = v128;	// L181
-    ap_int<33> v132 = v130 + v131;	// L182
-    int32_t v133 = v132;	// L183
-    acc4 = v133;	// L184
-    int8_t v134 = a4;	// L185
-    v114.write(v134);	// L186
-    int8_t v135 = b4;	// L187
-    v115.write(v135);	// L188
+    int8_t v82 = v79.read();	// L105
+    int8_t a2;	// L106
+    a2 = v82;	// L107
+    int8_t v84 = v77.read();	// L108
+    int8_t b2;	// L109
+    b2 = v84;	// L110
+    int8_t v86 = a2;	// L111
+    int8_t v87 = b2;	// L112
+    int16_t v88 = v86;	// L113
+    int16_t v89 = v87;	// L114
+    int16_t v90 = v88 * v89;	// L115
+    int32_t v91 = acc2;	// L116
+    ap_int<33> v92 = v91;	// L117
+    ap_int<33> v93 = v90;	// L118
+    ap_int<33> v94 = v92 + v93;	// L119
+    int32_t v95 = v94;	// L120
+    acc2 = v95;	// L121
+    int8_t v96 = a2;	// L122
+    v76.write(v96);	// L123
+    int8_t v97 = b2;	// L124
+    v78.write(v97);	// L125
   }
-  int32_t v136 = acc4;	// L190
-  v116.write(v136);	// L191
-  l_S__i_1__i4: for (int _i4 = 0; _i4 < 1; _i4++) {	// L192
+  int32_t v98 = acc2;	// L127
+  v75.write(v98);	// L128
+  l_S__i_1__i2: for (int _i2 = 0; _i2 < 2; _i2++) {	// L129
   #pragma HLS pipeline II=1
-    int32_t v138 = v117.read();	// L193
-    v116.write(v138);	// L194
-  }
-}
-
-void pe_1_1(
-  hls::stream< int8_t >& v139,
-  hls::stream< int8_t >& v140,
-  hls::stream< int8_t >& v141,
-  hls::stream< int8_t >& v142,
-  hls::stream< int32_t >& v143,
-  hls::stream< int32_t >& v144
-) {	// L198
-  int32_t acc5;	// L200
-  acc5 = 0;	// L201
-  l_S_k_0_k5: for (int k5 = 0; k5 < 4; k5++) {	// L202
-  #pragma HLS pipeline II=1
-    int8_t v147 = v139.read();	// L203
-    int8_t a5;	// L204
-    a5 = v147;	// L205
-    int8_t v149 = v140.read();	// L206
-    int8_t b5;	// L207
-    b5 = v149;	// L208
-    int8_t v151 = a5;	// L209
-    int8_t v152 = b5;	// L210
-    int16_t v153 = v151;	// L211
-    int16_t v154 = v152;	// L212
-    int16_t v155 = v153 * v154;	// L213
-    int32_t v156 = acc5;	// L214
-    ap_int<33> v157 = v156;	// L215
-    ap_int<33> v158 = v155;	// L216
-    ap_int<33> v159 = v157 + v158;	// L217
-    int32_t v160 = v159;	// L218
-    acc5 = v160;	// L219
-    int8_t v161 = a5;	// L220
-    v141.write(v161);	// L221
-    int8_t v162 = b5;	// L222
-    v142.write(v162);	// L223
-  }
-  int32_t v163 = acc5;	// L225
-  v143.write(v163);	// L226
-  l_S__i_1__i5: for (int _i5 = 0; _i5 < 1; _i5++) {	// L227
-  #pragma HLS pipeline II=1
-    int32_t v165 = v144.read();	// L228
-    v143.write(v165);	// L229
+    int32_t v100 = v74.read();	// L130
+    v75.write(v100);	// L131
   }
 }
 
-void pe_1_2(
-  hls::stream< int8_t >& v166,
-  hls::stream< int8_t >& v167,
-  hls::stream< int8_t >& v168,
-  hls::stream< int8_t >& v169,
-  hls::stream< int32_t >& v170,
-  hls::stream< int32_t >& v171
-) {	// L233
-  int32_t acc6;	// L235
-  acc6 = 0;	// L236
-  l_S_k_0_k6: for (int k6 = 0; k6 < 4; k6++) {	// L237
+void pe_r3(
+  int v101,
+  int v102,
+  hls::stream< int32_t >& v103,
+  hls::stream< int32_t >& v104,
+  hls::stream< int8_t >& v105,
+  hls::stream< int8_t >& v106,
+  hls::stream< int8_t >& v107
+) {	// L135
+  int32_t acc3;	// L137
+  acc3 = 0;	// L138
+  l_S_k_0_k3: for (int k3 = 0; k3 < 4; k3++) {	// L139
   #pragma HLS pipeline II=1
-    int8_t v174 = v166.read();	// L238
-    int8_t a6;	// L239
-    a6 = v174;	// L240
-    int8_t v176 = v167.read();	// L241
-    int8_t b6;	// L242
-    b6 = v176;	// L243
-    int8_t v178 = a6;	// L244
-    int8_t v179 = b6;	// L245
-    int16_t v180 = v178;	// L246
-    int16_t v181 = v179;	// L247
-    int16_t v182 = v180 * v181;	// L248
-    int32_t v183 = acc6;	// L249
-    ap_int<33> v184 = v183;	// L250
-    ap_int<33> v185 = v182;	// L251
-    ap_int<33> v186 = v184 + v185;	// L252
-    int32_t v187 = v186;	// L253
-    acc6 = v187;	// L254
-    int8_t v188 = a6;	// L255
-    v168.write(v188);	// L256
-    int8_t v189 = b6;	// L257
-    v169.write(v189);	// L258
+    int8_t v110 = v107.read();	// L140
+    int8_t a3;	// L141
+    a3 = v110;	// L142
+    int8_t v112 = v106.read();	// L143
+    int8_t b3;	// L144
+    b3 = v112;	// L145
+    int8_t v114 = a3;	// L146
+    int8_t v115 = b3;	// L147
+    int16_t v116 = v114;	// L148
+    int16_t v117 = v115;	// L149
+    int16_t v118 = v116 * v117;	// L150
+    int32_t v119 = acc3;	// L151
+    ap_int<33> v120 = v119;	// L152
+    ap_int<33> v121 = v118;	// L153
+    ap_int<33> v122 = v120 + v121;	// L154
+    int32_t v123 = v122;	// L155
+    acc3 = v123;	// L156
+    int8_t v124 = a3;	// L157
+    v105.write(v124);	// L158
   }
-  int32_t v190 = acc6;	// L260
-  v170.write(v190);	// L261
-  l_S__i_1__i6: for (int _i6 = 0; _i6 < 1; _i6++) {	// L262
+  int32_t v125 = acc3;	// L160
+  v104.write(v125);	// L161
+  l_S__i_1__i3: for (int _i3 = 0; _i3 < 3; _i3++) {	// L162
   #pragma HLS pipeline II=1
-    int32_t v192 = v171.read();	// L263
-    v170.write(v192);	// L264
-  }
-}
-
-void pe_1_3(
-  hls::stream< int8_t >& v193,
-  hls::stream< int8_t >& v194,
-  hls::stream< int8_t >& v195,
-  hls::stream< int32_t >& v196,
-  hls::stream< int32_t >& v197
-) {	// L268
-  int32_t acc7;	// L270
-  acc7 = 0;	// L271
-  l_S_k_0_k7: for (int k7 = 0; k7 < 4; k7++) {	// L272
-  #pragma HLS pipeline II=1
-    int8_t v200 = v193.read();	// L273
-    int8_t a7;	// L274
-    a7 = v200;	// L275
-    int8_t v202 = v194.read();	// L276
-    int8_t b7;	// L277
-    b7 = v202;	// L278
-    int8_t v204 = a7;	// L279
-    int8_t v205 = b7;	// L280
-    int16_t v206 = v204;	// L281
-    int16_t v207 = v205;	// L282
-    int16_t v208 = v206 * v207;	// L283
-    int32_t v209 = acc7;	// L284
-    ap_int<33> v210 = v209;	// L285
-    ap_int<33> v211 = v208;	// L286
-    ap_int<33> v212 = v210 + v211;	// L287
-    int32_t v213 = v212;	// L288
-    acc7 = v213;	// L289
-    int8_t v214 = b7;	// L290
-    v195.write(v214);	// L291
-  }
-  int32_t v215 = acc7;	// L293
-  v196.write(v215);	// L294
-  l_S__i_1__i7: for (int _i7 = 0; _i7 < 1; _i7++) {	// L295
-  #pragma HLS pipeline II=1
-    int32_t v217 = v197.read();	// L296
-    v196.write(v217);	// L297
+    int32_t v127 = v103.read();	// L163
+    v104.write(v127);	// L164
   }
 }
 
-void pe_2_0(
-  hls::stream< int8_t >& v218,
-  hls::stream< int8_t >& v219,
-  hls::stream< int8_t >& v220,
-  hls::stream< int8_t >& v221,
-  hls::stream< int32_t >& v222,
-  hls::stream< int32_t >& v223
-) {	// L301
-  int32_t acc8;	// L303
-  acc8 = 0;	// L304
-  l_S_k_0_k8: for (int k8 = 0; k8 < 4; k8++) {	// L305
+void pe_r4(
+  int v128,
+  int v129,
+  hls::stream< int32_t >& v130,
+  hls::stream< int8_t >& v131,
+  hls::stream< int8_t >& v132,
+  hls::stream< int8_t >& v133,
+  hls::stream< int8_t >& v134
+) {	// L168
+  int32_t acc4;	// L170
+  acc4 = 0;	// L171
+  l_S_k_0_k4: for (int k4 = 0; k4 < 4; k4++) {	// L172
   #pragma HLS pipeline II=1
-    int8_t v226 = v218.read();	// L306
-    int8_t a8;	// L307
-    a8 = v226;	// L308
-    int8_t v228 = v219.read();	// L309
-    int8_t b8;	// L310
-    b8 = v228;	// L311
-    int8_t v230 = a8;	// L312
-    int8_t v231 = b8;	// L313
-    int16_t v232 = v230;	// L314
-    int16_t v233 = v231;	// L315
-    int16_t v234 = v232 * v233;	// L316
-    int32_t v235 = acc8;	// L317
-    ap_int<33> v236 = v235;	// L318
-    ap_int<33> v237 = v234;	// L319
-    ap_int<33> v238 = v236 + v237;	// L320
-    int32_t v239 = v238;	// L321
-    acc8 = v239;	// L322
-    int8_t v240 = a8;	// L323
-    v220.write(v240);	// L324
-    int8_t v241 = b8;	// L325
-    v221.write(v241);	// L326
+    int8_t v137 = v134.read();	// L173
+    int8_t a4;	// L174
+    a4 = v137;	// L175
+    int8_t v139 = v132.read();	// L176
+    int8_t b4;	// L177
+    b4 = v139;	// L178
+    int8_t v141 = a4;	// L179
+    int8_t v142 = b4;	// L180
+    int16_t v143 = v141;	// L181
+    int16_t v144 = v142;	// L182
+    int16_t v145 = v143 * v144;	// L183
+    int32_t v146 = acc4;	// L184
+    ap_int<33> v147 = v146;	// L185
+    ap_int<33> v148 = v145;	// L186
+    ap_int<33> v149 = v147 + v148;	// L187
+    int32_t v150 = v149;	// L188
+    acc4 = v150;	// L189
+    int8_t v151 = a4;	// L190
+    v131.write(v151);	// L191
+    int8_t v152 = b4;	// L192
+    v133.write(v152);	// L193
   }
-  int32_t v242 = acc8;	// L328
-  v222.write(v242);	// L329
-  l_S__i_1__i8: for (int _i8 = 0; _i8 < 2; _i8++) {	// L330
+  int32_t v153 = acc4;	// L195
+  v130.write(v153);	// L196
+  l_S__i_1__i4: for (int _i4 = 0; _i4 < 0; _i4++) {	// L197
   #pragma HLS pipeline II=1
-    int32_t v244 = v223.read();	// L331
-    v222.write(v244);	// L332
-  }
-}
-
-void pe_2_1(
-  hls::stream< int8_t >& v245,
-  hls::stream< int8_t >& v246,
-  hls::stream< int8_t >& v247,
-  hls::stream< int8_t >& v248,
-  hls::stream< int32_t >& v249,
-  hls::stream< int32_t >& v250
-) {	// L336
-  int32_t acc9;	// L338
-  acc9 = 0;	// L339
-  l_S_k_0_k9: for (int k9 = 0; k9 < 4; k9++) {	// L340
-  #pragma HLS pipeline II=1
-    int8_t v253 = v245.read();	// L341
-    int8_t a9;	// L342
-    a9 = v253;	// L343
-    int8_t v255 = v246.read();	// L344
-    int8_t b9;	// L345
-    b9 = v255;	// L346
-    int8_t v257 = a9;	// L347
-    int8_t v258 = b9;	// L348
-    int16_t v259 = v257;	// L349
-    int16_t v260 = v258;	// L350
-    int16_t v261 = v259 * v260;	// L351
-    int32_t v262 = acc9;	// L352
-    ap_int<33> v263 = v262;	// L353
-    ap_int<33> v264 = v261;	// L354
-    ap_int<33> v265 = v263 + v264;	// L355
-    int32_t v266 = v265;	// L356
-    acc9 = v266;	// L357
-    int8_t v267 = a9;	// L358
-    v247.write(v267);	// L359
-    int8_t v268 = b9;	// L360
-    v248.write(v268);	// L361
-  }
-  int32_t v269 = acc9;	// L363
-  v249.write(v269);	// L364
-  l_S__i_1__i9: for (int _i9 = 0; _i9 < 2; _i9++) {	// L365
-  #pragma HLS pipeline II=1
-    int32_t v271 = v250.read();	// L366
-    v249.write(v271);	// L367
+    v130.write(0);	// L198
   }
 }
 
-void pe_2_2(
-  hls::stream< int8_t >& v272,
-  hls::stream< int8_t >& v273,
-  hls::stream< int8_t >& v274,
-  hls::stream< int8_t >& v275,
-  hls::stream< int32_t >& v276,
-  hls::stream< int32_t >& v277
-) {	// L371
-  int32_t acc10;	// L373
-  acc10 = 0;	// L374
-  l_S_k_0_k10: for (int k10 = 0; k10 < 4; k10++) {	// L375
+void pe_r5(
+  int v155,
+  int v156,
+  hls::stream< int32_t >& v157,
+  hls::stream< int8_t >& v158,
+  hls::stream< int8_t >& v159,
+  hls::stream< int8_t >& v160
+) {	// L202
+  int32_t acc5;	// L204
+  acc5 = 0;	// L205
+  l_S_k_0_k5: for (int k5 = 0; k5 < 4; k5++) {	// L206
   #pragma HLS pipeline II=1
-    int8_t v280 = v272.read();	// L376
-    int8_t a10;	// L377
-    a10 = v280;	// L378
-    int8_t v282 = v273.read();	// L379
-    int8_t b10;	// L380
-    b10 = v282;	// L381
-    int8_t v284 = a10;	// L382
-    int8_t v285 = b10;	// L383
-    int16_t v286 = v284;	// L384
-    int16_t v287 = v285;	// L385
-    int16_t v288 = v286 * v287;	// L386
-    int32_t v289 = acc10;	// L387
-    ap_int<33> v290 = v289;	// L388
-    ap_int<33> v291 = v288;	// L389
-    ap_int<33> v292 = v290 + v291;	// L390
-    int32_t v293 = v292;	// L391
-    acc10 = v293;	// L392
-    int8_t v294 = a10;	// L393
-    v274.write(v294);	// L394
-    int8_t v295 = b10;	// L395
-    v275.write(v295);	// L396
+    int8_t v163 = v160.read();	// L207
+    int8_t a5;	// L208
+    a5 = v163;	// L209
+    int8_t v165 = v158.read();	// L210
+    int8_t b5;	// L211
+    b5 = v165;	// L212
+    int8_t v167 = a5;	// L213
+    int8_t v168 = b5;	// L214
+    int16_t v169 = v167;	// L215
+    int16_t v170 = v168;	// L216
+    int16_t v171 = v169 * v170;	// L217
+    int32_t v172 = acc5;	// L218
+    ap_int<33> v173 = v172;	// L219
+    ap_int<33> v174 = v171;	// L220
+    ap_int<33> v175 = v173 + v174;	// L221
+    int32_t v176 = v175;	// L222
+    acc5 = v176;	// L223
+    int8_t v177 = b5;	// L224
+    v159.write(v177);	// L225
   }
-  int32_t v296 = acc10;	// L398
-  v276.write(v296);	// L399
-  l_S__i_1__i10: for (int _i10 = 0; _i10 < 2; _i10++) {	// L400
+  int32_t v178 = acc5;	// L227
+  v157.write(v178);	// L228
+  l_S__i_1__i5: for (int _i5 = 0; _i5 < 0; _i5++) {	// L229
   #pragma HLS pipeline II=1
-    int32_t v298 = v277.read();	// L401
-    v276.write(v298);	// L402
+    v157.write(0);	// L230
   }
 }
 
-void pe_2_3(
-  hls::stream< int8_t >& v299,
-  hls::stream< int8_t >& v300,
-  hls::stream< int8_t >& v301,
-  hls::stream< int32_t >& v302,
-  hls::stream< int32_t >& v303
-) {	// L406
-  int32_t acc11;	// L408
-  acc11 = 0;	// L409
-  l_S_k_0_k11: for (int k11 = 0; k11 < 4; k11++) {	// L410
+void pe_r6(
+  int v180,
+  int v181,
+  hls::stream< int32_t >& v182,
+  hls::stream< int32_t >& v183,
+  hls::stream< int8_t >& v184,
+  hls::stream< int8_t >& v185,
+  hls::stream< int8_t >& v186,
+  hls::stream< int8_t >& v187
+) {	// L234
+  int32_t acc6;	// L236
+  acc6 = 0;	// L237
+  l_S_k_0_k6: for (int k6 = 0; k6 < 4; k6++) {	// L238
   #pragma HLS pipeline II=1
-    int8_t v306 = v299.read();	// L411
-    int8_t a11;	// L412
-    a11 = v306;	// L413
-    int8_t v308 = v300.read();	// L414
-    int8_t b11;	// L415
-    b11 = v308;	// L416
-    int8_t v310 = a11;	// L417
-    int8_t v311 = b11;	// L418
-    int16_t v312 = v310;	// L419
-    int16_t v313 = v311;	// L420
-    int16_t v314 = v312 * v313;	// L421
-    int32_t v315 = acc11;	// L422
-    ap_int<33> v316 = v315;	// L423
-    ap_int<33> v317 = v314;	// L424
-    ap_int<33> v318 = v316 + v317;	// L425
-    int32_t v319 = v318;	// L426
-    acc11 = v319;	// L427
-    int8_t v320 = b11;	// L428
-    v301.write(v320);	// L429
+    int8_t v190 = v187.read();	// L239
+    int8_t a6;	// L240
+    a6 = v190;	// L241
+    int8_t v192 = v185.read();	// L242
+    int8_t b6;	// L243
+    b6 = v192;	// L244
+    int8_t v194 = a6;	// L245
+    int8_t v195 = b6;	// L246
+    int16_t v196 = v194;	// L247
+    int16_t v197 = v195;	// L248
+    int16_t v198 = v196 * v197;	// L249
+    int32_t v199 = acc6;	// L250
+    ap_int<33> v200 = v199;	// L251
+    ap_int<33> v201 = v198;	// L252
+    ap_int<33> v202 = v200 + v201;	// L253
+    int32_t v203 = v202;	// L254
+    acc6 = v203;	// L255
+    int8_t v204 = a6;	// L256
+    v184.write(v204);	// L257
+    int8_t v205 = b6;	// L258
+    v186.write(v205);	// L259
   }
-  int32_t v321 = acc11;	// L431
-  v302.write(v321);	// L432
-  l_S__i_1__i11: for (int _i11 = 0; _i11 < 2; _i11++) {	// L433
+  int32_t v206 = acc6;	// L261
+  v183.write(v206);	// L262
+  l_S__i_1__i6: for (int _i6 = 0; _i6 < 1; _i6++) {	// L263
   #pragma HLS pipeline II=1
-    int32_t v323 = v303.read();	// L434
-    v302.write(v323);	// L435
-  }
-}
-
-void pe_3_0(
-  hls::stream< int8_t >& v324,
-  hls::stream< int8_t >& v325,
-  hls::stream< int8_t >& v326,
-  hls::stream< int32_t >& v327,
-  hls::stream< int32_t >& v328
-) {	// L439
-  int32_t acc12;	// L441
-  acc12 = 0;	// L442
-  l_S_k_0_k12: for (int k12 = 0; k12 < 4; k12++) {	// L443
-  #pragma HLS pipeline II=1
-    int8_t v331 = v324.read();	// L444
-    int8_t a12;	// L445
-    a12 = v331;	// L446
-    int8_t v333 = v325.read();	// L447
-    int8_t b12;	// L448
-    b12 = v333;	// L449
-    int8_t v335 = a12;	// L450
-    int8_t v336 = b12;	// L451
-    int16_t v337 = v335;	// L452
-    int16_t v338 = v336;	// L453
-    int16_t v339 = v337 * v338;	// L454
-    int32_t v340 = acc12;	// L455
-    ap_int<33> v341 = v340;	// L456
-    ap_int<33> v342 = v339;	// L457
-    ap_int<33> v343 = v341 + v342;	// L458
-    int32_t v344 = v343;	// L459
-    acc12 = v344;	// L460
-    int8_t v345 = a12;	// L461
-    v326.write(v345);	// L462
-  }
-  int32_t v346 = acc12;	// L464
-  v327.write(v346);	// L465
-  l_S__i_1__i12: for (int _i12 = 0; _i12 < 3; _i12++) {	// L466
-  #pragma HLS pipeline II=1
-    int32_t v348 = v328.read();	// L467
-    v327.write(v348);	// L468
+    int32_t v208 = v182.read();	// L264
+    v183.write(v208);	// L265
   }
 }
 
-void pe_3_1(
-  hls::stream< int8_t >& v349,
-  hls::stream< int8_t >& v350,
-  hls::stream< int8_t >& v351,
-  hls::stream< int32_t >& v352,
-  hls::stream< int32_t >& v353
-) {	// L472
-  int32_t acc13;	// L474
-  acc13 = 0;	// L475
-  l_S_k_0_k13: for (int k13 = 0; k13 < 4; k13++) {	// L476
+void pe_r7(
+  int v209,
+  int v210,
+  hls::stream< int32_t >& v211,
+  hls::stream< int32_t >& v212,
+  hls::stream< int8_t >& v213,
+  hls::stream< int8_t >& v214,
+  hls::stream< int8_t >& v215
+) {	// L269
+  int32_t acc7;	// L271
+  acc7 = 0;	// L272
+  l_S_k_0_k7: for (int k7 = 0; k7 < 4; k7++) {	// L273
   #pragma HLS pipeline II=1
-    int8_t v356 = v349.read();	// L477
-    int8_t a13;	// L478
-    a13 = v356;	// L479
-    int8_t v358 = v350.read();	// L480
-    int8_t b13;	// L481
-    b13 = v358;	// L482
-    int8_t v360 = a13;	// L483
-    int8_t v361 = b13;	// L484
-    int16_t v362 = v360;	// L485
-    int16_t v363 = v361;	// L486
-    int16_t v364 = v362 * v363;	// L487
-    int32_t v365 = acc13;	// L488
-    ap_int<33> v366 = v365;	// L489
-    ap_int<33> v367 = v364;	// L490
-    ap_int<33> v368 = v366 + v367;	// L491
-    int32_t v369 = v368;	// L492
-    acc13 = v369;	// L493
-    int8_t v370 = a13;	// L494
-    v351.write(v370);	// L495
+    int8_t v218 = v215.read();	// L274
+    int8_t a7;	// L275
+    a7 = v218;	// L276
+    int8_t v220 = v213.read();	// L277
+    int8_t b7;	// L278
+    b7 = v220;	// L279
+    int8_t v222 = a7;	// L280
+    int8_t v223 = b7;	// L281
+    int16_t v224 = v222;	// L282
+    int16_t v225 = v223;	// L283
+    int16_t v226 = v224 * v225;	// L284
+    int32_t v227 = acc7;	// L285
+    ap_int<33> v228 = v227;	// L286
+    ap_int<33> v229 = v226;	// L287
+    ap_int<33> v230 = v228 + v229;	// L288
+    int32_t v231 = v230;	// L289
+    acc7 = v231;	// L290
+    int8_t v232 = b7;	// L291
+    v214.write(v232);	// L292
   }
-  int32_t v371 = acc13;	// L497
-  v352.write(v371);	// L498
-  l_S__i_1__i13: for (int _i13 = 0; _i13 < 3; _i13++) {	// L499
+  int32_t v233 = acc7;	// L294
+  v212.write(v233);	// L295
+  l_S__i_1__i7: for (int _i7 = 0; _i7 < 1; _i7++) {	// L296
   #pragma HLS pipeline II=1
-    int32_t v373 = v353.read();	// L500
-    v352.write(v373);	// L501
-  }
-}
-
-void pe_3_2(
-  hls::stream< int8_t >& v374,
-  hls::stream< int8_t >& v375,
-  hls::stream< int8_t >& v376,
-  hls::stream< int32_t >& v377,
-  hls::stream< int32_t >& v378
-) {	// L505
-  int32_t acc14;	// L507
-  acc14 = 0;	// L508
-  l_S_k_0_k14: for (int k14 = 0; k14 < 4; k14++) {	// L509
-  #pragma HLS pipeline II=1
-    int8_t v381 = v374.read();	// L510
-    int8_t a14;	// L511
-    a14 = v381;	// L512
-    int8_t v383 = v375.read();	// L513
-    int8_t b14;	// L514
-    b14 = v383;	// L515
-    int8_t v385 = a14;	// L516
-    int8_t v386 = b14;	// L517
-    int16_t v387 = v385;	// L518
-    int16_t v388 = v386;	// L519
-    int16_t v389 = v387 * v388;	// L520
-    int32_t v390 = acc14;	// L521
-    ap_int<33> v391 = v390;	// L522
-    ap_int<33> v392 = v389;	// L523
-    ap_int<33> v393 = v391 + v392;	// L524
-    int32_t v394 = v393;	// L525
-    acc14 = v394;	// L526
-    int8_t v395 = a14;	// L527
-    v376.write(v395);	// L528
-  }
-  int32_t v396 = acc14;	// L530
-  v377.write(v396);	// L531
-  l_S__i_1__i14: for (int _i14 = 0; _i14 < 3; _i14++) {	// L532
-  #pragma HLS pipeline II=1
-    int32_t v398 = v378.read();	// L533
-    v377.write(v398);	// L534
+    int32_t v235 = v211.read();	// L297
+    v212.write(v235);	// L298
   }
 }
 
-void pe_3_3(
-  hls::stream< int8_t >& v399,
-  hls::stream< int8_t >& v400,
-  hls::stream< int32_t >& v401,
-  hls::stream< int32_t >& v402
-) {	// L538
-  int32_t acc15;	// L540
-  acc15 = 0;	// L541
-  l_S_k_0_k15: for (int k15 = 0; k15 < 4; k15++) {	// L542
+void pe_r8(
+  int v236,
+  int v237,
+  hls::stream< int32_t >& v238,
+  hls::stream< int32_t >& v239,
+  hls::stream< int8_t >& v240,
+  hls::stream< int8_t >& v241,
+  hls::stream< int8_t >& v242,
+  hls::stream< int8_t >& v243
+) {	// L302
+  int32_t acc8;	// L304
+  acc8 = 0;	// L305
+  l_S_k_0_k8: for (int k8 = 0; k8 < 4; k8++) {	// L306
   #pragma HLS pipeline II=1
-    int8_t v405 = v399.read();	// L543
-    int8_t a15;	// L544
-    a15 = v405;	// L545
-    int8_t v407 = v400.read();	// L546
-    int8_t b15;	// L547
-    b15 = v407;	// L548
-    int8_t v409 = a15;	// L549
-    int8_t v410 = b15;	// L550
-    int16_t v411 = v409;	// L551
-    int16_t v412 = v410;	// L552
-    int16_t v413 = v411 * v412;	// L553
-    int32_t v414 = acc15;	// L554
-    ap_int<33> v415 = v414;	// L555
-    ap_int<33> v416 = v413;	// L556
-    ap_int<33> v417 = v415 + v416;	// L557
-    int32_t v418 = v417;	// L558
-    acc15 = v418;	// L559
+    int8_t v246 = v243.read();	// L307
+    int8_t a8;	// L308
+    a8 = v246;	// L309
+    int8_t v248 = v241.read();	// L310
+    int8_t b8;	// L311
+    b8 = v248;	// L312
+    int8_t v250 = a8;	// L313
+    int8_t v251 = b8;	// L314
+    int16_t v252 = v250;	// L315
+    int16_t v253 = v251;	// L316
+    int16_t v254 = v252 * v253;	// L317
+    int32_t v255 = acc8;	// L318
+    ap_int<33> v256 = v255;	// L319
+    ap_int<33> v257 = v254;	// L320
+    ap_int<33> v258 = v256 + v257;	// L321
+    int32_t v259 = v258;	// L322
+    acc8 = v259;	// L323
+    int8_t v260 = a8;	// L324
+    v240.write(v260);	// L325
+    int8_t v261 = b8;	// L326
+    v242.write(v261);	// L327
   }
-  int32_t v419 = acc15;	// L561
-  v401.write(v419);	// L562
-  l_S__i_1__i15: for (int _i15 = 0; _i15 < 3; _i15++) {	// L563
+  int32_t v262 = acc8;	// L329
+  v239.write(v262);	// L330
+  l_S__i_1__i8: for (int _i8 = 0; _i8 < 2; _i8++) {	// L331
   #pragma HLS pipeline II=1
-    int32_t v421 = v402.read();	// L564
-    v401.write(v421);	// L565
+    int32_t v264 = v238.read();	// L332
+    v239.write(v264);	// L333
   }
 }
 
-void feed_0(
-  hls::stream< hls::vector< int8_t, 4 > >& v422,
-  hls::stream< int8_t >& v423,
-  hls::stream< hls::vector< int8_t, 4 > >& v424
-) {	// L569
-  l_S_k_0_k16: for (int k16 = 0; k16 < 4; k16++) {	// L570
+void pe_r9(
+  int v265,
+  int v266,
+  hls::stream< int32_t >& v267,
+  hls::stream< int32_t >& v268,
+  hls::stream< int8_t >& v269,
+  hls::stream< int8_t >& v270,
+  hls::stream< int8_t >& v271
+) {	// L337
+  int32_t acc9;	// L339
+  acc9 = 0;	// L340
+  l_S_k_0_k9: for (int k9 = 0; k9 < 4; k9++) {	// L341
   #pragma HLS pipeline II=1
-    int8_t v426[4];
+    int8_t v274 = v271.read();	// L342
+    int8_t a9;	// L343
+    a9 = v274;	// L344
+    int8_t v276 = v269.read();	// L345
+    int8_t b9;	// L346
+    b9 = v276;	// L347
+    int8_t v278 = a9;	// L348
+    int8_t v279 = b9;	// L349
+    int16_t v280 = v278;	// L350
+    int16_t v281 = v279;	// L351
+    int16_t v282 = v280 * v281;	// L352
+    int32_t v283 = acc9;	// L353
+    ap_int<33> v284 = v283;	// L354
+    ap_int<33> v285 = v282;	// L355
+    ap_int<33> v286 = v284 + v285;	// L356
+    int32_t v287 = v286;	// L357
+    acc9 = v287;	// L358
+    int8_t v288 = b9;	// L359
+    v270.write(v288);	// L360
+  }
+  int32_t v289 = acc9;	// L362
+  v268.write(v289);	// L363
+  l_S__i_1__i9: for (int _i9 = 0; _i9 < 2; _i9++) {	// L364
+  #pragma HLS pipeline II=1
+    int32_t v291 = v267.read();	// L365
+    v268.write(v291);	// L366
+  }
+}
+
+void pe_r10(
+  int v292,
+  int v293,
+  hls::stream< int32_t >& v294,
+  hls::stream< int32_t >& v295,
+  hls::stream< int8_t >& v296,
+  hls::stream< int8_t >& v297,
+  hls::stream< int8_t >& v298
+) {	// L370
+  int32_t acc10;	// L372
+  acc10 = 0;	// L373
+  l_S_k_0_k10: for (int k10 = 0; k10 < 4; k10++) {	// L374
+  #pragma HLS pipeline II=1
+    int8_t v301 = v298.read();	// L375
+    int8_t a10;	// L376
+    a10 = v301;	// L377
+    int8_t v303 = v297.read();	// L378
+    int8_t b10;	// L379
+    b10 = v303;	// L380
+    int8_t v305 = a10;	// L381
+    int8_t v306 = b10;	// L382
+    int16_t v307 = v305;	// L383
+    int16_t v308 = v306;	// L384
+    int16_t v309 = v307 * v308;	// L385
+    int32_t v310 = acc10;	// L386
+    ap_int<33> v311 = v310;	// L387
+    ap_int<33> v312 = v309;	// L388
+    ap_int<33> v313 = v311 + v312;	// L389
+    int32_t v314 = v313;	// L390
+    acc10 = v314;	// L391
+    int8_t v315 = a10;	// L392
+    v296.write(v315);	// L393
+  }
+  int32_t v316 = acc10;	// L395
+  v295.write(v316);	// L396
+  l_S__i_1__i10: for (int _i10 = 0; _i10 < 3; _i10++) {	// L397
+  #pragma HLS pipeline II=1
+    int32_t v318 = v294.read();	// L398
+    v295.write(v318);	// L399
+  }
+}
+
+void pe_r11(
+  int v319,
+  int v320,
+  hls::stream< int32_t >& v321,
+  hls::stream< int32_t >& v322,
+  hls::stream< int8_t >& v323,
+  hls::stream< int8_t >& v324
+) {	// L403
+  int32_t acc11;	// L405
+  acc11 = 0;	// L406
+  l_S_k_0_k11: for (int k11 = 0; k11 < 4; k11++) {	// L407
+  #pragma HLS pipeline II=1
+    int8_t v327 = v324.read();	// L408
+    int8_t a11;	// L409
+    a11 = v327;	// L410
+    int8_t v329 = v323.read();	// L411
+    int8_t b11;	// L412
+    b11 = v329;	// L413
+    int8_t v331 = a11;	// L414
+    int8_t v332 = b11;	// L415
+    int16_t v333 = v331;	// L416
+    int16_t v334 = v332;	// L417
+    int16_t v335 = v333 * v334;	// L418
+    int32_t v336 = acc11;	// L419
+    ap_int<33> v337 = v336;	// L420
+    ap_int<33> v338 = v335;	// L421
+    ap_int<33> v339 = v337 + v338;	// L422
+    int32_t v340 = v339;	// L423
+    acc11 = v340;	// L424
+  }
+  int32_t v341 = acc11;	// L426
+  v322.write(v341);	// L427
+  l_S__i_1__i11: for (int _i11 = 0; _i11 < 3; _i11++) {	// L428
+  #pragma HLS pipeline II=1
+    int32_t v343 = v321.read();	// L429
+    v322.write(v343);	// L430
+  }
+}
+
+void feed_r0(
+  int v344,
+  hls::stream< hls::vector< int8_t, 4 > >& v345,
+  hls::stream< int8_t >& v346,
+  hls::stream< hls::vector< int8_t, 4 > >& v347
+) {	// L434
+  l_S_k_0_k12: for (int k12 = 0; k12 < 4; k12++) {	// L435
+  #pragma HLS pipeline II=1
+    int8_t v349[4];
     {
-      hls::vector< int8_t, 4 > _vec = v422.read();
+      hls::vector< int8_t, 4 > _vec = v347.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v426[_iv0] = _vec[_iv0];
+        v349[_iv0] = _vec[_iv0];
       }
-    }	// L571
-    int8_t v427 = v426[0];	// L572
-    v423.write(v427);	// L573
+    }	// L436
+    int8_t v350 = v349[v344];	// L437
+    v346.write(v350);	// L438
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v426[_iv0];
+        _vec[_iv0] = v349[_iv0];
       }
-      v424.write(_vec);
-    }	// L574
+      v345.write(_vec);
+    }	// L439
   }
 }
 
-void feed_1(
-  hls::stream< hls::vector< int8_t, 4 > >& v428,
-  hls::stream< int8_t >& v429,
-  hls::stream< hls::vector< int8_t, 4 > >& v430
-) {	// L578
-  l_S_k_0_k17: for (int k17 = 0; k17 < 4; k17++) {	// L579
+void feed_r1(
+  int v351,
+  hls::stream< hls::vector< int8_t, 4 > >& v352,
+  hls::stream< int8_t >& v353,
+  hls::stream< hls::vector< int8_t, 4 > >& v354
+) {	// L443
+  l_S_k_0_k13: for (int k13 = 0; k13 < 4; k13++) {	// L444
   #pragma HLS pipeline II=1
-    int8_t v432[4];
+    int8_t v356[4];
     {
-      hls::vector< int8_t, 4 > _vec = v428.read();
+      hls::vector< int8_t, 4 > _vec = v354.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v432[_iv0] = _vec[_iv0];
+        v356[_iv0] = _vec[_iv0];
       }
-    }	// L580
-    int8_t v433 = v432[1];	// L581
-    v429.write(v433);	// L582
+    }	// L445
+    int8_t v357 = v356[v351];	// L446
+    v353.write(v357);	// L447
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v432[_iv0];
+        _vec[_iv0] = v356[_iv0];
       }
-      v430.write(_vec);
-    }	// L583
+      v352.write(_vec);
+    }	// L448
   }
 }
 
-void feed_2(
-  hls::stream< hls::vector< int8_t, 4 > >& v434,
-  hls::stream< int8_t >& v435,
-  hls::stream< hls::vector< int8_t, 4 > >& v436
-) {	// L587
-  l_S_k_0_k18: for (int k18 = 0; k18 < 4; k18++) {	// L588
+void feed_r2(
+  int v358,
+  hls::stream< int8_t >& v359,
+  hls::stream< hls::vector< int8_t, 4 > >& v360
+) {	// L452
+  l_S_k_0_k14: for (int k14 = 0; k14 < 4; k14++) {	// L453
   #pragma HLS pipeline II=1
-    int8_t v438[4];
+    int8_t v362[4];
     {
-      hls::vector< int8_t, 4 > _vec = v434.read();
+      hls::vector< int8_t, 4 > _vec = v360.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v438[_iv0] = _vec[_iv0];
+        v362[_iv0] = _vec[_iv0];
       }
-    }	// L589
-    int8_t v439 = v438[2];	// L590
-    v435.write(v439);	// L591
-    {
-      hls::vector< int8_t, 4 > _vec;
-      for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v438[_iv0];
-      }
-      v436.write(_vec);
-    }	// L592
+    }	// L454
+    int8_t v363 = v362[v358];	// L455
+    v359.write(v363);	// L456
   }
 }
 
-void feed_3(
-  hls::stream< hls::vector< int8_t, 4 > >& v440,
-  hls::stream< int8_t >& v441
-) {	// L596
-  l_S_k_0_k19: for (int k19 = 0; k19 < 4; k19++) {	// L597
+void feed_2_r0(
+  int v364,
+  hls::stream< hls::vector< int8_t, 4 > >& v365,
+  hls::stream< int8_t >& v366,
+  hls::stream< hls::vector< int8_t, 4 > >& v367
+) {	// L460
+  l_S_k_0_k15: for (int k15 = 0; k15 < 4; k15++) {	// L461
   #pragma HLS pipeline II=1
-    int8_t v443[4];
+    int8_t v369[4];
     {
-      hls::vector< int8_t, 4 > _vec = v440.read();
+      hls::vector< int8_t, 4 > _vec = v367.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v443[_iv0] = _vec[_iv0];
+        v369[_iv0] = _vec[_iv0];
       }
-    }	// L598
-    int8_t v444 = v443[3];	// L599
-    v441.write(v444);	// L600
-  }
-}
-
-void feed_2_0(
-  hls::stream< hls::vector< int8_t, 4 > >& v445,
-  hls::stream< int8_t >& v446,
-  hls::stream< hls::vector< int8_t, 4 > >& v447
-) {	// L604
-  l_S_k_0_k20: for (int k20 = 0; k20 < 4; k20++) {	// L605
-  #pragma HLS pipeline II=1
-    int8_t v449[4];
-    {
-      hls::vector< int8_t, 4 > _vec = v445.read();
-      for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v449[_iv0] = _vec[_iv0];
-      }
-    }	// L606
-    int8_t v450 = v449[0];	// L607
-    v446.write(v450);	// L608
+    }	// L462
+    int8_t v370 = v369[v364];	// L463
+    v366.write(v370);	// L464
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v449[_iv0];
+        _vec[_iv0] = v369[_iv0];
       }
-      v447.write(_vec);
-    }	// L609
+      v365.write(_vec);
+    }	// L465
   }
 }
 
-void feed_2_1(
-  hls::stream< hls::vector< int8_t, 4 > >& v451,
-  hls::stream< int8_t >& v452,
-  hls::stream< hls::vector< int8_t, 4 > >& v453
-) {	// L613
-  l_S_k_0_k21: for (int k21 = 0; k21 < 4; k21++) {	// L614
+void feed_2_r1(
+  int v371,
+  hls::stream< hls::vector< int8_t, 4 > >& v372,
+  hls::stream< int8_t >& v373,
+  hls::stream< hls::vector< int8_t, 4 > >& v374
+) {	// L469
+  l_S_k_0_k16: for (int k16 = 0; k16 < 4; k16++) {	// L470
   #pragma HLS pipeline II=1
-    int8_t v455[4];
+    int8_t v376[4];
     {
-      hls::vector< int8_t, 4 > _vec = v451.read();
+      hls::vector< int8_t, 4 > _vec = v374.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v455[_iv0] = _vec[_iv0];
+        v376[_iv0] = _vec[_iv0];
       }
-    }	// L615
-    int8_t v456 = v455[1];	// L616
-    v452.write(v456);	// L617
-    {
-      hls::vector< int8_t, 4 > _vec;
-      for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v455[_iv0];
-      }
-      v453.write(_vec);
-    }	// L618
-  }
-}
-
-void feed_2_2(
-  hls::stream< hls::vector< int8_t, 4 > >& v457,
-  hls::stream< int8_t >& v458,
-  hls::stream< hls::vector< int8_t, 4 > >& v459
-) {	// L622
-  l_S_k_0_k22: for (int k22 = 0; k22 < 4; k22++) {	// L623
-  #pragma HLS pipeline II=1
-    int8_t v461[4];
-    {
-      hls::vector< int8_t, 4 > _vec = v457.read();
-      for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v461[_iv0] = _vec[_iv0];
-      }
-    }	// L624
-    int8_t v462 = v461[2];	// L625
-    v458.write(v462);	// L626
+    }	// L471
+    int8_t v377 = v376[v371];	// L472
+    v373.write(v377);	// L473
     {
       hls::vector< int8_t, 4 > _vec;
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        _vec[_iv0] = v461[_iv0];
+        _vec[_iv0] = v376[_iv0];
       }
-      v459.write(_vec);
-    }	// L627
+      v372.write(_vec);
+    }	// L474
   }
 }
 
-void feed_2_3(
-  hls::stream< hls::vector< int8_t, 4 > >& v463,
-  hls::stream< int8_t >& v464
-) {	// L631
-  l_S_k_0_k23: for (int k23 = 0; k23 < 4; k23++) {	// L632
+void feed_2_r2(
+  int v378,
+  hls::stream< int8_t >& v379,
+  hls::stream< hls::vector< int8_t, 4 > >& v380
+) {	// L478
+  l_S_k_0_k17: for (int k17 = 0; k17 < 4; k17++) {	// L479
   #pragma HLS pipeline II=1
-    int8_t v466[4];
+    int8_t v382[4];
     {
-      hls::vector< int8_t, 4 > _vec = v463.read();
+      hls::vector< int8_t, 4 > _vec = v380.read();
       for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
-        v466[_iv0] = _vec[_iv0];
+        v382[_iv0] = _vec[_iv0];
       }
-    }	// L633
-    int8_t v467 = v466[3];	// L634
-    v464.write(v467);	// L635
+    }	// L480
+    int8_t v383 = v382[v378];	// L481
+    v379.write(v383);	// L482
   }
 }
 
-void pe_c_out_drain_0(
-  int32_t v468[4][4],
-  hls::stream< int32_t >& v469
-) {	// L639
-  #pragma HLS array_partition variable=v468 complete dim=1
-  #pragma HLS array_partition variable=v468 complete dim=2
+void pe_c_out_drain(
+  int32_t v384[4][4],
+  int v385,
+  hls::stream< int32_t >& v386
+) {	// L486
+  #pragma HLS array_partition variable=v384 complete dim=1
+  #pragma HLS array_partition variable=v384 complete dim=2
 
-  l_S__t_0__t2: for (int _t2 = 0; _t2 < 4; _t2++) {	// L640
+  l_S__t_0__t2: for (int _t2 = 0; _t2 < 4; _t2++) {	// L487
   #pragma HLS pipeline II=1
-    int32_t v471 = v469.read();	// L641
-    v468[0][_t2] = v471;	// L642
-  }
-}
-
-void pe_c_out_drain_1(
-  int32_t v472[4][4],
-  hls::stream< int32_t >& v473
-) {	// L646
-  #pragma HLS array_partition variable=v472 complete dim=1
-  #pragma HLS array_partition variable=v472 complete dim=2
-
-  l_S__t_0__t3: for (int _t3 = 0; _t3 < 4; _t3++) {	// L647
-  #pragma HLS pipeline II=1
-    int32_t v475 = v473.read();	// L648
-    v472[1][_t3] = v475;	// L649
-  }
-}
-
-void pe_c_out_drain_2(
-  int32_t v476[4][4],
-  hls::stream< int32_t >& v477
-) {	// L653
-  #pragma HLS array_partition variable=v476 complete dim=1
-  #pragma HLS array_partition variable=v476 complete dim=2
-
-  l_S__t_0__t4: for (int _t4 = 0; _t4 < 4; _t4++) {	// L654
-  #pragma HLS pipeline II=1
-    int32_t v479 = v477.read();	// L655
-    v476[2][_t4] = v479;	// L656
-  }
-}
-
-void pe_c_out_drain_3(
-  int32_t v480[4][4],
-  hls::stream< int32_t >& v481
-) {	// L660
-  #pragma HLS array_partition variable=v480 complete dim=1
-  #pragma HLS array_partition variable=v480 complete dim=2
-
-  l_S__t_0__t5: for (int _t5 = 0; _t5 < 4; _t5++) {	// L661
-  #pragma HLS pipeline II=1
-    int32_t v483 = v481.read();	// L662
-    v480[3][_t5] = v483;	// L663
+    int32_t v388 = v386.read();	// L488
+    v384[v385][_t2] = v388;	// L489
   }
 }
 
 /// This is top function.
 void top(
-  int8_t v484[4][4],
-  int8_t v485[4][4],
-  int32_t v486[4][4]
-) {	// L667
+  int8_t v389[4][4],
+  int8_t v390[4][4],
+  int32_t v391[4][4]
+) {	// L493
   #pragma HLS dataflow
-  #pragma HLS array_partition variable=v484 complete dim=1
-  #pragma HLS array_partition variable=v484 complete dim=2
+  #pragma HLS array_partition variable=v389 complete dim=1
+  #pragma HLS array_partition variable=v389 complete dim=2
 
-  #pragma HLS array_partition variable=v485 complete dim=1
-  #pragma HLS array_partition variable=v485 complete dim=2
+  #pragma HLS array_partition variable=v390 complete dim=1
+  #pragma HLS array_partition variable=v390 complete dim=2
 
-  #pragma HLS array_partition variable=v486 complete dim=1
-  #pragma HLS array_partition variable=v486 complete dim=2
+  #pragma HLS array_partition variable=v391 complete dim=1
+  #pragma HLS array_partition variable=v391 complete dim=2
 
-  hls::stream< int8_t > v487;
-  #pragma HLS stream variable=v487 depth=2	// L668
-  hls::stream< int8_t > v488;
-  #pragma HLS stream variable=v488 depth=2	// L669
-  hls::stream< int8_t > v489;
-  #pragma HLS stream variable=v489 depth=2	// L670
-  hls::stream< int8_t > v490;
-  #pragma HLS stream variable=v490 depth=2	// L671
-  hls::stream< int8_t > v491;
-  #pragma HLS stream variable=v491 depth=2	// L672
-  hls::stream< int8_t > v492;
-  #pragma HLS stream variable=v492 depth=2	// L673
-  hls::stream< int8_t > v493;
-  #pragma HLS stream variable=v493 depth=2	// L674
-  hls::stream< int8_t > v494;
-  #pragma HLS stream variable=v494 depth=2	// L675
-  hls::stream< int8_t > v495;
-  #pragma HLS stream variable=v495 depth=2	// L676
-  hls::stream< int8_t > v496;
-  #pragma HLS stream variable=v496 depth=2	// L677
-  hls::stream< int8_t > v497;
-  #pragma HLS stream variable=v497 depth=2	// L678
-  hls::stream< int8_t > v498;
-  #pragma HLS stream variable=v498 depth=2	// L679
-  hls::stream< int8_t > v499;
-  #pragma HLS stream variable=v499 depth=2	// L680
-  hls::stream< int8_t > v500;
-  #pragma HLS stream variable=v500 depth=2	// L681
-  hls::stream< int8_t > v501;
-  #pragma HLS stream variable=v501 depth=2	// L682
-  hls::stream< int8_t > v502;
-  #pragma HLS stream variable=v502 depth=2	// L683
-  hls::stream< int8_t > v503;
-  #pragma HLS stream variable=v503 depth=2	// L684
-  hls::stream< int8_t > v504;
-  #pragma HLS stream variable=v504 depth=2	// L685
-  hls::stream< int8_t > v505;
-  #pragma HLS stream variable=v505 depth=2	// L686
-  hls::stream< int8_t > v506;
-  #pragma HLS stream variable=v506 depth=2	// L687
-  hls::stream< int8_t > v507;
-  #pragma HLS stream variable=v507 depth=2	// L688
-  hls::stream< int8_t > v508;
-  #pragma HLS stream variable=v508 depth=2	// L689
-  hls::stream< int8_t > v509;
-  #pragma HLS stream variable=v509 depth=2	// L690
-  hls::stream< int8_t > v510;
-  #pragma HLS stream variable=v510 depth=2	// L691
-  hls::stream< int8_t > v511;
-  #pragma HLS stream variable=v511 depth=2	// L692
-  hls::stream< int8_t > v512;
-  #pragma HLS stream variable=v512 depth=2	// L693
-  hls::stream< int8_t > v513;
-  #pragma HLS stream variable=v513 depth=2	// L694
-  hls::stream< int8_t > v514;
-  #pragma HLS stream variable=v514 depth=2	// L695
-  hls::stream< int8_t > v515;
-  #pragma HLS stream variable=v515 depth=2	// L696
-  hls::stream< int8_t > v516;
-  #pragma HLS stream variable=v516 depth=2	// L697
-  hls::stream< int8_t > v517;
-  #pragma HLS stream variable=v517 depth=2	// L698
-  hls::stream< int8_t > v518;
-  #pragma HLS stream variable=v518 depth=2	// L699
-  hls::stream< int32_t > v519;
-  #pragma HLS stream variable=v519 depth=2	// L700
-  hls::stream< int32_t > v520;
-  #pragma HLS stream variable=v520 depth=2	// L701
-  hls::stream< int32_t > v521;
-  #pragma HLS stream variable=v521 depth=2	// L702
-  hls::stream< int32_t > v522;
-  #pragma HLS stream variable=v522 depth=2	// L703
-  hls::stream< int32_t > v523;
-  #pragma HLS stream variable=v523 depth=2	// L704
-  hls::stream< int32_t > v524;
-  #pragma HLS stream variable=v524 depth=2	// L705
-  hls::stream< int32_t > v525;
-  #pragma HLS stream variable=v525 depth=2	// L706
-  hls::stream< int32_t > v526;
-  #pragma HLS stream variable=v526 depth=2	// L707
-  hls::stream< int32_t > v527;
-  #pragma HLS stream variable=v527 depth=2	// L708
-  hls::stream< int32_t > v528;
-  #pragma HLS stream variable=v528 depth=2	// L709
-  hls::stream< int32_t > v529;
-  #pragma HLS stream variable=v529 depth=2	// L710
-  hls::stream< int32_t > v530;
-  #pragma HLS stream variable=v530 depth=2	// L711
-  hls::stream< int32_t > v531;
-  #pragma HLS stream variable=v531 depth=2	// L712
-  hls::stream< int32_t > v532;
-  #pragma HLS stream variable=v532 depth=2	// L713
-  hls::stream< int32_t > v533;
-  #pragma HLS stream variable=v533 depth=2	// L714
-  hls::stream< int32_t > v534;
-  #pragma HLS stream variable=v534 depth=2	// L715
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v535;
-  #pragma HLS stream variable=v535 depth=2	// L716
+  hls::stream< hls::vector< int8_t, 4 > > v392;
+  #pragma HLS stream variable=v392 depth=2	// L494
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v536;
-  #pragma HLS stream variable=v536 depth=2	// L717
+  hls::stream< hls::vector< int8_t, 4 > > v393;
+  #pragma HLS stream variable=v393 depth=2	// L495
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v537;
-  #pragma HLS stream variable=v537 depth=2	// L718
+  hls::stream< hls::vector< int8_t, 4 > > v394;
+  #pragma HLS stream variable=v394 depth=2	// L496
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v538;
-  #pragma HLS stream variable=v538 depth=2	// L719
+  hls::stream< hls::vector< int8_t, 4 > > v395;
+  #pragma HLS stream variable=v395 depth=2	// L497
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v539;
-  #pragma HLS stream variable=v539 depth=2	// L720
+  hls::stream< hls::vector< int8_t, 4 > > v396;
+  #pragma HLS stream variable=v396 depth=2	// L498
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v540;
-  #pragma HLS stream variable=v540 depth=2	// L721
+  hls::stream< hls::vector< int8_t, 4 > > v397;
+  #pragma HLS stream variable=v397 depth=2	// L499
+  hls::stream< int32_t > v398;
+  #pragma HLS stream variable=v398 depth=4	// L500
+  hls::stream< int8_t > v399;
+  #pragma HLS stream variable=v399 depth=2	// L501
+  hls::stream< int32_t > v400;
+  #pragma HLS stream variable=v400 depth=4	// L502
+  hls::stream< int8_t > v401;
+  #pragma HLS stream variable=v401 depth=2	// L503
+  hls::stream< int32_t > v402;
+  #pragma HLS stream variable=v402 depth=4	// L504
+  hls::stream< int8_t > v403;
+  #pragma HLS stream variable=v403 depth=2	// L505
+  hls::stream< int8_t > v404;
+  #pragma HLS stream variable=v404 depth=2	// L506
+  hls::stream< int32_t > v405;
+  #pragma HLS stream variable=v405 depth=4	// L507
+  hls::stream< int8_t > v406;
+  #pragma HLS stream variable=v406 depth=2	// L508
+  hls::stream< int32_t > v407;
+  #pragma HLS stream variable=v407 depth=2	// L509
+  hls::stream< int8_t > v408;
+  #pragma HLS stream variable=v408 depth=2	// L510
+  hls::stream< int8_t > v409;
+  #pragma HLS stream variable=v409 depth=2	// L511
+  hls::stream< int32_t > v410;
+  #pragma HLS stream variable=v410 depth=2	// L512
+  hls::stream< int8_t > v411;
+  #pragma HLS stream variable=v411 depth=2	// L513
+  hls::stream< int8_t > v412;
+  #pragma HLS stream variable=v412 depth=2	// L514
+  hls::stream< int32_t > v413;
+  #pragma HLS stream variable=v413 depth=2	// L515
+  hls::stream< int8_t > v414;
+  #pragma HLS stream variable=v414 depth=2	// L516
+  hls::stream< int8_t > v415;
+  #pragma HLS stream variable=v415 depth=2	// L517
+  hls::stream< int8_t > v416;
+  #pragma HLS stream variable=v416 depth=2	// L518
+  hls::stream< int32_t > v417;
+  #pragma HLS stream variable=v417 depth=2	// L519
+  hls::stream< int8_t > v418;
+  #pragma HLS stream variable=v418 depth=2	// L520
+  hls::stream< int32_t > v419;
+  #pragma HLS stream variable=v419 depth=2	// L521
+  hls::stream< int8_t > v420;
+  #pragma HLS stream variable=v420 depth=2	// L522
+  hls::stream< int8_t > v421;
+  #pragma HLS stream variable=v421 depth=2	// L523
+  hls::stream< int32_t > v422;
+  #pragma HLS stream variable=v422 depth=2	// L524
+  hls::stream< int8_t > v423;
+  #pragma HLS stream variable=v423 depth=2	// L525
+  hls::stream< int8_t > v424;
+  #pragma HLS stream variable=v424 depth=2	// L526
+  hls::stream< int32_t > v425;
+  #pragma HLS stream variable=v425 depth=2	// L527
+  hls::stream< int8_t > v426;
+  #pragma HLS stream variable=v426 depth=2	// L528
+  hls::stream< int8_t > v427;
+  #pragma HLS stream variable=v427 depth=2	// L529
+  hls::stream< int8_t > v428;
+  #pragma HLS stream variable=v428 depth=2	// L530
+  hls::stream< int32_t > v429;
+  #pragma HLS stream variable=v429 depth=2	// L531
+  hls::stream< int8_t > v430;
+  #pragma HLS stream variable=v430 depth=2	// L532
+  hls::stream< int8_t > v431;
+  #pragma HLS stream variable=v431 depth=2	// L533
+  hls::stream< int32_t > v432;
+  #pragma HLS stream variable=v432 depth=2	// L534
+  hls::stream< int8_t > v433;
+  #pragma HLS stream variable=v433 depth=2	// L536
+  hls::stream< int8_t > v434;
+  #pragma HLS stream variable=v434 depth=2	// L537
+  hls::stream< int8_t > v435;
+  #pragma HLS stream variable=v435 depth=2	// L538
+  hls::stream< int32_t > v436;
+  #pragma HLS stream variable=v436 depth=2	// L539
+  hls::stream< int8_t > v437;
+  #pragma HLS stream variable=v437 depth=2	// L541
+  hls::stream< int8_t > v438;
+  #pragma HLS stream variable=v438 depth=2	// L542
+  hls::stream< int8_t > v439;
+  #pragma HLS stream variable=v439 depth=2	// L543
+  hls::stream< int32_t > v440;
+  #pragma HLS stream variable=v440 depth=2	// L544
+  hls::stream< int8_t > v441;
+  #pragma HLS stream variable=v441 depth=2	// L546
+  hls::stream< int8_t > v442;
+  #pragma HLS stream variable=v442 depth=2	// L547
+  hls::stream< int8_t > v443;
+  #pragma HLS stream variable=v443 depth=2	// L548
+  hls::stream< int8_t > v444;
+  #pragma HLS stream variable=v444 depth=2	// L549
+  hls::stream< int32_t > v445;
+  #pragma HLS stream variable=v445 depth=2	// L550
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v541;
-  #pragma HLS stream variable=v541 depth=2	// L722
+  hls::stream< hls::vector< int8_t, 4 > > v446;
+  #pragma HLS stream variable=v446 depth=16	// L551
   // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v542;
-  #pragma HLS stream variable=v542 depth=2	// L723
-  // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v543;
-  #pragma HLS stream variable=v543 depth=2	// L724
-  // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v544;
-  #pragma HLS stream variable=v544 depth=2	// L725
-  hls::stream< int8_t > v545;
-  #pragma HLS stream variable=v545 depth=2	// L726
-  hls::stream< int8_t > v546;
-  #pragma HLS stream variable=v546 depth=2	// L727
-  hls::stream< int8_t > v547;
-  #pragma HLS stream variable=v547 depth=2	// L728
-  hls::stream< int8_t > v548;
-  #pragma HLS stream variable=v548 depth=2	// L729
-  hls::stream< int8_t > v549;
-  #pragma HLS stream variable=v549 depth=2	// L730
-  hls::stream< int8_t > v550;
-  #pragma HLS stream variable=v550 depth=2	// L731
-  hls::stream< int8_t > v551;
-  #pragma HLS stream variable=v551 depth=2	// L732
-  hls::stream< int8_t > v552;
-  #pragma HLS stream variable=v552 depth=2	// L733
-  hls::stream< int32_t > v553;
-  #pragma HLS stream variable=v553 depth=2	// L734
-  hls::stream< int32_t > v554;
-  #pragma HLS stream variable=v554 depth=2	// L735
-  hls::stream< int32_t > v555;
-  #pragma HLS stream variable=v555 depth=2	// L736
-  hls::stream< int32_t > v556;
-  #pragma HLS stream variable=v556 depth=2	// L737
-  feed_up_load_0(v484, v543);	// L738
-  feed_2_up_load_0(v485, v544);	// L739
-  pe_0_0(v545, v549, v488, v507, v523);	// L740
-  pe_0_1(v488, v550, v489, v508, v524);	// L741
-  pe_0_2(v489, v551, v490, v509, v525);	// L742
-  pe_0_3(v490, v552, v510, v526);	// L743
-  pe_1_0(v546, v507, v492, v511, v527, v523);	// L744
-  pe_1_1(v492, v508, v493, v512, v528, v524);	// L745
-  pe_1_2(v493, v509, v494, v513, v529, v525);	// L746
-  pe_1_3(v494, v510, v514, v530, v526);	// L747
-  pe_2_0(v547, v511, v496, v515, v531, v527);	// L748
-  pe_2_1(v496, v512, v497, v516, v532, v528);	// L749
-  pe_2_2(v497, v513, v498, v517, v533, v529);	// L750
-  pe_2_3(v498, v514, v518, v534, v530);	// L751
-  pe_3_0(v548, v515, v500, v553, v531);	// L752
-  pe_3_1(v500, v516, v501, v554, v532);	// L753
-  pe_3_2(v501, v517, v502, v555, v533);	// L754
-  pe_3_3(v502, v518, v556, v534);	// L755
-  feed_0(v543, v545, v536);	// L756
-  feed_1(v536, v546, v537);	// L757
-  feed_2(v537, v547, v538);	// L758
-  feed_3(v538, v548);	// L759
-  feed_2_0(v544, v549, v540);	// L760
-  feed_2_1(v540, v550, v541);	// L761
-  feed_2_2(v541, v551, v542);	// L762
-  feed_2_3(v542, v552);	// L763
-  pe_c_out_drain_0(v486, v553);	// L764
-  pe_c_out_drain_1(v486, v554);	// L765
-  pe_c_out_drain_2(v486, v555);	// L766
-  pe_c_out_drain_3(v486, v556);	// L767
+  hls::stream< hls::vector< int8_t, 4 > > v447;
+  #pragma HLS stream variable=v447 depth=16	// L552
+  feed_up_load(v389, 0, v447);	// L554
+  feed_2_up_load(v390, 0, v446);	// L555
+  pe_r4(0, 0, v445, v444, v443, v442, v441);	// L556
+  pe_r0(0, 1, v440, v439, v438, v437, v444);	// L557
+  pe_r0(0, 2, v436, v435, v434, v433, v439);	// L558
+  pe_r5(0, 3, v432, v431, v430, v435);	// L559
+  pe_r6(1, 0, v445, v429, v428, v442, v427, v426);	// L560
+  pe_r1(1, 1, v440, v425, v424, v437, v423, v428);	// L561
+  pe_r1(1, 2, v436, v422, v421, v433, v420, v424);	// L562
+  pe_r7(1, 3, v432, v419, v430, v418, v421);	// L563
+  pe_r8(2, 0, v429, v417, v416, v427, v415, v414);	// L564
+  pe_r2(2, 1, v425, v413, v412, v423, v411, v416);	// L565
+  pe_r2(2, 2, v422, v410, v409, v420, v408, v412);	// L566
+  pe_r9(2, 3, v419, v407, v418, v406, v409);	// L567
+  pe_r10(3, 0, v417, v405, v404, v415, v403);	// L568
+  pe_r3(3, 1, v413, v402, v401, v411, v404);	// L569
+  pe_r3(3, 2, v410, v400, v399, v408, v401);	// L570
+  pe_r11(3, 3, v407, v398, v406, v399);	// L571
+  feed_r1(0, v397, v441, v447);	// L572
+  feed_r0(1, v396, v426, v397);	// L573
+  feed_r0(2, v395, v414, v396);	// L574
+  feed_r2(3, v403, v395);	// L575
+  feed_2_r1(0, v394, v443, v446);	// L576
+  feed_2_r0(1, v393, v438, v394);	// L577
+  feed_2_r0(2, v392, v434, v393);	// L578
+  feed_2_r2(3, v431, v392);	// L579
+  pe_c_out_drain(v391, 0, v405);	// L580
+  pe_c_out_drain(v391, 1, v402);	// L581
+  pe_c_out_drain(v391, 2, v400);	// L582
+  pe_c_out_drain(v391, 3, v398);	// L583
 }
 

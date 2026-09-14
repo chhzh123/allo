@@ -6,6 +6,8 @@ module tb;
   integer errors = 0;
   integer produced = 0;
   integer first = -1;
+  integer first_in = -1;
+  integer reported = 0;
   localparam integer TOTAL = 8;
   wire [63:0] bfly_up_in_bind_dout [0:3];
   wire bfly_up_in_bind_empty_n [0:3];
@@ -77,6 +79,7 @@ module tb;
   assign bfly_lo_in_bind_dout[3] = bfly_lo_in_bind_src3[bfly_lo_in_bind_p3 < 1 ? bfly_lo_in_bind_p3 : 0];
   assign bfly_lo_in_bind_empty_n[3] = (bfly_lo_in_bind_p3 < 1);
   always @(posedge clk) if (rst_n && bfly_lo_in_bind_read[3] && bfly_lo_in_bind_empty_n[3]) bfly_lo_in_bind_p3 <= bfly_lo_in_bind_p3 + 1;
+  wire any_input_handshake = (bfly_up_in_bind_read[0] && bfly_up_in_bind_empty_n[0]) || (bfly_up_in_bind_read[1] && bfly_up_in_bind_empty_n[1]) || (bfly_up_in_bind_read[2] && bfly_up_in_bind_empty_n[2]) || (bfly_up_in_bind_read[3] && bfly_up_in_bind_empty_n[3]) || (bfly_lo_in_bind_read[0] && bfly_lo_in_bind_empty_n[0]) || (bfly_lo_in_bind_read[1] && bfly_lo_in_bind_empty_n[1]) || (bfly_lo_in_bind_read[2] && bfly_lo_in_bind_empty_n[2]) || (bfly_lo_in_bind_read[3] && bfly_lo_in_bind_empty_n[3]);
   wire [63:0] bfly_up_out_bind_din [0:3];
   wire bfly_up_out_bind_write [0:3];
   wire bfly_up_out_bind_full_n [0:3];
@@ -246,15 +249,16 @@ module tb;
   spmw_top dut (.ap_clk(clk), .ap_rst_n(rst_n), .bfly_up_in_bind_dout(bfly_up_in_bind_dout), .bfly_up_in_bind_empty_n(bfly_up_in_bind_empty_n), .bfly_up_in_bind_read(bfly_up_in_bind_read), .bfly_lo_in_bind_dout(bfly_lo_in_bind_dout), .bfly_lo_in_bind_empty_n(bfly_lo_in_bind_empty_n), .bfly_lo_in_bind_read(bfly_lo_in_bind_read), .bfly_up_out_bind_din(bfly_up_out_bind_din), .bfly_up_out_bind_write(bfly_up_out_bind_write), .bfly_up_out_bind_full_n(bfly_up_out_bind_full_n), .bfly_lo_out_bind_din(bfly_lo_out_bind_din), .bfly_lo_out_bind_write(bfly_lo_out_bind_write), .bfly_lo_out_bind_full_n(bfly_lo_out_bind_full_n));
   initial begin
     repeat (4) @(posedge clk);
-    rst_n = 1;
+    @(negedge clk) rst_n = 1;
     for (integer c = 0; c < 200000; c = c + 1) begin
       @(posedge clk);
       if (produced > 0 && first < 0) first = c;
+      if (any_input_handshake && first_in < 0) first_in = c;
       if (produced == TOTAL) begin
         $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",
                  errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);
-        $display("SPMW CYCLES total=%0d first_out=%0d",
-                 c + 1, first + 1);
+        $display("SPMW CYCLES total=%0d first_out=%0d first_in=%0d",
+                 c + 1, first + 1, first_in + 1);
         $finish;
       end
     end

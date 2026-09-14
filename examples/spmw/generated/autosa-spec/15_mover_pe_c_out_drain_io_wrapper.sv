@@ -53,12 +53,12 @@ module pe_c_out_drain_io (
   input  wire [1:0] m_axi_gmem_BRESP,
   input  wire m_axi_gmem_BID,
   input  wire m_axi_gmem_BUSER,
-  input  wire [31:0] _pid0_dout,
-  input  wire _pid0_empty_n,
-  output wire _pid0_read,
   input  wire [31:0] chan_dout,
   input  wire chan_empty_n,
-  output wire chan_read
+  output wire chan_read,
+  input  wire [31:0] _pid0_dout,
+  input  wire _pid0_empty_n,
+  output wire _pid0_read
 );
   pe_c_out_drain_io_0 u (
       .ap_clk(ap_clk),
@@ -113,10 +113,10 @@ module pe_c_out_drain_io (
       .m_axi_gmem_BRESP(m_axi_gmem_BRESP),
       .m_axi_gmem_BID(m_axi_gmem_BID),
       .m_axi_gmem_BUSER(m_axi_gmem_BUSER),
-      .v1_dout(_pid0_dout),
-      .v1_empty_n(_pid0_empty_n),
-      .v1_read(_pid0_read),
-      .v2_dout(chan_dout),
-      .v2_empty_n(chan_empty_n),
-      .v2_read(chan_read));
+      .v1_dout(chan_dout),
+      .v1_empty_n(chan_empty_n),
+      .v1_read(chan_read),
+      .v2_dout(_pid0_dout),
+      .v2_empty_n(_pid0_empty_n),
+      .v2_read(_pid0_read));
 endmodule

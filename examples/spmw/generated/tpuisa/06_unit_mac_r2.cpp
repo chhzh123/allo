@@ -9,12 +9,13 @@
 #include <hls_vector.h>
 #include <stdint.h>
 using namespace std;
+/// This is top function.
 void mac_r2_0(
   hls::stream< hls::vector< int8_t, 4 > >& v0,
-  hls::stream< int32_t >& v1,
-  hls::stream< int32_t >& v2,
-  hls::stream< int8_t >& v3,
-  hls::stream< int8_t >& v4,
+  hls::stream< int8_t >& v1,
+  hls::stream< int8_t >& v2,
+  hls::stream< int32_t >& v3,
+  hls::stream< int32_t >& v4,
   hls::stream< int32_t >& v5
 ) {	// L2
   int8_t v6[4];
@@ -23,85 +24,71 @@ void mac_r2_0(
     for (int _iv0 = 0; _iv0 < 4; ++_iv0) {
       v6[_iv0] = _vec[_iv0];
     }
-  }	// L9
-  l_S_step_0_step: for (int step = 0; step < 4; step++) {	// L10
-    int32_t v8 = v1.read();	// L11
-    int32_t word;	// L12
-    word = v8;	// L13
-    int32_t v10 = word;	// L14
-    v2.write(v10);	// L15
-    int32_t v11 = word;	// L16
-    int32_t v12 = v11 >> 24;	// L17
-    int32_t v13 = v12 & 255;	// L18
-    int32_t opcode;	// L19
-    opcode = v13;	// L20
+  }	// L3
+  int32_t v7 = v3.read();	// L4
+  int32_t count;	// L5
+  count = v7;	// L6
+  int32_t v9 = count;	// L7
+  v4.write(v9);	// L8
+  int32_t v10 = count;	// L9
+  int v11 = v10;	// L13
+  for (int v12 = 0; v12 < v11; v12 += 1) {	// L17
+    int32_t v13 = v3.read();	// L18
+    int32_t word;	// L19
+    word = v13;	// L20
     int32_t v15 = word;	// L21
-    int32_t v16 = v15 >> 16;	// L22
-    int32_t v17 = v16 & 255;	// L23
-    int32_t tile;	// L24
-    tile = v17;	// L25
-    int8_t v19 = v3.read();	// L26
-    int8_t a;	// L27
-    a = v19;	// L28
-    int32_t p;	// L29
-    p = 0;	// L30
-    int8_t v22 = a;	// L31
-    v4.write(v22);	// L32
-    int32_t v23 = tile;	// L33
-    int v24 = v23;	// L34
-    int8_t v25 = v6[v24];	// L35
-    int32_t v26 = v25;	// L36
-    int32_t wt;	// L37
-    wt = v26;	// L38
-    int32_t v28 = opcode;	// L39
-    bool v29 = v28 == 1;	// L40
-    if (v29) {	// L41
-      int32_t v30 = p;	// L42
-      int8_t v31 = a;	// L43
-      int32_t v32 = wt;	// L44
-      ap_int<40> v33 = v31;	// L45
-      ap_int<40> v34 = v32;	// L46
-      ap_int<40> v35 = v33 * v34;	// L47
-      ap_int<41> v36 = v30;	// L48
-      ap_int<41> v37 = v35;	// L49
-      ap_int<41> v38 = v36 + v37;	// L50
-      v5.write(v38);	// L51
+    v4.write(v15);	// L22
+    int32_t v16 = word;	// L23
+    int32_t v17 = v16 >> 24;	// L26
+    int32_t v18 = v17 & 255;	// L29
+    int32_t opcode;	// L30
+    opcode = v18;	// L31
+    int32_t v20 = word;	// L32
+    int32_t v21 = v20 >> 16;	// L35
+    int32_t v22 = v21 & 255;	// L38
+    int32_t tile;	// L39
+    tile = v22;	// L40
+    int8_t v24 = v1.read();	// L41
+    int8_t a;	// L42
+    a = v24;	// L43
+    int32_t p;	// L46
+    p = 0;	// L47
+    int8_t v27 = a;	// L48
+    v2.write(v27);	// L49
+    int32_t v28 = tile;	// L50
+    int v29 = v28;	// L51
+    int8_t v30 = v6[v29];	// L52
+    int32_t v31 = v30;	// L53
+    int32_t wt;	// L54
+    wt = v31;	// L55
+    int32_t v33 = opcode;	// L56
+    bool v34 = v33 == 1;	// L59
+    if (v34) {	// L60
+      int32_t v35 = p;	// L61
+      int8_t v36 = a;	// L62
+      int32_t v37 = wt;	// L63
+      ap_int<40> v38 = v36;	// L64
+      ap_int<40> v39 = v37;	// L65
+      ap_int<40> v40 = v38 * v39;	// L66
+      ap_int<41> v41 = v35;	// L67
+      ap_int<41> v42 = v40;	// L68
+      ap_int<41> v43 = v41 + v42;	// L69
+      v5.write(v43);	// L70
     } else {
-      int32_t v39 = opcode;	// L53
-      bool v40 = v39 == 2;	// L54
-      if (v40) {	// L55
-        int8_t v41 = a;	// L56
-        int32_t v42 = wt;	// L57
-        ap_int<40> v43 = v41;	// L58
-        ap_int<40> v44 = v42;	// L59
-        ap_int<40> v45 = v43 * v44;	// L60
-        v5.write(v45);	// L61
+      int32_t v44 = opcode;	// L72
+      bool v45 = v44 == 2;	// L75
+      if (v45) {	// L76
+        int8_t v46 = a;	// L77
+        int32_t v47 = wt;	// L78
+        ap_int<40> v48 = v46;	// L79
+        ap_int<40> v49 = v47;	// L80
+        ap_int<40> v50 = v48 * v49;	// L81
+        v5.write(v50);	// L82
       } else {
-        int32_t v46 = p;	// L63
-        v5.write(v46);	// L64
+        int32_t v51 = p;	// L84
+        v5.write(v51);	// L85
       }
     }
   }
-}
-
-/// This is top function.
-void top(
-
-) {	// L70
-  #pragma HLS dataflow
-  // Stream of vectors: each vector packs int8_t array[4] into hls::vector<int8_t, 4>
-  hls::stream< hls::vector< int8_t, 4 > > v47;
-  #pragma HLS stream variable=v47 depth=2	// L71
-  hls::stream< int8_t > v48;
-  #pragma HLS stream variable=v48 depth=2	// L72
-  hls::stream< int8_t > v49;
-  #pragma HLS stream variable=v49 depth=2	// L73
-  hls::stream< int32_t > v50;
-  #pragma HLS stream variable=v50 depth=2	// L74
-  hls::stream< int32_t > v51;
-  #pragma HLS stream variable=v51 depth=2	// L75
-  hls::stream< int32_t > v52;
-  #pragma HLS stream variable=v52 depth=2	// L76
-  mac_r2_0(v47, v50, v51, v48, v49, v52);	// L77
 }
 

@@ -324,3 +324,34 @@ remaining gap is design and interface, not measurement.
 Each `source/` holds the input and, for AutoSA, the exact command in
 `autosa_command.txt`, including the space-time transform and the array
 partition. The three scripts that drove these runs are in `scripts/`.
+
+## Rerun on the direct-MLIR compiler (2026-09-14)
+
+The compiler was refactored to build a design's program as `spmw` MLIR
+directly (`allo/spmw/lower_mlir.py`): each role and mover goes to Allo's IR
+builder as an in-memory AST and the `spmw.map` ops are built with the MLIR
+bindings, where before every role was rendered as an `allo.dataflow` Python
+program, written to disk, executed and traced back. The SPMW rows were rerun
+from the refactored tree with the same design sources and the same commands
+as the original runs -- `e1_spmw.sh`'s cosim mode for the mesh, `e1_memsim.sh`
+and `e1_memsim2.sh` for the memory-fed kernel -- by `e1_refactor.sh`; the logs
+are under `/scratch/hc676/spmw_refactor/e1` on brg-zhang-xcel.
+
+Every run passes and every cycle count is the recorded one:
+
+| Array | Mesh cosim, cycles (first out) | Kernel sim, data-beat cycles | Mesh frontend, before → after | Kernel frontend, before → after |
+|---|---:|---:|---:|---:|
+| 4x4 | 16 (10) | 47 | 1.0 s → 0.8 s | 4.3 s → 1.6 s |
+| 8x8 | 28 (14) | 82 | 1.2 s → 0.8 s | 5.1 s → 1.8 s |
+| 16x16 | 52 (22) | 133 | 1.4 s → 0.9 s | 7.5 s → 1.9 s |
+| 32x32 | 100 (38) | 280 | 2.4 s → 1.5 s | 7.2 s → 3.0 s |
+
+"Frontend" is the staging time the build scripts print: elaboration and
+per-role code generation, before any `vitis_hls` run -- nine roles for the
+mesh, fifteen roles and three feeders for the kernel. It is the only stage the
+refactor touches, and it is 1.5x to 2.7x shorter. The nine mesh roles
+synthesised in 80 to 86 s of wall clock (before: 80 to 105 s, on a busier
+machine); a role's generated C++ is identical to the recorded
+`spmw_mesh/S*/generated/pe_r0.cpp` except for the order of its stream
+parameters, which the wrapper maps by name. E5 below re-measures the
+compilation time under its own protocol.

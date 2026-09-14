@@ -386,7 +386,7 @@ module spmw_top (
       spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(feed_3_down_up_din[feed_3_down_up_i]), .full_n(feed_3_down_up_full_n[feed_3_down_up_i]), .write(feed_3_down_up_write[feed_3_down_up_i]), .dout(feed_3_down_up_dout[feed_3_down_up_i]), .empty_n(feed_3_down_up_empty_n[feed_3_down_up_i]), .read(feed_3_down_up_read[feed_3_down_up_i]));
     end
   endgenerate
-  // family drain_down_bind: 4 channel(s), 32-bit, depth 2
+  // family drain_down_bind: 4 channel(s), 32-bit, depth 4
   wire [31:0] drain_down_bind_din [0:3];
   wire [31:0] drain_down_bind_dout [0:3];
   wire drain_down_bind_full_n [0:3];
@@ -396,10 +396,10 @@ module spmw_top (
   genvar drain_down_bind_i;
   generate
     for (drain_down_bind_i = 0; drain_down_bind_i < 4; drain_down_bind_i = drain_down_bind_i + 1) begin : g_drain_down_bind
-      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(drain_down_bind_din[drain_down_bind_i]), .full_n(drain_down_bind_full_n[drain_down_bind_i]), .write(drain_down_bind_write[drain_down_bind_i]), .dout(drain_down_bind_dout[drain_down_bind_i]), .empty_n(drain_down_bind_empty_n[drain_down_bind_i]), .read(drain_down_bind_read[drain_down_bind_i]));
+      spmw_fifo #(.DW(32), .DEPTH(4)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(drain_down_bind_din[drain_down_bind_i]), .full_n(drain_down_bind_full_n[drain_down_bind_i]), .write(drain_down_bind_write[drain_down_bind_i]), .dout(drain_down_bind_dout[drain_down_bind_i]), .empty_n(drain_down_bind_empty_n[drain_down_bind_i]), .read(drain_down_bind_read[drain_down_bind_i]));
     end
   endgenerate
-  // family feed_up_bind: 1 channel(s), 32-bit, depth 2
+  // family feed_up_bind: 1 channel(s), 32-bit, depth 16
   wire [31:0] feed_up_bind_din [0:0];
   wire [31:0] feed_up_bind_dout [0:0];
   wire feed_up_bind_full_n [0:0];
@@ -409,10 +409,10 @@ module spmw_top (
   genvar feed_up_bind_i;
   generate
     for (feed_up_bind_i = 0; feed_up_bind_i < 1; feed_up_bind_i = feed_up_bind_i + 1) begin : g_feed_up_bind
-      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(feed_up_bind_din[feed_up_bind_i]), .full_n(feed_up_bind_full_n[feed_up_bind_i]), .write(feed_up_bind_write[feed_up_bind_i]), .dout(feed_up_bind_dout[feed_up_bind_i]), .empty_n(feed_up_bind_empty_n[feed_up_bind_i]), .read(feed_up_bind_read[feed_up_bind_i]));
+      spmw_fifo #(.DW(32), .DEPTH(16)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(feed_up_bind_din[feed_up_bind_i]), .full_n(feed_up_bind_full_n[feed_up_bind_i]), .write(feed_up_bind_write[feed_up_bind_i]), .dout(feed_up_bind_dout[feed_up_bind_i]), .empty_n(feed_up_bind_empty_n[feed_up_bind_i]), .read(feed_up_bind_read[feed_up_bind_i]));
     end
   endgenerate
-  // family feed_3_up_bind: 1 channel(s), 32-bit, depth 2
+  // family feed_3_up_bind: 1 channel(s), 32-bit, depth 16
   wire [31:0] feed_3_up_bind_din [0:0];
   wire [31:0] feed_3_up_bind_dout [0:0];
   wire feed_3_up_bind_full_n [0:0];
@@ -422,7 +422,7 @@ module spmw_top (
   genvar feed_3_up_bind_i;
   generate
     for (feed_3_up_bind_i = 0; feed_3_up_bind_i < 1; feed_3_up_bind_i = feed_3_up_bind_i + 1) begin : g_feed_3_up_bind
-      spmw_fifo #(.DW(32), .DEPTH(2)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(feed_3_up_bind_din[feed_3_up_bind_i]), .full_n(feed_3_up_bind_full_n[feed_3_up_bind_i]), .write(feed_3_up_bind_write[feed_3_up_bind_i]), .dout(feed_3_up_bind_dout[feed_3_up_bind_i]), .empty_n(feed_3_up_bind_empty_n[feed_3_up_bind_i]), .read(feed_3_up_bind_read[feed_3_up_bind_i]));
+      spmw_fifo #(.DW(32), .DEPTH(16)) u (.clk(ap_clk), .rst_n(ap_rst_n), .din(feed_3_up_bind_din[feed_3_up_bind_i]), .full_n(feed_3_up_bind_full_n[feed_3_up_bind_i]), .write(feed_3_up_bind_write[feed_3_up_bind_i]), .dout(feed_3_up_bind_dout[feed_3_up_bind_i]), .empty_n(feed_3_up_bind_empty_n[feed_3_up_bind_i]), .read(feed_3_up_bind_read[feed_3_up_bind_i]));
     end
   endgenerate
   wire feed_up_load_io_0_done, feed_up_load_io_0_idle, feed_up_load_io_0_ready;

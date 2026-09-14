@@ -136,3 +136,40 @@ An earlier record quoted a 46.0x wall-time reduction at 32x32 using 24 workers,
 and 4x4 pairs using 32; neither is a repetition of this eight-worker protocol.
 Its 123.8x figure was a ratio of summed job elapsed times, not of CPU. Both are
 earlier experiments, not folded into these medians.
+
+## Rerun on the direct-MLIR compiler (2026-09-14)
+
+The compiler was refactored to build a design's program as `spmw` MLIR
+directly -- each role and mover goes to Allo's IR builder as an in-memory AST,
+and the `spmw.map` ops are built with the MLIR bindings -- where before every
+role was rendered as an `allo.dataflow` Python program, written to disk,
+executed and traced back. `frontend_s` is the only column that flow touches:
+the HLS projects it stages hold the same C++, up to the order of a role's
+stream parameters.
+
+The GEMM points were re-measured under the protocol above from the refactored
+tree (`e5_refactor.sh` on brg-zhang-xcel, logs under
+`/scratch/hc676/spmw_refactor/e5`): fresh directory per run, mode order from
+the same seed, eight workers, three repetitions of the two shared modes. The
+`per-instance` mode, whose point is the reuse contrast rather than the
+frontend, was run once, with the 32x32 bound kept at one hour.
+`rerun_2026-09-14/results.csv` is the table, from `rerun_2026-09-14/e5_runs.log`
+through `scripts/e5_rows.py`.
+
+| Size | Frontend, before → after | shared-serial | shared-parallel | per-instance |
+|---:|---:|---:|---:|---:|
+| 4x4 | 1.10 s → 0.75 s | 361.0 s → 347.6 s | 82.0 s → 79.7 s | 85.4 s → 83.0 s |
+| 8x8 | 1.15 s → 0.79 s | 364.4 s → 347.8 s | 82.4 s → 79.8 s | 339.1 s → 332.0 s |
+| 16x16 | 1.28 s → 0.96 s | 361.5 s → 347.5 s | 82.4 s → 79.8 s | 1,377.7 s → 1,326.0 s |
+| 32x32 | 1.95 s → 1.63 s | 363.2 s → 348.1 s | 82.2 s → 79.7 s | timeout (665–680 jobs) → timeout (697 jobs) |
+
+Medians, before from `results.csv` (its `shared-parallel` rows for the
+frontend) and after from the rerun. **The frontend is 17 to 32 per cent
+shorter** -- 0.75 s against 1.10 s at 4x4, 1.63 s against 1.95 s at 32x32 --
+which is the render, exec and re-trace step gone. The synthesis columns move
+by 3 to 4 per cent in the same direction at every size and in every mode,
+`per-instance` included, so that is the machine (load 1 to 3 during this
+rerun, against 4 to 17 originally) rather than the compiler. What the
+experiment is about is unchanged: `shared-parallel` is **79.7, 79.8, 79.8,
+79.7 s** from 4x4 to 32x32, flat to within 0.3 per cent across a 64-fold range
+of instances, and the repetition spread is 1.00x to 1.01x.

@@ -12,12 +12,12 @@ module vpu_r2 (
   output wire [31:0] op_out_din,
   input  wire op_out_full_n,
   output wire op_out_write,
-  input  wire [31:0] z_in_dout,
-  input  wire z_in_empty_n,
-  output wire z_in_read,
   output wire [31:0] y_out_din,
   input  wire y_out_full_n,
-  output wire y_out_write
+  output wire y_out_write,
+  input  wire [31:0] z_in_dout,
+  input  wire z_in_empty_n,
+  output wire z_in_read
 );
   vpu_r2_0 u (
       .ap_clk(ap_clk),
@@ -31,10 +31,10 @@ module vpu_r2 (
       .v2_din(op_out_din),
       .v2_full_n(op_out_full_n),
       .v2_write(op_out_write),
-      .v3_dout(z_in_dout),
-      .v3_empty_n(z_in_empty_n),
-      .v3_read(z_in_read),
-      .v4_din(y_out_din),
-      .v4_full_n(y_out_full_n),
-      .v4_write(y_out_write));
+      .v3_din(y_out_din),
+      .v3_full_n(y_out_full_n),
+      .v3_write(y_out_write),
+      .v4_dout(z_in_dout),
+      .v4_empty_n(z_in_empty_n),
+      .v4_read(z_in_read));
 endmodule

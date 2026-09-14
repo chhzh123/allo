@@ -6,6 +6,8 @@ module tb;
   integer errors = 0;
   integer produced = 0;
   integer first = -1;
+  integer first_in = -1;
+  integer reported = 0;
   localparam integer TOTAL = 9;
   wire [31:0] pe_west_bind_dout [0:2];
   wire pe_west_bind_empty_n [0:2];
@@ -73,6 +75,7 @@ module tb;
   assign pe_north_bind_dout[2] = pe_north_bind_src2[pe_north_bind_p2 < 3 ? pe_north_bind_p2 : 2];
   assign pe_north_bind_empty_n[2] = (pe_north_bind_p2 < 3);
   always @(posedge clk) if (rst_n && pe_north_bind_read[2] && pe_north_bind_empty_n[2]) pe_north_bind_p2 <= pe_north_bind_p2 + 1;
+  wire any_input_handshake = (pe_west_bind_read[0] && pe_west_bind_empty_n[0]) || (pe_west_bind_read[1] && pe_west_bind_empty_n[1]) || (pe_west_bind_read[2] && pe_west_bind_empty_n[2]) || (pe_north_bind_read[0] && pe_north_bind_empty_n[0]) || (pe_north_bind_read[1] && pe_north_bind_empty_n[1]) || (pe_north_bind_read[2] && pe_north_bind_empty_n[2]);
   wire [31:0] pe_c_mem_din [0:8];
   wire pe_c_mem_write [0:8];
   wire pe_c_mem_full_n [0:8];
@@ -259,15 +262,16 @@ module tb;
   spmw_top dut (.ap_clk(clk), .ap_rst_n(rst_n), .pe_west_bind_dout(pe_west_bind_dout), .pe_west_bind_empty_n(pe_west_bind_empty_n), .pe_west_bind_read(pe_west_bind_read), .pe_north_bind_dout(pe_north_bind_dout), .pe_north_bind_empty_n(pe_north_bind_empty_n), .pe_north_bind_read(pe_north_bind_read), .pe_c_mem_din(pe_c_mem_din), .pe_c_mem_write(pe_c_mem_write), .pe_c_mem_full_n(pe_c_mem_full_n));
   initial begin
     repeat (4) @(posedge clk);
-    rst_n = 1;
+    @(negedge clk) rst_n = 1;
     for (integer c = 0; c < 200000; c = c + 1) begin
       @(posedge clk);
       if (produced > 0 && first < 0) first = c;
+      if (any_input_handshake && first_in < 0) first_in = c;
       if (produced == TOTAL) begin
         $display("SPMW COSIM %s (%0d/%0d tokens, %0d errors)",
                  errors == 0 ? "PASS" : "FAIL", produced, TOTAL, errors);
-        $display("SPMW CYCLES total=%0d first_out=%0d",
-                 c + 1, first + 1);
+        $display("SPMW CYCLES total=%0d first_out=%0d first_in=%0d",
+                 c + 1, first + 1, first_in + 1);
         $finish;
       end
     end
