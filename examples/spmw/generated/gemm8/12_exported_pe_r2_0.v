@@ -11,21 +11,21 @@
 module pe_r2_0 (
         ap_clk,
         ap_rst,
-        v0_dout,
-        v0_empty_n,
-        v0_read,
-        v1_dout,
-        v1_empty_n,
-        v1_read,
-        v2_din,
-        v2_full_n,
-        v2_write,
+        v0_din,
+        v0_full_n,
+        v0_write,
+        v1_din,
+        v1_full_n,
+        v1_write,
+        v2_dout,
+        v2_empty_n,
+        v2_read,
         v3_din,
         v3_full_n,
         v3_write,
-        v4_din,
-        v4_full_n,
-        v4_write
+        v4_dout,
+        v4_empty_n,
+        v4_read
 );
 
 parameter    ap_ST_fsm_state1 = 3'd1;
@@ -34,39 +34,39 @@ parameter    ap_ST_fsm_state3 = 3'd4;
 
 input   ap_clk;
 input   ap_rst;
-input  [7:0] v0_dout;
-input   v0_empty_n;
-output   v0_read;
-input  [7:0] v1_dout;
-input   v1_empty_n;
-output   v1_read;
-output  [7:0] v2_din;
-input   v2_full_n;
-output   v2_write;
+output  [31:0] v0_din;
+input   v0_full_n;
+output   v0_write;
+output  [7:0] v1_din;
+input   v1_full_n;
+output   v1_write;
+input  [7:0] v2_dout;
+input   v2_empty_n;
+output   v2_read;
 output  [7:0] v3_din;
 input   v3_full_n;
 output   v3_write;
-output  [31:0] v4_din;
-input   v4_full_n;
-output   v4_write;
+input  [7:0] v4_dout;
+input   v4_empty_n;
+output   v4_read;
 
-reg v0_read;
-reg v1_read;
-reg v2_write;
+reg v0_write;
+reg v1_write;
+reg v2_read;
 reg v3_write;
-reg v4_write;
+reg v4_read;
 
-reg    v4_blk_n;
+reg    v0_blk_n;
 (* fsm_encoding = "none" *) reg   [2:0] ap_CS_fsm;
 wire    ap_CS_fsm_state3;
 wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start;
 wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done;
 wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_idle;
 wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_ready;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read;
-wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din;
-wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v4_read;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_read;
+wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_din;
+wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_write;
 wire   [7:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din;
 wire    grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_write;
 wire   [16:0] grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out;
@@ -93,15 +93,15 @@ pe_r2_0_pe_r2_0_Pipeline_l_S_k_0_k grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47(
     .ap_done(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_done),
     .ap_idle(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_idle),
     .ap_ready(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_ready),
-    .v0_dout(v0_dout),
-    .v0_empty_n(v0_empty_n),
-    .v0_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read),
-    .v1_dout(v1_dout),
-    .v1_empty_n(v1_empty_n),
-    .v1_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read),
-    .v2_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din),
-    .v2_full_n(v2_full_n),
-    .v2_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write),
+    .v4_dout(v4_dout),
+    .v4_empty_n(v4_empty_n),
+    .v4_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v4_read),
+    .v2_dout(v2_dout),
+    .v2_empty_n(v2_empty_n),
+    .v2_read(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_read),
+    .v1_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_din),
+    .v1_full_n(v1_full_n),
+    .v1_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_write),
     .v3_din(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din),
     .v3_full_n(v3_full_n),
     .v3_write(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_write),
@@ -140,7 +140,7 @@ always @ (*) begin
 end
 
 always @ (*) begin
-    if ((v4_full_n == 1'b0)) begin
+    if ((v0_full_n == 1'b0)) begin
         ap_ST_fsm_state3_blk = 1'b1;
     end else begin
         ap_ST_fsm_state3_blk = 1'b0;
@@ -148,26 +148,34 @@ always @ (*) begin
 end
 
 always @ (*) begin
-    if ((1'b1 == ap_CS_fsm_state2)) begin
-        v0_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v0_read;
+    if ((1'b1 == ap_CS_fsm_state3)) begin
+        v0_blk_n = v0_full_n;
     end else begin
-        v0_read = 1'b0;
+        v0_blk_n = 1'b1;
+    end
+end
+
+always @ (*) begin
+    if (((1'b1 == ap_CS_fsm_state3) & (v0_full_n == 1'b1))) begin
+        v0_write = 1'b1;
+    end else begin
+        v0_write = 1'b0;
     end
 end
 
 always @ (*) begin
     if ((1'b1 == ap_CS_fsm_state2)) begin
-        v1_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_read;
+        v1_write = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_write;
     end else begin
-        v1_read = 1'b0;
+        v1_write = 1'b0;
     end
 end
 
 always @ (*) begin
     if ((1'b1 == ap_CS_fsm_state2)) begin
-        v2_write = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_write;
+        v2_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_read;
     end else begin
-        v2_write = 1'b0;
+        v2_read = 1'b0;
     end
 end
 
@@ -180,18 +188,10 @@ always @ (*) begin
 end
 
 always @ (*) begin
-    if ((1'b1 == ap_CS_fsm_state3)) begin
-        v4_blk_n = v4_full_n;
+    if ((1'b1 == ap_CS_fsm_state2)) begin
+        v4_read = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v4_read;
     end else begin
-        v4_blk_n = 1'b1;
-    end
-end
-
-always @ (*) begin
-    if (((v4_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
-        v4_write = 1'b1;
-    end else begin
-        v4_write = 1'b0;
+        v4_read = 1'b0;
     end
 end
 
@@ -208,7 +208,7 @@ always @ (*) begin
             end
         end
         ap_ST_fsm_state3 : begin
-            if (((v4_full_n == 1'b1) & (1'b1 == ap_CS_fsm_state3))) begin
+            if (((1'b1 == ap_CS_fsm_state3) & (v0_full_n == 1'b1))) begin
                 ap_NS_fsm = ap_ST_fsm_state1;
             end else begin
                 ap_NS_fsm = ap_ST_fsm_state3;
@@ -228,10 +228,10 @@ assign ap_CS_fsm_state3 = ap_CS_fsm[32'd2];
 
 assign grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_ap_start_reg;
 
-assign v2_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v2_din;
+assign v0_din = $signed(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out);
+
+assign v1_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v1_din;
 
 assign v3_din = grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_v3_din;
-
-assign v4_din = $signed(grp_pe_r2_0_Pipeline_l_S_k_0_k_fu_47_acc_1_out);
 
 endmodule //pe_r2_0
