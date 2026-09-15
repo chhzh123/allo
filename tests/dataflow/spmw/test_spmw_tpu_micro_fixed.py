@@ -78,7 +78,7 @@ LINK_DEPTH = 2
 LINK_DEEP = 4
 
 
-def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
+def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None, reload_=False):
     """A `dim x dim` weight-stationary mesh with a hardwired requantise epilogue.
 
     `tiles` tiles live in the cell's weight file at once, so a launch is one
@@ -132,57 +132,110 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
     )
     lanes = spmw.Grid((dim,))
 
-    @spmw.unit
-    def mac(io: CellIO):
-        # The weight file, filled once per launch. The count word is on the
-        # weight stream rather than an instruction stream: a cell has to know
-        # how many words belong to the cells beyond it, and that is the only
-        # thing about this launch it does not know at compile time.
-        #
-        # The weights stay **packed**, four int8 to a 32-bit word, and are
-        # unpacked in the step loop. Unpacking them here instead was tried,
-        # because Gemmini's weight-stationary PE multiplies by a register
-        # rather than by a file lookup, and it was a regression: the cell's
-        # iteration latency stayed at 5 either way -- HLS was already hiding
-        # the shift and mask -- while writing four int8 per word instead of one
-        # int32 lengthened the load, which is serial down the row, and took
-        # 8x8's first-tile latency from 112 cycles to 178. See the README.
-        wf: int32[kw]
-        n: int32 = io.w_in.get()
-        io.w_out.put(n - kw)
-        for i in range(kw):
-            wf[i] = io.w_in.get()
-        for _j in range(n - kw):
-            fwd: int32 = io.w_in.get()
-            io.w_out.put(fwd)
+    # Two weight disciplines, as two separately decorated units rather than one
+    # unit with a branch in it. A unit body is lowered from its AST, so a
+    # Python-level `if` on a closure variable is *not* folded away -- it
+    # becomes an `scf.if` whose condition is the captured integer, and the
+    # verifier rejects that. The choice is made out here, before the decorator.
+    #
+    # `mac` below loads all `tiles` tiles once and keeps them packed: `8*tiles`
+    # bits of state a cell, 128 at sixteen tiles, where Gemmini's PE holds one
+    # tile double-buffered in 16 bits. That is most of why a cell is 364
+    # flip-flops against a PE's 73, and it is a difference in what the designs
+    # are rather than in how they are written.
+    if reload_:
 
-        # The step loop. Two things had to go from it, and the second was only
-        # visible next to Gemmini's PE.
-        #
-        # The first is the instruction: the programmable cell's step loop is
-        # nested inside a dispatch whose trip count is an instruction field, so
-        # the dispatch cannot pipeline and the steps pay for it. Here there is
-        # nothing above the steps.
-        #
-        # The second is the *weight fetch*. Gemmini's weight-stationary PE
-        # multiplies by a register -- `mac_unit.io.in_b := c2`, with `c1 := d`
-        # shifting the next tile's weight in behind it -- so its per-cycle work
-        # is one multiply-add and its PE is one register deep. The first
-        # version of this cell read `wf[idx >> 2]`, shifted, masked and
-        # sign-extended on *every beat*, which is not weight-stationary at all;
-        # HLS gave that loop five pipeline stages, and since a partial sum
-        # crosses `dim` cells the five were paid `dim` times in the latency.
-        # Hoisting the unpack to the tile boundary leaves `a * wt + p` against
-        # a loop-invariant register, which is Gemmini's PE.
-        for r in range(outs):
-            a = io.a_in.get()
-            p = io.p_in.get()
-            io.a_out.put(a)
-            idx: int32 = r >> sbits  # dim steps per tile
-            packed: int32 = wf[idx >> 2]
-            byte: int32 = (packed >> ((idx & 3) * 8)) & 255
-            wt: int32 = (byte ^ 128) - 128
-            io.p_out.put(p + a * wt)
+        @spmw.unit
+        def mac(io: CellIO):
+            """One tile of weight at a time, shifted in behind the arithmetic.
+
+            The byte for the next tile arrives during this tile's steps and the
+            bytes for the cells beyond are forwarded in the same loop, because
+            a sibling loop with a runtime trip count would serialise behind the
+            compute -- the shape that made the programmable engine's dispatch
+            unpipelinable. This is what `d` does in Gemmini.
+            """
+            # How many of this tile's bytes belong to the cells beyond me. It
+            # shrinks by one down the row, so it cannot be a compile-time
+            # constant in a shared role; it arrives once, on the stream.
+            fwd: int32 = io.w_in.get()
+            io.w_out.put(fwd - 1)
+            # Tile 0's weight up front: nothing has shifted it in yet. This is
+            # Gemmini's warm-up pass, and it is one tile -- `dim` bytes down a
+            # row -- not the whole file.
+            cur: int32 = io.w_in.get()
+            for _k in range(fwd):
+                v0: int32 = io.w_in.get()
+                io.w_out.put(v0)
+            nxt: int32 = 0
+            for t in range(tiles):
+                for r in range(dim):
+                    a = io.a_in.get()
+                    p = io.p_in.get()
+                    io.a_out.put(a)
+                    io.p_out.put(p + a * cur)
+                    if t + 1 < tiles:
+                        if r <= fwd:
+                            v: int32 = io.w_in.get()
+                            if r == 0:
+                                nxt = v
+                            else:
+                                io.w_out.put(v)
+                cur = nxt
+
+    else:
+
+        @spmw.unit
+        def mac(io: CellIO):
+            # The weight file, filled once per launch. The count word is on the
+            # weight stream rather than an instruction stream: a cell has to know
+            # how many words belong to the cells beyond it, and that is the only
+            # thing about this launch it does not know at compile time.
+            #
+            # The weights stay **packed**, four int8 to a 32-bit word, and are
+            # unpacked in the step loop. Unpacking them here instead was tried,
+            # because Gemmini's weight-stationary PE multiplies by a register
+            # rather than by a file lookup, and it was a regression: the cell's
+            # iteration latency stayed at 5 either way -- HLS was already hiding
+            # the shift and mask -- while writing four int8 per word instead of one
+            # int32 lengthened the load, which is serial down the row, and took
+            # 8x8's first-tile latency from 112 cycles to 178. See the README.
+            wf: int32[kw]
+            n: int32 = io.w_in.get()
+            io.w_out.put(n - kw)
+            for i in range(kw):
+                wf[i] = io.w_in.get()
+            for _j in range(n - kw):
+                fwd: int32 = io.w_in.get()
+                io.w_out.put(fwd)
+
+            # The step loop. Two things had to go from it, and the second was only
+            # visible next to Gemmini's PE.
+            #
+            # The first is the instruction: the programmable cell's step loop is
+            # nested inside a dispatch whose trip count is an instruction field, so
+            # the dispatch cannot pipeline and the steps pay for it. Here there is
+            # nothing above the steps.
+            #
+            # The second is the *weight fetch*. Gemmini's weight-stationary PE
+            # multiplies by a register -- `mac_unit.io.in_b := c2`, with `c1 := d`
+            # shifting the next tile's weight in behind it -- so its per-cycle work
+            # is one multiply-add and its PE is one register deep. The first
+            # version of this cell read `wf[idx >> 2]`, shifted, masked and
+            # sign-extended on *every beat*, which is not weight-stationary at all;
+            # HLS gave that loop five pipeline stages, and since a partial sum
+            # crosses `dim` cells the five were paid `dim` times in the latency.
+            # Hoisting the unpack to the tile boundary leaves `a * wt + p` against
+            # a loop-invariant register, which is Gemmini's PE.
+            for r in range(outs):
+                a = io.a_in.get()
+                p = io.p_in.get()
+                io.a_out.put(a)
+                idx: int32 = r >> sbits  # dim steps per tile
+                packed: int32 = wf[idx >> 2]
+                byte: int32 = (packed >> ((idx & 3) * 8)) & 255
+                wt: int32 = (byte ^ 128) - 128
+                io.p_out.put(p + a * wt)
 
     @spmw.unit
     def vpu(io: LaneIO):
@@ -198,10 +251,12 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
                 acc = INT8_MAX
             io.y_out.put(acc)
 
+    wlen = 1 + tiles * dim if reload_ else dim * kw + 1
+
     @spmw.fabric
     def engine(
         A: int8[outs, dim],
-        W: int32[dim * kw + 1, dim],
+        W: int32[wlen, dim],
         Bias: int32[dim, NBF],
         Y: int32[outs, dim],
     ):
@@ -226,7 +281,24 @@ def fixed_engine(dim, tiles, link_depth=LINK_DEPTH, weight_depth=None):
     return engine
 
 
-def fixed_operands(size, A, B, bias, shift):
+def reload_stream(size, B):
+    """The weight stream a reloading row reads: a header, then a tile at a time.
+
+    Row `k`'s stream carries, per tile, the bytes for cells `0 .. size-1` in
+    order; cell `c` takes the first of what reaches it and passes the rest on.
+    The header is `size - 1`, what cell 0 forwards, and it shrinks by one down
+    the row. Sign-extended int32 tokens rather than packed bytes, because a
+    cell wants one weight and not four.
+    """
+    tiles = B.shape[0]
+    rows = [[size - 1] * size]
+    for t in range(tiles):
+        for c in range(size):
+            rows.append([int(B[t][k][c]) for k in range(size)])
+    return np.array(rows, dtype=np.int32)
+
+
+def fixed_operands(size, A, B, bias, shift, reload_=False):
     """The three input tensors: activations, the weight stream, the constants.
 
     Two tensors fewer than the programmable engine, which is the point: the
@@ -234,6 +306,11 @@ def fixed_operands(size, A, B, bias, shift):
     """
     tiles = A.shape[0]
     kw = tiles // 4
+    if reload_:
+        consts0 = np.zeros((size, NBF), dtype=np.int32)
+        consts0[:, 0] = bias
+        consts0[:, 1] = shift
+        return A.reshape(tiles * size, size), reload_stream(size, B), consts0
     weights = np.zeros((size, size, tiles), dtype=np.int8)
     for t in range(tiles):
         weights[:, :, t] = B[t]
@@ -250,13 +327,15 @@ def fixed_operands(size, A, B, bias, shift):
 
 
 def micro_fixed_of(
-    size, tiles=TILES, seed=0, link_depth=LINK_DEPTH, weight_depth=None
+    size, tiles=TILES, seed=0, link_depth=LINK_DEPTH, weight_depth=None, reload_=False
 ):
     """The fixed-function engine with the shared stimulus attached."""
     A, B, bias, shift, want = stimulus(size, tiles, seed)
-    engine = fixed_engine(size, tiles, link_depth, weight_depth)
+    engine = fixed_engine(size, tiles, link_depth, weight_depth, reload_)
     names = ("A", "W", "Bias")
-    engine.spmw_operands = dict(zip(names, fixed_operands(size, A, B, bias, shift)))
+    engine.spmw_operands = dict(
+        zip(names, fixed_operands(size, A, B, bias, shift, reload_))
+    )
     engine.spmw_tokens_per_transform = size * size
     engine.spmw_micro = {
         "size": size,
@@ -265,6 +344,7 @@ def micro_fixed_of(
         "fixed": True,
         "link_depth": link_depth,
         "weight_depth": link_depth if weight_depth is None else weight_depth,
+        "reload": reload_,
         "expected": want.reshape(tiles * size, size).astype(np.int32),
     }
     return engine
@@ -349,3 +429,49 @@ def test_the_shift_is_an_input_and_not_a_constant():
     consts = engine.spmw_operands["Bias"]
     assert consts.shape[1] == NBF
     assert (consts[:, 1] == engine.spmw_micro["shift"]).all()
+
+
+# -- the Gemmini-matched weight discipline ------------------------------------
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_reloading_the_weights_computes_the_same_thing(target):
+    """One tile of weight at a time, against the same golden result.
+
+    The reloading cell is a different design -- it holds one tile where the
+    file form holds `tiles` -- so it is checked, not assumed, against the same
+    bytes both other systems are checked against.
+    """
+    size, tiles = 4, 4
+    A, B, bias, shift, want = stimulus(size, tiles)
+    tensors = fixed_operands(size, A, B, bias, shift, reload_=True)
+    engine = fixed_engine(size, tiles, reload_=True)
+    Y = np.zeros((tiles * size, size), dtype=np.int32)
+    spmw.build(engine, target=target)(*tensors, Y)
+    np.testing.assert_array_equal(Y, want.reshape(-1, size).astype(np.int32))
+
+
+@pytest.mark.parametrize("size", [4, 8])
+def test_both_weight_disciplines_agree(size):
+    """They differ in what a cell stores and when it is told, not in the sum."""
+    want = micro_fixed_of(size).spmw_micro["expected"]
+    for reload_ in (False, True):
+        engine = micro_fixed_of(size, reload_=reload_)
+        arrays = [engine.spmw_operands[n] for n in ("A", "W", "Bias")]
+        Y = np.zeros(want.shape, dtype=np.int32)
+        spmw.build(engine, target="ref")(*arrays, Y)
+        np.testing.assert_array_equal(Y, want, err_msg=f"reload_={reload_}")
+
+
+def test_the_reloading_stream_carries_every_weight_once():
+    """Same weights, different transport: the check that the stream is right."""
+    size, tiles = 8, 4
+    A, B, bias, shift, _ = stimulus(size, tiles)
+    _, w_file, _ = fixed_operands(size, A, B, bias, shift, reload_=False)
+    _, w_reload, _ = fixed_operands(size, A, B, bias, shift, reload_=True)
+    assert w_file.shape == (size * (tiles // 4) + 1, size)
+    assert w_reload.shape == (1 + tiles * size, size)
+    for k in range(size):
+        got = sorted(int(v) for v in w_reload[1:, k])
+        wants = sorted(int(B[t][k][c]) for t in range(tiles) for c in range(size))
+        assert got == wants, k

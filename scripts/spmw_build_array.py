@@ -286,6 +286,23 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_fixed import micro_fixed_of
 
         return micro_fixed_of(size, weight_depth=int(name[len("tpumicro-fixedw") :]))
+    if name.startswith("tpumicro-reloadw") and name[len("tpumicro-reloadw") :].isdigit():
+        # The reloading cell with its weight link `d` deep. Reloading puts a
+        # beat a cycle on that chain where the file form only used it as a
+        # prologue, so the depth-2 default becomes a rate limit there too.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(
+            size, weight_depth=int(name[len("tpumicro-reloadw") :]), reload_=True
+        )
+    if name == "tpumicro-reload":
+        # The fixed datapath with Gemmini's weight discipline: one tile in the
+        # cell at a time, the next shifted in behind the arithmetic, rather
+        # than the whole file resident. Same arithmetic, same golden result,
+        # 8x less weight state a cell.
+        from test_spmw_tpu_micro_fixed import micro_fixed_of
+
+        return micro_fixed_of(size, reload_=True)
     if name == "tpumicro-deep":
         # The fixed datapath with its mesh links four deep instead of SPMW's
         # default two. That was the design until the multiply was bound to
@@ -1042,6 +1059,9 @@ def main():
             "tpumicro-fixedw8",
             "tpumicro-fixedt8",
             "tpumicro-deep",
+            "tpumicro-reload",
+            "tpumicro-reloadw4",
+            "tpumicro-reloadw8",
             "transformer",
             "transformer16",
             "gptstage",
