@@ -6,30 +6,62 @@ configuration already matches the other two where it counts -- `batch = 1`,
 is three 16x16 engines, 256 multiply-accumulates each, on one transformer
 block.
 
-## The answer
+## The answer, on two workloads
 
-**On the part of this block VTA was built for, it wins.** It is the smallest
-of the three and its GEMM is the fastest, and the comparison should lead with
-that rather than with what it lacks.
+**One workload cannot settle this, because the three engines do not have the
+same ISA scope.** So there are two, and they say different things.
 
-| | VTA | Gemmini | SPMW |
-|---|---:|---:|---:|
-| cycles, GEMM + requantisation | **210,944** | 236,544 | 210,944 |
-| lookup tables | **26,403** | 71,389 | 113,341 |
-| registers | **5,991** | 21,474 | 153,869 |
-| multipliers | **0** | 500 | 755 |
-| clock | 300.5 MHz | 34.8 MHz | **306.7 MHz** |
+### 1. The intersection, where the comparison is exact
 
-The block then also wants two LayerNorms, four softmaxes and an IGELU, and
-**VTA has no datapath for them.** That is a scope difference and not a
-defect: VTA is a quantised-CNN accelerator, and its four ALU opcodes are
-named `minpool`, `maxpool`, `add` and `shift` -- the operation set a
-convolution network needs. LayerNorm, softmax and GELU postdate it.
+E3's microbenchmark -- tiled int8 GEMM with bias, ReLU, requantise and clip,
+all inside every one of the three ISAs. All three bit-exact against one
+golden, at 16x16:
 
-So the honest reading of this experiment is not "VTA is worse". It is:
-**the nonlinearities are what Gemmini's 500 multipliers and 34.8 MHz clock,
-and SPMW's extra 15,232 cycles and 87,000 lookup tables, are buying** -- and
-VTA is what the same mesh costs without them.
+| | cycles / tile | LUT | FF | DSP | LUT x cycles |
+|---|---:|---:|---:|---:|---:|
+| SPMW, fixed | **16** | 92,880 | 130,776 | 0 | 1.49 M |
+| Gemmini `MxuVpu` | 18 | 31,932 | 18,675 | 0 | **0.57 M** |
+| VTA | 65 | **26,403** | **5,991** | 0 | 1.72 M |
+
+**SPMW is the fastest, VTA is the smallest, Gemmini is the most efficient**
+-- best area-delay product by 2.6x over SPMW and 3.0x over VTA. Nobody wins
+outright, and the three sit on a clean trade curve.
+
+### 2. The transformer block, where scope decides it
+
+| | cycles | on-chip coverage | LUT | FF | DSP | clock | time |
+|---|---:|---|---:|---:|---:|---:|---:|
+| VTA | 210,944 | GEMM + requantise only | **26,403** | **5,991** | **0** | 300.5 MHz | 0.702 ms* |
+| Gemmini | 267,776 | **all of it** | 71,389 | 21,474 | 500 | 34.8 MHz | 7.687 ms |
+| SPMW, file | 278,912 | **all of it** | 113,341 | 153,869 | 755 | **306.7 MHz** | 0.910 ms |
+| SPMW, reload | **220,032** | **all of it** | 144,734 | 186,540 | 1,011 | 304.5 MHz | **0.723 ms** |
+
+\* VTA's time is for 46% of the scale path; 114,688 elements have no unit.
+
+**Only Gemmini and SPMW run the whole block.** VTA's ALU is `min`, `max`,
+`add`, `shift` and no multiplier, so softmax and IGELU are impossible on it
+and LayerNorm is expressible only at a large penalty. That is a scope
+difference, not a defect -- VTA is a quantised-CNN accelerator and these
+operations postdate it.
+
+SPMW is shown twice because the weight discipline is a real choice:
+**reload** is Gemmini's own -- the next tile's weights shift in behind the
+current tile's arithmetic -- and buys 4 cycles a tile (20.6 -> 16.0, a 21%
+shorter block) for **28% more lookup tables, 21% more registers and 256 more
+multipliers**. Both route with zero unrouted nets. It is a real choice, not a
+free win, and both rows are kept so it stays one.
+
+### Reading the two together
+
+- **Mesh throughput:** SPMW `S`, Gemmini `S + 2`, VTA `4S + 1` on the
+  microbenchmark; on the GEMM alone, SPMW and VTA tie at 16.0 and Gemmini is
+  18.0.
+- **Area:** VTA < Gemmini < SPMW, by roughly 1.2x and 4.3x at 16x16.
+- **Efficiency:** Gemmini, on area-delay, by 2.6-3.0x.
+- **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
+- **Clock on this FPGA:** SPMW and VTA both near 300 MHz; Gemmini 34.8 MHz,
+  which is a porting artifact of an unpipelined float scale path and not an
+  architectural result.
 
 ### How far out of reach, exactly
 
@@ -65,40 +97,61 @@ but nothing here measures that, so no transfer cost is claimed.
 Comparing on a transformer block favours the two engines built for one.
 E3's microbenchmark does not: a tiled int8 GEMM with bias, ReLU, a
 requantising shift and a clip to int8, all on device. Every operation in it
-is inside VTA's `minpool / maxpool / add / shift` ALU, so nobody is being
-asked to do something their ISA has no word for -- and Gemmini and SPMW were
-already measured on it, against a shared stimulus file and a shared golden.
+is inside VTA's `minpool / maxpool / add / shift` ALU, so nobody is asked to
+do something their ISA has no word for -- and Gemmini and SPMW were already
+measured on it, against a shared stimulus file and a shared golden.
 
-VTA runs it **bit-exact** (`scripts/vta_micro_bench.py`, 16 tiles, 0 errors
-against the same `stim_S16.txt`), and here is the three-way result at 16x16:
+VTA runs it **bit-exact at every width** -- 16 tiles, zero errors against the
+same `stim_S*.txt` the other two were checked on.
 
-| | cycles / tile | LUT | FF | DSP | slack |
-|---|---:|---:|---:|---:|---:|
-| SPMW, fixed | **16** | 92,880 | 130,776 | 0 | +0.468 |
-| Gemmini `MxuVpu` | 18 | 31,932 | 18,675 | 0 | +0.245 |
-| VTA | 65 | **26,403** | **5,991** | 0 | +0.005 |
+| S | | cycles / tile | LUT | FF | DSP | slack |
+|---:|---|---:|---:|---:|---:|---:|
+| 4 | SPMW, fixed | **4** | 5,818 | 7,568 | 0 | +0.834 |
+| | Gemmini | 6 | **2,132** | 1,378 | 0 | +0.591 |
+| | VTA | 17 | 3,121 | **1,283** | 0 | **+0.956** |
+| 8 | SPMW, fixed | **8** | 22,922 | 32,116 | 0 | +0.328 |
+| | Gemmini | 10 | **8,042** | 4,818 | 0 | +0.456 |
+| | VTA | 33 | 8,326 | **2,979** | 0 | **+0.457** |
+| 16 | SPMW, fixed | **16** | 92,880 | 130,776 | 0 | **+0.468** |
+| | Gemmini | 18 | 31,932 | 18,675 | 0 | +0.245 |
+| | VTA | 65 | **26,403** | **5,991** | 0 | +0.005 |
 
-**A clean performance/area trade, and the three engines sit on it in order.**
-SPMW is fastest and largest, VTA is smallest and slowest by 4x, Gemmini is
-between them on both.
+Each is an exact law, which is what a clean measurement looks like:
 
-### Why VTA is 4x slower on a workload it fully supports
+| | cycles a tile | what it is |
+|---|---|---|
+| SPMW, fixed | **`S`** | one output row a cycle, epilogue fused into the lane |
+| Gemmini | **`S + 2`** | `S` rows plus a two-cycle request handshake |
+| VTA | **`4S + 1`** | one GEMM pass and **three** ALU passes |
 
-Not the mesh -- its GEMM is the *fastest* of the three at 16.0 cycles a
-tile. It is the epilogue, and the reason is architectural:
+**SPMW is fastest at every width, VTA is smallest at 16 and has the fewest
+registers at every width, Gemmini has the best of both.** On area-delay
+product at 16x16 -- lookup tables times cycles a tile -- Gemmini wins by 2.6x
+over SPMW and 3.0x over VTA:
 
-    VTA, per tile   16  GEMM
-                  + 16  ALU pass: max, the ReLU
-                  + 16  ALU pass: shr, the requantise
-                  + 16  ALU pass: min, the clip to 127
-                  ----
-                    65  measured 1050 cycles for 16 tiles
+| | LUT x cycles/tile |
+|---|---:|
+| Gemmini | **0.57 M** |
+| SPMW, fixed | 1.49 M |
+| VTA | 1.72 M |
+
+### Why VTA is `4S + 1` on a workload it fully supports
+
+Not the mesh -- its GEMM is the *fastest* of the three at 16.0 cycles a tile
+on its own. It is the epilogue:
+
+    16  GEMM
+  + 16  ALU pass: max, the ReLU
+  + 16  ALU pass: shr, the requantise
+  + 16  ALU pass: min, the clip to 127
+  ----
+    65  measured as 1050 cycles for 16 tiles at S = 16
 
 **VTA's ALU is a load-store unit over the accumulator scratchpad: one opcode
 per instruction, one pass over the data each.** Gemmini folds bias, ReLU,
 shift and clip into `AccumulatorScale` on the output path and SPMW folds them
 into its scale lane, so for both the epilogue is *free* -- it happens as the
-results drain. VTA has to read the accumulator back three times.
+results drain. VTA reads the accumulator back three times.
 
 Nor can the passes hide behind the matmul. `Compute.scala` asserts
 `!tensorGemm.io.uop.idx.valid || !tensorAlu.io.uop.idx.valid`: the two units

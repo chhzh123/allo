@@ -1,0 +1,15 @@
+workload,engine,S,cycles_per_tile,lut,ff,dsp,bram_tile,wns_ns,note
+micro,spmw-fixed,4,4,5818,7568,0,0,0.834,E3
+micro,gemmini,4,6,2132,1378,0,0,0.591,E3
+micro,vta,4,17,3121,1283,0,0,0.956,TensorGemm+TensorAlu
+micro,spmw-fixed,8,8,22922,32116,0,0,0.328,E3
+micro,gemmini,8,10,8042,4818,0,0,0.456,E3
+micro,vta,8,33,8326,2979,0,0,0.457,TensorGemm+TensorAlu
+micro,spmw-fixed,16,16,92880,130776,0,0,0.468,E3
+micro,gemmini,16,18,31932,18675,0,0,0.245,E3
+micro,vta,16,65,26403,5991,0,0,0.005,TensorGemm+TensorAlu
+block,vta,16,,26403,5991,0,0,0.005,datapath; 7 of 11 scale passes have no unit
+block,vta-core,16,,34174,6963,0,70,-1.515,whole engine incl scratchpads
+block,gemmini,16,,71389,21474,500,0,-25.375,MxuVpuNorm
+block,spmw-file,16,,113341,153869,755,0,0.072,weight file discipline
+block,spmw-reload,16,,144734,186540,1011,0,0.049,Gemmini's weight discipline

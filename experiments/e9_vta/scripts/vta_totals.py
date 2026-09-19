@@ -55,7 +55,9 @@ PER_TILE = {"spmw": 16.0, "gemmini": 18.0, "vta": 16.0}
 #: Achieved period from place and route on xcu280-fsvh2892-2L-e.
 #: VTA's is `TensorGemm`'s, which is the slower of its two datapath modules
 #: (`TensorAlu` closes at +0.346 ns, 334.8 MHz).
-PERIOD_NS = {"spmw": 3.261, "gemmini": 28.708, "vta": 3.328}
+PERIOD_NS = {# The mesh rate above is the reload discipline's, so the period is
+#: that build's too -- 3.284 ns -- not the file build's 3.261.
+    "spmw": 3.284, "gemmini": 28.708, "vta": 3.328}
 
 
 def main():

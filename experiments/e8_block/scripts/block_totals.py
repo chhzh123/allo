@@ -88,7 +88,9 @@ PER_TILE = {"spmw": 16.0, "gemmini": 18.0}
 #: and the fabric build is the other end of the same trade.
 #: Gemmini's best of four routes: `latency = 4`, retimed, constrained at
 #: 3.333 ns, WNS -25.375.  The other three land within 1.6 ns of it.
-PERIOD_NS = {"spmw": 3.261, "spmw_fabric": 3.852, "gemmini": 28.708}
+PERIOD_NS = {# The mesh rate above is the reload discipline's, so the period is
+#: that build's too -- 3.284 ns -- not the file build's 3.261.
+    "spmw": 3.284, "spmw_fabric": 3.852, "gemmini": 28.708}
 
 
 def totals(engine):

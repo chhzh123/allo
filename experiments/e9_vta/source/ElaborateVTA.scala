@@ -29,11 +29,25 @@ import vta.util.config._
 // `De10Config` is Intel.
 class VTAOnU280 extends Config(new CoreConfig ++ new F1Config)
 
+/** The same at another array width, so VTA can be swept the way E3 sweeps
+  * the other two.  Only `blockIn`/`blockOut` move; the widths, the buffer
+  * depths and the shell stay exactly as VTA ships them. */
+class VTAWidth(n: Int) extends Config(
+  new Config((site, here, up) => {
+    case CoreKey =>
+      CoreParams(batch = 1, blockOut = n, blockOutFactor = 1, blockIn = n,
+        inpBits = 8, wgtBits = 8, uopBits = 32, accBits = 32, outBits = 8,
+        uopMemDepth = 2048, inpMemDepth = 2048, wgtMemDepth = 1024,
+        accMemDepth = 2048, outMemDepth = 2048, instQueueEntries = 512)
+  }) ++ new F1Config)
+
 object ElaborateVTA extends App {
-  implicit val p: Parameters = new VTAOnU280
+  val width = sys.env.getOrElse("VTA_WIDTH", "16").toInt
+  implicit val p: Parameters =
+    if (width == 16) new VTAOnU280 else new VTAWidth(width)
   val what = sys.env.getOrElse("VTA_TOP", "TensorGemm")
-  val dir = "vta_out_" + what
-  println("VTA_ELABORATE_START " + what)
+  val dir = "vta_out_" + what + (if (width == 16) "" else "_w" + width)
+  println("VTA_ELABORATE_START " + what + " width=" + width)
   val stage = new ChiselStage
   what match {
     case "TensorGemm" => stage.emitVerilog(new TensorGemm, Array("--target-dir", dir))
@@ -41,5 +55,5 @@ object ElaborateVTA extends App {
     case "Core"       => stage.emitVerilog(new Core, Array("--target-dir", dir))
     case other        => sys.error("unknown VTA_TOP " + other)
   }
-  println("VTA_ELABORATE_OK " + what)
+  println("VTA_ELABORATE_OK " + what + " width=" + width)
 }
