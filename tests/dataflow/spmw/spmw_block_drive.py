@@ -62,7 +62,7 @@ def site_consts(mode, nbeat, total, ln, qb, qc):
     return k
 
 
-def launch_operands(dim, tiles, mode, nrow, ln, seed=0):
+def launch_operands(dim, tiles, mode, nrow, ln, seed=0, reload_=False):
     """Every tensor one launch needs, the int8 result, and the mesh's GEMM."""
     if ln % dim:
         raise ValueError(f"a row of {ln} does not divide into {dim} lanes")
@@ -84,12 +84,23 @@ def launch_operands(dim, tiles, mode, nrow, ln, seed=0):
     # `(row k, column j)` holds sits at `W[1 + j*kw + t//4][k]`, because the
     # load is serial down the row and cell `j` takes the `kw` words that reach
     # it after the `j` cells before it have taken theirs.
-    W = np.zeros((dim * kw + 1, dim), dtype=np.int64)
-    W[0, :] = dim * kw
-    for t in range(tiles):
-        for j in range(dim):
-            W[1 + j * kw + t // 4, :] |= (wt8[t, :, j] & 255) << ((t & 3) * 8)
-    W = W.astype(np.int32)
+    if reload_:
+        # Gemmini's discipline: a tile at a time, sign-extended int32 tokens
+        # rather than packed bytes, because a cell wants one weight and not
+        # four.  The header is what cell 0 forwards, and it shrinks by one
+        # down the row.
+        rows = [[dim - 1] * dim]
+        for t in range(tiles):
+            for c in range(dim):
+                rows.append([int(wt8[t][k][c]) for k in range(dim)])
+        W = np.array(rows, dtype=np.int32)
+    else:
+        W = np.zeros((dim * kw + 1, dim), dtype=np.int64)
+        W[0, :] = dim * kw
+        for t in range(tiles):
+            for j in range(dim):
+                W[1 + j * kw + t // 4, :] |= (wt8[t, :, j] & 255) << ((t & 3) * 8)
+        W = W.astype(np.int32)
 
     k_lane = site_consts(mode, nbeat, nacc, ln, qb, qc)
     k_stat = site_consts(mode, nbeat, nrow, ln, qb, qc)

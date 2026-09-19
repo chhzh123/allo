@@ -43,7 +43,7 @@ PER_ROW = {
 #: whole 16x16 matrix from a scratchpad each cycle, so it pays neither
 #: Gemmini's request handshake nor SPMW's serial weight load -- and spends
 #: 2048 bits a cycle of weight bandwidth instead.
-PER_TILE = {"spmw": 20.6, "gemmini": 18.0, "vta": 16.0}
+PER_TILE = {"spmw": 16.0, "gemmini": 18.0, "vta": 16.0}
 
 #: Achieved period from place and route on xcu280-fsvh2892-2L-e.
 #: VTA's is `TensorGemm`'s, which is the slower of its two datapath modules

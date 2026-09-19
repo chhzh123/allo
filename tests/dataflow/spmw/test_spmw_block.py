@@ -24,7 +24,11 @@ from spmw_block_engine import block_engine, M_NONE, M_RELU, M_LN, M_GELU, M_SM
 def _run(dim, mode, nrow, ln, target="ref", seed=0):
     nacc = nrow * (ln // dim)
     eng = block_engine(dim=dim, tiles=4, nacc=nacc, nrow=nrow)
-    ops, want, gemm = launch_operands(dim, 4, mode, nrow, ln, seed)
+    # The weight stream differs between the two disciplines, so it is asked
+    # for rather than assumed: a file-form stream into a reloading cell reads
+    # as an arithmetic bug in every output.
+    ops, want, gemm = launch_operands(dim, 4, mode, nrow, ln, seed,
+                                      reload_=eng.spmw_shape["reload"])
     spmw.build(eng, target=target)(*[ops[n] for n in SPMW_BLOCK_ORDER])
     return ops, want, gemm
 

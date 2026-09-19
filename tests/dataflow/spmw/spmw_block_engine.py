@@ -63,7 +63,7 @@ def _log2(n):
 
 
 def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
-                 scalar_depth=None):
+                 scalar_depth=None, reload_=False):
     """The mesh and the normalise/scale path, as one fabric.
 
     `nacc` is how many accumulator beats a launch carries and `nrow` how
@@ -97,6 +97,12 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
     """
     scalar_depth = int(os.environ.get("SPMW_SCALAR_DEPTH", "16")) \
         if scalar_depth is None else scalar_depth
+    reload_ = os.environ.get("SPMW_RELOAD", "0") != "0" or reload_
+    # Reloading puts a beat a cycle on the weight chain where the file form
+    # used it only as a prologue, so the depth-2 default becomes a rate limit
+    # there too -- E3 measured the interval at `2S - 2` until it was deepened.
+    weight_depth = 4 if reload_ else link_depth
+    wlen = (1 + tiles * dim) if reload_ else (dim * (tiles // 4) + 1)
     kw = tiles // 4
     if tiles % 4:
         raise ValueError(f"the packed weight file needs a multiple of 4, got {tiles}")
@@ -113,7 +119,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
         a_out = spmw.Out(int8)
         p_in = spmw.In(int32, depth=link_depth)
         p_out = spmw.Out(int32)
-        w_in = spmw.In(int32, depth=link_depth)
+        w_in = spmw.In(int32, depth=weight_depth)
         w_out = spmw.Out(int32)
 
     mxu = spmw.Topology(
@@ -126,25 +132,73 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
         },
     )
 
-    @spmw.unit
-    def mac(io: CellIO):
-        wf: int32[kw]
-        n: int32 = io.w_in.get()
-        io.w_out.put(n - kw)
-        for i in range(kw):
-            wf[i] = io.w_in.get()
-        for _j in range(n - kw):
+    # Two weight disciplines, as two separately decorated units rather than
+    # one unit with a branch: a unit body is lowered from its AST, so a
+    # Python `if` on a closure variable becomes an `scf.if` on the captured
+    # integer and the verifier rejects it.
+    #
+    # **The file form is why this mesh measured slower than Gemmini's.** It
+    # loads every tile's weight up front, `dim * tiles/4` words streamed
+    # serially down each row, and that load is *proportional to the tile
+    # count* -- 4 cycles a tile at any depth of file, never amortised. The
+    # reload form is Gemmini's own discipline: one byte a tile, taken at the
+    # tile's first step and used from the next tile on, with the bytes for the
+    # cells beyond forwarded inside the same step loop, so the load overlaps
+    # the arithmetic and costs nothing. That is what `d` does in Gemmini.
+
+    if reload_:
+
+        @spmw.unit
+        def mac(io: CellIO):
+            # How many of this tile's bytes belong to the cells beyond me. It
+            # shrinks by one down the row, so it cannot be a compile-time
+            # constant in a shared role; it arrives once, on the stream.
             fwd: int32 = io.w_in.get()
-            io.w_out.put(fwd)
-        for r in range(outs):
-            a = io.a_in.get()
-            p = io.p_in.get()
-            io.a_out.put(a)
-            idx: int32 = r >> sbits
-            packed: int32 = wf[idx >> 2]
-            byte: int32 = (packed >> ((idx & 3) * 8)) & 255
-            wt: int32 = (byte ^ 128) - 128
-            io.p_out.put(p + a * wt)
+            io.w_out.put(fwd - 1)
+            # Tile 0's weight up front: nothing has shifted it in yet. This is
+            # Gemmini's warm-up pass, and it is one tile -- `dim` bytes down a
+            # row -- not the whole file.
+            cur: int32 = io.w_in.get()
+            for _k in range(fwd):
+                v0: int32 = io.w_in.get()
+                io.w_out.put(v0)
+            nxt: int32 = 0
+            for t in range(tiles):
+                for r in range(dim):
+                    a = io.a_in.get()
+                    p = io.p_in.get()
+                    io.a_out.put(a)
+                    io.p_out.put(p + a * cur)
+                    if t + 1 < tiles:
+                        if r <= fwd:
+                            v: int32 = io.w_in.get()
+                            if r == 0:
+                                nxt = v
+                            else:
+                                io.w_out.put(v)
+                cur = nxt
+
+    else:
+
+        @spmw.unit
+        def mac(io: CellIO):
+            wf: int32[kw]
+            n: int32 = io.w_in.get()
+            io.w_out.put(n - kw)
+            for i in range(kw):
+                wf[i] = io.w_in.get()
+            for _j in range(n - kw):
+                fwd: int32 = io.w_in.get()
+                io.w_out.put(fwd)
+            for r in range(outs):
+                a = io.a_in.get()
+                p = io.p_in.get()
+                io.a_out.put(a)
+                idx: int32 = r >> sbits
+                packed: int32 = wf[idx >> 2]
+                byte: int32 = (packed >> ((idx & 3) * 8)) & 255
+                wt: int32 = (byte ^ 128) - 128
+                io.p_out.put(p + a * wt)
 
     # -- the reduce lanes ---------------------------------------------------
     # Gemmini's `AccumulationLanes` and `MaxLanes` are a reduction *tree* of 16
@@ -557,7 +611,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
     @spmw.fabric
     def engine(
         A: int8[outs, dim],
-        W: int32[dim * kw + 1, dim],
+        W: int32[wlen, dim],
         Pin: int32[outs, dim],
         Psum: int32[outs, dim],
         Acc1: int32[nacc, dim],
@@ -630,7 +684,8 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
         spmw.gather(Y, from_=V.y_out, index=(..., l3))
 
     engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
-    engine.spmw_shape = dict(dim=dim, tiles=tiles, outs=outs, nacc=nacc, nrow=nrow)
+    engine.spmw_shape = dict(dim=dim, tiles=tiles, outs=outs, nacc=nacc,
+                             nrow=nrow, reload=reload_)
     return engine
 
 
@@ -666,11 +721,13 @@ def block_of(size, mode=None, nrow=None, ln=None, seed=0):
     ln = (64 if mode == M_SM else 256) if not ln else ln
     nacc = nrow * (ln // size)
     eng = block_engine(dim=size, tiles=tiles, nacc=nacc, nrow=nrow)
-    ops, want, _ = launch_operands(size, tiles, mode, nrow, ln, seed)
+    reload_ = eng.spmw_shape["reload"]
+    ops, want, _ = launch_operands(size, tiles, mode, nrow, ln, seed,
+                                   reload_=reload_)
     eng.spmw_operands = {n: ops[n] for n in SPMW_BLOCK_ORDER if n != "Y"}
     eng.spmw_tokens_per_transform = nacc * size
     eng.spmw_block = dict(mode=mode, nrow=nrow, ln=ln, nacc=nacc, expected=want)
     print(f"E8 BLOCK design: mode={mode} nrow={nrow} len={ln} "
           f"nbeat={ln // size} nacc={nacc} tiles={tiles} "
-          f"steps={tiles * size}")
+          f"steps={tiles * size} reload={int(reload_)}")
     return eng

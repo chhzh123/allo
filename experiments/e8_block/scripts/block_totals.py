@@ -42,7 +42,23 @@ PER_ROW = {
 #: because it is overlapped.
 #:
 #: SPMW: a one-beat scale path so the mesh is what is measured, at 8, 16, 24
-#: and 32 resident tiles, in both multiply bindings:
+#: and 32 resident tiles.  **The weight discipline is what sets this number,
+#: not the dataflow.**  The file form loads every tile's weight up front,
+#: `dim * tiles/4` words serially down each row, and that load is
+#: *proportional to the tile count* -- 4 cycles a tile however deep the file,
+#: never amortised.  The reload form is Gemmini's own: one byte a tile, taken
+#: at the tile's first step, the bytes for cells beyond forwarded inside the
+#: same step loop, so the load overlaps the arithmetic and costs nothing.
+#:
+#:     tiles       8     16     24     32     16->32 marginal
+#:     file      322    454    621    784     20.63
+#:     reload    322    385    514    641     16.00
+#:
+#: So a weight-stationary mesh is **not** slower than VTA's scratchpad-fed
+#: one: 16.0 either way.  It was the file form that cost four cycles a tile,
+#: and that is an implementation choice, not a property of the dataflow.
+#:
+#: The earlier figures, for the file form in both multiply bindings:
 #:
 #:     tiles      8     16     24     32
 #:     fabric   322    454    621    784
@@ -62,7 +78,7 @@ PER_ROW = {
 #: resident, Gemmini's includes one it overlaps.  Comparing them directly is
 #: the mistake E4 made with DSP binding, in the other direction.  The pair
 #: below is like for like -- both with a new weight matrix every tile.
-PER_TILE = {"spmw": 20.6, "gemmini": 18.0}
+PER_TILE = {"spmw": 16.0, "gemmini": 18.0}
 
 #: Achieved period, from place and route on `xcu280-fsvh2892-2L-e`, all
 #: three with zero unrouted nets.  SPMW twice because the multiply binding
