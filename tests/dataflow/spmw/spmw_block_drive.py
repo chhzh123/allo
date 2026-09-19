@@ -48,7 +48,8 @@ MODE_NAME = {M_NONE: "none", M_RELU: "relu", M_LN: "layernorm",
 NAME_MODE = {v: k for k, v in MODE_NAME.items()}
 
 SPMW_BLOCK_ORDER = ("A", "W", "Pin", "Psum", "Acc1", "Acc2", "Acc3",
-                    "Kr1", "Kr2", "Kst1", "Kst2", "Fst2", "Kscl", "Z1", "Z2",
+                    "Kr1", "Kr2", "Ksu1", "Ksc1", "Ksu2", "Ksc2", "Fsc2",
+                    "Kscl", "Z1", "Z2",
                     "Tail", "Vail", "Y")
 
 
@@ -101,9 +102,11 @@ def launch_operands(dim, tiles, mode, nrow, ln, seed=0):
         Acc3=acc.reshape(nacc, dim).astype(np.int32),
         Kr1=np.tile(k_lane, (dim, 1)),
         Kr2=np.tile(k_lane, (dim, 1)),
-        Kst1=k_stat.reshape(1, NK),
-        Kst2=k_stat.reshape(1, NK),
-        Fst2=np.array([[np.float32(SCALE[mode]), np.float32(0)]],
+        Ksu1=k_lane.reshape(1, NK),
+        Ksc1=k_stat.reshape(1, NK),
+        Ksu2=k_lane.reshape(1, NK),
+        Ksc2=k_stat.reshape(1, NK),
+        Fsc2=np.array([[np.float32(SCALE[mode]), np.float32(0)]],
                       dtype=np.float32),
         Kscl=np.tile(k_lane, (dim, 1)),
         Z1=np.zeros(nacc, dtype=np.int32),

@@ -15,19 +15,19 @@ a row without recomputing the matmul. So this fabric has the same two disjoint
 pipelines Gemmini's scope does, and the host holds the accumulator for both:
 
     A, W, Pin  -> [16x16 mac mesh] -> Psum      (int32, to the accumulator)
-    Acc x3     -> [red1 -> stat1 -> red2 -> stat2 -> scl] -> Y   (int8)
+    Acc x3     -> [red1 -> sum1 -> sca1 -> red2 -> sum2 -> sca2 -> scl] -> Y
 
 Comparing them is then like for like: neither side counts an SRAM the other
 one has.
 
-**Why five roles and not two.** Gemmini's `Normalizer` keeps `mean`, `max`,
+**Why seven roles and not two.** Gemmini's `Normalizer` keeps `mean`, `max`,
 `inv_stddev` and `sum` in registers that its own accumulation lanes read back,
 which is a register loop inside one module. A SPMW fabric is a dataflow graph,
 and the same shape would be a *cycle* -- lanes to statistics to lanes. It is
-unrolled in space instead: `red1` reduces, `stat1` turns the reduction into a
-scalar, `red2` reduces the second pass against that scalar, `stat2` produces
-the second scalar, and `scl` applies both. Feed-forward, no cycle, and the two
-`red` stages are one role at two sites rather than two roles.
+unrolled in space instead: `red1` reduces across the lanes, `sum1` finishes the
+reduction, `sca1` turns it into a scalar, `red2` reduces the second pass
+against that scalar, `sum2` and `sca2` do the same again, and `scl` applies
+both. Feed-forward, no cycle, and every stage is flat enough to pipeline.
 
 The cost of that choice is 32 reduce lanes where Gemmini has 16, and the
 buffering that lets a lane hold its data while the scalar it needs is still
@@ -62,12 +62,23 @@ def _log2(n):
     return bits
 
 
-def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
+def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
+                 scalar_depth=None):
     """The mesh and the normalise/scale path, as one fabric.
 
     `nacc` is how many accumulator beats a launch carries and `nrow` how
     many logical rows they make up, so `nacc / nrow` is Gemmini's `len`
     divided by the mesh width.
+
+    `scalar_depth` is the depth of the links that carry **one token a row**
+    rather than one a beat.  Two is not enough: `sca1` takes 39 cycles an
+    iteration and `sca2` takes 65, while a row is only `nbeat` beats long, so
+    a stage has to run two or three rows ahead of the one after it to keep the
+    latency hidden, and a depth-2 register slice does not let it.  Measured at
+    4x4, `nbeat = 16`: the cost of a row is `75 + 1.0 * nbeat` cycles, the
+    beats exactly one cycle each and 75 of fixed cost that is almost exactly
+    `sca2`'s own latency.  `SPMW_SCALAR_DEPTH` overrides it so the depth stays
+    measurable rather than asserted.
 
     Each of the three passes reads the accumulator for itself -- `Acc1`,
     `Acc2`, `Acc3` are the same rows three times -- so no lane holds a row
@@ -78,12 +89,14 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
 
     Forwarding the row down the lanes instead was tried first, and it
     **deadlocks**: a `red1` lane blocks on `d_out` before it reaches
-    `r_out`, so a full data link stalls the reduction chain, `stat1` never
+    `r_out`, so a full data link stalls the reduction chain, the statistics
     sees the row's last value, the scalar never arrives and the data link
     never drains.  Surviving it needs a link deeper than a row plus the
     divider's 36 cycles -- past `BRAM_FIFO_DEPTH`, into block RAM, on 32
     lanes -- to buy a pass Gemmini pays for anyway.
     """
+    scalar_depth = int(os.environ.get("SPMW_SCALAR_DEPTH", "16")) \
+        if scalar_depth is None else scalar_depth
     kw = tiles // 4
     if tiles % 4:
         raise ValueError(f"the packed weight file needs a multiple of 4, got {tiles}")
@@ -154,7 +167,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         d_in = spmw.In(int32, depth=link_depth)
         r_in = spmw.In(int32, depth=link_depth)
         r_out = spmw.Out(int32)
-        m_in = spmw.In(int32, depth=link_depth)
+        m_in = spmw.In(int32, depth=scalar_depth)
         m_out = spmw.Out(int32)
         k = spmw.MemIn(int32[NK])
 
@@ -248,17 +261,43 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
                 b = 0
 
     # -- the scalar units ---------------------------------------------------
-    # Gemmini spends, for the whole accumulator, one integer square root, one
-    # divider and one reciprocal.  So does this: `stat1` holds the divider,
-    # `stat2` the square root and the reciprocal.
+    # Four sites, not two, and the split is what makes them keep up.
+    #
+    # With the reduction and the scalar arithmetic in one unit the body is a
+    # per-row loop wrapping a reduce whose trip count is a runtime field, and
+    # HLS reports that outer loop `Pipelined no` -- so a row's divide, square
+    # root and reciprocal all sit in front of the next row's first beat.  At
+    # 4x4 that measured **94 cycles a row** against 16 beats of actual work.
+    #
+    # Split, both loops are flat: `sum*` reduces at II=1 and `sca*` sees one
+    # value a row with only a compile-time loop inside it, so HLS can pipeline
+    # it and rows overlap.  It costs a pipelined divider where the folded form
+    # had a sequential one.
+    #
+    # Gemmini cannot do this and the reason is structural, not an oversight:
+    # its divider, square root and reciprocal are *one each*, shared across
+    # the accumulator and arbitrated by the `Stats` state machine, so its rows
+    # serialise on them.  That is why its LayerNorm row costs 130 cycles of
+    # which almost all is scalar latency.  Two statistics banks give it
+    # two-way overlap and no more.
 
-    class Stat1IO(spmw.Interface):
-        t_in = spmw.In(int32, depth=link_depth)
+    class Sum1IO(spmw.Interface):
+        t_in = spmw.In(int32, depth=scalar_depth)
+        u_out = spmw.Out(int32)
+        k = spmw.MemIn(int32[NK])
+
+    class Sca1IO(spmw.Interface):
+        x_in = spmw.In(int32, depth=scalar_depth)
         s_out = spmw.Out(int32)
         k = spmw.MemIn(int32[NK])
 
-    class Stat2IO(spmw.Interface):
-        t_in = spmw.In(int32, depth=link_depth)
+    class Sum2IO(spmw.Interface):
+        t_in = spmw.In(int32, depth=scalar_depth)
+        u_out = spmw.Out(int32)
+        k = spmw.MemIn(int32[NK])
+
+    class Sca2IO(spmw.Interface):
+        x_in = spmw.In(int32, depth=scalar_depth)
         v_out = spmw.Out(float32)
         k = spmw.MemIn(int32[NK])
         f = spmw.MemIn(float32[NF])
@@ -266,7 +305,31 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
     one = spmw.Grid((1,))
 
     @spmw.unit
-    def stat1(io: Stat1IO):
+    def sum1(io: Sum1IO):
+        """Pass one's reduction across the lane chain: a sum, or a maximum."""
+        mode: int32 = io.k[K_MODE]
+        nbeat: int32 = io.k[K_NBEAT]
+        total: int32 = io.k[K_TOTAL]
+        b: int32 = 0
+        acc: int32 = 0
+        for _i in range(total):
+            t: int32 = io.t_in.get()
+            if b == 0:
+                acc = 0
+                if mode == M_SM:
+                    acc = -2147483647
+            if mode == M_SM:
+                if t > acc:
+                    acc = t
+            else:
+                acc = acc + t
+            b = b + 1
+            if b == nbeat:
+                b = 0
+                io.u_out.put(acc)
+
+    @spmw.unit
+    def sca1(io: Sca1IO):
         """`mean` or `max`: the first pass's scalar.
 
         `mean` is Gemmini's `Arithmetic.divider`, and that divider is *not*
@@ -274,82 +337,84 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         with `round_minMag` on both conversions and on the divide.  A 32-bit
         significand holds any int32 exactly and `round_minMag` truncates
         towards zero, so the whole float round trip is integer division with C
-        semantics.  Written as a sign-corrected division of magnitudes, so that
-        it means the same thing under Python's floor `//` in the reference
-        simulator and `arith.divsi`'s truncation in the hardware.
+        semantics.  Written as a sign-corrected division of magnitudes so that
+        it means the same under Python's floor `//` in the reference simulator
+        and `arith.divsi`'s truncation in the hardware.
         """
         mode: int32 = io.k[K_MODE]
-        nbeat: int32 = io.k[K_NBEAT]
         nrow: int32 = io.k[K_TOTAL]
         cnt: int32 = io.k[K_NLEN]
         for _r in range(nrow):
-            tot: int32 = 0
+            x: int32 = io.x_in.get()
             if mode == M_SM:
-                tot = -2147483647
-            for _b in range(nbeat):
-                t: int32 = io.t_in.get()
-                if mode == M_SM:
-                    if t > tot:
-                        tot = t
-                else:
-                    tot = tot + t
-            if mode == M_SM:
-                io.s_out.put(tot)
+                io.s_out.put(x)
             else:
-                mag: int32 = tot
+                mag: int32 = x
                 sgn: int32 = 1
-                if tot < 0:
-                    mag = -tot
+                if x < 0:
+                    mag = -x
                     sgn = -1
                 io.s_out.put(sgn * (mag // cnt))
 
     @spmw.unit
-    def stat2(io: Stat2IO):
+    def sum2(io: Sum2IO):
+        """Pass two's reduction: always a sum, of squares or of exponentials."""
+        nbeat: int32 = io.k[K_NBEAT]
+        total: int32 = io.k[K_TOTAL]
+        b: int32 = 0
+        acc: int32 = 0
+        for _i in range(total):
+            t: int32 = io.t_in.get()
+            if b == 0:
+                acc = 0
+            acc = acc + t
+            b = b + 1
+            if b == nbeat:
+                b = 0
+                io.u_out.put(acc)
+
+    @spmw.unit
+    def sca2(io: Sca2IO):
         """`inv_stddev` or `inv_sum_exp`: the second pass's scalar.
 
         LayerNorm divides the sum of squared deviations by the count, takes
-        the integer square root of that, and then a *float* reciprocal --
+        the integer square root of that and then a *float* reciprocal --
         Gemmini's divider, `IntSqrt` and `Arithmetic.reciprocal` in that
-        order, the last being IEEE single.  Softmax divides 127 by
-        the sum of exponentials, and the 127 is Gemmini's own: "softmax
-        maximum is 127 for signed int8".  Both are then multiplied by the
-        requantisation scale in float32, which is Gemmini's `MulPipe`.
+        order, the last being IEEE single.  Softmax divides 127 by the sum of
+        exponentials, and the 127 is Gemmini's own: "softmax maximum is 127
+        for signed int8".  Both are then multiplied by the requantisation
+        scale in float32, which is Gemmini's `MulPipe`.
         """
         mode: int32 = io.k[K_MODE]
-        nbeat: int32 = io.k[K_NBEAT]
         nrow: int32 = io.k[K_TOTAL]
         cnt: int32 = io.k[K_NLEN]
         sc: float32 = io.f[0]
         for _r in range(nrow):
-            tot: int32 = 0
-            for _b in range(nbeat):
-                t: int32 = io.t_in.get()
-                tot = tot + t
+            tot: int32 = io.x_in.get()
             out: float32 = sc
             if mode == M_LN:
                 # The **mean** of the squared deviations.  Gemmini runs its
                 # one divider a second time here -- `get_sum` ->
                 # `get_variance` -- and the square root sees `sum/count`.
-                # This site has its own divider where Gemmini shares one,
-                # because the two divides are on opposite sides of a
-                # reduction that the shared register loop lets it fold.
                 vmag: int32 = tot
                 vsgn: int32 = 1
                 if tot < 0:
                     vmag = -tot
                     vsgn = -1
-                tot = vsgn * (vmag // cnt)
+                v: int32 = vsgn * (vmag // cnt)
                 # Gemmini's `IntSqrt`: restoring, two bits a step, sixteen
                 # steps for a 32-bit input, exact floor(sqrt(x)).  Written out
                 # rather than approximated through `sqrtf`, because the float
                 # square root of a 32-bit variance is not the same integer.
-                x: int32 = tot
+                # The trip count is a compile-time constant, which is what
+                # lets the enclosing per-row loop pipeline.
+                x: int32 = v
                 a: int32 = 0
                 qq: int32 = 0
                 for _s in range(16):
                     hi: int32 = (x >> 30) & 3
-                    ac: int32 = ((a << 2) & -1) | hi
-                    tt: int32 = ac - (((qq << 2) & -1) | 1)
+                    ac: int32 = (a << 2) | hi
+                    tt: int32 = ac - ((qq << 2) | 1)
                     neg: int32 = 0
                     if tt < 0:
                         neg = 1
@@ -372,9 +437,9 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
 
     class SclIO(spmw.Interface):
         d_in = spmw.In(int32, depth=link_depth)
-        m_in = spmw.In(int32, depth=link_depth)
+        m_in = spmw.In(int32, depth=scalar_depth)
         m_out = spmw.Out(int32)
-        v_in = spmw.In(float32, depth=link_depth)
+        v_in = spmw.In(float32, depth=scalar_depth)
         v_out = spmw.Out(float32)
         y_out = spmw.Out(int8)
         k = spmw.MemIn(int32[NK])
@@ -495,9 +560,11 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         Acc3: int32[nacc, dim],
         Kr1: int32[dim, NK],
         Kr2: int32[dim, NK],
-        Kst1: int32[1, NK],
-        Kst2: int32[1, NK],
-        Fst2: float32[1, NF],
+        Ksu1: int32[1, NK],
+        Ksc1: int32[1, NK],
+        Ksu2: int32[1, NK],
+        Ksc2: int32[1, NK],
+        Fsc2: float32[1, NF],
         Kscl: int32[dim, NK],
         Z1: int32[nacc],
         Z2: int32[nacc],
@@ -507,9 +574,11 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
     ):
         P = spmw.place(mac, on=mxu)
         R1 = spmw.place(red1, on=chain1)
-        S1 = spmw.place(stat1, on=one)
+        U1 = spmw.place(sum1, on=one)
+        C1 = spmw.place(sca1, on=one)
         R2 = spmw.place(red2, on=chain2)
-        S2 = spmw.place(stat2, on=one)
+        U2 = spmw.place(sum2, on=one)
+        C2 = spmw.place(sca2, on=one)
         V = spmw.place(scale, on=chain3)
 
         # The mesh.  Psums go straight out to the host's accumulator, which is
@@ -523,9 +592,11 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         # The normalise/scale path, fed from that accumulator.
         spmw.shard(Kr1, into=R1.k)
         spmw.shard(Kr2, into=R2.k)
-        spmw.shard(Kst1, into=S1.k)
-        spmw.shard(Kst2, into=S2.k)
-        spmw.shard(Fst2, into=S2.f)
+        spmw.shard(Ksu1, into=U1.k)
+        spmw.shard(Ksc1, into=C1.k)
+        spmw.shard(Ksu2, into=U2.k)
+        spmw.shard(Ksc2, into=C2.k)
+        spmw.shard(Fsc2, into=C2.f)
         spmw.shard(Kscl, into=V.k)
         (l1,) = R1.axes
         (l2,) = R2.axes
@@ -539,14 +610,16 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         spmw.stream_in(Acc3, into=V.d_in, index=(..., l3))
         spmw.stream_in(Z1, into=R1.r_in, index=(...,))
         spmw.stream_in(Z2, into=R2.r_in, index=(...,))
-        spmw.link(R1.r_out, to=S1.t_in)
+        spmw.link(R1.r_out, to=U1.t_in)
+        spmw.link(U1.u_out, to=C1.x_in)
         # `mean`/`max` has two consumers -- the second reduction and the
         # scale -- so it goes down `red2`'s chain and out the far end into
         # the scale lanes' own chain, rather than being duplicated.
-        spmw.link(S1.s_out, to=R2.m_in)
+        spmw.link(C1.s_out, to=R2.m_in)
         spmw.link(R2.m_out, to=V.m_in)
-        spmw.link(R2.r_out, to=S2.t_in)
-        spmw.link(S2.v_out, to=V.v_in)
+        spmw.link(R2.r_out, to=U2.t_in)
+        spmw.link(U2.u_out, to=C2.x_in)
+        spmw.link(C2.v_out, to=V.v_in)
         spmw.gather(Tail, from_=V.m_out, index=(...,))
         spmw.gather(Vail, from_=V.v_out, index=(...,))
         spmw.gather(Y, from_=V.y_out, index=(..., l3))
@@ -564,7 +637,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
 # the cycle numbers from one cosimulation per activation.
 
 
-def block_of(size, mode=None, nrow=4, ln=None, seed=0):
+def block_of(size, mode=None, nrow=None, ln=None, seed=0):
     """The block engine with a launch's operands attached, for the array build.
 
     `ln` defaults to the block's own row lengths: 256 for LayerNorm, which is
@@ -575,11 +648,19 @@ def block_of(size, mode=None, nrow=4, ln=None, seed=0):
     from spmw_block_drive import SPMW_BLOCK_ORDER, launch_operands
 
     mode = M_LN if mode is None else mode
-    ln = (64 if mode == M_SM else 256) if ln is None else ln
+    # `E8_NROW` and `E8_LEN` sweep the launch shape without a new design name.
+    # The marginal cost of a row is what the comparison needs -- both engines
+    # are measured at two row counts and the difference taken -- and the fill
+    # is not separable any other way.
+    nrow = int(os.environ.get("E8_NROW", "4")) if nrow is None else nrow
+    ln = int(os.environ.get("E8_LEN", "0")) or ln
+    ln = (64 if mode == M_SM else 256) if not ln else ln
     nacc = nrow * (ln // size)
     eng = block_engine(dim=size, tiles=4, nacc=nacc, nrow=nrow)
     ops, want, _ = launch_operands(size, 4, mode, nrow, ln, seed)
     eng.spmw_operands = {n: ops[n] for n in SPMW_BLOCK_ORDER if n != "Y"}
     eng.spmw_tokens_per_transform = nacc * size
     eng.spmw_block = dict(mode=mode, nrow=nrow, ln=ln, nacc=nacc, expected=want)
+    print(f"E8 BLOCK design: mode={mode} nrow={nrow} len={ln} "
+          f"nbeat={ln // size} nacc={nacc}")
     return eng
