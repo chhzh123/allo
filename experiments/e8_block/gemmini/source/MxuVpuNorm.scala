@@ -112,6 +112,11 @@ class MxuVpuNorm(val dim: Int, val scaleLatency: Int = 4) extends Module {
     val act = Input(UInt(Activation.bitwidth.W))
     val cmd = Input(NormCmd())
     val len = Input(UInt(11.W))
+    // Which of the normaliser's two statistics banks this row uses.
+    // Hardwiring it to zero would serialise the rows: with two banks a
+    // row's sum accumulates while the row before it is still in the
+    // divider, and `num_stats = 2` exists to allow exactly that.
+    val stats_id = Input(UInt(1.W))
     val igelu_qb = Input(SInt(accW.W))
     val igelu_qc = Input(SInt(accW.W))
     val iexp_qln2 = Input(SInt(accW.W))
@@ -140,7 +145,7 @@ class MxuVpuNorm(val dim: Int, val scaleLatency: Int = 4) extends Module {
   norm.io.in.bits.acc_read_resp.fromDMA := false.B
   norm.io.in.bits.acc_read_resp.acc_bank_id := 0.U
   norm.io.in.bits.len := io.len
-  norm.io.in.bits.stats_id := 0.U
+  norm.io.in.bits.stats_id := io.stats_id
   norm.io.in.bits.cmd := io.cmd
 
   vpu.io.in <> norm.io.out

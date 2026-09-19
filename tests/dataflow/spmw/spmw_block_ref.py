@@ -9,6 +9,8 @@ and the rounding modes are the ones its source names:
 
   * `mean`        `Arithmetic.divider`, a 32-bit-significand float with
                   `round_minMag` throughout -- exactly C integer division
+  * `variance`    the *same* divider again: the sum of squared deviations
+                  over `count`, truncated, before the square root
   * `stddev`      `IntSqrt`, restoring, exact `floor(sqrt(x))`
   * `inv_stddev`  `Arithmetic.reciprocal`, IEEE single
   * `inv_sum_exp` `127.0f / sum`, IEEE single, the 127 being Gemmini's
@@ -24,6 +26,13 @@ M_NONE, M_RELU, M_LN, M_GELU, M_SM = 0, 1, 2, 3, 4
 def i32(x):
     """int32 wrapping, which is Chisel's `.withWidthOf(q)`."""
     return np.asarray(x).astype(np.int64).astype(np.int32).astype(np.int64)
+
+
+def _trunc_div(x, n):
+    """Integer division truncating towards zero, which is what Gemmini's
+    `round_minMag` float round trip amounts to.  NumPy's `//` floors."""
+    x = np.asarray(x, dtype=np.int64)
+    return np.where(x < 0, -((-x) // n), x // n)
 
 
 def igelu(q, qb, qc):
@@ -96,9 +105,14 @@ def norm_path(acc, mode, scale, qb, qc, qln2, qln2_inv):
 
     if mode == M_LN:
         tot = i32(acc.sum(axis=1))
-        mag, sgn = np.abs(tot), np.where(tot < 0, -1, 1)
-        mean = (sgn * (mag // ln)).reshape(-1, 1)
-        var = i32(i32((acc - mean) ** 2).sum(axis=1))
+        mean = _trunc_div(tot, ln).reshape(-1, 1)
+        # The **mean** of the squared deviations, not their sum: Gemmini runs
+        # its one divider a second time, `get_sum` -> `get_variance`, and the
+        # square root sees `sum/count`.  Taking the sum instead makes every
+        # output `sqrt(len)` too large -- a clean factor of 8 at `len = 64`,
+        # which is what the first run against the RTL showed.
+        ssq = i32(i32((acc - mean) ** 2).sum(axis=1))
+        var = _trunc_div(ssq, ln)
         sd = np.maximum(isqrt32(var), 1)
         inv = (f32(scale) / sd.astype(f32)).astype(f32).reshape(-1, 1)
         e = acc - mean

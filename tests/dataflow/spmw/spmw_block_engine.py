@@ -307,9 +307,10 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
     def stat2(io: Stat2IO):
         """`inv_stddev` or `inv_sum_exp`: the second pass's scalar.
 
-        LayerNorm takes the integer square root of the variance and then a
-        *float* reciprocal of it -- Gemmini's `IntSqrt` followed by
-        `Arithmetic.reciprocal`, which is IEEE single.  Softmax divides 127 by
+        LayerNorm divides the sum of squared deviations by the count, takes
+        the integer square root of that, and then a *float* reciprocal --
+        Gemmini's divider, `IntSqrt` and `Arithmetic.reciprocal` in that
+        order, the last being IEEE single.  Softmax divides 127 by
         the sum of exponentials, and the 127 is Gemmini's own: "softmax
         maximum is 127 for signed int8".  Both are then multiplied by the
         requantisation scale in float32, which is Gemmini's `MulPipe`.
@@ -317,6 +318,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
         mode: int32 = io.k[K_MODE]
         nbeat: int32 = io.k[K_NBEAT]
         nrow: int32 = io.k[K_TOTAL]
+        cnt: int32 = io.k[K_NLEN]
         sc: float32 = io.f[0]
         for _r in range(nrow):
             tot: int32 = 0
@@ -325,6 +327,18 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
                 tot = tot + t
             out: float32 = sc
             if mode == M_LN:
+                # The **mean** of the squared deviations.  Gemmini runs its
+                # one divider a second time here -- `get_sum` ->
+                # `get_variance` -- and the square root sees `sum/count`.
+                # This site has its own divider where Gemmini shares one,
+                # because the two divides are on opposite sides of a
+                # reduction that the shared register loop lets it fold.
+                vmag: int32 = tot
+                vsgn: int32 = 1
+                if tot < 0:
+                    vmag = -tot
+                    vsgn = -1
+                tot = vsgn * (vmag // cnt)
                 # Gemmini's `IntSqrt`: restoring, two bits a step, sixteen
                 # steps for a 32-bit input, exact floor(sqrt(x)).  Written out
                 # rather than approximated through `sqrtf`, because the float
