@@ -91,13 +91,13 @@ def gemmini_cycles():
 
 def spmw_runs():
     rows = []
-    for log in sorted(glob.glob(f"{ROOT}/logs/sw_block*.log")) + \
-            sorted(glob.glob(f"{ROOT}/logs/spmw_block_*.log")):
+    for log in sorted(glob.glob(f"{ROOT}/logs/sw_block*.log")):
         if log.endswith(".done"):
             continue
         text = open(log, errors="replace").read()
         d = re.search(r"E8 BLOCK design: mode=(\d+) nrow=(\d+) len=(\d+) "
-                      r"nbeat=(\d+) nacc=(\d+)", text)
+                      r"nbeat=(\d+) nacc=(\d+)(?: tiles=(\d+) steps=(\d+))?",
+                      text)
         c = re.search(r"SPMW CYCLES total=(\d+) first_out=(\d+) first_in=(\d+)",
                       text)
         p = re.search(r"SPMW COSIM (PASS|FAIL).*?\((\d+)/(\d+) tokens, "
@@ -110,31 +110,33 @@ def spmw_runs():
         r = dict(engine="spmw", activation=name, dim=int(size.group(1)) if size else None,
                  nrow=int(d.group(2)), len=int(d.group(3)),
                  nbeat=int(d.group(4)), nacc=int(d.group(5)),
+                 tiles=int(d.group(6)) if d.group(6) else 4,
+                 depth=int(re.search(r"depth=(\d+)", text).group(1))
+                 if re.search(r"depth=(\d+)", text) else 2,
                  cycles=int(c.group(1)), first_out=int(c.group(2)),
                  passed=bool(p and p.group(1) == "PASS"),
                  errors=int(p.group(4)) if p else None,
                  log=os.path.basename(log))
         out = log.replace("/logs/", "/").replace(".log", "")
-        out = out.replace(f"{ROOT}/sw_", f"{ROOT}/sw_")
-        for cand in (out, out.replace(f"{ROOT}/spmw_", f"{ROOT}/spmw_")):
-            u = read_util(f"{cand}/pnr/util.rpt")
-            if not u:
-                u = read_util(f"{cand}/util.rpt")
+        for rpt in ("pnr/util.rpt", "util_pnr.rpt", "util.rpt"):
+            u = read_util(f"{out}/{rpt}")
             if u:
                 r.update(u)
-                r.update(read_wns(f"{cand}/pnr/timing.rpt")
-                         or read_wns(f"{cand}/timing.rpt"))
+                r.update(read_wns(f"{out}/{rpt.replace('util', 'timing')}"))
+                r["util_from"] = rpt
                 break
         rows.append(r)
     return rows
 
 
-def marginal(rows, key=("engine", "activation", "dim", "len")):
+def marginal(rows, key=("engine", "activation", "dim", "len", "depth")):
     """`(fixed, per_row)` from two row counts of the same configuration."""
     by = {}
     for r in rows:
         if r.get("nrow") is None or r.get("cycles") is None:
             continue
+        if r.get("tiles", 4) != 4:
+            continue   # the mesh-rate runs vary tiles, not rows
         by.setdefault(tuple(r.get(k) for k in key), []).append(r)
     out = []
     for k, rs in sorted(by.items(), key=lambda kv: [str(x) for x in kv[0]]):
@@ -173,7 +175,8 @@ def main():
 
     print()
     print("== cycles, as measured ==")
-    hdr = ("engine", "activation", "dim", "nrow", "len", "cycles", "passed")
+    hdr = ("engine", "activation", "dim", "nrow", "len", "nbeat", "tiles",
+           "depth", "cycles", "passed")
     print(" ".join(f"{h:>11s}" for h in hdr))
     for r in sorted(gc + sr, key=lambda r: (r["engine"], r["activation"],
                                             r.get("dim") or 0,
@@ -184,8 +187,8 @@ def main():
     print()
     print("== marginal cost of a normalisation row ==")
     m = marginal(gc + sr)
-    hdr = ("engine", "activation", "dim", "len", "beats", "per_row",
-           "per_beat", "lo_cycles", "hi_cycles")
+    hdr = ("engine", "activation", "dim", "len", "depth", "beats",
+           "per_row", "per_beat", "lo_cycles", "hi_cycles")
     print(" ".join(f"{h:>11s}" for h in hdr))
     for r in m:
         print(" ".join(f"{str(r.get(h, '')):>11s}" for h in hdr))

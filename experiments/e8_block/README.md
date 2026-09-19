@@ -115,24 +115,41 @@ matrix every tile.
   `interval_min == interval_max == 18` -- `S` activation rows and a two-cycle
   request handshake, the next tile's weights shifting in through `d` behind
   the current tile's, so the reload is free because it is overlapped.
-- **SPMW: 19.4.** A one-beat scale path so the mesh is what is measured, at
-  8, 16, 24 and 32 resident tiles: 322, 454, 621, 784 cycles. The fit is 19.4
-  a tile with 157 of fill, and the structure agrees -- 16 steps plus a file of
-  `dim * tiles/4` words loaded serially down each row, which is 4 a tile. The
-  load is a prologue, not overlapped, and that is the whole difference.
+- **SPMW: 20.6.** A one-beat scale path so the mesh is what is measured, at
+  8, 16, 24 and 32 resident tiles, in both multiply bindings:
+
+  | tiles | 8 | 16 | 24 | 32 |
+  |---|---:|---:|---:|---:|
+  | fabric | 322 | 454 | 621 | 784 |
+  | DSP | 423 | 484 | 653 | 815 |
+
+  The small-tile points are **not** mesh-bound: with one beat of scale path
+  the pipeline's own fill is 300 to 400 cycles and that is what they measure,
+  which is why the DSP binding, whose fill is larger, looks slower at 8 tiles
+  and faster per tile across all four. Fitting all four gives 19.4 and 16.8
+  and neither is the mesh. The 16-to-32 span, where the mesh does bind, gives
+  20.63 and 20.69 -- the bindings agree, and so does the structure: 16 steps
+  plus a weight file of `dim * tiles/4` words loaded serially down each row,
+  4 a tile. The load is a prologue where Gemmini's is overlapped, and that is
+  the whole difference.
 
 ### The block
 
 | | SPMW | Gemmini | |
 |---|---:|---:|---|
 | scale path | 15,232 | 37,376 | 2.45x SPMW |
-| mesh (12,800 tiles) | 248,320 | 230,400 | 1.08x Gemmini |
-| **total** | **263,552** | **267,776** | **1.02x** |
+| mesh (12,800 tiles) | 263,680 | 230,400 | 1.14x Gemmini |
+| **total** | **278,912** | **267,776** | **1.04x Gemmini** |
 
-**On cycles the two engines finish the block within two percent of each
-other.** SPMW is 2.45x on the scale path and Gemmini is 1.08x on the mesh, and
-since the mesh is 16x the work, the two nearly cancel. Leading with the 4.2x
-on LayerNorm would be picking the column that flatters.
+**On cycles the two engines finish the block within four percent of each
+other, and Gemmini is on the right side of it.** SPMW is 2.45x on the scale
+path and Gemmini is 1.14x on the mesh, and since the mesh is 17x the work the
+mesh wins. Leading with the 4.2x on LayerNorm would be picking the column
+that flatters.
+
+The cycle count is the same for both SPMW multiply bindings: the binding
+changes the pipeline's fill, not its rates. LayerNorm is 31 cycles a row
+either way (597 -> 721 against 497 -> 621), and so is the mesh.
 
 ## What it took to get SPMW there
 
@@ -158,15 +175,34 @@ Three measurements, in order, each of which changed the design:
 
 ## Resources and clock
 
-Out-of-context on `xcu280-fsvh2892-2L-e`.
+Out of context on `xcu280-fsvh2892-2L-e`, all three with **zero unrouted
+nets**, and all three checked by simulation before being routed.
 
-*(pending: the SPMW routes)*
+| | LUT | of which memory | FF | DSP | BRAM | period | clock |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Gemmini `MxuVpuNorm` | 71,389 | 645 | 21,474 | 500 | 0 | 29.029 ns | 34.4 MHz |
+| SPMW, DSP | 113,341 | 9,348 | 153,869 | 755 | 0 | **3.261 ns** | **306.7 MHz** |
+| SPMW, fabric | 233,725 | 5,087 | 170,759 | 83 | 0 | 3.852 ns | 259.6 MHz |
 
-**Gemmini closes at 29.0 ns -- 34 MHz -- and retiming does not move it.**
-The critical path is 107 logic levels and four chained DSP multiplies, from
-`norm/stats_0_state_reg` to the scale's output pipe, and it measured 29.7 ns
-at `latency = 1`, 29.0 ns at `latency = 4` with `synth_design -retiming` and
-`phys_opt_design -retime` on both sides of routing, and 29.0 ns again at
+**SPMW is routed twice because the binding that matches Gemmini changed.**
+E3's `MxuVpu` spent no DSPs, so SPMW's multiplies were bound to fabric to
+match it; this design's `MxuVpuNorm` spends **500**, because the hardfloat
+scale is a real multiplier per lane. So the DSP-allowed build is the
+like-for-like one and the fabric build is the other end of the same trade:
+2.1x the lookup tables to give back 672 multipliers, and 0.6 ns of period.
+
+Against Gemmini, the like-for-like SPMW build is **1.59x the lookup tables,
+1.51x the multipliers and 7.2x the registers.** The register gap is E3's and
+it is the composition model rather than this design: a handshaked FIFO on
+every link where Gemmini's systolic mesh has a bare register. At 16x16 E3
+measured 130,776 registers for the mesh alone against Gemmini's 18,675, so
+almost all of the 7.2x is already there before the scale path is added.
+
+**Gemmini closes at 29.0 ns and retiming does not move it.** The critical
+path is 107 logic levels and four chained DSP multiplies, from
+`norm/stats_0_state_reg` to the scale's output pipe: 29.7 ns at
+`latency = 1`, 29.0 ns at `latency = 4` with `synth_design -retiming` and
+`phys_opt_design -retime` on both sides of routing, 29.0 ns again at
 `latency = 8`. Two constraint periods, 4 ns and 5 ns, landed within 0.5 ns of
 each other, which is what a fixed combinational path looks like.
 
@@ -181,11 +217,29 @@ per-stage enables from a stall chain, which is why Vivado declines to retime
 across them.
 
 So this is a property of Gemmini's code rather than of its architecture, and
-it is fixable in about ten lines of Scala -- but fixing it means changing the
+fixable in about ten lines of Scala -- but fixing it means changing the
 baseline, so it is reported instead. E3's `MxuVpu`, the same design with
 normalizations off, closes at +0.245 ns at 3.333 ns: **the mesh is fine, and
 the clock is the price of putting the nonlinearities on device in Gemmini's
 own code.**
+
+## Time to finish the block
+
+| | cycles | period | time | |
+|---|---:|---:|---:|---|
+| Gemmini | 267,776 | 29.029 ns | 7.773 ms | |
+| SPMW, DSP | 278,912 | 3.261 ns | **0.910 ms** | 8.5x |
+| SPMW, fabric | 278,912 | 3.852 ns | 1.074 ms | 7.2x |
+
+**Almost all of that is the clock, and the clock is a porting artifact.** On
+cycles the two are within four percent and Gemmini is ahead. The honest
+summary is three separate statements, not one ratio:
+
+- **Architecture:** a tie on the mesh-dominated block, SPMW 2.45x on the
+  parts that reduce, Gemmini 1.14x on the mesh.
+- **Area:** Gemmini, by 1.6x on lookup tables and 7x on registers.
+- **Clock on an FPGA:** SPMW, by 8.9x, because HLS pipelines the float scale
+  to the target period and Chisel leaves it as written.
 
 ## Honest scope
 
