@@ -15,7 +15,7 @@ a row without recomputing the matmul. So this fabric has the same two disjoint
 pipelines Gemmini's scope does, and the host holds the accumulator for both:
 
     A, W, Pin  -> [16x16 mac mesh] -> Psum      (int32, to the accumulator)
-    Acc        -> [red1 -> stat1 -> red2 -> stat2 -> scl] -> Y   (int8)
+    Acc x3     -> [red1 -> stat1 -> red2 -> stat2 -> scl] -> Y   (int8)
 
 Comparing them is then like for like: neither side counts an SRAM the other
 one has.
@@ -62,18 +62,27 @@ def _log2(n):
     return bits
 
 
-def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
+def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2):
     """The mesh and the normalise/scale path, as one fabric.
 
     `nacc` is how many accumulator beats a launch carries and `nrow` how
     many logical rows they make up, so `nacc / nrow` is Gemmini's `len`
     divided by the mesh width.
 
-    `data_depth` is the depth of the links that carry a lane's data past the
-    stage that is still computing its scalar.  A `red2` lane cannot scale until
-    `stat1` has produced `mean`, which takes the whole row plus a divide, so
-    the row has to sit somewhere; in Gemmini it sits in the accumulator SRAM
-    and is read a second time.  Here it sits in the link.
+    Each of the three passes reads the accumulator for itself -- `Acc1`,
+    `Acc2`, `Acc3` are the same rows three times -- so no lane holds a row
+    while the stage ahead of it computes a scalar.  That is Gemmini's
+    discipline and not a simplification of it: its normaliser makes three
+    accumulator reads over a row, one to sum, one to accumulate the variance
+    against the mean, and one for the activated output.
+
+    Forwarding the row down the lanes instead was tried first, and it
+    **deadlocks**: a `red1` lane blocks on `d_out` before it reaches
+    `r_out`, so a full data link stalls the reduction chain, `stat1` never
+    sees the row's last value, the scalar never arrives and the data link
+    never drains.  Surviving it needs a link deeper than a row plus the
+    divider's 36 cycles -- past `BRAM_FIFO_DEPTH`, into block RAM, on 32
+    lanes -- to buy a pass Gemmini pays for anyway.
     """
     kw = tiles // 4
     if tiles % 4:
@@ -137,14 +146,12 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
 
     class Red1IO(spmw.Interface):
         d_in = spmw.In(int32, depth=link_depth)
-        d_out = spmw.Out(int32)
         r_in = spmw.In(int32, depth=link_depth)
         r_out = spmw.Out(int32)
         k = spmw.MemIn(int32[NK])
 
     class Red2IO(spmw.Interface):
-        d_in = spmw.In(int32, depth=data_depth)
-        d_out = spmw.Out(int32)
+        d_in = spmw.In(int32, depth=link_depth)
         r_in = spmw.In(int32, depth=link_depth)
         r_out = spmw.Out(int32)
         m_in = spmw.In(int32, depth=link_depth)
@@ -177,7 +184,6 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
         for _i in range(total):
             d: int32 = io.d_in.get()
             acc: int32 = io.r_in.get()
-            io.d_out.put(d)
             if mode == M_SM:
                 if d > acc:
                     acc = d
@@ -214,7 +220,6 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
                 io.m_out.put(m)
             d: int32 = io.d_in.get()
             acc: int32 = io.r_in.get()
-            io.d_out.put(d)
 
             v: int32 = 0
             if mode == M_LN:
@@ -352,7 +357,7 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
     # -- the scale lanes ----------------------------------------------------
 
     class SclIO(spmw.Interface):
-        d_in = spmw.In(int32, depth=data_depth)
+        d_in = spmw.In(int32, depth=link_depth)
         m_in = spmw.In(int32, depth=link_depth)
         m_out = spmw.Out(int32)
         v_in = spmw.In(float32, depth=link_depth)
@@ -471,7 +476,9 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
         W: int32[dim * kw + 1, dim],
         Pin: int32[outs, dim],
         Psum: int32[outs, dim],
-        Acc: int32[nacc, dim],
+        Acc1: int32[nacc, dim],
+        Acc2: int32[nacc, dim],
+        Acc3: int32[nacc, dim],
         Kr1: int32[dim, NK],
         Kr2: int32[dim, NK],
         Kst1: int32[1, NK],
@@ -509,18 +516,22 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
         (l1,) = R1.axes
         (l2,) = R2.axes
         (l3,) = V.axes
-        spmw.stream_in(Acc, into=R1.d_in, index=(..., l1))
+        # Three reads of the accumulator, one per pass, which is exactly
+        # what Gemmini's normaliser does: `NormCmd.SUM` then
+        # `INV_STDDEV` then the activated read, each an accumulator
+        # read of the same row.  The lanes hold nothing between them.
+        spmw.stream_in(Acc1, into=R1.d_in, index=(..., l1))
+        spmw.stream_in(Acc2, into=R2.d_in, index=(..., l2))
+        spmw.stream_in(Acc3, into=V.d_in, index=(..., l3))
         spmw.stream_in(Z1, into=R1.r_in, index=(...,))
         spmw.stream_in(Z2, into=R2.r_in, index=(...,))
         spmw.link(R1.r_out, to=S1.t_in)
-        spmw.link(R1.d_out, to=R2.d_in)
         # `mean`/`max` has two consumers -- the second reduction and the
         # scale -- so it goes down `red2`'s chain and out the far end into
         # the scale lanes' own chain, rather than being duplicated.
         spmw.link(S1.s_out, to=R2.m_in)
         spmw.link(R2.m_out, to=V.m_in)
         spmw.link(R2.r_out, to=S2.t_in)
-        spmw.link(R2.d_out, to=V.d_in)
         spmw.link(S2.v_out, to=V.v_in)
         spmw.gather(Tail, from_=V.m_out, index=(...,))
         spmw.gather(Vail, from_=V.v_out, index=(...,))

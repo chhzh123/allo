@@ -1000,6 +1000,13 @@ def cosim(graph, out, part, arrays, names, tolerance=None, per_transform=None):
             "tb",
             "-s",
             "tbsim",
+            # `xpm`: a link deeper than `BRAM_FIFO_DEPTH` lowers to
+            # `spmw_fifo_bram`, which instantiates `xpm_fifo_sync`.  Without
+            # the library xelab fails on the FIFO and then reports every
+            # arithmetic core in the design as "ignored due to previous
+            # errors", which points at the arithmetic and not at the link.
+            "-L",
+            "xpm",
             "-L",
             "floating_point_v7_1_16",
             "-L",
@@ -1076,6 +1083,10 @@ def main():
             "tpumicro-fixedt8",
             "tpumicro-deep",
             "tpumicro-reload",
+            "block",
+            "block-sm",
+            "block-gelu",
+            "block-none",
             "tpumicro-reloadw4",
             "tpumicro-reloadw8",
             "transformer",

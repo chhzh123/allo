@@ -9,20 +9,26 @@
 set -u
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 PERIOD=$1
-V=/scratch/hc676/e3_micro/gemmini/mxuvpunorm_out_16
-OUT=/scratch/hc676/e8_block/gem_pnr_${PERIOD/./p}
+TAG=${2:-}
+V=/scratch/hc676/e3_micro/gemmini/mxuvpunorm_out_16$TAG
+OUT=/scratch/hc676/e8_block/gem_pnr_${PERIOD/./p}${TAG}
 cd /scratch/hc676 || exit 2
 [ -f "$V/MxuVpuNorm.v" ] || { echo "NO_RTL in $V"; ls "$V" 2>/dev/null | head; exit 1; }
 rm -rf "$OUT"; mkdir -p "$OUT"
 cat > "$OUT/pnr.tcl" <<TCL
 foreach f [glob -nocomplain $V/*.v]  { read_verilog \$f }
 foreach f [glob -nocomplain $V/*.sv] { read_verilog -sv \$f }
-synth_design -top MxuVpuNorm -part xcu280-fsvh2892-2L-e -mode out_of_context
+# `-retiming`: `AccumulatorScale`'s activation and float scale are one
+# combinational cloud with a `Pipe` on its output, so the registers that
+# break it have to be moved backwards into it.  Without this the design
+# routes at 29.7 ns whatever the constraint.
+synth_design -top MxuVpuNorm -part xcu280-fsvh2892-2L-e -mode out_of_context -retiming
 create_clock -period $PERIOD -name clk [get_ports clock]
 opt_design
 place_design
-phys_opt_design
+phys_opt_design -retime
 route_design
+phys_opt_design -retime
 report_utilization -file util.rpt
 report_timing_summary -file timing.rpt
 puts "PNR_UNROUTED [llength [get_nets -filter {ROUTE_STATUS == UNROUTED} -quiet]]"

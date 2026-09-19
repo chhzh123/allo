@@ -27,7 +27,7 @@ class NormTag extends Bundle with TagQueueTag {
   * an `AccumulatorReadResp` plus `mean`, `max`, `inv_stddev` and `inv_sum_exp`
   * -- exactly `AccumulatorScale.io.in.bits`.
   */
-class MxuVpuNorm(val dim: Int) extends Module {
+class MxuVpuNorm(val dim: Int, val scaleLatency: Int = 4) extends Module {
   val inW = 8
   val accW = 32
   val fullDataType = Vec(dim, Vec(1, SInt(accW.W)))
@@ -82,9 +82,16 @@ class MxuVpuNorm(val dim: Int) extends Module {
   val norm = Module(new Normalizer(max_len = 1024, num_reduce_lanes = -1, num_stats = 2,
     latency = 4, fullDataType = fullDataType, scale_t = scale_t))
 
+  // `latency` does **not** break the scale's combinational path: in both of
+  // `AccumulatorScale`'s branches the activation, the int-to-float, the
+  // multiply-add and the float-to-int are one cloud, and `latency` is a
+  // `Pipe` on its output.  At `latency = 1` this routes with a 29.7 ns data
+  // path -- 107 logic levels and four chained DSP multiplies -- so the
+  // registers are there to be *retimed* backwards into the cloud, and the
+  // P&R script turns retiming on.  Four is Gemmini's own value.
   val vpu = Module(new AccumulatorScale(fullDataType, rDataType, scale_t,
     read_small_data = true, read_full_data = false,
-    scale_func = scale_func, num_scale_units = -1, latency = 1,
+    scale_func = scale_func, num_scale_units = -1, latency = scaleLatency,
     has_nonlinear_activations = true, has_normalizations = true))
 
   val io = IO(new Bundle {
@@ -92,6 +99,15 @@ class MxuVpuNorm(val dim: Int) extends Module {
     val b = Flipped(Decoupled(chiselTypeOf(mxu.io.b.bits)))
     val d = Flipped(Decoupled(chiselTypeOf(mxu.io.d.bits)))
     val req = Flipped(Decoupled(chiselTypeOf(mxu.io.req.bits)))
+    // The accumulator, which in Gemmini sits between these two and in this
+    // scope sits outside the module.  `mesh_out` is what the mesh writes to
+    // it; `acc_in` is the read that drives the normalise path.  They have to
+    // be separate ports: the normaliser makes three passes over a row and the
+    // second and third are accumulator reads, not recomputed matmuls -- and
+    // the mesh could not carry them anyway, its operand ports being 8 bits
+    // wide where an accumulator row is 32.
+    val acc_in = Flipped(Decoupled(chiselTypeOf(mxu.io.resp.bits.data)))
+    val mesh_out = Valid(chiselTypeOf(mxu.io.resp.bits.data))
     val scale = Input(scale_t.cloneType)
     val act = Input(UInt(Activation.bitwidth.W))
     val cmd = Input(NormCmd())
@@ -109,13 +125,12 @@ class MxuVpuNorm(val dim: Int) extends Module {
   mxu.io.req <> io.req
   dontTouch(mxu.io.tags_in_progress)
 
-  // One register stage stands in for the accumulator memory this scope leaves
-  // out; without it the scale path lands in the mesh's own output cycle.
-  val respValid = RegNext(mxu.io.resp.valid, false.B)
-  val respData = RegNext(mxu.io.resp.bits.data)
+  io.mesh_out.valid := mxu.io.resp.valid
+  io.mesh_out.bits := mxu.io.resp.bits.data
 
-  norm.io.in.valid := respValid
-  norm.io.in.bits.acc_read_resp.data := respData
+  norm.io.in.valid := io.acc_in.valid
+  io.acc_in.ready := norm.io.in.ready
+  norm.io.in.bits.acc_read_resp.data := io.acc_in.bits
   norm.io.in.bits.acc_read_resp.act := io.act
   norm.io.in.bits.acc_read_resp.scale := io.scale
   norm.io.in.bits.acc_read_resp.igelu_qb := io.igelu_qb
@@ -134,8 +149,10 @@ class MxuVpuNorm(val dim: Int) extends Module {
 
 object ElaborateMxuVpuNorm extends App {
   val dim = sys.env.getOrElse("MESH_DIM", "16").toInt
-  println("MXUVPUNORM_ELABORATE_START dim=" + dim)
-  (new ChiselStage).emitVerilog(new MxuVpuNorm(dim),
-    Array("--target-dir", "mxuvpunorm_out_" + dim))
-  println("MXUVPUNORM_ELABORATE_OK dim=" + dim)
+  val lat = sys.env.getOrElse("SCALE_LATENCY", "4").toInt
+  val tag = if (lat == 4) "" else "_l" + lat
+  println("MXUVPUNORM_ELABORATE_START dim=" + dim + " scaleLatency=" + lat)
+  (new ChiselStage).emitVerilog(new MxuVpuNorm(dim, lat),
+    Array("--target-dir", "mxuvpunorm_out_" + dim + tag))
+  println("MXUVPUNORM_ELABORATE_OK dim=" + dim + " scaleLatency=" + lat)
 }

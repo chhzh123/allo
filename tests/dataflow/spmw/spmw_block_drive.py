@@ -47,8 +47,9 @@ MODE_NAME = {M_NONE: "none", M_RELU: "relu", M_LN: "layernorm",
              M_GELU: "igelu", M_SM: "softmax"}
 NAME_MODE = {v: k for k, v in MODE_NAME.items()}
 
-SPMW_BLOCK_ORDER = ("A", "W", "Pin", "Psum", "Acc", "Kr1", "Kr2", "Kst1",
-                    "Kst2", "Fst2", "Kscl", "Z1", "Z2", "Tail", "Vail", "Y")
+SPMW_BLOCK_ORDER = ("A", "W", "Pin", "Psum", "Acc1", "Acc2", "Acc3",
+                    "Kr1", "Kr2", "Kst1", "Kst2", "Fst2", "Kscl", "Z1", "Z2",
+                    "Tail", "Vail", "Y")
 
 
 def site_consts(mode, nbeat, total, ln, qb, qc):
@@ -95,7 +96,9 @@ def launch_operands(dim, tiles, mode, nrow, ln, seed=0):
         A=A, W=W,
         Pin=np.zeros((outs, dim), dtype=np.int32),
         Psum=np.zeros((outs, dim), dtype=np.int32),
-        Acc=acc.reshape(nacc, dim).astype(np.int32),
+        Acc1=acc.reshape(nacc, dim).astype(np.int32),
+        Acc2=acc.reshape(nacc, dim).astype(np.int32),
+        Acc3=acc.reshape(nacc, dim).astype(np.int32),
         Kr1=np.tile(k_lane, (dim, 1)),
         Kr2=np.tile(k_lane, (dim, 1)),
         Kst1=k_stat.reshape(1, NK),
