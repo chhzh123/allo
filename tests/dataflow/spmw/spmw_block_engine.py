@@ -346,15 +346,20 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2,
         cnt: int32 = io.k[K_NLEN]
         for _r in range(nrow):
             x: int32 = io.x_in.get()
-            if mode == M_SM:
-                io.s_out.put(x)
-            else:
+            # Only LayerNorm wants a mean.  Softmax wants the maximum
+            # unchanged, and a pointwise activation wants neither -- putting
+            # them all through the divider measured **31 cycles a row** for
+            # IGELU where Gemmini's state machine, which skips the passes it
+            # does not need, takes 16.
+            if mode == M_LN:
                 mag: int32 = x
                 sgn: int32 = 1
                 if x < 0:
                     mag = -x
                     sgn = -1
                 io.s_out.put(sgn * (mag // cnt))
+            else:
+                io.s_out.put(x)
 
     @spmw.unit
     def sum2(io: Sum2IO):
