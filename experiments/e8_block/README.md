@@ -48,7 +48,7 @@ softmaxes, one GELU and four plain requantisations.
 | | Gemmini | SPMW |
 |---|---|---|
 | mesh | `MeshWithDelays`, WS, 16x16 | 256 `mac` cells, E3's verbatim |
-| statistics | `Normalizer`: 16 accumulation lanes, 16 max lanes, **one** divider, **one** `IntSqrt`, **one** reciprocal, a 15-state machine over two `Stats` banks | `red1`/`red2` (16 lanes each), `sum1`/`sca1`, `sum2`/`sca2` -- six sites, no state machine |
+| statistics | `Normalizer`: 16 accumulation lanes, 16 max lanes, **one** divider, **one** `IntSqrt`, **one** reciprocal, a 15-state machine over two `Stats` banks | two 16-lane reduce chains (`red1`, `red2`) and four scalar sites (`sum1`/`sca1`, `sum2`/`sca2`) -- **two** dividers, **one** integer square root, **one** float reciprocal, no state machine |
 | scale | `AccumulatorScale`, 16 units, float32 `scale_func` | 16 `scale` lanes, the same arithmetic |
 | activations | none, relu, layernorm, igelu, softmax | the same five, same encoding |
 
@@ -272,9 +272,12 @@ summary is three separate statements, not one ratio:
   counted, and SPMW reads it three times **concurrently** where Gemmini reads
   it three times in sequence -- SPMW needs three times the accumulator read
   ports for the same passes, which this scope does not charge it for.
-- The mesh rates (16 and 18 cycles a tile) are E3's, not re-measured here.
-  Both meshes are unchanged: SPMW's cell is E3's verbatim and Gemmini's is
-  the same `MeshWithDelays` at the same width.
+- Nothing in the tables is carried over from another experiment. The mesh
+  rates were re-measured on these two top levels because E3's pair is not
+  like for like, and the scale-path rates are all marginal costs from two
+  row counts each. The one thing taken from E3 is a *comparison* point --
+  `MxuVpu`'s +0.245 ns at 3.333 ns, to say the clock is the scale path's
+  fault and not the mesh's.
 - `iexp` is restored from the commented-out exponential in Gemmini's source.
   Shipped, its `iexp` is a copy of `igelu` and SOFTMAX is not a softmax;
   matching that bit-for-bit would make the workload not a transformer.
@@ -290,12 +293,18 @@ summary is three separate statements, not one ratio:
 - `gemmini/source/MxuVpuNorm.scala` -- the Gemmini top: mesh, `Normalizer`,
   `AccumulatorScale`, `acc_in`/`mesh_out`, and Gemmini's own `scale_func`
   copied verbatim rather than reimplemented.
-- `scripts/gem_norm_bench.py` -- the xsim bench. The `NormCmd` schedule is
-  built in Python and the Verilog is a player with no policy in it.
+- `scripts/gem_norm_bench.py` -- the xsim bench for the scale path. The
+  `NormCmd` schedule is built in Python and the Verilog is a player with no
+  policy in it.
+- `scripts/gem_mesh_bench.py` -- the xsim bench for the mesh, reading
+  `io_mesh_out` so the measurement is the mesh and nothing else.
 - `scripts/pnr_norm.sh` -- the out-of-context route, with retiming.
 - `scripts/block_workload.py` -- the block as tiles and rows; no measurements.
 - `scripts/block_totals.py` -- the totals, summed from measured rates.
 - `scripts/collect.py` -- every log and report into one table.
+- `results.csv` -- 59 rows: every route, every cycle run, every marginal rate.
+- `report/` -- the utilization and timing reports and the run logs behind
+  every number above.
 - `../../tests/dataflow/spmw/spmw_block_engine.py` -- the SPMW engine.
 - `../../tests/dataflow/spmw/spmw_block_ref.py` -- the shared reference.
 - `../../tests/dataflow/spmw/test_spmw_block.py` -- twelve tests.
