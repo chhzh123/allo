@@ -35,23 +35,34 @@ LIVE = """    import ev._
     val qp_iexp = q.mac(z_iexp, qln2).withWidthOf(q)
     val q_poly_iexp = qc.mac(qp_iexp + qb, qp_iexp + qb).withWidthOf(q)
     (q_poly_iexp.asUInt.do_>>(z_iexp_saturated.asUInt)).asTypeOf(q)
-  }
 """
 
 
 def main():
     path = sys.argv[1]
     src = open(path, encoding="utf-8").read()
+    before = src.count("{") - src.count("}")
     start = src.index("  def iexp[T <: Data]")
-    end = src.index("\n", src.index("  }}", start)) + 1
-    body = src[start:end]
-    if "/*" not in body:
+    header_end = src.index("{", start) + 1
+    # The body runs to the line that closes iexp. That line is `  }}` -- the
+    # second brace closes the enclosing object, and dropping it is exactly the
+    # corruption an earlier version of this script caused, which the Scala
+    # compiler reported as a missing brace nine lines earlier in the file. So
+    # the tail is matched and re-emitted verbatim rather than assumed.
+    m = re.search(r"\n(\s*\}\}?)\s*\n", src[header_end:])
+    if m is None:
+        sys.exit("could not find the end of iexp")
+    tail = m.group(1)
+    end = header_end + m.end()
+    if "/*" not in src[header_end:end]:
         print("iexp already restored; nothing to do")
         return 0
-    head = body[: body.index("{") + 1]
-    src = src[:start] + head + "\n" + LIVE + src[end:]
+    src = src[:header_end] + "\n" + LIVE.rstrip("\n") + "\n" + tail + "\n" + src[end:]
+    after = src.count("{") - src.count("}")
+    if before != after:
+        sys.exit(f"brace balance changed ({before} -> {after}); refusing to write")
     open(path, "w", encoding="utf-8").write(src)
-    print("restored the integer exponential in iexp")
+    print(f"restored the integer exponential in iexp (brace balance {after}, unchanged)")
     return 0
 
 
