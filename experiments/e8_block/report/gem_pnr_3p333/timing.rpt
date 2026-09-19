@@ -1,0 +1,615 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Sat Sep 19 05:44:45 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing_summary -file timing.rpt
+| Design            : MxuVpuNorm
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postRoute
+| Temperature Grade : E
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Summary Report
+
+------------------------------------------------------------------------------------------------
+| Timer Settings
+| --------------
+------------------------------------------------------------------------------------------------
+
+  Enable Multi Corner Analysis               :  Yes
+  Enable Pessimism Removal                   :  Yes
+  Pessimism Removal Resolution               :  Nearest Common Node
+  Enable Input Delay Default Clock           :  No
+  Enable Preset / Clear Arcs                 :  No
+  Disable Flight Delays                      :  No
+  Ignore I/O Paths                           :  No
+  Timing Early Launch at Borrowing Latches   :  No
+  Borrow Time for Max Delay Exceptions       :  Yes
+  Merge Timing Exceptions                    :  Yes
+  Inter-SLR Compensation                     :  Conservative
+
+  Corner  Analyze    Analyze    
+  Name    Max Paths  Min Paths  
+  ------  ---------  ---------  
+  Slow    Yes        Yes        
+  Fast    Yes        Yes        
+
+
+------------------------------------------------------------------------------------------------
+| Report Methodology
+| ------------------
+------------------------------------------------------------------------------------------------
+
+No report available as report_methodology has not been run prior. Run report_methodology on the current design for the summary of methodology violations.
+
+
+
+check_timing report
+
+Table of Contents
+-----------------
+1. checking no_clock (0)
+2. checking constant_clock (0)
+3. checking pulse_width_clock (0)
+4. checking unconstrained_internal_endpoints (0)
+5. checking no_input_delay (1092)
+6. checking no_output_delay (647)
+7. checking multiple_clock (0)
+8. checking generated_clocks (0)
+9. checking loops (0)
+10. checking partial_input_delay (0)
+11. checking partial_output_delay (0)
+12. checking latch_loops (0)
+
+1. checking no_clock (0)
+------------------------
+ There are 0 register/latch pins with no clock.
+
+
+2. checking constant_clock (0)
+------------------------------
+ There are 0 register/latch pins with constant_clock.
+
+
+3. checking pulse_width_clock (0)
+---------------------------------
+ There are 0 register/latch pins which need pulse_width check
+
+
+4. checking unconstrained_internal_endpoints (0)
+------------------------------------------------
+ There are 0 pins that are not constrained for maximum delay.
+
+ There are 0 pins that are not constrained for maximum delay due to constant clock.
+
+
+5. checking no_input_delay (1092)
+---------------------------------
+ There are 1092 input ports with no input delay specified. (HIGH)
+
+ There are 0 input ports with no input delay but user has a false path constraint.
+
+
+6. checking no_output_delay (647)
+---------------------------------
+ There are 647 ports with no output delay specified. (HIGH)
+
+ There are 0 ports with no output delay but user has a false path constraint
+
+ There are 0 ports with no output delay but with a timing clock defined on it or propagating through it
+
+
+7. checking multiple_clock (0)
+------------------------------
+ There are 0 register/latch pins with multiple clocks.
+
+
+8. checking generated_clocks (0)
+--------------------------------
+ There are 0 generated clocks that are not connected to a clock source.
+
+
+9. checking loops (0)
+---------------------
+ There are 0 combinational loops in the design.
+
+
+10. checking partial_input_delay (0)
+------------------------------------
+ There are 0 input ports with partial input delay specified.
+
+
+11. checking partial_output_delay (0)
+-------------------------------------
+ There are 0 ports with partial output delay specified.
+
+
+12. checking latch_loops (0)
+----------------------------
+ There are 0 combinational latch loops in the design through latch input
+
+
+
+------------------------------------------------------------------------------------------------
+| Design Timing Summary
+| ---------------------
+------------------------------------------------------------------------------------------------
+
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+    -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+    -25.375   -22545.654                   7346                38810        0.021        0.000                      0                38810        1.134        0.000                       0                 22263  
+
+
+Timing constraints are not met.
+
+
+------------------------------------------------------------------------------------------------
+| Clock Summary
+| -------------
+------------------------------------------------------------------------------------------------
+
+Clock  Waveform(ns)         Period(ns)      Frequency(MHz)
+-----  ------------         ----------      --------------
+clk    {0.000 1.666}        3.333           300.030         
+
+
+------------------------------------------------------------------------------------------------
+| Intra Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+-----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+clk               -25.375   -22545.654                   7346                38810        0.021        0.000                      0                38810        1.134        0.000                       0                 22263  
+
+
+------------------------------------------------------------------------------------------------
+| Inter Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Other Path Groups Table
+| -----------------------
+------------------------------------------------------------------------------------------------
+
+Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    ----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Timing Details
+| --------------
+------------------------------------------------------------------------------------------------
+
+
+---------------------------------------------------------------------------------------------------
+From Clock:  clk
+  To Clock:  clk
+
+Setup :         7346  Failing Endpoints,  Worst Slack      -25.375ns,  Total Violation   -22545.655ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.021ns,  Total Violation        0.000ns
+PW    :            0  Failing Endpoints,  Worst Slack        1.134ns,  Total Violation        0.000ns
+---------------------------------------------------------------------------------------------------
+
+
+Max Delay Paths
+--------------------------------------------------------------------------------------
+Slack (VIOLATED) :        -25.375ns  (required time - arrival time)
+  Source:                 norm/stats_0_state_reg[2]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            vpu/pipe_out_p/stages_0_resp_data_4_0_reg[3]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        28.690ns  (logic 15.810ns (55.106%)  route 12.880ns (44.894%))
+  Logic Levels:           100  (CARRY8=23 DSP_A_B_DATA=4 DSP_ALU=7 DSP_M_DATA=4 DSP_MULTIPLIER=4 DSP_OUTPUT=7 DSP_PREADD_DATA=4 LUT1=1 LUT2=5 LUT3=4 LUT4=6 LUT5=3 LUT6=28)
+  Clock Path Skew:        -0.008ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 3.353 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=22262, unset)        0.028     0.028    norm/clock
+    SLICE_X173Y170       FDRE                                         r  norm/stats_0_state_reg[2]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X173Y170       FDRE (Prop_AFF_SLICEL_C_Q)
+                                                      0.079     0.107 r  norm/stats_0_state_reg[2]/Q
+                         net (fo=84, routed)          0.102     0.209    norm/stats_0_state[2]
+    SLICE_X172Y170       LUT5 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090     0.299 r  norm/_activated_data_e_act_z_iexp_T_21_i_36/O
+                         net (fo=910, routed)         0.427     0.726    norm/_activated_data_e_act_z_iexp_T_21_i_36_n_0
+    SLICE_X169Y167       LUT3 (Prop_A6LUT_SLICEL_I2_O)
+                                                      0.035     0.761 r  norm/_activated_data_e_act_T_144__0_i_14/O
+                         net (fo=9, routed)           0.362     1.123    norm/io_out_bits_acc_read_resp_data_4_0[3]
+    SLICE_X181Y164       LUT4 (Prop_D6LUT_SLICEL_I3_O)
+                                                      0.122     1.245 r  norm/_activated_data_e_act_z_iexp_T_17__1_i_32/O
+                         net (fo=1, routed)           0.009     1.254    norm/_activated_data_e_act_z_iexp_T_17__1_i_32_n_0
+    SLICE_X181Y164       CARRY8 (Prop_CARRY8_SLICEL_S[3]_CO[7])
+                                                      0.154     1.408 r  norm/_activated_data_e_act_z_iexp_T_17__1_i_18/CO[7]
+                         net (fo=1, routed)           0.026     1.434    norm/_activated_data_e_act_z_iexp_T_17__1_i_18_n_0
+    SLICE_X181Y165       CARRY8 (Prop_CARRY8_SLICEL_CI_O[5])
+                                                      0.116     1.550 f  norm/_activated_data_e_act_z_iexp_T_17__1_i_19/O[5]
+                         net (fo=3, routed)           0.317     1.867    norm/vpu/_activated_data_e_act_T_152[13]
+    SLICE_X179Y167       LUT1 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.051     1.918 r  norm/_activated_data_e_act_z_iexp_T_17__1_i_5/O
+                         net (fo=1, routed)           0.022     1.940    norm/_activated_data_e_act_z_iexp_T_17__1_i_5_n_0
+    SLICE_X179Y167       CARRY8 (Prop_CARRY8_SLICEM_S[5]_CO[7])
+                                                      0.159     2.099 r  norm/_activated_data_e_act_z_iexp_T_17__1_i_1/CO[7]
+                         net (fo=1, routed)           0.026     2.125    norm/_activated_data_e_act_z_iexp_T_17__1_i_1_n_0
+    SLICE_X179Y168       CARRY8 (Prop_CARRY8_SLICEM_CI_O[0])
+                                                      0.056     2.181 f  norm/_activated_data_e_act_z_iexp_T_17_i_2/O[0]
+                         net (fo=1, routed)           0.226     2.407    vpu/_activated_data_e_act_z_iexp_T_17__1/A[16]
+    DSP48E2_X25Y61       DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_A[16]_A2_DATA[16])
+                                                      0.192     2.599 r  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_A_B_DATA_INST/A2_DATA[16]
+                         net (fo=1, routed)           0.000     2.599    vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_A_B_DATA.A2_DATA<16>
+    DSP48E2_X25Y61       DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_A2_DATA[16]_A2A1[16])
+                                                      0.076     2.675 r  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_PREADD_DATA_INST/A2A1[16]
+                         net (fo=1, routed)           0.000     2.675    vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_PREADD_DATA.A2A1<16>
+    DSP48E2_X25Y61       DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_A2A1[16]_U[36])
+                                                      0.505     3.180 f  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_MULTIPLIER_INST/U[36]
+                         net (fo=1, routed)           0.000     3.180    vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_MULTIPLIER.U<36>
+    DSP48E2_X25Y61       DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_U[36]_U_DATA[36])
+                                                      0.047     3.227 r  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_M_DATA_INST/U_DATA[36]
+                         net (fo=1, routed)           0.000     3.227    vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_M_DATA.U_DATA<36>
+    DSP48E2_X25Y61       DSP_ALU (Prop_DSP_ALU_DSP48E2_U_DATA[36]_ALU_OUT[47])
+                                                      0.585     3.812 f  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000     3.812    vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X25Y61       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122     3.934 r  vpu/_activated_data_e_act_z_iexp_T_17__1/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.038     3.972    vpu/_activated_data_e_act_z_iexp_T_17__2/PCIN[47]
+    DSP48E2_X25Y62       DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[13])
+                                                      0.546     4.518 f  vpu/_activated_data_e_act_z_iexp_T_17__2/DSP_ALU_INST/ALU_OUT[13]
+                         net (fo=1, routed)           0.000     4.518    vpu/_activated_data_e_act_z_iexp_T_17__2/DSP_ALU.ALU_OUT<13>
+    DSP48E2_X25Y62       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[13]_P[13])
+                                                      0.109     4.627 r  vpu/_activated_data_e_act_z_iexp_T_17__2/DSP_OUTPUT_INST/P[13]
+                         net (fo=2, routed)           0.288     4.915    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20[13]
+    SLICE_X178Y170       LUT2 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.089     5.004 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20__0_i_4/O
+                         net (fo=1, routed)           0.008     5.012    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20__0_i_4_n_0
+    SLICE_X178Y170       CARRY8 (Prop_CARRY8_SLICEL_S[6]_CO[7])
+                                                      0.115     5.127 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20__0_i_1/CO[7]
+                         net (fo=1, routed)           0.026     5.153    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20__0_i_1_n_0
+    SLICE_X178Y171       CARRY8 (Prop_CARRY8_SLICEL_CI_O[0])
+                                                      0.056     5.209 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_qp_iexp_T_20_i_2/O[0]
+                         net (fo=3, routed)           0.562     5.771    vpu/_activated_data_e_act_qp_iexp_T_20__0/A[16]
+    DSP48E2_X26Y60       DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_A[16]_A2_DATA[16])
+                                                      0.192     5.963 r  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_A_B_DATA_INST/A2_DATA[16]
+                         net (fo=1, routed)           0.000     5.963    vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_A_B_DATA.A2_DATA<16>
+    DSP48E2_X26Y60       DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_A2_DATA[16]_A2A1[16])
+                                                      0.076     6.039 r  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_PREADD_DATA_INST/A2A1[16]
+                         net (fo=1, routed)           0.000     6.039    vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_PREADD_DATA.A2A1<16>
+    DSP48E2_X26Y60       DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_A2A1[16]_U[36])
+                                                      0.505     6.544 f  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_MULTIPLIER_INST/U[36]
+                         net (fo=1, routed)           0.000     6.544    vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_MULTIPLIER.U<36>
+    DSP48E2_X26Y60       DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_U[36]_U_DATA[36])
+                                                      0.047     6.591 r  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_M_DATA_INST/U_DATA[36]
+                         net (fo=1, routed)           0.000     6.591    vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_M_DATA.U_DATA<36>
+    DSP48E2_X26Y60       DSP_ALU (Prop_DSP_ALU_DSP48E2_U_DATA[36]_ALU_OUT[47])
+                                                      0.585     7.176 f  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000     7.176    vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X26Y60       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122     7.298 r  vpu/_activated_data_e_act_qp_iexp_T_20__0/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.014     7.312    vpu/_activated_data_e_act_qp_iexp_T_20__1/PCIN[47]
+    DSP48E2_X26Y61       DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[3])
+                                                      0.546     7.858 f  vpu/_activated_data_e_act_qp_iexp_T_20__1/DSP_ALU_INST/ALU_OUT[3]
+                         net (fo=1, routed)           0.000     7.858    vpu/_activated_data_e_act_qp_iexp_T_20__1/DSP_ALU.ALU_OUT<3>
+    DSP48E2_X26Y61       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[3]_P[3])
+                                                      0.109     7.967 r  vpu/_activated_data_e_act_qp_iexp_T_20__1/DSP_OUTPUT_INST/P[3]
+                         net (fo=2, routed)           0.511     8.478    vpu/_activated_data_e_act_qp_iexp_T_20__1_n_102
+    SLICE_X181Y168       LUT2 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.099     8.577 r  vpu/_activated_data_e_act_q_poly_iexp_T_50_i_80/O
+                         net (fo=1, routed)           0.007     8.584    vpu/_activated_data_e_act_q_poly_iexp_T_50_i_80_n_0
+    SLICE_X181Y168       CARRY8 (Prop_CARRY8_SLICEL_S[4]_CO[7])
+                                                      0.153     8.737 r  vpu/_activated_data_e_act_q_poly_iexp_T_50_i_68/CO[7]
+                         net (fo=1, routed)           0.026     8.763    vpu/_activated_data_e_act_q_poly_iexp_T_50_i_68_n_0
+    SLICE_X181Y169       CARRY8 (Prop_CARRY8_SLICEL_CI_O[0])
+                                                      0.056     8.819 r  vpu/_activated_data_e_act_q_poly_iexp_T_50_i_67/O[0]
+                         net (fo=2, routed)           0.179     8.998    norm/_activated_data_e_act_qp_iexp_T_20__2[8]
+    SLICE_X180Y168       LUT3 (Prop_A5LUT_SLICEM_I2_O)
+                                                      0.139     9.137 r  norm/_activated_data_e_act_q_poly_iexp_T_50_i_10/O
+                         net (fo=2, routed)           0.356     9.493    norm/_activated_data_e_act_q_poly_iexp_T_50_i_10_n_0
+    SLICE_X180Y168       LUT4 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.100     9.593 r  norm/_activated_data_e_act_q_poly_iexp_T_50_i_18/O
+                         net (fo=1, routed)           0.016     9.609    norm/_activated_data_e_act_q_poly_iexp_T_50_i_18_n_0
+    SLICE_X180Y168       CARRY8 (Prop_CARRY8_SLICEM_S[1]_O[4])
+                                                      0.204     9.813 f  norm/_activated_data_e_act_q_poly_iexp_T_50_i_1/O[4]
+                         net (fo=2, routed)           0.368    10.181    vpu/_activated_data_e_act_q_poly_iexp_T_50/B[11]
+    DSP48E2_X25Y60       DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_B[11]_B2_DATA[11])
+                                                      0.151    10.332 r  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_A_B_DATA_INST/B2_DATA[11]
+                         net (fo=1, routed)           0.000    10.332    vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_A_B_DATA.B2_DATA<11>
+    DSP48E2_X25Y60       DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_B2_DATA[11]_B2B1[11])
+                                                      0.073    10.405 r  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_PREADD_DATA_INST/B2B1[11]
+                         net (fo=1, routed)           0.000    10.405    vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_PREADD_DATA.B2B1<11>
+    DSP48E2_X25Y60       DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_B2B1[11]_V[10])
+                                                      0.609    11.014 f  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_MULTIPLIER_INST/V[10]
+                         net (fo=1, routed)           0.000    11.014    vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_MULTIPLIER.V<10>
+    DSP48E2_X25Y60       DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_V[10]_V_DATA[10])
+                                                      0.046    11.060 r  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_M_DATA_INST/V_DATA[10]
+                         net (fo=1, routed)           0.000    11.060    vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_M_DATA.V_DATA<10>
+    DSP48E2_X25Y60       DSP_ALU (Prop_DSP_ALU_DSP48E2_V_DATA[10]_ALU_OUT[10])
+                                                      0.571    11.631 f  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_ALU_INST/ALU_OUT[10]
+                         net (fo=1, routed)           0.000    11.631    vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_ALU.ALU_OUT<10>
+    DSP48E2_X25Y60       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[10]_P[10])
+                                                      0.109    11.740 r  vpu/_activated_data_e_act_q_poly_iexp_T_50/DSP_OUTPUT_INST/P[10]
+                         net (fo=1, routed)           0.265    12.005    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_249_1[10]
+    SLICE_X179Y162       LUT2 (Prop_D6LUT_SLICEM_I1_O)
+                                                      0.051    12.056 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_319/O
+                         net (fo=1, routed)           0.025    12.081    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_319_n_0
+    SLICE_X179Y162       CARRY8 (Prop_CARRY8_SLICEM_S[3]_O[5])
+                                                      0.184    12.265 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_249/O[5]
+                         net (fo=2, routed)           0.360    12.626    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_q_poly_iexp_T_50__2[13]
+    SLICE_X182Y161       CARRY8 (Prop_CARRY8_SLICEM_DI[5]_O[7])
+                                                      0.107    12.733 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_176/O[7]
+                         net (fo=7, routed)           0.241    12.974    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_activated_data_e_act_q_poly_iexp_T_50__1[0]
+    SLICE_X183Y159       LUT6 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.099    13.073 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_mulAddResult_T_i_66/O
+                         net (fo=4, routed)           0.100    13.173    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_mulAddResult_T_i_66_n_0
+    SLICE_X184Y159       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.039    13.212 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_mulAddResult_T_i_40/O
+                         net (fo=4, routed)           0.295    13.507    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_mulAddResult_T_i_40_n_0
+    SLICE_X185Y160       LUT6 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.123    13.630 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/_roundedSig_T_2_carry_i_166/O
+                         net (fo=1, routed)           0.101    13.731    norm/_roundedSig_T_2_carry_i_33__6_0
+    SLICE_X185Y162       LUT6 (Prop_A6LUT_SLICEL_I5_O)
+                                                      0.124    13.855 r  norm/_roundedSig_T_2_carry_i_88/O
+                         net (fo=5, routed)           0.393    14.248    norm/vpu/activated_data_e_scaled_in_to_rec_fn_4/p_0_in[1]
+    SLICE_X188Y163       CARRY8 (Prop_CARRY8_SLICEL_S[0]_CO[7])
+                                                      0.190    14.438 r  norm/_roundedSig_T_2_carry_i_44__8/CO[7]
+                         net (fo=1, routed)           0.026    14.464    norm/_roundedSig_T_2_carry_i_44__8_n_0
+    SLICE_X188Y164       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015    14.479 r  norm/_roundedSig_T_2_carry_i_70__6/CO[7]
+                         net (fo=1, routed)           0.026    14.505    norm/_roundedSig_T_2_carry_i_70__6_n_0
+    SLICE_X188Y165       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015    14.520 r  norm/_roundedSig_T_2_carry_i_74__3/CO[7]
+                         net (fo=1, routed)           0.026    14.546    norm/_roundedSig_T_2_carry_i_74__3_n_0
+    SLICE_X188Y166       CARRY8 (Prop_CARRY8_SLICEL_CI_O[2])
+                                                      0.067    14.613 f  norm/_roundedSig_T_2_carry_i_55__6/O[2]
+                         net (fo=3, routed)           0.191    14.804    norm/vpu/activated_data_e_scaled_in_to_rec_fn_4/_intAsRawFloat_absIn_T_1[27]
+    SLICE_X189Y166       LUT5 (Prop_D5LUT_SLICEL_I4_O)
+                                                      0.133    14.937 f  norm/_roundedSig_T_2_carry_i_58__6/O
+                         net (fo=2, routed)           0.131    15.068    norm/_roundedSig_T_2_carry_i_58__6_n_0
+    SLICE_X189Y165       LUT6 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.148    15.216 f  norm/_roundedSig_T_2_carry_i_51__8/O
+                         net (fo=2, routed)           0.139    15.355    norm/_roundedSig_T_2_carry_i_51__8_n_0
+    SLICE_X190Y166       LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.089    15.444 r  norm/_roundedSig_T_2_carry_i_24__10/O
+                         net (fo=14, routed)          0.052    15.497    norm/_roundedSig_T_2_carry_i_24__10_n_0
+    SLICE_X190Y166       LUT4 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.099    15.596 r  norm/sExpAlignedProd__0_carry_i_23__5/O
+                         net (fo=29, routed)          0.232    15.828    norm/sExpAlignedProd__0_carry_i_23__5_n_0
+    SLICE_X191Y167       LUT6 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.052    15.880 r  norm/_roundedSig_T_2_carry_i_92__6/O
+                         net (fo=2, routed)           0.093    15.973    norm/_roundedSig_T_2_carry_i_92__6_n_0
+    SLICE_X191Y167       LUT6 (Prop_D6LUT_SLICEM_I5_O)
+                                                      0.037    16.010 r  norm/_roundedSig_T_2_carry_i_43__8/O
+                         net (fo=2, routed)           0.286    16.295    norm/_roundedSig_T_2_carry_i_43__8_n_0
+    SLICE_X192Y168       LUT6 (Prop_G6LUT_SLICEM_I5_O)
+                                                      0.090    16.385 r  norm/_roundedSig_T_2_carry_i_20__10/O
+                         net (fo=4, routed)           0.206    16.591    norm/_roundedSig_T_2_carry_i_20__10_n_0
+    SLICE_X194Y169       LUT3 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.100    16.691 r  norm/_roundedSig_T_2_carry_i_9__15/O
+                         net (fo=1, routed)           0.013    16.704    vpu/activated_data_e_scaled_in_to_rec_fn_4/roundAnyRawFNToRecFN/_mulAddResult_T[0]
+    SLICE_X194Y169       CARRY8 (Prop_CARRY8_SLICEM_S[0]_O[6])
+                                                      0.226    16.930 f  vpu/activated_data_e_scaled_in_to_rec_fn_4/roundAnyRawFNToRecFN/_roundedSig_T_2_carry/O[6]
+                         net (fo=1, routed)           0.234    17.164    norm/_roundedSig_T_2__44_48[6]
+    SLICE_X195Y170       LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.150    17.314 f  norm/_mulAddResult_T_i_10__6/O
+                         net (fo=1, routed)           0.256    17.570    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/B[7]
+    DSP48E2_X28Y63       DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_B[7]_B2_DATA[7])
+                                                      0.151    17.721 r  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_A_B_DATA_INST/B2_DATA[7]
+                         net (fo=1, routed)           0.000    17.721    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_A_B_DATA.B2_DATA<7>
+    DSP48E2_X28Y63       DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_B2_DATA[7]_B2B1[7])
+                                                      0.073    17.794 r  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_PREADD_DATA_INST/B2B1[7]
+                         net (fo=1, routed)           0.000    17.794    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_PREADD_DATA.B2B1<7>
+    DSP48E2_X28Y63       DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_B2B1[7]_V[37])
+                                                      0.609    18.403 f  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_MULTIPLIER_INST/V[37]
+                         net (fo=1, routed)           0.000    18.403    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_MULTIPLIER.V<37>
+    DSP48E2_X28Y63       DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_V[37]_V_DATA[37])
+                                                      0.046    18.449 r  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_M_DATA_INST/V_DATA[37]
+                         net (fo=1, routed)           0.000    18.449    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_M_DATA.V_DATA<37>
+    DSP48E2_X28Y63       DSP_ALU (Prop_DSP_ALU_DSP48E2_V_DATA[37]_ALU_OUT[47])
+                                                      0.571    19.020 f  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000    19.020    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X28Y63       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122    19.142 r  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.038    19.180    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T__0/PCIN[47]
+    DSP48E2_X28Y64       DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[3])
+                                                      0.546    19.726 f  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T__0/DSP_ALU_INST/ALU_OUT[3]
+                         net (fo=1, routed)           0.000    19.726    vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T__0/DSP_ALU.ALU_OUT<3>
+    DSP48E2_X28Y64       DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[3]_P[3])
+                                                      0.109    19.835 r  vpu/activated_data_e_scaled_muladder_4/_mulAddResult_T__0/DSP_OUTPUT_INST/P[3]
+                         net (fo=2, routed)           0.213    20.048    norm/_mulAddResult_T__1_77[20]
+    SLICE_X196Y175       LUT3 (Prop_E6LUT_SLICEM_I0_O)
+                                                      0.124    20.172 r  norm/io_rawOut_sExp_carry_i_89__10/O
+                         net (fo=1, routed)           0.014    20.186    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_48__10_0[4]
+    SLICE_X196Y175       CARRY8 (Prop_CARRY8_SLICEM_S[4]_CO[7])
+                                                      0.156    20.342 r  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_49__10/CO[7]
+                         net (fo=1, routed)           0.026    20.368    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_49__10_n_0
+    SLICE_X196Y176       CARRY8 (Prop_CARRY8_SLICEM_CI_O[1])
+                                                      0.076    20.444 r  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_52__10/O[1]
+                         net (fo=4, routed)           0.398    20.842    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul_io_mulAddResult[25]
+    SLICE_X197Y178       CARRY8 (Prop_CARRY8_SLICEM_S[1]_CO[7])
+                                                      0.190    21.032 r  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_51__10/CO[7]
+                         net (fo=1, routed)           0.026    21.058    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_51__10_n_0
+    SLICE_X197Y179       CARRY8 (Prop_CARRY8_SLICEM_CI_O[0])
+                                                      0.056    21.114 r  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_74__10/O[0]
+                         net (fo=4, routed)           0.175    21.289    vpu/activated_data_e_scaled_muladder_4/_notCDom_absSigSum_T_4[33]
+    SLICE_X198Y179       LUT6 (Prop_A6LUT_SLICEL_I1_O)
+                                                      0.098    21.387 r  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_47__14/O
+                         net (fo=2, routed)           0.228    21.615    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_47__14_n_0
+    SLICE_X197Y181       LUT4 (Prop_F6LUT_SLICEM_I1_O)
+                                                      0.088    21.703 f  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_21__10/O
+                         net (fo=4, routed)           0.148    21.851    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_21__10_n_0
+    SLICE_X197Y184       LUT5 (Prop_C5LUT_SLICEM_I0_O)
+                                                      0.137    21.988 f  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_30__10/O
+                         net (fo=2, routed)           0.173    22.161    vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_30__10_n_0
+    SLICE_X197Y184       LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.123    22.284 f  vpu/activated_data_e_scaled_muladder_4/io_rawOut_sExp_carry_i_18__10/O
+                         net (fo=130, routed)         0.223    22.506    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/io_rawOut_sExp_carry_3
+    SLICE_X196Y185       LUT2 (Prop_G6LUT_SLICEM_I1_O)
+                                                      0.037    22.543 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/io_rawOut_sExp_carry_i_5__10/O
+                         net (fo=2, routed)           0.166    22.709    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/DI[2]
+    SLICE_X196Y186       LUT4 (Prop_D6LUT_SLICEM_I3_O)
+                                                      0.051    22.760 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_preMul/io_rawOut_sExp_carry_i_12__10/O
+                         net (fo=1, routed)           0.025    22.785    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/S[3]
+    SLICE_X196Y186       CARRY8 (Prop_CARRY8_SLICEM_S[3]_O[7])
+                                                      0.187    22.972 f  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/io_rawOut_sExp_carry/O[7]
+                         net (fo=24, routed)          0.198    23.171    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/mulAddRecFNToRaw_postMul_io_rawOut_sExp[8]
+    SLICE_X197Y186       LUT2 (Prop_F5LUT_SLICEM_I1_O)
+                                                      0.166    23.337 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry_i_17__16/O
+                         net (fo=22, routed)          0.232    23.569    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry_i_17__16_n_0
+    SLICE_X197Y187       LUT6 (Prop_G6LUT_SLICEM_I1_O)
+                                                      0.123    23.692 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry__1_i_27__10/O
+                         net (fo=7, routed)           0.072    23.763    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry__1_i_27__10_n_0
+    SLICE_X197Y187       LUT6 (Prop_B6LUT_SLICEM_I0_O)
+                                                      0.125    23.888 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry__1_i_10__16/O
+                         net (fo=10, routed)          0.219    24.108    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_roundedSig_T_2_carry__1_i_10__16_n_0
+    SLICE_X198Y186       LUT6 (Prop_F6LUT_SLICEL_I5_O)
+                                                      0.148    24.256 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_293/O
+                         net (fo=1, routed)           0.097    24.353    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_293_n_0
+    SLICE_X198Y186       LUT6 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.124    24.477 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_215/O
+                         net (fo=2, routed)           0.202    24.678    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_215_n_0
+    SLICE_X198Y190       LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.150    24.828 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_132/O
+                         net (fo=4, routed)           0.101    24.930    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_132_n_0
+    SLICE_X199Y190       LUT6 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.051    24.981 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_70/O
+                         net (fo=13, routed)          0.177    25.158    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_70_n_0
+    SLICE_X196Y190       LUT6 (Prop_C6LUT_SLICEM_I4_O)
+                                                      0.037    25.195 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_242/O
+                         net (fo=2, routed)           0.075    25.270    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_242_n_0
+    SLICE_X196Y190       LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.150    25.420 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_189/O
+                         net (fo=31, routed)          0.317    25.737    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_189_n_0
+    SLICE_X199Y192       LUT6 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.148    25.885 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_186/O
+                         net (fo=4, routed)           0.214    26.099    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_186_n_0
+    SLICE_X201Y191       LUT6 (Prop_E6LUT_SLICEM_I1_O)
+                                                      0.091    26.190 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_74/O
+                         net (fo=6, routed)           0.283    26.473    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_74_n_0
+    SLICE_X204Y191       LUT6 (Prop_B6LUT_SLICEL_I0_O)
+                                                      0.098    26.571 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_147/O
+                         net (fo=1, routed)           0.139    26.710    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_147_n_0
+    SLICE_X205Y192       LUT6 (Prop_H6LUT_SLICEM_I3_O)
+                                                      0.101    26.811 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_55/O
+                         net (fo=1, routed)           0.141    26.952    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_55_n_0
+    SLICE_X204Y191       LUT6 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.123    27.075 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_10/O
+                         net (fo=1, routed)           0.159    27.234    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_10_n_0
+    SLICE_X204Y195       LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.124    27.358 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_2/O
+                         net (fo=68, routed)          0.140    27.498    norm/stages_0_resp_data_4_0_reg[7]
+    SLICE_X204Y193       LUT6 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.123    27.621 r  norm/stages_0_resp_data_4_0[7]_i_5/O
+                         net (fo=3, routed)           0.156    27.777    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0_reg[7]_1[6]
+    SLICE_X204Y194       LUT4 (Prop_A6LUT_SLICEL_I3_O)
+                                                      0.098    27.875 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[7]_i_119/O
+                         net (fo=1, routed)           0.184    28.059    norm/stages_0_resp_data_4_0_reg[7]_i_7[0]
+    SLICE_X203Y192       CARRY8 (Prop_CARRY8_SLICEL_DI[0]_CO[7])
+                                                      0.131    28.190 r  norm/stages_0_resp_data_4_0_reg[7]_i_34/CO[7]
+                         net (fo=1, routed)           0.026    28.216    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0_reg[0]_0[0]
+    SLICE_X203Y193       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[4])
+                                                      0.092    28.308 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0_reg[7]_i_7/CO[4]
+                         net (fo=8, routed)           0.237    28.545    vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/_activated_data_e_clipped_T_20
+    SLICE_X202Y196       LUT6 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.123    28.668 r  vpu/activated_data_e_scaled_muladder_4/mulAddRecFNToRaw_postMul/stages_0_resp_data_4_0[3]_i_1/O
+                         net (fo=1, routed)           0.050    28.718    vpu/pipe_out_p/stages_0_resp_data_4_0_reg[3]_0
+    SLICE_X202Y196       FDRE                                         r  vpu/pipe_out_p/stages_0_resp_data_4_0_reg[3]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=22262, unset)        0.020     3.353    vpu/pipe_out_p/clock
+    SLICE_X202Y196       FDRE                                         r  vpu/pipe_out_p/stages_0_resp_data_4_0_reg[3]/C
+                         clock pessimism              0.000     3.353    
+                         clock uncertainty           -0.035     3.318    
+    SLICE_X202Y196       FDRE (Setup_CFF_SLICEL_C_D)
+                                                      0.025     3.343    vpu/pipe_out_p/stages_0_resp_data_4_0_reg[3]
+  -------------------------------------------------------------------
+                         required time                          3.343    
+                         arrival time                         -28.718    
+  -------------------------------------------------------------------
+                         slack                                -25.375    
+
+
+
+
+
+Min Delay Paths
+--------------------------------------------------------------------------------------
+Slack (MET) :             0.021ns  (arrival time - required time)
+  Source:                 mxu/mesh/pipe_b_380_0_reg[6]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            mxu/mesh/mesh_12_7/tile_0_0/c1_reg[6]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (clk rise@0.000ns - clk rise@0.000ns)
+  Data Path Delay:        0.075ns  (logic 0.039ns (51.989%)  route 0.036ns (48.011%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.007ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.019ns
+    Source Clock Delay      (SCD):    0.012ns
+    Clock Pessimism Removal (CPR):    -0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=22262, unset)        0.012     0.012    mxu/mesh/clock
+    SLICE_X78Y11         FDRE                                         r  mxu/mesh/pipe_b_380_0_reg[6]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X78Y11         FDRE (Prop_CFF_SLICEL_C_Q)
+                                                      0.039     0.051 r  mxu/mesh/pipe_b_380_0_reg[6]/Q
+                         net (fo=2, routed)           0.036     0.087    mxu/mesh/mesh_12_7/tile_0_0/c2_reg[7]_1[6]
+    SLICE_X78Y10         FDRE                                         r  mxu/mesh/mesh_12_7/tile_0_0/c1_reg[6]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=22262, unset)        0.019     0.019    mxu/mesh/mesh_12_7/tile_0_0/clock
+    SLICE_X78Y10         FDRE                                         r  mxu/mesh/mesh_12_7/tile_0_0/c1_reg[6]/C
+                         clock pessimism              0.000     0.019    
+    SLICE_X78Y10         FDRE (Hold_HFF2_SLICEL_C_D)
+                                                      0.047     0.066    mxu/mesh/mesh_12_7/tile_0_0/c1_reg[6]
+  -------------------------------------------------------------------
+                         required time                         -0.066    
+                         arrival time                           0.087    
+  -------------------------------------------------------------------
+                         slack                                  0.021    
+
+
+
+
+
+Pulse Width Checks
+--------------------------------------------------------------------------------------
+Clock Name:         clk
+Waveform(ns):       { 0.000 1.666 }
+Period(ns):         3.333
+Sources:            { clock }
+
+Check Type        Corner  Lib Pin     Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location      Pin
+Min Period        n/a     SRL16E/CLK  n/a            1.064         3.333       2.269      SLICE_X74Y89  mxu/RegShifted_10_0_reg[0]_srl10/CLK
+Low Pulse Width   Slow    SRL16E/CLK  n/a            0.532         1.667       1.135      SLICE_X74Y89  mxu/RegShifted_10_0_reg[0]_srl10/CLK
+High Pulse Width  Slow    SRL16E/CLK  n/a            0.532         1.666       1.134      SLICE_X74Y89  mxu/RegShifted_10_0_reg[0]_srl10/CLK
+
+
+

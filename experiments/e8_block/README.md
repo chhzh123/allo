@@ -6,6 +6,28 @@ checked bit-for-bit against the same third thing. The question is what the two
 composition models cost when the workload includes the parts a matrix engine
 is usually excused from: LayerNorm, softmax and GELU.
 
+## The answer, in three statements
+
+One ratio would mislead, so there are three. Everything below is measured on
+both engines at 16x16, bit-exact against the same reference.
+
+| | SPMW | Gemmini | |
+|---|---:|---:|---|
+| **cycles** for the block | 278,912 | 267,776 | Gemmini, by 1.04x |
+| **lookup tables** | 113,341 | 71,389 | Gemmini, by 1.59x |
+| **registers** | 153,869 | 21,474 | Gemmini, by 7.2x |
+| **multipliers** | 755 | 500 | Gemmini, by 1.51x |
+| **clock on a U280** | 306.7 MHz | 34.8 MHz | SPMW, by 8.8x |
+| time to finish | 0.910 ms | 7.687 ms | SPMW, by 8.5x |
+
+The time column is almost entirely the clock, and the clock is a porting
+artifact rather than an architectural result -- Gemmini's scale path is one
+combinational cloud by construction, which is fine on an ASIC and is not
+here. It is reported rather than fixed, because fixing it means changing the
+baseline. The cycle column is the architectural comparison, and there SPMW is
+**2.45x on the parts that reduce** -- LayerNorm and softmax -- and 1.14x
+behind on the mesh, which is 17x the work.
+
 ## The workload
 
 A small BERT layer -- 64 tokens, 256 model width, 4 heads, a feed-forward of
