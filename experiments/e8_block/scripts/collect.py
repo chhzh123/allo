@@ -139,7 +139,8 @@ def spmw_runs():
     return rows
 
 
-def marginal(rows, key=("engine", "activation", "dim", "len", "depth")):
+def marginal(rows,
+             key=("engine", "activation", "dim", "len", "depth", "bind_mul")):
     """`(fixed, per_row)` from two row counts of the same configuration."""
     by = {}
     for r in rows:
@@ -198,15 +199,20 @@ def main():
     print()
     print("== marginal cost of a normalisation row ==")
     m = marginal(gc + sr)
-    hdr = ("engine", "activation", "dim", "len", "depth", "beats",
-           "per_row", "per_beat", "lo_cycles", "hi_cycles")
+    hdr = ("engine", "activation", "dim", "len", "depth", "bind_mul",
+           "beats", "per_row", "per_beat", "lo_cycles", "hi_cycles")
     print(" ".join(f"{h:>11s}" for h in hdr))
     for r in m:
         print(" ".join(f"{str(r.get(h, '')):>11s}" for h in hdr))
 
     if a.csv:
+        # An SPMW run that was routed is both a cycle measurement and a
+        # place-and-route one, and it is written as both: tagging it only
+        # `cycles` hid the two SPMW area rows from anything filtering on
+        # `kind == "pnr"`.
         rows = ([dict(r, kind="pnr") for r in gp] +
                 [dict(r, kind="cycles") for r in gc + sr] +
+                [dict(r, kind="pnr") for r in sr if "lut" in r] +
                 [dict(r, kind="marginal") for r in m])
         keys = sorted({k for r in rows for k in r})
         with open(a.csv, "w", newline="") as f:
