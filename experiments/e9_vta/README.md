@@ -137,8 +137,12 @@ over SPMW and 3.0x over VTA:
 
 ### Why VTA is `4S + 1` on a workload it fully supports
 
-Not the mesh -- its GEMM is the *fastest* of the three at 16.0 cycles a tile
-on its own. It is the epilogue:
+Not the mesh. On the GEMM alone VTA and SPMW **tie at 16.0 cycles a tile**,
+which is the arithmetic floor -- a 16x16x16 tile is 4,096 multiplies and the
+array does 256 a cycle -- and Gemmini is 18.0, two over, for its per-tile
+request handshake. VTA has no throughput advantage over a systolic array; it
+has no weight-load fill and no inter-tile handshake, which is worth 0 and 2
+cycles respectively. What costs it `4S + 1` is the epilogue:
 
     16  GEMM
   + 16  ALU pass: max, the ReLU
@@ -192,9 +196,19 @@ Gemmini's 73** at every width. That splits as:
 
 | | FF a cell | |
 |---|---:|---|
-| the links | ~144 | a handshaked `spmw_fifo` on each of `a` (int8), `p` (int32) and `w` (int32), depth 2 |
-| the cell body | ~367 | HLS's four-stage pipeline for a streaming multiply-add, plus its loop control |
-| Gemmini's PE, for scale | 73 | two double-buffered weight registers, one partial sum, a mux |
+| the links | ~150 | a depth-2 `spmw_fifo` on each of `a` (int8), `p` (int32) and `w` (int32): `2 x (8+32+32)` bits of storage plus valid bits |
+| the cell body | ~360 | the remainder -- HLS's four-stage pipeline for a streaming multiply-add, its loop counter, the resident weight file, and the load-phase state machine |
+| Gemmini's PE, for scale | 73 | two double-buffered weight registers, a multiply-add, a mux |
+
+(The link figure is computed from the FIFO's structure, which is exact; the
+cell body is the remainder, not an independent measurement.)
+
+**So replacing the handshake with a bare register is not the lever it looks
+like.** A depth-2 slice holds two entries where a register holds one, so the
+best case halves the link storage -- about 75 flip-flops a cell, 17% of the
+438 excess. The other 83% is the cell body, and no change to the link touches
+it. What attacks both at once is fusion: `f` cells in one unit is `1/f` the
+pipelines *and* `1/f` the links.
 
 The lookup-table ratio is far gentler -- 363 against 125, 2.9x -- so **the
 gap is registers, and the registers are the composition model**: one
@@ -252,9 +266,14 @@ builds the micro-op sequences. But it prices the gap instead of asserting it.
 
 | engine | cycles per 16x16x16 tile | why |
 |---|---:|---|
-| **VTA** | **16.0** | reads the whole 16x16 weight matrix from a scratchpad every cycle |
-| Gemmini | 18.0 | 16 activation rows plus a two-cycle request handshake, weights double-buffered into the PEs |
-| SPMW | 20.6 | 16 steps plus a serial weight-file load down each row |
+| **VTA** | **16.0** | reads the whole 16x16 weight matrix from a scratchpad every cycle -- no load to amortise |
+| **SPMW**, reload | **16.0** | 16 steps, the next tile's weights shifted in behind the arithmetic |
+| Gemmini | 18.0 | 16 rows plus a two-cycle request handshake |
+| SPMW, file | 20.6 | 16 steps plus a serial weight-file load, proportional to the tile count |
+
+16.0 is the floor -- 4,096 multiplies a tile at 256 a cycle -- so VTA and
+SPMW's reload form are both *at* it and Gemmini is two over. Nobody is beating
+a systolic array here.
 
 VTA's is exactly 16.0, at 16, 32 and 64 tiles -- 258, 514, 1026 cycles, two of
 fill. It wins because it is **not weight-stationary**: `TensorGemm` has 256
