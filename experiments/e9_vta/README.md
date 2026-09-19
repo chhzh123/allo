@@ -8,45 +8,57 @@ block.
 
 ## The answer
 
+**On the part of this block VTA was built for, it wins.** It is the smallest
+of the three and its GEMM is the fastest, and the comparison should lead with
+that rather than with what it lacks.
+
 | | VTA | Gemmini | SPMW |
 |---|---:|---:|---:|
-| **cycles for the block** | **210,944** | 267,776 | 278,912 |
-| ...but elements sent to the host | **114,688** | 0 | 0 |
+| cycles, GEMM + requantisation | **210,944** | 236,544 | 210,944 |
 | lookup tables | **26,403** | 71,389 | 113,341 |
 | registers | **5,991** | 21,474 | 153,869 |
 | multipliers | **0** | 500 | 755 |
-| block RAM | 0 | 0 | 0 |
 | clock | 300.5 MHz | 34.8 MHz | **306.7 MHz** |
-| time for what it runs | **0.702 ms** | 7.687 ms | 0.910 ms |
 
-**VTA is the smallest and its GEMM is the fastest, and it cannot run more than
-half of this block.** Those are the same fact: what it leaves out is what
-makes it small.
+The block then also wants two LayerNorms, four softmaxes and an IGELU, and
+**VTA has no datapath for them.** That is a scope difference and not a
+defect: VTA is a quantised-CNN accelerator, and its four ALU opcodes are
+named `minpool`, `maxpool`, `add` and `shift` -- the operation set a
+convolution network needs. LayerNorm, softmax and GELU postdate it.
 
-## What VTA cannot do, and why it is structural
+So the honest reading of this experiment is not "VTA is worse". It is:
+**the nonlinearities are what Gemmini's 500 multipliers and 34.8 MHz clock,
+and SPMW's extra 15,232 cycles and 87,000 lookup tables, are buying** -- and
+VTA is what the same mesh costs without them.
 
-`TensorAlu`'s entire operation set is **`min`, `max`, `add`, `shr`** -- five
-opcodes in the Chisel, four in the HLS. There is **no multiplier in the unit
-at all**, no divide, no square root, no exponential.
+### How far out of reach, exactly
 
-So of the block's eleven scale-path passes:
+Not equally, and the earlier version of this file was too blunt in saying
+114,688 elements "go to the host". Separating them:
 
-| pass | needs | VTA |
-|---|---|---|
-| 4 requantisations | an arithmetic shift | **yes**, `shr` |
-| (a ReLU, if the block had one) | max against zero | **yes**, `max` |
-| 2 LayerNorms | a divide, an integer square root, a reciprocal, a multiply | no |
-| 4 softmaxes | `iexp` -- three multiplies and a variable shift -- and a reciprocal | no |
-| 1 IGELU | `igelu` -- three multiplies | no |
+| pass | elements | on VTA |
+|---|---:|---|
+| 4 requantisations | 98,304 | **runs**, `shift` |
+| 4 softmaxes | 16,384 | **impossible** |
+| 1 IGELU | 65,536 | **impossible** |
+| 2 LayerNorms | 32,768 | expressible at a penalty |
 
-That is **7 of 11 passes and 114,688 of 212,992 elements**, 54% of the scale
-path, that has to cross to the host and back. This experiment does not
-estimate what that costs, because the cost depends on an interconnect nothing
-here measures; it reports the volume and stops.
+`iexp` and `igelu` are second-order polynomials **of each element**, so every
+element needs its own square. The GEMM cannot square a vector elementwise --
+that needs a diagonal built from the data, and building it needs a multiply
+VTA does not have. Those two are genuinely out of reach: **81,920 elements**.
 
-The comparison is therefore not "VTA is faster". It is: **VTA finishes the
-GEMM and the requantisations in 0.702 ms and then stops, and the rest of the
-block is somewhere else.** Gemmini and SPMW finish the whole thing.
+LayerNorm is different. Its sum is an ALU `add`; its sum of squared
+deviations is a vector dotted with itself, which is exactly what the GEMM
+computes if the deviations are int8; its two per-row scalars are 128 values
+for the whole block, cheap anywhere; and the final elementwise scale can go
+through the GEMM as a diagonal matrix, at roughly 16x the work. So it is
+awkward and slow rather than impossible, and this experiment did not build
+it -- the row is left empty rather than guessed at.
+
+Where the unsupported work actually runs is outside this experiment. VTA's
+own stack partitions the graph and gives unsupported operators to the host,
+but nothing here measures that, so no transfer cost is claimed.
 
 ## The mesh, measured on all three
 

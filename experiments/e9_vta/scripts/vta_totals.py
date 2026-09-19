@@ -6,10 +6,12 @@ counted against the same 12,800 mesh tiles and the same eleven scale-path
 passes.
 
 The difference VTA makes to the table is not a number, it is a column that
-cannot be filled. `TensorAlu` computes `min`, `max`, `add` and `shr` and has
-no multiplier at all, so LayerNorm, softmax and IGELU are not slow on VTA --
-they are absent. What it can do is the plain requantisation, which is an
-arithmetic shift, and a ReLU, which is a max against zero.
+cannot be filled -- and that is a **scope** difference, not a defect. VTA is
+a quantised-CNN accelerator: its four ALU opcodes are named `minpool`,
+`maxpool`, `add` and `shift`, which is the operation set a convolution
+network needs. A transformer block is outside what it was built for, and on
+the part of this block that *is* CNN-shaped -- the GEMM and the
+requantisations -- it is the fastest and the smallest of the three.
 """
 
 import os
@@ -33,6 +35,11 @@ PER_ROW = {
     "gemmini": {("layernorm", 16): 130, ("softmax", 4): 41,
                 ("igelu", 16): 16, ("igelu", 64): 64,
                 ("none", 16): 16, ("none", 48): 48},
+    # `None` means VTA has no datapath for the pass.  The three are not
+    # equally out of reach, and the README separates them: softmax and IGELU
+    # are **impossible** on this datapath, LayerNorm is expressible at a
+    # penalty.  Both are marked `None` here because neither is a rate this
+    # experiment measured.
     "vta":     {("layernorm", 16): None, ("softmax", 4): None,
                 ("igelu", 16): None, ("igelu", 64): None,
                 ("none", 16): 16, ("none", 48): 48},
@@ -83,14 +90,29 @@ def main():
     print(f"{'mesh':10s}{'':25s}" +
           "".join(f"{round(tiles * PER_TILE[e]):>12,d}" for e in engines))
     print(f"{'total':10s}{'':25s}" + "".join(f"{total[e]:>12,d}" for e in engines))
-    print(f"{'off chip':10s}{'':25s}" +
-          "".join(f"{offchip[e]:>12,d}" for e in engines) + "   elements")
+    # "no datapath", not "off chip": where the work runs when the engine
+    # cannot do it is not something this experiment measures.
+    print(f"{'no unit':10s}{'':25s}" +
+          "".join(f"{offchip[e]:>12,d}" for e in engines) +
+          "   elements with no datapath")
+
+    # The subset all three engines can actually run -- the GEMM and the
+    # requantisations -- which is the only row where the three are doing the
+    # same work, and so the only one a ratio means anything on.
+    common = {e: round(tiles * PER_TILE[e]) for e in engines}
+    for name, (act, nrow, beats) in rows.items():
+        if all(PER_ROW[e][(act, beats)] is not None for e in engines):
+            for e in engines:
+                common[e] += nrow * PER_ROW[e][(act, beats)]
+    print(f"\n{'common':10s}{'':25s}" +
+          "".join(f"{common[e]:>12,d}" for e in engines) +
+          "   GEMM + requantisation, the part all three run")
 
     print()
     for e in engines:
         p = PERIOD_NS[e]
         note = "" if not offchip[e] else \
-            f"  + {offchip[e]:,} elements on the host"
+            f"  + {offchip[e]:,} elements with no datapath"
         if p:
             print(f"  {e:8s} {total[e]:9,d} cycles x {p:6.3f} ns = "
                   f"{total[e] * p / 1e6:7.3f} ms{note}")
