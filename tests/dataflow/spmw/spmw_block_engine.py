@@ -529,3 +529,32 @@ def block_engine(dim=16, tiles=4, nacc=64, nrow=4, link_depth=2, data_depth=64):
     engine.spmw_bind_mul_fabric = os.environ.get("SPMW_BIND_MUL", "1") != "0"
     engine.spmw_shape = dict(dim=dim, tiles=tiles, outs=outs, nacc=nacc, nrow=nrow)
     return engine
+
+
+# -- the measured configurations ---------------------------------------------
+#
+# One engine, three launches.  The RTL does not depend on which activation a
+# launch runs -- the mode is a constant in the lane's memory, exactly as
+# Gemmini's is a CSR field -- so the resource numbers come from one build and
+# the cycle numbers from one cosimulation per activation.
+
+
+def block_of(size, mode=None, nrow=4, ln=None, seed=0):
+    """The block engine with a launch's operands attached, for the array build.
+
+    `ln` defaults to the block's own row lengths: 256 for LayerNorm, which is
+    `d_model`; 64 for softmax, which is the sequence length; and 256 for the
+    pointwise activations, where the row length only sets how often the scalar
+    chain turns over.
+    """
+    from spmw_block_drive import SPMW_BLOCK_ORDER, launch_operands
+
+    mode = M_LN if mode is None else mode
+    ln = (64 if mode == M_SM else 256) if ln is None else ln
+    nacc = nrow * (ln // size)
+    eng = block_engine(dim=size, tiles=4, nacc=nacc, nrow=nrow)
+    ops, want, _ = launch_operands(size, 4, mode, nrow, ln, seed)
+    eng.spmw_operands = {n: ops[n] for n in SPMW_BLOCK_ORDER if n != "Y"}
+    eng.spmw_tokens_per_transform = nacc * size
+    eng.spmw_block = dict(mode=mode, nrow=nrow, ln=ln, nacc=nacc, expected=want)
+    return eng

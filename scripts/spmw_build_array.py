@@ -312,6 +312,22 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_fixed import LINK_DEEP, micro_fixed_of
 
         return micro_fixed_of(size, link_depth=LINK_DEEP)
+    if name.startswith("block"):
+        # E8's transformer-block engine: E3's mesh plus the normalise and
+        # scale path, with LayerNorm, softmax and IGELU on device.  The RTL
+        # does not depend on which activation a launch runs -- the mode is a
+        # constant in the lane's memory, as Gemmini's is a CSR field -- so one
+        # build gives the resources and one cosimulation per activation gives
+        # the cycles.  `block`, `block-sm`, `block-gelu`, `block-none`.
+        from spmw_block_drive import NAME_MODE
+        from spmw_block_engine import block_of
+
+        suffix = name[len("block"):].lstrip("-")
+        alias = {"": "layernorm", "ln": "layernorm", "sm": "softmax",
+                 "gelu": "igelu", "none": "none", "relu": "relu"}
+        if suffix not in alias:
+            raise SystemExit(f"unknown block variant {name!r}")
+        return block_of(size, mode=NAME_MODE[alias[suffix]])
     if name == "tpumicro-fixed":
         # The same workload and the same operands on a fixed-function datapath:
         # no instruction fetch in the cell, no program in the lane, the clip a

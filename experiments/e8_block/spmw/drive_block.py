@@ -7,11 +7,11 @@ import sys
 import numpy as np
 
 import allo.spmw as spmw
-from block_engine import (
+from spmw_block_engine import (
     block_engine, NK, NF, K_MODE, K_NBEAT, K_TOTAL, K_QB, K_QC, K_QLN2,
     K_QLN2I, K_NLEN, M_NONE, M_RELU, M_LN, M_GELU, M_SM,
 )
-from block_ref import norm_path
+from spmw_block_ref import norm_path
 
 #: The quantisation, and the constants that follow from it.  See `block_spec`.
 S_ACT = 0.03
