@@ -30,12 +30,31 @@ PER_ROW = {
                 ("none", 16): 16, ("none", 48): 48},
 }
 
-#: Cycles for one 16x16x16 mesh operation in the steady state, from E3, where
-#: both meshes were measured on the same tiled int8 GEMM at the same width.
-#: The mesh is unchanged on both sides here -- SPMW's cell is E3's verbatim and
-#: Gemmini's is the same `MeshWithDelays` -- so these carry over, and they are
-#: the one pair of numbers in this table that E8 did not re-measure.
-PER_TILE = {"spmw": 16, "gemmini": 18}
+#: Cycles for one 16x16x16 mesh operation in the steady state, **measured
+#: here**, on these two top levels, with the weights changing every tile.
+#:
+#: Gemmini: `gem_mesh_bench.py` drives `MeshWithDelays` through `MxuVpuNorm`
+#: and reads `io_mesh_out`, the raw int32 result before the scale path.
+#: Sixteen tiles, sixteen different weight matrices, zero wrong rows,
+#: `interval_min == interval_max == 18`.  That is `S` rows of activations and
+#: a two-cycle request handshake, with the *next* tile's weights shifting in
+#: through `d` behind the current tile's activations -- the reload is free
+#: because it is overlapped.
+#:
+#: SPMW: a one-beat scale path so the mesh is what is measured, at 8, 16, 24
+#: and 32 resident tiles -- 322, 454, 621, 784 cycles.  A least-squares fit
+#: gives **19.4 cycles a tile** with 157 of fixed fill, and the structure says
+#: the same: 16 steps plus a weight file of `dim * tiles/4` words loaded
+#: serially down each row, which is `4 * tiles` cycles, or 4 a tile.
+#:
+#: **SPMW's 16-cycle interval and Gemmini's 18 are not the same measurement**,
+#: and E3 says so: SPMW's excludes the weight reload because the file is
+#: resident, Gemmini's includes one it overlaps.  Comparing them directly is
+#: the mistake E4 made with DSP binding, in the other direction.  The numbers
+#: below are the like-for-like pair -- both with a new weight matrix every
+#: tile -- and on that footing Gemmini's mesh is 1.08x faster, not 1.12x
+#: slower.
+PER_TILE = {"spmw": 19.4, "gemmini": 18.0}
 
 #: Achieved period, from place and route on `xcu280-fsvh2892-2L-e`.
 PERIOD_NS = {"spmw": None, "gemmini": 29.029}
@@ -51,7 +70,7 @@ def totals(engine):
         c = nrow * PER_ROW[engine][key]
         rows.append((name, act, nrow, beats, PER_ROW[engine][key], c))
         norm += c
-    gemm = sum(gemm_tiles().values()) * PER_TILE[engine]
+    gemm = round(sum(gemm_tiles().values()) * PER_TILE[engine])
     return rows, gemm, norm
 
 
@@ -79,7 +98,7 @@ def main():
     print(f"{'scale path':10s} {'':11s} {'':5s} {'':6s} {'':9s} {sn:9,d} "
           f"{'':8s} {gn:9,d}   {gn / sn:.2f}x")
     print(f"{'mesh':10s} {'':11s} {'':5s} {'':6s} "
-          f"{PER_TILE['spmw']:9d} {sg:9,d} {PER_TILE['gemmini']:8d} "
+          f"{PER_TILE['spmw']:9.1f} {sg:9,d} {PER_TILE['gemmini']:8.1f} "
           f"{gg:9,d}   {gg / sg:.2f}x")
     print(f"{'total':10s} {'':11s} {'':5s} {'':6s} {'':9s} "
           f"{sn + sg:9,d} {'':8s} {gn + gg:9,d}   {(gn + gg) / (sn + sg):.2f}x")

@@ -658,14 +658,19 @@ def block_of(size, mode=None, nrow=None, ln=None, seed=0):
     # are measured at two row counts and the difference taken -- and the fill
     # is not separable any other way.
     nrow = int(os.environ.get("E8_NROW", "4")) if nrow is None else nrow
+    # `E8_TILES` varies the mesh's work while the scale path's stays fixed,
+    # which is how the mesh's own rate is separated: the two pipelines share
+    # no channel, so the marginal cost of a tile is the mesh's alone.
+    tiles = int(os.environ.get("E8_TILES", "4"))
     ln = int(os.environ.get("E8_LEN", "0")) or ln
     ln = (64 if mode == M_SM else 256) if not ln else ln
     nacc = nrow * (ln // size)
-    eng = block_engine(dim=size, tiles=4, nacc=nacc, nrow=nrow)
-    ops, want, _ = launch_operands(size, 4, mode, nrow, ln, seed)
+    eng = block_engine(dim=size, tiles=tiles, nacc=nacc, nrow=nrow)
+    ops, want, _ = launch_operands(size, tiles, mode, nrow, ln, seed)
     eng.spmw_operands = {n: ops[n] for n in SPMW_BLOCK_ORDER if n != "Y"}
     eng.spmw_tokens_per_transform = nacc * size
     eng.spmw_block = dict(mode=mode, nrow=nrow, ln=ln, nacc=nacc, expected=want)
     print(f"E8 BLOCK design: mode={mode} nrow={nrow} len={ln} "
-          f"nbeat={ln // size} nacc={nacc}")
+          f"nbeat={ln // size} nacc={nacc} tiles={tiles} "
+          f"steps={tiles * size}")
     return eng

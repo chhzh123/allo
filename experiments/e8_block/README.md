@@ -100,16 +100,39 @@ about 84 is scalar latency. Two statistics banks give it two-way overlap and
 no more. SPMW's are unrolled into separate sites that pipeline, which is the
 trade the fabric makes everywhere: more of the thing, running at once.
 
-Summed over the block, with the mesh at E3's measured rates for the same two
-meshes at the same width -- the one pair of numbers E8 did not re-measure:
+### The mesh, measured here, like for like
+
+E3 reports SPMW's mesh at an interval of 16 against Gemmini's 18 and says
+plainly why the pair is not comparable: **SPMW's excludes the weight reload
+because the whole file is resident, and Gemmini's includes one it overlaps.**
+Quoting those two numbers side by side would be E4's DSP mistake in the other
+direction, so both were re-measured on these two top levels with a new weight
+matrix every tile.
+
+- **Gemmini: 18.0.** `gem_mesh_bench.py` drives `MeshWithDelays` through
+  `MxuVpuNorm` and reads `io_mesh_out`, the raw int32 before the scale path.
+  Sixteen tiles, sixteen different weight matrices, zero wrong rows,
+  `interval_min == interval_max == 18` -- `S` activation rows and a two-cycle
+  request handshake, the next tile's weights shifting in through `d` behind
+  the current tile's, so the reload is free because it is overlapped.
+- **SPMW: 19.4.** A one-beat scale path so the mesh is what is measured, at
+  8, 16, 24 and 32 resident tiles: 322, 454, 621, 784 cycles. The fit is 19.4
+  a tile with 157 of fill, and the structure agrees -- 16 steps plus a file of
+  `dim * tiles/4` words loaded serially down each row, which is 4 a tile. The
+  load is a prologue, not overlapped, and that is the whole difference.
+
+### The block
 
 | | SPMW | Gemmini | |
 |---|---:|---:|---|
-| scale path | 15,232 | 37,376 | 2.45x |
-| mesh (12,800 tiles) | 204,800 | 230,400 | 1.12x |
-| **total** | **220,032** | **267,776** | **1.22x** |
+| scale path | 15,232 | 37,376 | 2.45x SPMW |
+| mesh (12,800 tiles) | 248,320 | 230,400 | 1.08x Gemmini |
+| **total** | **263,552** | **267,776** | **1.02x** |
 
-The mesh dominates by 14x, so the scale path's 2.45x becomes 1.22x overall.
+**On cycles the two engines finish the block within two percent of each
+other.** SPMW is 2.45x on the scale path and Gemmini is 1.08x on the mesh, and
+since the mesh is 16x the work, the two nearly cancel. Leading with the 4.2x
+on LayerNorm would be picking the column that flatters.
 
 ## What it took to get SPMW there
 
