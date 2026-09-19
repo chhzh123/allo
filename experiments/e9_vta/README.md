@@ -162,6 +162,63 @@ one, two and three passes over 256 rows, 1.03 cycles a row each.
 The bias is free on all three and nobody is charged for it: Gemmini and SPMW
 fold it into the epilogue, VTA preloads the accumulator.
 
+## Where the area gap comes from
+
+A 3.5x lookup-table and 22x register gap between SPMW and VTA needs an
+account. Normalising by the 256 multiply-accumulates each of them performs:
+
+| S | | LUT / MAC | | | FF / MAC | |
+|---:|---|---:|---:|---:|---:|---:|
+| | | VTA | Gemmini | SPMW | | |
+| 4 | | 195 | 133 | 364 | 80 / 86 / 473 | |
+| 8 | | 130 | 126 | 358 | 47 / 75 / 502 | |
+| 16 | | 103 | 125 | 363 | **23 / 73 / 511** | |
+
+Two different effects, and only one of them is about tooling.
+
+**VTA against Gemmini is a dataflow difference, and it grows with size.**
+VTA's per-MAC registers *fall* -- 80, 47, 23 -- because its
+`MatrixVectorMultiplication` is a **combinational adder tree between two
+memories**: no MAC holds state, and what registers exist are a fixed overhead
+(accumulator pipes, the index generator) amortised over `S^2` multipliers.
+Gemmini's stay flat at 73-86 because it is a **systolic array**: every PE
+holds its own weight and partial sum, so the cost is per cell and never
+amortises. At S=4 they are within 1.1x; at S=16 it is 3.1x, and it would keep
+growing.
+
+**Gemmini against SPMW is the composition model, and it is flat.** Both are
+systolic, both pay per cell, and SPMW's cell is **511 flip-flops against
+Gemmini's 73** at every width. That splits as:
+
+| | FF a cell | |
+|---|---:|---|
+| the links | ~144 | a handshaked `spmw_fifo` on each of `a` (int8), `p` (int32) and `w` (int32), depth 2 |
+| the cell body | ~367 | HLS's four-stage pipeline for a streaming multiply-add, plus its loop control |
+| Gemmini's PE, for scale | 73 | two double-buffered weight registers, one partial sum, a mux |
+
+The lookup-table ratio is far gentler -- 363 against 125, 2.9x -- so **the
+gap is registers, and the registers are the composition model**: one
+independent HLS IP per cell joined by handshakes, where Gemmini writes three
+registers and a wire.
+
+### The three are points on one spectrum
+
+The fix for the flat part is fewer, larger units: fuse `f` cells into one HLS
+unit and you divide the pipeline count and the link count by `f`. Carried to
+`f = S` that *is* VTA -- one unit, no links, a combinational tree. So the
+three designs are not three implementations of one architecture, they are
+three points on a fusion spectrum:
+
+    VTA        f = S    one unit, no inter-cell links, cost amortises
+    Gemmini    f = 1    per-cell state, but a bare register between cells
+    SPMW       f = 1    per-cell state, and a handshaked FIFO between cells
+
+SPMW is at the unfused end with the most expensive link, which is exactly
+where its numbers land. `spmw.place` declares `fold` and `unroll` for this
+and `driver.py` raises `SPMWPlacementError` for both, so the middle of the
+spectrum is not reachable today -- and that, rather than anything about the
+arithmetic, is what the 7x is.
+
 ## What the missing capability actually costs
 
 "VTA cannot" is not a useful end point. The useful question is what it would
