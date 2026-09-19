@@ -60,6 +60,35 @@ Where the unsupported work actually runs is outside this experiment. VTA's
 own stack partitions the graph and gives unsupported operators to the host,
 but nothing here measures that, so no transfer cost is claimed.
 
+## What the missing capability actually costs
+
+"VTA cannot" is not a useful end point. The useful question is what it would
+cost VTA to be able to, and that is measurable: VTA already has a **variable**
+shift -- `io.a >> n`, shifting by the operand, not an immediate -- so for
+I-BERT's `iexp` and `igelu` the **only** missing primitive is a multiply.
+
+`scripts/patch_vta_alu.py` adds one opcode to `TensorAlu`, guarded by
+`VTA_ALU_MUL` so the baseline elaborates untouched, and routes it the same way:
+
+| | LUT | FF | DSP | CLB | WNS | clock |
+|---|---:|---:|---:|---:|---:|---:|
+| `TensorAlu` | 4,805 | 1,681 | 0 | 852 | +0.346 | 334.8 MHz |
+| ...with a multiply | 5,763 | 1,681 | **48** | 1,048 | **+1.127** | **453.2 MHz** |
+| cost | **+958** | 0 | +48 | +196 | | |
+
+**One opcode -- 958 lookup tables and 48 multipliers, 3.6% of VTA's
+26,403-lookup-table datapath -- is what stands between it and computing
+softmax and GELU on chip.** Not a register more, and the clock *improves*,
+because the multiply lands in DSPs and takes work off the lookup-table path
+that was setting the critical path before. Both variants route with zero
+unrouted nets.
+
+Set against what the other two spend for the same capability -- Gemmini's 500
+DSPs and its 34.8 MHz clock, SPMW's extra 87,000 lookup tables -- that is the
+number this experiment is actually for. It does not make VTA able to run the
+block: LayerNorm still needs a square root and a reciprocal, and nothing here
+builds the micro-op sequences. But it prices the gap instead of asserting it.
+
 ## The mesh, measured on all three
 
 | engine | cycles per 16x16x16 tile | why |
