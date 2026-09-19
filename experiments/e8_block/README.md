@@ -180,7 +180,7 @@ nets**, and all three checked by simulation before being routed.
 
 | | LUT | of which memory | FF | DSP | BRAM | period | clock |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Gemmini `MxuVpuNorm` | 71,389 | 645 | 21,474 | 500 | 0 | 29.029 ns | 34.4 MHz |
+| Gemmini `MxuVpuNorm` | 71,389 | 645 | 21,474 | 500 | 0 | 28.708 ns | 34.8 MHz |
 | SPMW, DSP | 113,341 | 9,348 | 153,869 | 755 | 0 | **3.261 ns** | **306.7 MHz** |
 | SPMW, fabric | 233,725 | 5,087 | 170,759 | 83 | 0 | 3.852 ns | 259.6 MHz |
 
@@ -198,13 +198,16 @@ every link where Gemmini's systolic mesh has a bare register. At 16x16 E3
 measured 130,776 registers for the mesh alone against Gemmini's 18,675, so
 almost all of the 7.2x is already there before the scale path is added.
 
-**Gemmini closes at 29.0 ns and retiming does not move it.** The critical
-path is 107 logic levels and four chained DSP multiplies, from
-`norm/stats_0_state_reg` to the scale's output pipe: 29.7 ns at
-`latency = 1`, 29.0 ns at `latency = 4` with `synth_design -retiming` and
-`phys_opt_design -retime` on both sides of routing, 29.0 ns again at
-`latency = 8`. Two constraint periods, 4 ns and 5 ns, landed within 0.5 ns of
-each other, which is what a fixed combinational path looks like.
+**Gemmini closes at 28.7 ns and retiming does not move it.** Four routes,
+all within 1.6 ns of each other: 29.8 ns at `latency = 1` constrained at
+4 ns, 30.3 ns at 5 ns, and with `synth_design -retiming` plus
+`phys_opt_design -retime` on both sides of routing, **28.7 ns** at
+`latency = 4` and 29.1 ns at `latency = 8`. The critical path is the same
+one every time -- 107 logic levels and four chained DSP multiplies, from
+`norm/stats_0_state_reg` to the scale's output pipe -- and a constraint that
+moves by 1.7 ns while the result moves by 1.6 ns is what a fixed
+combinational path looks like. 28.7 ns is Gemmini's best and is the number
+used below.
 
 The reason is exact. `AccumulatorScale` computes the activation, the
 int-to-float, the float multiply-add, the float-to-int and the clip in **one
@@ -227,7 +230,7 @@ own code.**
 
 | | cycles | period | time | |
 |---|---:|---:|---:|---|
-| Gemmini | 267,776 | 29.029 ns | 7.773 ms | |
+| Gemmini | 267,776 | 28.708 ns | 7.687 ms | |
 | SPMW, DSP | 278,912 | 3.261 ns | **0.910 ms** | 8.5x |
 | SPMW, fabric | 278,912 | 3.852 ns | 1.074 ms | 7.2x |
 
@@ -238,7 +241,7 @@ summary is three separate statements, not one ratio:
 - **Architecture:** a tie on the mesh-dominated block, SPMW 2.45x on the
   parts that reduce, Gemmini 1.14x on the mesh.
 - **Area:** Gemmini, by 1.6x on lookup tables and 7x on registers.
-- **Clock on an FPGA:** SPMW, by 8.9x, because HLS pipelines the float scale
+- **Clock on an FPGA:** SPMW, by 8.8x, because HLS pipelines the float scale
   to the target period and Chisel leaves it as written.
 
 ## Honest scope

@@ -102,12 +102,17 @@ def spmw_runs():
                       text)
         p = re.search(r"SPMW COSIM (PASS|FAIL).*?\((\d+)/(\d+) tokens, "
                       r"(\d+) errors\)", text)
-        size = re.search(r"--size (\d+)", text)
+        # The width and the multiply binding come from the tag: the build's
+        # own output does not echo its command line.
+        tag = os.path.basename(log)[len("sw_"):-len(".log")]
+        size = re.search(r"_(\d+)_r\d+_l\d+", tag)
+        bind = 0 if "_m0" in tag else 1
         if not (d and c):
             continue
         name = {0: "none", 1: "relu", 2: "layernorm", 3: "igelu",
                 4: "softmax"}[int(d.group(1))]
-        r = dict(engine="spmw", activation=name, dim=int(size.group(1)) if size else None,
+        r = dict(engine="spmw", design="block", bind_mul=bind,
+                 activation=name, dim=int(size.group(1)) if size else None,
                  nrow=int(d.group(2)), len=int(d.group(3)),
                  nbeat=int(d.group(4)), nacc=int(d.group(5)),
                  tiles=int(d.group(6)) if d.group(6) else 4,
@@ -123,6 +128,11 @@ def spmw_runs():
             if u:
                 r.update(u)
                 r.update(read_wns(f"{out}/{rpt.replace('util', 'timing')}"))
+                # The array build constrains 300 MHz unless told otherwise.
+                r["period_ns"] = 3.333
+                if "wns_ns" in r:
+                    r["achieved_ns"] = round(3.333 - r["wns_ns"], 3)
+                    r["achieved_mhz"] = round(1000 / r["achieved_ns"], 1)
                 r["util_from"] = rpt
                 break
         rows.append(r)
@@ -164,8 +174,9 @@ def main():
     gp, gc, sr = gemmini_pnr(), gemmini_cycles(), spmw_runs()
 
     print("== place and route ==")
-    hdr = ("engine", "design", "dim", "scale_latency", "period_ns", "lut",
-           "ff", "dsp", "bram", "wns_ns", "achieved_ns", "achieved_mhz")
+    hdr = ("engine", "design", "dim", "bind_mul", "scale_latency",
+           "period_ns", "lut", "ff", "dsp", "bram", "wns_ns", "achieved_ns",
+           "achieved_mhz")
     print(" ".join(f"{h:>13s}" for h in hdr))
     for r in gp:
         print(" ".join(f"{str(r.get(h, '')):>13s}" for h in hdr))

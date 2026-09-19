@@ -70,7 +70,9 @@ PER_TILE = {"spmw": 20.6, "gemmini": 18.0}
 #: DSPs, so SPMW's multiplies were bound to fabric to match; this design's
 #: `MxuVpuNorm` spends 500, so the DSP-allowed build is the like-for-like one
 #: and the fabric build is the other end of the same trade.
-PERIOD_NS = {"spmw": 3.261, "spmw_fabric": 3.852, "gemmini": 29.029}
+#: Gemmini's best of four routes: `latency = 4`, retimed, constrained at
+#: 3.333 ns, WNS -25.375.  The other three land within 1.6 ns of it.
+PERIOD_NS = {"spmw": 3.261, "spmw_fabric": 3.852, "gemmini": 28.708}
 
 
 def totals(engine):
