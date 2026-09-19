@@ -113,13 +113,20 @@ module tb;
     $readmemh("want.dat", want);
     repeat (8) @(posedge clk);
     rst = 0; @(posedge clk);
-    start = 1; @(posedge clk); start = 0;
-    for (i = 0; i < NROW * 200 + 20000; i = i + 1) begin
+    // Each pass is its own instruction: VTA's ALU does one opcode over a
+    // range, so a requantise followed by a clamp is two instructions, and
+    // the instruction queue runs them in order -- `Compute.scala` asserts
+    // the GEMM and the ALU never fetch a micro-op in the same cycle.
+    for (j = 0; j < %(npass)d; j = j + 1) begin
+      start = 1; @(posedge clk); start = 0;
+      for (i = 0; i < NROW * 200 + 20000; i = i + 1) begin
+        @(posedge clk);
+        if (done) i = NROW * 200 + 20000;
+      end
       @(posedge clk);
-      if (done) i = NROW * 200 + 20000;
     end
     repeat (8) @(posedge clk);
-    for (i = 0; i < NROW; i = i + 1)
+    for (i = 0; i < NROW && %(npass)d == 1; i = i + 1)
       for (j = 0; j < DIM; j = j + 1)
         if (accm[i][j] !== want[i][j]) begin
           if (errs < 8)
@@ -127,8 +134,8 @@ module tb;
                      i, j, $signed(accm[i][j]), $signed(want[i][j]));
           errs = errs + 1;
         end
-    $display("VTAALU RESULT rows=%%0d errs=%%0d cycles=%%0d first_in=%%0d last_wr=%%0d",
-             NROW, errs, (last_wr - first_in), first_in, last_wr);
+    $display("VTAALU RESULT rows=%%0d passes=%%0d errs=%%0d cycles=%%0d first_in=%%0d last_wr=%%0d",
+             NROW, %(npass)d, errs, (last_wr - first_in), first_in, last_wr);
     $display("VTAALU %%s", (errs == 0) ? "PASS" : "FAIL");
     $finish;
   end
@@ -139,6 +146,9 @@ endmodule
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", type=int, default=256)
+    ap.add_argument("--passes", type=int, default=1,
+                    help="chained ALU instructions; VTA has no fused "
+                         "shift-and-clamp, so a requantise plus a ReLU is two")
     ap.add_argument("--shift", type=int, default=8)
     ap.add_argument("--rtl",
                     default="/scratch/hc676/vta/hardware/chisel/vta_out_TensorAlu")
@@ -149,6 +159,7 @@ def main():
         sys.exit(f"rows must be a multiple of {DIM}")
     global TB
     TB = TB.replace("%(nrow_div)d", str(a.rows // DIM))
+    TB = TB.replace("%(npass)d", str(a.passes))
     emit(a.rows, a.shift, a.out)
     print(f"VTAALU BENCH rows={a.rows} shift={a.shift} -> {a.out}")
     if not a.run:

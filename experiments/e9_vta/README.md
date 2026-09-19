@@ -60,6 +60,55 @@ Where the unsupported work actually runs is outside this experiment. VTA's
 own stack partitions the graph and gives unsupported operators to the host,
 but nothing here measures that, so no transfer cost is claimed.
 
+## The fair comparison: one workload all three natively run
+
+Comparing on a transformer block favours the two engines built for one.
+E3's microbenchmark does not: a tiled int8 GEMM with bias, ReLU, a
+requantising shift and a clip to int8, all on device. Every operation in it
+is inside VTA's `minpool / maxpool / add / shift` ALU, so nobody is being
+asked to do something their ISA has no word for -- and Gemmini and SPMW were
+already measured on it, against a shared stimulus file and a shared golden.
+
+VTA runs it **bit-exact** (`scripts/vta_micro_bench.py`, 16 tiles, 0 errors
+against the same `stim_S16.txt`), and here is the three-way result at 16x16:
+
+| | cycles / tile | LUT | FF | DSP | slack |
+|---|---:|---:|---:|---:|---:|
+| SPMW, fixed | **16** | 92,880 | 130,776 | 0 | +0.468 |
+| Gemmini `MxuVpu` | 18 | 31,932 | 18,675 | 0 | +0.245 |
+| VTA | 65 | **26,403** | **5,991** | 0 | +0.005 |
+
+**A clean performance/area trade, and the three engines sit on it in order.**
+SPMW is fastest and largest, VTA is smallest and slowest by 4x, Gemmini is
+between them on both.
+
+### Why VTA is 4x slower on a workload it fully supports
+
+Not the mesh -- its GEMM is the *fastest* of the three at 16.0 cycles a
+tile. It is the epilogue, and the reason is architectural:
+
+    VTA, per tile   16  GEMM
+                  + 16  ALU pass: max, the ReLU
+                  + 16  ALU pass: shr, the requantise
+                  + 16  ALU pass: min, the clip to 127
+                  ----
+                    65  measured 1050 cycles for 16 tiles
+
+**VTA's ALU is a load-store unit over the accumulator scratchpad: one opcode
+per instruction, one pass over the data each.** Gemmini folds bias, ReLU,
+shift and clip into `AccumulatorScale` on the output path and SPMW folds them
+into its scale lane, so for both the epilogue is *free* -- it happens as the
+results drain. VTA has to read the accumulator back three times.
+
+Nor can the passes hide behind the matmul. `Compute.scala` asserts
+`!tensorGemm.io.uop.idx.valid || !tensorAlu.io.uop.idx.valid`: the two units
+share the micro-op port and never run in the same cycle. Measured directly,
+chained ALU instructions are strictly additive -- 258, 521 and 784 cycles for
+one, two and three passes over 256 rows, 1.03 cycles a row each.
+
+The bias is free on all three and nobody is charged for it: Gemmini and SPMW
+fold it into the epilogue, VTA preloads the accumulator.
+
 ## What the missing capability actually costs
 
 "VTA cannot" is not a useful end point. The useful question is what it would
