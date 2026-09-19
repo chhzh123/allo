@@ -26,6 +26,40 @@ PNR = [
     ("spmw", "1", "", "3.333", 233725, 170759, 83, 3.852, 259.6),
 ]
 
+#: The device-utilisation table: every cell is `used`, `available` and the
+#: percentage Vivado printed, so the capacities are checked too rather than
+#: being a hardcoded idea of what a U280 holds.
+#: resource -> {key: (used, available, pct)}
+UTILISATION = {
+    "lut":       {"gemmini": (71389, 1303680, "5.48"),
+                  "spmw0": (113341, 1303680, "8.69"),
+                  "spmw1": (233725, 1303680, "17.93")},
+    "lut_logic": {"gemmini": (70744, 1303680, "5.43"),
+                  "spmw0": (103993, 1303680, "7.98"),
+                  "spmw1": (228638, 1303680, "17.54")},
+    "lutmem":    {"gemmini": (645, 600960, "0.11"),
+                  "spmw0": (9348, 600960, "1.56"),
+                  "spmw1": (5087, 600960, "0.85")},
+    "ff":        {"gemmini": (21474, 2607360, "0.82"),
+                  "spmw0": (153869, 2607360, "5.90"),
+                  "spmw1": (170759, 2607360, "6.55")},
+    "carry8":    {"gemmini": (5116, 162960, "3.14"),
+                  "spmw0": (6440, 162960, "3.95"),
+                  "spmw1": (16350, 162960, "10.03")},
+    "dsp":       {"gemmini": (500, 9024, "5.54"),
+                  "spmw0": (755, 9024, "8.37"),
+                  "spmw1": (83, 9024, "0.92")},
+    "bram":      {"gemmini": (0, 2016, "0.00"),
+                  "spmw0": (0, 2016, "0.00"),
+                  "spmw1": (0, 2016, "0.00")},
+    "uram":      {"gemmini": (0, 960, "0.00"),
+                  "spmw0": (0, 960, "0.00"),
+                  "spmw1": (0, 960, "0.00")},
+    "iob":       {"gemmini": (0, 624, "0.00"),
+                  "spmw0": (35, 624, "5.61"),
+                  "spmw1": (35, 624, "5.61")},
+}
+
 #: (engine, activation, row length, marginal cycles per row)
 MARGINAL = [
     ("spmw", "layernorm", "256", 31.0), ("spmw", "softmax", "64", 4.0),
@@ -59,6 +93,25 @@ def main():
             elif str(exp) not in readme and f"{exp:,}" not in readme:
                 bad.append(f"{eng}/{bind or '-'} {field}: {exp} is not in "
                            f"the README")
+
+    key = {"gemmini": ("gemmini", "", "4", "3.333"),
+           "spmw0": ("spmw", "0", "", "3.333"),
+           "spmw1": ("spmw", "1", "", "3.333")}
+    for res, per in UTILISATION.items():
+        for who, (used, avail, pct) in per.items():
+            r = pnr.get(key[who])
+            if r is None:
+                continue
+            for field, exp in ((res, used), (res + "_avail", avail),
+                               (res + "_pct", pct)):
+                n += 1
+                got = r.get(field, "")
+                if str(got) != str(exp):
+                    bad.append(f"{who} {field}: csv {got!r} != expected {exp!r}")
+            # the percentage has to be in the README, the raw count only when
+            # it is not zero (the zero rows are written as "0%" there)
+            if pct not in readme and used:
+                bad.append(f"{who} {res}: {pct}% is not in the README")
 
     # The marginal rates the README tabulates are the shipped configuration:
     # scalar links 16 deep, multiplies in fabric.

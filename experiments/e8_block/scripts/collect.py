@@ -21,18 +21,31 @@ def read_util(path):
     out = {}
     if not os.path.exists(path):
         return out
+    # Each row is `| Site Type | Used | Fixed | Prohibited | Available | Util% |`,
+    # so the device capacity and the percentage come out of the same report as
+    # the count -- no capacity table to keep in step with the part.
     pat = {
-        "lut": r"\|\s*CLB LUTs\s*\|\s*(\d+)",
-        "ff": r"\|\s*CLB Registers\s*\|\s*(\d+)",
-        "dsp": r"\|\s*DSPs\s*\|\s*(\d+)",
-        "bram": r"\|\s*Block RAM Tile\s*\|\s*([\d.]+)",
-        "lutmem": r"\|\s*LUT as Memory\s+\|\s*(\d+)",
+        "lut": r"CLB LUTs",
+        "lut_logic": r"LUT as Logic",
+        "lutmem": r"LUT as Memory",
+        "ff": r"CLB Registers",
+        "carry8": r"CARRY8",
+        "dsp": r"DSPs",
+        "bram": r"Block RAM Tile",
+        "uram": r"URAM",
+        "iob": r"Bonded IOB",
     }
     text = open(path, errors="replace").read()
-    for k, p in pat.items():
-        m = re.search(p, text)
+    for k, name in pat.items():
+        m = re.search(r"\|\s*" + name + r"\s*\|\s*(\d+)\s*\|\s*\d+\s*\|"
+                      r"\s*\d+\s*\|\s*(\d+)\s*\|\s*([\d.<]+)", text)
+        if not m:   # the DSP and BRAM tables have no Prohibited column
+            m = re.search(r"\|\s*" + name + r"\s*\|\s*(\d+)\s*\|\s*\d+\s*\|"
+                          r"\s*\d+\s*\|\s*(\d+)\s*\|\s*([\d.<]+)", text)
         if m:
-            out[k] = float(m.group(1)) if k == "bram" else int(m.group(1))
+            out[k] = int(m.group(1))
+            out[k + "_avail"] = int(m.group(2))
+            out[k + "_pct"] = m.group(3)
     return out
 
 

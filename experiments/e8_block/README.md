@@ -9,7 +9,9 @@ is usually excused from: LayerNorm, softmax and GELU.
 ## The answer, in three statements
 
 One ratio would mislead, so there are three. Everything below is measured on
-both engines at 16x16, bit-exact against the same reference.
+both engines at 16x16, bit-exact against the same reference. Both are placed
+and routed against the U280's part; **neither ran on the board**, so the
+timing is the routed clock and the cycles are simulation.
 
 | | SPMW | Gemmini | |
 |---|---:|---:|---|
@@ -17,7 +19,7 @@ both engines at 16x16, bit-exact against the same reference.
 | **lookup tables** | 113,341 | 71,389 | Gemmini, by 1.59x |
 | **registers** | 153,869 | 21,474 | Gemmini, by 7.2x |
 | **multipliers** | 755 | 500 | Gemmini, by 1.51x |
-| **clock on a U280** | 306.7 MHz | 34.8 MHz | SPMW, by 8.8x |
+| **routed clock, U280 part** | 306.7 MHz | 34.8 MHz | SPMW, by 8.8x |
 | time to finish | 0.910 ms | 7.687 ms | SPMW, by 8.5x |
 
 The time column is almost entirely the clock, and the clock is a porting
@@ -197,14 +199,65 @@ Three measurements, in order, each of which changed the design:
 
 ## Resources and clock
 
-Out of context on `xcu280-fsvh2892-2L-e`, all three with **zero unrouted
+Placed and routed on `xcu280-fsvh2892-2L-e`, all three with **zero unrouted
 nets**, and all three checked by simulation before being routed.
+
+**Neither design ran on the board.** No bitstream was built for either: these
+are implementations against the U280's part, and the performance figures are
+simulation -- xsim on Gemmini's own Verilog, RTL cosimulation on SPMW's
+assembled array -- multiplied by the routed clock. Taking either to hardware
+means linking it into the XRT shell with `v++`, which is a separate piece of
+work and is not what this experiment measured.
+
+One asymmetry in the recipe, stated because it is visible in the reports:
+Gemmini is synthesised `-mode out_of_context` and shows **0 bonded IOB**,
+while the SPMW array build synthesises flat and so has I/O buffers inserted
+-- **35 bonded IOB, 5.61% of the U280's 624, and one BUFGCE**. Those are pins
+and clock routing, not logic, so they do not move the lookup-table, register
+or multiplier columns the comparison rests on.
 
 | | LUT | of which memory | FF | DSP | BRAM | period | clock |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Gemmini `MxuVpuNorm` | 71,389 | 645 | 21,474 | 500 | 0 | 28.708 ns | 34.8 MHz |
 | SPMW, DSP | 113,341 | 9,348 | 153,869 | 755 | 0 | **3.261 ns** | **306.7 MHz** |
 | SPMW, fabric | 233,725 | 5,087 | 170,759 | 83 | 0 | 3.852 ns | 259.6 MHz |
+
+### What that is as a fraction of the device
+
+| resource | on a U280 | Gemmini | | SPMW, DSP | | SPMW, fabric | |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| CLB LUTs | 1,303,680 | 71,389 | 5.48% | 113,341 | 8.69% | 233,725 | **17.93%** |
+| &nbsp;&nbsp;as logic | 1,303,680 | 70,744 | 5.43% | 103,993 | 7.98% | 228,638 | 17.54% |
+| &nbsp;&nbsp;as memory | 600,960 | 645 | 0.11% | 9,348 | 1.56% | 5,087 | 0.85% |
+| CLB registers | 2,607,360 | 21,474 | 0.82% | 153,869 | 5.90% | 170,759 | 6.55% |
+| CARRY8 | 162,960 | 5,116 | 3.14% | 6,440 | 3.95% | 16,350 | **10.03%** |
+| DSP48E2 | 9,024 | 500 | 5.54% | 755 | 8.37% | 83 | 0.92% |
+| Block RAM tile | 2,016 | 0 | 0% | 0 | 0% | 0 | 0% |
+| URAM | 960 | 0 | 0% | 0 | 0% | 0 | 0% |
+
+**All three are small on this device** -- the largest is under a fifth of the
+lookup tables and none touches a single block RAM or URAM, because every
+buffer in both designs is a register or LUT-RAM and the accumulator is
+outside both.
+
+Two things the percentages say that the raw counts do not.
+
+**The fabric-bound build is the one that would constrain a deployment.** The
+U280 has three SLRs, so about 434,560 lookup tables each, and crossing
+between them costs timing. At 233,725 it is **54% of one SLR's logic**, which
+is the point where a floorplan starts to matter; the DSP-allowed build at
+113,341 is 26% and Gemmini at 71,389 is 16%, and both of those sit
+comfortably inside one.
+
+**Binding the multiplies to fabric moves the cost into carry chains, not just
+lookup tables.** CARRY8 goes from 3.95% to 10.03% -- 2.5x -- against a 2.1x
+rise in lookup tables, because a 256-cell mesh of int8 multiplies built from
+logic is mostly adder tree. That is the resource the fabric binding actually
+spends, and the LUT column alone hides it.
+
+These are fractions of the **raw** device. A design deployed through the XRT
+shell gets less than that, since the shell holds back a static region; how
+much less is a question for whoever links it, and nothing here measures it.
 
 **SPMW is routed twice because the binding that matches Gemmini changed.**
 E3's `MxuVpu` spent no DSPs, so SPMW's multiplies were bound to fabric to
