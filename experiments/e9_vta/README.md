@@ -66,7 +66,9 @@ array that this scope does count.
 
 That is the honest reading of VTA's 26,403 lookup tables: some of the
 difference is that it does less, and some is that its weight storage is
-outside the module being measured.
+outside the module being measured. `Core` puts a number on the second part --
+**70 block RAM tiles and 12 URAM** of scratchpad, against zero block RAM on
+either of the other two.
 
 ## Scope
 
@@ -76,10 +78,27 @@ no instruction fetch. `Core`, which adds fetch, load, store and every
 scratchpad, is routed separately for context and is a larger scope than
 either of the others.
 
-Both VTA modules route with **zero unrouted nets** and both meet timing:
-`TensorGemm` at +0.005 ns (300.5 MHz) and `TensorAlu` at +0.346 ns
-(334.8 MHz). Neither uses a DSP -- Vivado maps all 256 int8 multiplies to
-logic, as it does for Gemmini's mesh.
+All three VTA modules route with **zero unrouted nets**, and none of them
+spends a DSP -- Vivado maps all 256 int8 multiplies to logic, as it does for
+Gemmini's mesh.
+
+| module | LUT | FF | DSP | BRAM | URAM | WNS | clock |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `TensorGemm` | 21,598 | 4,310 | 0 | 0 | 0 | +0.005 | 300.5 MHz |
+| `TensorAlu` | 4,805 | 1,681 | 0 | 0 | 0 | +0.346 | 334.8 MHz |
+| datapath, the two together | **26,403** | **5,991** | **0** | **0** | 0 | | 300.5 MHz |
+| `Core`, the whole engine | 34,174 | 6,963 | 0 | **70** | 12 | -1.515 | 206.3 MHz |
+
+`Core` is worth reading twice. **VTA's entire engine -- fetch, load, store,
+compute and every scratchpad -- is 34,174 lookup tables, less than half
+Gemmini's datapath alone.** The scratchpads it adds over the datapath cost
+**70 block RAM tiles and 12 URAM**, and that is exactly the storage Gemmini
+and SPMW put in registers inside the array: both of those use *zero* block
+RAM and pay for it in the logic columns.
+
+The whole engine also misses 300 MHz where the datapath makes it: `Core`
+closes at 206.3 MHz against `TensorGemm`'s 300.5, the critical path being
+two-thirds routing.
 
 ## Two things that cost time
 
