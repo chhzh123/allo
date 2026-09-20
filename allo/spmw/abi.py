@@ -87,6 +87,11 @@ def fifo_module():
     ``read`` -- what a free-running (``ap_ctrl_none``) HLS IP presents for an
     ``hls::stream`` argument, so a role IP drops straight onto it.
 
+    ``spmw_fifo`` at depth **one** is a single register with a combinational
+    ``full_n``: half the storage of the slice below, at the price of a
+    combinational path across the link in the write direction. It exists to
+    make that trade measurable; nothing takes it by default.
+
     ``spmw_fifo`` at depth two is a register slice: ``dout``, ``empty_n`` and
     ``full_n`` are all flops, and ``write``/``read`` only reach the slice's
     own next-state logic, so no combinational path crosses a link in either
@@ -113,7 +118,30 @@ module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
   input  wire          read
 );
   generate
-    if (DEPTH <= 2) begin : slice
+    if (DEPTH <= 1) begin : one
+      // One entry and no skid. `full_n` is combinational on `read`, so the
+      // producer learns there is room in the same cycle the consumer drains
+      // -- which is what removes the skid, and what puts a combinational
+      // path across the link in the write direction. DW+1 flops instead of
+      // 2*DW+2. Use it only where the clock can afford that path; the
+      // depth-2 slice below exists precisely to avoid it.
+      reg [DW-1:0] q0;
+      reg          v0;
+      wire         accept;
+      assign dout    = q0;
+      assign empty_n = v0;
+      assign full_n  = ~v0 | read;
+      assign accept  = write & full_n;
+      always @(posedge clk) begin
+        if (!rst_n) begin
+          v0 <= 1'b0;
+        end else if (accept) begin
+          q0 <= din; v0 <= 1'b1;
+        end else if (read & v0) begin
+          v0 <= 1'b0;
+        end
+      end
+    end else if (DEPTH <= 2) begin : slice
       // q0 is the output register, q1 the skid behind it. full_n is ~v1 -- a
       // flop -- so a beat written while the output holds lands in the skid,
       // and the producer sees the slice fill one cycle later.

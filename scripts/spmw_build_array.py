@@ -1074,6 +1074,7 @@ def main():
             "tpumicro",
             "tpumicro-noclip",
             "tpumicro-fixed",
+            "tpumicro-fixed1",
             "tpumicro-fixed3",
             "tpumicro-fixed4",
             "tpumicro-fixed6",

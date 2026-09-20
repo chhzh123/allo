@@ -196,24 +196,38 @@ Gemmini's 73** at every width. That splits as:
 
 | | FF a cell | |
 |---|---:|---|
-| the links | ~150 | a depth-2 `spmw_fifo` on each of `a` (int8), `p` (int32) and `w` (int32): `2 x (8+32+32)` bits of storage plus valid bits |
-| the cell body | ~360 | the remainder -- HLS's four-stage pipeline for a streaming multiply-add, its loop counter, the resident weight file, and the load-phase state machine |
-| Gemmini's PE, for scale | 73 | two double-buffered weight registers, a multiply-add, a mux |
+| the link registers | ~75 | one entry a link -- `q0` plus its valid -- on `a` (int8), `p` (int32), `w` (int32). This is the register-to-register hop itself and cannot go. |
+| the handshake's skid | **~5** | `q1`/`v1`, the second entry. **Measured, not estimated** -- see below. |
+| the cell body | ~420 | the remainder: HLS's four-stage pipeline, the loop counter, the resident weight file, the load-phase state machine |
+| Gemmini's whole PE, for scale | 73 | two weight registers, a multiply-add, a mux |
 
-(The link figure is computed from the FIFO's structure, which is exact; the
-cell body is the remainder, not an independent measurement.)
+**Gemmini's entire PE costs about what SPMW spends on link registers alone.**
 
-**So replacing the handshake with a bare register is not the lever it looks
-like.** A depth-2 slice holds two entries where a register holds one, so the
-best case halves the link storage -- about 75 flip-flops a cell, 17% of the
-438 excess. The other 83% is the cell body, and no change to the link touches
-it. What attacks both at once is fusion: `f` cells in one unit is `1/f` the
-pipelines *and* `1/f` the links.
+### The handshake is not the cost -- this was measured
 
-The lookup-table ratio is far gentler -- 363 against 125, 2.9x -- so **the
-gap is registers, and the registers are the composition model**: one
-independent HLS IP per cell joined by handshakes, where Gemmini writes three
-registers and a wire.
+The obvious move is to replace the handshaked FIFO with a plain register.
+`spmw_fifo` gained a `DEPTH == 1` branch for exactly this -- one entry, no
+skid, `full_n` combinational on `read` -- and the microbenchmark was rebuilt
+on it at 4x4:
+
+| | cycles | LUT | FF | clock |
+|---|---:|---:|---:|---:|
+| depth 2, the skid slice | 121 | 5,843 | 7,892 | 377.6 MHz |
+| depth 1, a plain register | 121 | 5,792 | **7,808** | 367.8 MHz |
+| difference | 0 | -51 | **-84** | **-2.6%** |
+
+Both cosimulate clean and the cycle count does not move. But the saving is
+**84 flip-flops where the structure predicts 1,200** -- 16 cells times
+`(9+33+33)` -- so **93% of the skid was already gone before the experiment.**
+Vivado proves `v1` is never set, because the producer never stalls, and trims
+`q1` and `v1` away. The handshake was already costing almost nothing, and
+buying it out costs 2.6% of the clock for 1% of the registers.
+
+So the earlier framing of this file was wrong: the links are not ~150
+flip-flops a cell of avoidable overhead. They are ~75 of *necessary* pipeline
+register, ~5 of residual handshake, and the remaining ~420 is the HLS cell
+body -- which no change to the link touches. Fusion is the only lever that
+reaches it.
 
 ### The three are points on one spectrum
 
