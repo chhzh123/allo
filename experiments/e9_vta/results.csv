@@ -13,3 +13,18 @@ block,vta-core,16,,34174,6963,0,70,-1.515,whole engine incl scratchpads
 block,gemmini,16,,71389,21474,500,0,-25.375,MxuVpuNorm
 block,spmw-file,16,,113341,153869,755,0,0.072,weight file discipline
 block,spmw-reload,16,,144734,186540,1011,0,0.049,Gemmini's weight discipline
+micro,spmw-fixed-rebuilt,16,16,92961,130928,0,0,0.418,tpumicro-fixed; dut of the routed harness
+micro,spmw-lean-hls,16,16.08,47495,61604,0,0,0.455,tpumicro-lean-hls; Gemmini's weight discipline
+micro,spmw-lean,16,16,47682,38684,0,0,0.205,tpumicro-lean; + combinational=True
+micro,spmw-fused2,16,16,34770,29128,0,0,0.363,tpumicro-fused2; 2x2 cells a unit; one credit
+micro,spmw-fused4,16,16,23605,17772,0,0,0.334,tpumicro-fused4; 4x4 cells a unit; one credit
+micro,spmw-fused8,16,16,24647,14287,0,0,0.225,tpumicro-fused8-c0; 8x8 cells a unit; no credit
+micro,spmw-fused16,16,16,22572,11118,0,0,0.121,tpumicro-fused16-c0; the array one unit; no credit
+micro,spmw-lean-depth1,16,16,41435,27565,0,0,-12.362,tpumicro-lean1; one-register links
+micro,spmw-lean-gemmini-epilogue,16,16,50547,39392,0,0,0.274,tpumicro-lean-g; bias at the top
+micro,spmw-fused2-depth1,16,16,30893,20590,0,0,-7.253,tpumicro-fused2-d1-c2; one-register links
+micro,spmw-fused4-depth1,16,16,20686,12504,0,0,-1.482,tpumicro-fused4-d1-c2; one-register links
+micro,spmw-fused4-two-credits,16,16,22748,15483,0,0,-0.520,tpumicro-fused4-c2
+micro,spmw-fused4-two-credits-retimed,16,16,22763,15699,0,0,-0.426,tpumicro-fused4-c2 --retiming
+micro,spmw-fused8-one-credit,16,16,23062,12669,0,0,-0.541,tpumicro-fused8
+micro,spmw-fused16-one-credit,16,16,22846,9544,0,0,-0.490,tpumicro-fused16

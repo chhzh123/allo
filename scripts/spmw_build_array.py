@@ -63,12 +63,18 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
 
 PART = "xcu280-fsvh2892-2L-e"
 
+#: What Vitis HLS charges an `ap_fifo` read or a write on this part -- the
+#: `Core 'FIFO' ... Delay = 1.42` of its schedule report. An SPMW link is a
+#: register slice: its `dout` is a flop and its `din` lands in one, so a stage
+#: that touches a link does not really pay for the access. See `role_clock`.
+HLS_FIFO_NS = 1.42
+
 ROLE_TCL = """open_project prj
 set_top {name}_0
 add_files kernel.cpp
 open_solution sol
 set_part {part}
-create_clock -period {period:.2f} -name default
+create_clock -period {period:.2f} -name default{uncertainty}
 config_interface -clock_enable=0
 config_compile -pipeline_loops {pipeline_loops}
 # Every multiply in a DSP. Left to itself HLS builds a lone int8 x int8 (a
@@ -125,7 +131,7 @@ proc stage {{name body}} {{
   uplevel 1 $body
   puts "SPMW STAGE $name [expr {{([clock milliseconds] - $t0) / 1000.0}}]"
 }}
-stage synth  {{ synth_design -top {top} -part {part}{max_dsp} }}
+stage synth  {{ synth_design -top {top} -part {part}{max_dsp}{retiming} }}
 report_utilization -file util_synth.rpt
 {grid_hook}
 stage opt    {{ opt_design }}
@@ -147,7 +153,7 @@ puts "IMPLEMENTATION OK"
 # array's clock: the fabric adds the FIFOs, the fanout of a shared boundary
 # stream, and the routing between instances, none of which HLS ever saw.
 SYNTHESISE = """add_files -fileset constrs_1 {root}/clock.xdc
-synth_design -top {top} -part {part}{max_dsp}
+synth_design -top {top} -part {part}{max_dsp}{retiming}
 report_utilization -file util.rpt
 report_timing_summary -file timing.rpt
 set wns [get_property SLACK [get_timing_paths -delay_type max]]
@@ -294,6 +300,44 @@ def design(name, size, lanes=1):
 
         return micro_fixed_of(
             size, weight_depth=int(name[len("tpumicro-reloadw") :]), reload_=True
+        )
+    if name in ("tpumicro-lean", "tpumicro-lean-hls"):
+        # E3's microbenchmark on Gemmini's processing element: an int8 weight
+        # shifted down the row behind the arithmetic, and a cell body that runs
+        # between its link registers in one stage. `-hls` keeps the cell and
+        # lets Vitis pipeline it as it likes, which separates the two changes.
+        from test_spmw_tpu_micro_lean import micro_lean_of
+
+        return micro_lean_of(size, combinational=name == "tpumicro-lean")
+    if name == "tpumicro-lean-g":
+        # The lean cell with Gemmini's epilogue as well: the bias enters at the
+        # top of the array, the lane is ReLU, a five-bit shift and the clip.
+        from test_spmw_tpu_micro_lean import micro_lean_of
+
+        return micro_lean_of(size, bias_at_top=True)
+    if name == "tpumicro-lean1":
+        # The lean cell with every link one register deep on both ends: the
+        # skid gone, and `full_n` combinational across each link.
+        from test_spmw_tpu_micro_lean import micro_lean_of
+
+        return micro_lean_of(size, link_depth=1)
+    if name.startswith("tpumicro-fused"):
+        # `tpumicro-fused<f>[-d<depth>][-c<credits>]`: `f x f` lean cells to a
+        # unit on a `size/f` square, with Gemmini's epilogue -- `f` links of
+        # each kind where the cells had `f * f`, one loop's control for `f * f`
+        # MACs. `-c` is the link accesses each stage is credited, default one.
+        from test_spmw_tpu_micro_lean import micro_fused_of
+
+        f, *opts = name[len("tpumicro-fused") :].split("-")
+        opt = {o[0]: int(o[1:]) for o in opts}
+        return micro_fused_of(
+            size, f=int(f), link_depth=opt.get("d", 2), link_credits=opt.get("c", 1)
+        )
+    if name.startswith("tpumicro-lean-g-d"):
+        from test_spmw_tpu_micro_lean import micro_lean_of
+
+        return micro_lean_of(
+            size, bias_at_top=True, link_depth=int(name[len("tpumicro-lean-g-d") :])
         )
     if name == "tpumicro-reload":
         # The fixed datapath with Gemmini's weight discipline: one tile in the
@@ -596,7 +640,7 @@ def stage(
                 ROLE_TCL.format(
                     name=name,
                     part=part,
-                    period=1000.0 / frequency,
+                    **role_clock(1000.0 / frequency, built.spmw_link_credits),
                     pipeline_loops=pipeline_loops,
                     pipeline_style=_style_tcl(frp, pipeline_style),
                 ),
@@ -614,6 +658,23 @@ def stage(
     # its own LFSR instead.  See `allo.spmw.shell.harness_sv`.
     _write(os.path.join(out, "spmw_harness.sv"), shell.harness_sv(graph))
     return names
+
+
+def role_clock(period, link_credits=0):
+    """The clock a role is *scheduled* against, as `ROLE_TCL` fields.
+
+    ``link_credits`` link accesses are given back to every stage (see
+    `allo.spmw.schedule`), keeping the uncertainty the real clock would have
+    had -- Vitis defaults it to 27% of the period -- so that the logic in a
+    stage that touches that many links gets the budget it has on the real clock
+    and nothing more. The real clock is still what the array is routed against.
+    """
+    if not link_credits:
+        return {"period": period, "uncertainty": ""}
+    return {
+        "period": period + link_credits * HLS_FIFO_NS,
+        "uncertainty": f"\nset_clock_uncertainty {0.27 * period:.3f}",
+    }
 
 
 def stage_movers(graph, out, part, frequency, widen=512):
@@ -731,7 +792,7 @@ def tune(graph, out, part, frequency, candidates=(0, 2, 3, 4, 5, 6)):
             ROLE_TCL.format(
                 name=name,
                 part=part,
-                period=target,
+                **role_clock(target),
                 pipeline_loops=64,
                 pipeline_style="",
             ).replace("export_design -format ip_catalog\n", ""),
@@ -855,6 +916,7 @@ def assemble(
     floorplan="",
     effort=False,
     max_dsp=None,
+    retiming=False,
 ):
     """Vivado reads the exported IPs and builds the array.
 
@@ -885,6 +947,11 @@ def assemble(
                 else ""
             ),
             max_dsp="" if max_dsp is None else f" -max_dsp {max_dsp}",
+            # Global retiming, to let Vivado move the roles' HLS stage
+            # registers across their logic. On a fused block HLS had mis-cut it
+            # recovered 6 MHz of the 70 missing -- the stage register did not
+            # move -- so the fix there is the link credit; this stays an option.
+            retiming=" -retiming" if retiming else "",
             place_directive="-directive ExtraTimingOpt" if effort else "",
             physopt_directive="-directive AggressiveExplore" if effort else "",
             route_directive="-directive AggressiveExplore" if effort else "",
@@ -1084,6 +1151,17 @@ def main():
             "tpumicro-fixedt8",
             "tpumicro-deep",
             "tpumicro-reload",
+            "tpumicro-lean",
+            "tpumicro-lean-hls",
+            "tpumicro-lean1",
+            "tpumicro-lean-g",
+            *(
+                f"tpumicro-fused{f}{d}{c}"
+                for f in (2, 4, 8, 16)
+                for d in ("", "-d1", "-d3")
+                for c in ("", "-c0", "-c2")
+            ),
+            "tpumicro-lean-g-d1",
             "block",
             "block-sm",
             "block-gelu",
@@ -1202,6 +1280,12 @@ def main():
         action="store_true",
         help="place and route with the timing-driven directives (ExtraTimingOpt, "
         "AggressiveExplore) rather than the defaults",
+    )
+    parser.add_argument(
+        "--retiming",
+        action="store_true",
+        help="Pass -retiming to synth_design: let Vivado move the roles' HLS "
+        "stage registers across their logic.",
     )
     parser.add_argument(
         "--stage-only", action="store_true", help="write the projects, run nothing"
@@ -1328,6 +1412,7 @@ def main():
         pnr=args.pnr,
         floorplan=floorplan,
         effort=args.effort,
+        retiming=args.retiming,
         # A design that binds its multiply to fabric in HLS means it: Vivado
         # re-synthesises the assembled array and will infer a DSP anyway unless
         # capped, which it did at 16x16 while leaving 4x4 and 8x8 in fabric

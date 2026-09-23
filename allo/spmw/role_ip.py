@@ -637,6 +637,7 @@ def build_unit(graph, placement, order, target="vhls", ii=None, **kwargs):
     built.spmw_pipelined = pipelined
     built.spmw_accumulators = carried
     built.spmw_interval = want
+    built.spmw_link_credits = sched.link_credits(placement)
     # Fabric binding is a fabric-wide choice, not a per-role one: the point is
     # that every butterfly in the design spends the same resource. It is read
     # off the fabric, where the design sets it -- `Placement` has no back

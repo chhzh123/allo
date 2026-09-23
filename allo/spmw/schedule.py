@@ -16,11 +16,31 @@ pipelined at II=1 by default and the primitive is there to override that.
 it off.  A design that cannot meet II=1 -- a float accumulator's recurrence is
 bounded by the adder's latency -- still benefits from being pipelined at the
 interval it *can* meet, which is what HLS falls back to on its own.
+
+``pipeline(P, ii=1, registered_links=True)`` asks for no pipeline *depth* the
+links already provide.  Vitis charges each FIFO access 1.42 ns, but an SPMW
+link is a register slice -- a flop on either side of the unit -- so left alone
+it registers a multiply-add cell three times over on top of its links: a
+systolic cell that is its own pipeline and then the array's again.  A stage
+that begins at a link read or ends at a link write is credited the access it
+touches, and the unit keeps only the registers its own logic needs.
+
+``combinational=True`` says more: the body fits one clock, so its one stage
+touches *both* links and is credited both -- Gemmini's ``tile_latency = 0``.
+
+HLS schedules every stage against one clock, so a credit is only right if
+*every* stage touches that many links: two for a one-stage body, one for two
+stages, and none once a middle stage touches neither.  Over-crediting packs a
+multiply and two adder levels into one stage.  On E3's 16x16 microbenchmark: a
+4x4 block of cells closed at 260 MHz credited both and 333 MHz credited one;
+8x8 and 16x16 blocks, three stages deep, at 258 and 262 MHz credited one and
+322 and 311 credited none.
 """
 
 from .errors import SPMWMemoryError, SPMWPlacementError
 
 PIPELINE = "pipeline"
+LINK_CREDITS = "link_credits"
 
 
 class Directive:
@@ -36,12 +56,16 @@ class Directive:
         return f"<{self.kind} {self.value}>"
 
 
-def pipeline(target, ii=1):
+def pipeline(target, ii=1, registered_links=False, combinational=False):
     """Pipeline the unit's loops at initiation interval ``ii``.
 
     ``target`` is a placement -- what :func:`allo.spmw.place` returned.  ``ii=0``
     leaves the loops alone, which is worth having to measure what the pipelining
-    is buying.
+    is buying.  ``registered_links=True`` schedules each stage that touches a
+    link as if the access were free, because the link is a register;
+    ``combinational=True`` asserts the body fits one clock between its links,
+    and credits that one stage both.  Place and route at the real clock is the
+    check either way.
     """
     if not hasattr(target, "schedule"):
         raise SPMWPlacementError(
@@ -51,9 +75,27 @@ def pipeline(target, ii=1):
         raise SPMWPlacementError(
             f"pipeline(ii=) must be a non-negative int, got {ii!r}"
         )
-    target.schedule = [d for d in target.schedule if d.kind != PIPELINE]
+    given = 2 if combinational else (1 if registered_links else 0)
+    if given and not ii:
+        raise SPMWPlacementError(
+            "pipeline(registered_links=/combinational=) needs a pipelined loop, "
+            "got ii=0"
+        )
+    target.schedule = [
+        d for d in target.schedule if d.kind not in (PIPELINE, LINK_CREDITS)
+    ]
     target.schedule.append(Directive(PIPELINE, ii))
+    if given:
+        target.schedule.append(Directive(LINK_CREDITS, given))
     return target
+
+
+def link_credits(placement):
+    """How many link accesses each of the unit's stages is credited: 0, 1, 2."""
+    for directive in getattr(placement, "schedule", ()):
+        if directive.kind == LINK_CREDITS:
+            return directive.value
+    return 0
 
 
 def interval(placement, default=1):
