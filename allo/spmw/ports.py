@@ -31,6 +31,23 @@ WRITE = "wr"
 READWRITE = "rw"
 
 
+#: A stream link's depth when neither end asks for one: the register slice.
+DEFAULT_DEPTH = 2
+
+
+def link_depth(*ports):
+    """The depth of a link between ``ports``: the deepest any end asked for.
+
+    An end that asked for nothing does not vote.  With the default counted as a
+    request, a plain ``Out(t)`` would outvote ``In(t, depth=1)`` and the link
+    would be two deep whatever its reader said -- which is how an experiment
+    meant to take every mesh link to one register changed only the links whose
+    writer happened to be the other kind of binding.
+    """
+    asked = [p.depth for p in ports if p.depth_given]
+    return max(asked) if asked else DEFAULT_DEPTH
+
+
 class PortSymbol:
     """The runtime identity of one declared port.
 
@@ -46,6 +63,7 @@ class PortSymbol:
         "dtype",
         "shape",
         "depth",
+        "depth_given",
         "access",
         "owner",
     )
@@ -57,6 +75,7 @@ class PortSymbol:
         self.dtype = decl.dtype
         self.shape = decl.shape
         self.depth = decl.depth
+        self.depth_given = decl.depth_given
         self.access = decl.access
         self.owner = owner
 
@@ -109,11 +128,12 @@ class _PortDecl:
     direction = None
     access = None
 
-    def __init__(self, dtype, shape=(), depth=2):
+    def __init__(self, dtype, shape=(), depth=None):
         self.dtype, self.shape = _split_type(dtype)
         if shape:
             self.shape = tuple(shape)
-        self.depth = depth
+        self.depth_given = depth is not None
+        self.depth = DEFAULT_DEPTH if depth is None else depth
         self.symbol = None
 
     def __set_name__(self, owner, name):

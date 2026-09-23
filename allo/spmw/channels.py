@@ -13,6 +13,7 @@ affine and the generated program should still read like the array it describes.
 """
 
 from .errors import SPMWTopologyError
+from .ports import link_depth
 
 AFFINE = "affine"
 TABLE = "table"
@@ -155,7 +156,7 @@ def _resolve_keyed(res, channels, prefix, placement):
         name,
         sample.dtype,
         sample.shape,
-        max(p.depth for p in ports),
+        link_depth(*ports),
         TABLE,
         (len(live),),
     )
@@ -193,7 +194,7 @@ def _depth(res, wport, rport):
     for port in (wport, rport):
         if port in depths:
             return depths[port]
-    return max(wport.depth, rport.depth)
+    return link_depth(wport, rport)
 
 
 def _chan_key(chan):

@@ -17,7 +17,7 @@ from .errors import (
     SPMWTypeError,
 )
 from .iface import unwrap
-from .ports import STREAM, IN, OUT
+from .ports import STREAM, IN, OUT, link_depth
 
 
 class To:
@@ -183,7 +183,7 @@ class Topology:
             chan = self.channels.get(cid)
             if chan is None:
                 chan = Channel(
-                    cid, far.dtype, far.shape, max(port.depth, far.depth), label=None
+                    cid, far.dtype, far.shape, link_depth(port, far), label=None
                 )
                 self.channels[cid] = chan
             if chan.writer is not None:
@@ -226,7 +226,7 @@ class Topology:
                 cid,
                 sample.dtype,
                 sample.shape,
-                max(p.depth for _, p in ends),
+                link_depth(*(p for _, p in ends)),
                 label=label,
             )
             chan.writer = writers[0] if writers else None

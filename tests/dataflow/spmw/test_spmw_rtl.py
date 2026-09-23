@@ -441,3 +441,39 @@ def test_the_testbench_expects_every_token_not_every_channel():
     assert tokens > channels, "attention is exactly the case that exposed this"
     text = bench.render(arrays)
     assert f"TOTAL = {tokens}" in text, f"expected TOTAL={tokens}"
+
+
+def test_a_reader_may_ask_for_one_register():
+    """`In(depth=1)` facing a plain `Out` is a one-register link.
+
+    A link is as deep as the deepest end that *asked*. When `Out`'s default
+    counted as a request, every mesh link stayed two deep whatever its reader
+    said, and only a `link`-bound lane took the depth -- an experiment that
+    meant to change every link changed four of them.
+    """
+    import re
+
+    from allo.ir.types import int32
+
+    class IO(spmw.Interface):
+        x_in = spmw.In(int32, depth=1)
+        x_out = spmw.Out(int32)
+
+    chain = spmw.Topology(
+        IO, grid=(1, 3), link=lambda i, j: {IO.x_out: spmw.to((i, j + 1), IO.x_in)}
+    )
+
+    @spmw.unit
+    def relay(io: IO):
+        for _ in range(4):
+            io.x_out.put(io.x_in.get())
+
+    @spmw.fabric
+    def top(X: int32[4, 1], Y: int32[4, 1]):
+        P = spmw.place(relay, on=chain)
+        spmw.stream_in(X, into=P.x_in, index=(..., P.rows))
+        spmw.gather(Y, from_=P.x_out, index=(..., P.rows))
+
+    sv = rtl.StructuralEmitter(spmw.elaborate(top)).fabric()
+    inner = re.findall(r"\.DEPTH\((\d+)\)\) u \(.*\.din\(relay_x_out_x_in_din", sv)
+    assert inner == ["1"], inner
