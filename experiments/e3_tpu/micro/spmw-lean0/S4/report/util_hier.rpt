@@ -1,0 +1,111 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Thu Sep 24 13:39:57 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file /scratch/hc676/e9_lean/b_tpumicro-lean0-m-v_4/util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|          Instance         |            Module            | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++---------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| spmw_harness              |                        (top) |       2309 |       2293 |       0 |   16 | 1848 |      0 |      0 |    0 |          0 |
+|   (spmw_harness)          |                        (top) |         36 |         20 |       0 |   16 |  244 |      0 |      0 |    0 |          0 |
+|   dut                     |                     spmw_top |       2273 |       2273 |       0 |    0 | 1604 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[10].u |                    spmw_fifo |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[11].u |                  spmw_fifo_0 |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[13].u |                  spmw_fifo_1 |         21 |         21 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[14].u |                  spmw_fifo_2 |         21 |         21 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[15].u |                  spmw_fifo_3 |         21 |         21 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[1].u  |                  spmw_fifo_4 |         11 |         11 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[2].u  |                  spmw_fifo_5 |         11 |         11 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[3].u  |                  spmw_fifo_6 |         11 |         11 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[5].u  |                  spmw_fifo_7 |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[6].u  |                  spmw_fifo_8 |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[7].u  |                  spmw_fifo_9 |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[9].u  |                 spmw_fifo_10 |         20 |         20 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[10].u |    spmw_fifo__parameterized0 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[11].u | spmw_fifo__parameterized0_11 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[12].u | spmw_fifo__parameterized0_12 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[13].u | spmw_fifo__parameterized0_13 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[14].u | spmw_fifo__parameterized0_14 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[15].u | spmw_fifo__parameterized0_15 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[4].u  | spmw_fifo__parameterized0_16 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[5].u  | spmw_fifo__parameterized0_17 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[6].u  | spmw_fifo__parameterized0_18 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[7].u  | spmw_fifo__parameterized0_19 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[8].u  | spmw_fifo__parameterized0_20 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[9].u  | spmw_fifo__parameterized0_21 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[10].u |                 spmw_fifo_22 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[11].u |                 spmw_fifo_23 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[13].u |                 spmw_fifo_24 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[14].u |                 spmw_fifo_25 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[15].u |                 spmw_fifo_26 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[1].u  |                 spmw_fifo_27 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[2].u  |                 spmw_fifo_28 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[3].u  |                 spmw_fifo_29 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[5].u  |                 spmw_fifo_30 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[6].u  |                 spmw_fifo_31 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[7].u  |                 spmw_fifo_32 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[9].u  |                 spmw_fifo_33 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_vpu_z_in_bind[0].u  |    spmw_fifo__parameterized1 |         58 |         58 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_vpu_z_in_bind[1].u  | spmw_fifo__parameterized1_34 |         58 |         58 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_vpu_z_in_bind[2].u  | spmw_fifo__parameterized1_35 |         57 |         57 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_vpu_z_in_bind[3].u  | spmw_fifo__parameterized1_36 |         57 |         57 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_1_1           |                        pe_r0 |         72 |         72 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r0_0_81 |         72 |         72 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_1_2           |                     pe_r0_37 |         74 |         74 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r0_0_78 |         74 |         74 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_2_1           |                     pe_r0_38 |         74 |         74 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r0_0_75 |         74 |         74 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_2_2           |                     pe_r0_39 |         76 |         76 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r0_0 |         76 |         76 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r1_3_1           |                        pe_r1 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r1_0_72 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r1_3_2           |                     pe_r1_40 |         71 |         71 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r1_0 |         71 |         71 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r2_0_1           |                        pe_r2 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r2_0_69 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r2_0_2           |                     pe_r2_41 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r2_0 |         73 |         73 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r3_1_3           |                        pe_r3 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r3_0_66 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r3_2_3           |                     pe_r3_42 |         73 |         73 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r3_0 |         73 |         73 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r4_1_0           |                        pe_r4 |         86 |         86 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                   pe_r4_0_63 |         86 |         86 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r4_2_0           |                     pe_r4_43 |         86 |         86 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r4_0 |         86 |         86 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r5_3_3           |                        pe_r5 |         71 |         71 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r5_0 |         71 |         71 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r6_0_3           |                        pe_r6 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r6_0 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r7_3_0           |                        pe_r7 |         88 |         88 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r7_0 |         88 |         88 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_pe_r8_0_0           |                        pe_r8 |         78 |         78 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|       u                   |                      pe_r8_0 |         78 |         78 |       0 |    0 |   27 |      0 |      0 |    0 |          0 |
+|     u_vpu_r0_0            |                       vpu_r0 |        131 |        131 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|       u                   |                  vpu_r0_0_58 |        131 |        131 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|     u_vpu_r0_1            |                    vpu_r0_44 |        131 |        131 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|       u                   |                  vpu_r0_0_53 |        131 |        131 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|     u_vpu_r0_2            |                    vpu_r0_45 |        126 |        126 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|       u                   |                  vpu_r0_0_48 |        126 |        126 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|     u_vpu_r0_3            |                    vpu_r0_46 |        125 |        125 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
+|       u                   |                     vpu_r0_0 |        125 |        125 |       0 |    0 |  149 |      0 |      0 |    0 |          0 |
++---------------------------+------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

@@ -17,26 +17,28 @@ E3's microbenchmark -- tiled int8 GEMM with bias, ReLU, requantise and clip,
 all inside every one of the three ISAs. All bit-exact against one golden, at
 16x16, routed at 3.333 ns, counting the design and not the harness around it:
 
-| | cycles / tile | LUT | FF | DSP | clock | ns / tile | LUT x ns |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| SPMW, E3's fixed cell | 16 | 92,880 | 130,776 | 0 | 349 MHz | 45.8 | 4.26 M |
-| **SPMW, 4x4 cells a unit** | **16** | **23,605** | **17,772** | 0 | **333 MHz** | 48.0 | **1.13 M** |
-| SPMW, the array one unit | 16 | 22,572 | 11,118 | 0 | 311 MHz | 51.4 | 1.16 M |
-| Gemmini `MxuVpu` | 18 | 31,932 | 18,675 | 0 | 324 MHz | 55.6 | 1.77 M |
-| VTA | 65 | 26,403 | 5,991 | 0 | 300 MHz | 216.3 | 5.71 M |
+| 16x16 | units | cycles / tile | LUT | FF | DSP | clock | ns / tile | LUT x ns |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| SPMW, E3's fixed cell | 256 | 16 | 92,880 | 130,776 | 0 | 349 MHz | 45.8 | 4.26 M |
+| **SPMW, Gemmini's PE** | **256** | **16** | **31,515** | 21,584 | 0 | **337 MHz** | **47.4** | **1.50 M** |
+| Gemmini `MxuVpu` | 256 PEs | 18 | 31,932 | **18,675** | 0 | 324 MHz | 55.6 | 1.77 M |
+| VTA | -- | 65 | 26,403 | 5,991 | 0 | 300 MHz | 216.3 | 5.71 M |
 
-**Written the way Gemmini writes its processing element, SPMW is smaller than
-Gemmini and faster on every column**: 26% fewer lookup tables, 5% fewer
-registers, two fewer cycles a tile, a 3% faster clock, and 14% less time a
-tile. At the other end of the same program -- the whole array one unit -- it
-has 15% fewer lookup tables than VTA and a quarter of its cycles; its
-registers are 1.9x VTA's, 4,096 of them the double-buffered weights that VTA
-keeps in block RAM.
-
-The first version of this table had SPMW at 2.9x Gemmini's lookup tables and
-7x its registers. That was how the SPMW design was written and scheduled, not
-what SPMW is: [Closing the gap](#closing-the-gap) takes it apart one measured
+**Like for like -- 256 units, one multiply-accumulate each, as Gemmini has 256
+PEs -- SPMW is at Gemmini's lookup tables (31,515 against 31,932) and 1.16x
+its registers, two cycles a tile faster with a 4% faster clock: 15% less
+time a tile, and a 58-cycle first tile against Gemmini's 70.** The first
+version of this table had SPMW at 2.9x Gemmini's lookup tables and 7x its
+registers. That was how the SPMW design was written and compiled, not what
+SPMW is: [Closing the gap](#closing-the-gap) takes it apart one measured
 step at a time.
+
+Fusing cells into fewer, larger units goes further -- 16 units of 4x4 cells
+are 23,605 lookup tables and 17,772 registers at 333 MHz, and the whole array
+as one unit is 22,572 and 11,118, below VTA's lookup tables at a quarter of
+its cycles -- but that is a different design point, and one Gemmini's own
+`tileRows`/`tileColumns` can take too; see
+[Beyond like for like](#beyond-like-for-like-fewer-larger-units).
 
 ### 2. The transformer block, where scope decides it
 
@@ -67,11 +69,11 @@ free win, and both rows are kept so it stays one.
 - **Mesh throughput:** SPMW `S`, Gemmini `S + 2`, VTA `4S + 1` on the
   microbenchmark; on the GEMM alone, SPMW and VTA tie at 16.0 and Gemmini is
   18.0.
-- **Area:** on the microbenchmark, SPMW with 4x4 cells a unit is below
-  Gemmini -- 23,605 lookup tables against 31,932 -- and VTA is below both.
-  The transformer-block engine still uses E3's cell: 113,341 against 71,389.
-- **Efficiency:** SPMW with 4x4 cells a unit, on lookup tables times time a
-  tile, by 1.6x over Gemmini and 5.0x over VTA.
+- **Area:** on the microbenchmark with 256 units each, SPMW is at Gemmini's
+  lookup tables and 1.16x its registers, and VTA is below both. The
+  transformer-block engine still uses E3's cell: 113,341 against 71,389.
+- **Efficiency:** SPMW with 256 units, on lookup tables times time a tile, by
+  1.2x over Gemmini and 3.8x over VTA.
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA both near 300 MHz; Gemmini 34.8 MHz,
   which is a porting artifact of an unpipelined float scale path and not an
@@ -226,21 +228,24 @@ every int8 link measures 18 flip-flops, skid included.
 
 ## Closing the gap
 
-Three changes, in order. Each row is a separate build of the same workload,
-with the same operands and golden, cosimulated clean -- 4,096 of 4,096 tokens
--- and routed at 3.333 ns.
+Four changes, in order, none of which changes the array: it stays 256 units,
+one multiply-accumulate each, as Gemmini's mesh is 256 PEs. Each row is a
+separate build of the same workload, with the same operands and golden,
+cosimulated clean -- 4,096 of 4,096 tokens -- and routed at 3.333 ns.
 
-| 16x16 | cycles / tile | first out | LUT | FF | clock |
-|---|---:|---:|---:|---:|---:|
-| E3's fixed cell, rebuilt | 16.0 | 157 | 92,961 | 130,928 | 343 MHz |
-| **1.** Gemmini's weight discipline | 16.1 | 72 | 47,495 | 61,604 | 348 MHz |
-| **2.** ...scheduled between its links | 16.0 | 40 | 47,682 | 38,684 | 320 MHz |
-| **3.** ...2x2 cells a unit | 16.0 | 40 | 34,770 | 29,128 | 337 MHz |
-| **3.** ...4x4 cells a unit | 16.0 | 32 | **23,605** | **17,772** | **333 MHz** |
-| **3.** ...8x8 cells a unit | 16.0 | 32 | 24,647 | 14,287 | 322 MHz |
-| **3.** ...the whole array one unit | 16.0 | 28 | 22,572 | 11,118 | 311 MHz |
-| Gemmini `MxuVpu` | 18 | | 31,932 | 18,675 | 324 MHz |
-| VTA | 65 | | 26,403 | 5,991 | 300 MHz |
+| 16x16, 256 units | cycles / tile | first out | first tile | LUT | FF | clock |
+|---|---:|---:|---:|---:|---:|---:|
+| E3's fixed cell, rebuilt | 16.0 | 157 | 194 | 92,961 | 130,928 | 343 MHz |
+| **1.** Gemmini's weight discipline | 16.1 | 72 | 109 | 47,495 | 61,604 | 348 MHz |
+| **2.** ...scheduled between its links | 16.0 | 40 | 63 | 47,682 | 38,684 | 320 MHz |
+| **3.** ...bare-register links | 16.0 | 40 | 63 | 39,981 | 28,264 | 343 MHz |
+| **4.** ...one loop a cell | 16.0 | 36 | 59 | 31,337 | 22,058 | 330 MHz |
+| **4.** ...and the lanes credited | 16.0 | 35 | **58** | **31,515** | **21,584** | **337 MHz** |
+| Gemmini `MxuVpu` | 18 | | 70 | 31,932 | 18,675 | 324 MHz |
+| VTA | 65 | | | 26,403 | 5,991 | 300 MHz |
+
+"First out" is the first output token; "first tile" is E3's measure, the
+cycle the first tile's last row leaves, weight load included on both sides.
 
 **1. The weight, held the way Gemmini holds it.** E3's cell keeps all sixteen
 tiles resident, four to a packed word, and unpacks a byte out of them every
@@ -265,12 +270,54 @@ The routed critical path is Gemmini's as well: `a`'s link register, the LUT
 multiplier, four CARRY8, `p`'s link register; 3.0 ns, two-thirds of it
 routing. First output falls from 72 cycles to 40.
 
-**3. Fewer, larger units.** After step 2 the links are the largest item --
-22,524 of the array's 38,684 flip-flops, more than all of Gemmini. An
-`f x f` block of lean cells in one unit has `f` links of each kind where its
-cells had `f^2`, and one loop and one pipeline's control where they had
+**3. Bare-register links.** After step 2 the links are the largest item --
+22,524 of the array's 38,684 flip-flops, more than all of Gemmini. Each one is
+a two-entry slice, because it can say "stop". Gemmini's are a bare register:
+its mesh has no backpressure, data moves every cycle and its validity travels
+with it. SPMW's `spmw_fifo` at depth 0 is the same register and its valid,
+with `full_n` tied high. That is safe here and only here: the array is fed
+without gaps, and once the wavefront has formed every cell takes a token from
+each input every cycle, so no value is replaced before it is read.
+Simulation checks exactly that -- a depth-0 link that is written while still
+holding an unread value prints `SPMW OVERWRITE` -- and every build here
+reports none. The links fall from 22,524 flip-flops to 12,104, and the clock
+rises: the skid's input mux is gone from the multiply-add's path.
+
+**4. One loop a cell.** The lean cell shifted tile 0's weights in with a loop
+of its own before the step loop, and that second loop was a counter, an FSM
+and a hand-off between them in every one of 256 cells. Shifting them in on
+the step loop's first `dim` iterations instead -- the tile boundary at
+`dim - 1` hands tile 0's weight to `cur` exactly as every later one hands
+over the next tile's -- takes the cell from 107 lookup tables and 52
+registers to 76 and 29. Giving the lanes one link credit, which their
+two-stage body takes (see the credit table below), saves another 560.
+
+**That is Gemmini's resource level with 256 units:** 31,515 lookup tables
+against 31,932 and 21,584 registers against 18,675, at 16 cycles a tile
+against 18 and 337 MHz against 324 -- 47.4 ns a tile against 55.6, and a
+first tile 20% sooner in time. The routed critical path is Gemmini's PE path:
+`a`'s bare register, the LUT multiplier, five CARRY8, the next register;
+2.85 ns. What SPMW still spends that Gemmini does not is the cell's 9-bit
+step counter -- Gemmini's control rides along with the data -- and the lanes,
+which keep a 32-bit barrel shifter where Gemmini's takes a five-bit shift.
+
+### Beyond like for like: fewer, larger units
+
+An `f x f` block of lean cells in one unit has `f` links of each kind where
+its cells had `f^2`, and one loop and one pipeline's control where they had
 `f^2`. `fused_engine` generates the block for any `f`, its column sums a
-balanced tree.
+balanced tree. These builds use step 2's cell with two-entry links, not steps
+3 and 4, and Gemmini's `MeshWithDelays` has the same knob -- `tileRows` and
+`tileColumns` chain PEs combinationally inside a tile -- which was not built
+for this comparison, so they are a design-space result rather than a
+like-for-like one.
+
+| 16x16 | units | cycles / tile | first tile | LUT | FF | clock |
+|---|---:|---:|---:|---:|---:|---:|
+| 2x2 cells a unit | 64 | 16.0 | 62 | 34,770 | 29,128 | 337 MHz |
+| 4x4 cells a unit | 16 | 16.0 | 50 | 23,605 | 17,772 | 333 MHz |
+| 8x8 cells a unit | 4 | 16.0 | 49 | 24,647 | 14,287 | 322 MHz |
+| the whole array one unit | 1 | 16.0 | 43 | 22,572 | 11,118 | 311 MHz |
 
 A block needs more than one stage, and that changes the credit. HLS
 schedules every stage against one clock, so the credit has to be what
@@ -288,10 +335,6 @@ middle stage that touches neither. Measured:
 Over-crediting is not a subtle failure: it packs a multiply and two adder
 levels into one stage, 3.7-3.9 ns routed. `combinational=True` asks for
 both, `registered_links=True` for one, and the default for none.
-
-Four by four cells a unit is the headline: **smaller than Gemmini by 26% in
-lookup tables and 5% in registers, two cycles a tile fewer, a 3% faster clock
--- 48.0 ns a tile against 55.6.**
 
 ### What did not work, and why
 
@@ -311,11 +354,10 @@ lookup tables and 5% in registers, two cycles a tile fewer, a 3% faster clock
 depends on the consumer's own outputs' `full_n`: a combinational chain through
 every cell a stall can cross. At 4x4 it is short, and the one-register array
 closes at 334 MHz with the same cycle count and half the link registers. At
-16x16 the worst path is 80 LUT levels and 15.6 ns. Gemmini's mesh has no such
-chain because it has no backpressure: data moves every cycle and its validity
-travels with it. A one-register SPMW link needs the same thing -- a static
-schedule, with the edges skewed and one stall for the whole array -- which
-SPMW does not have. **The skid is what backpressure costs at this clock.**
+16x16 the worst path is 80 LUT levels and 15.6 ns. **The skid is what
+backpressure costs at this clock** -- which is why step 3 removes the
+backpressure rather than the skid: a depth-0 link has no ready at all, so
+there is no chain to be long.
 
 **Gemmini's epilogue shape does not transfer.** Feeding the bias in at the
 top of the array, as Gemmini's `b` input does, saves each lane an adder and
@@ -332,12 +374,18 @@ Vivado folds away, and the bias un-folds it.
 |---|---:|---:|
 | SPMW, E3's cell | 363 | 511 |
 | SPMW, lean cell | 186 | 151 |
+| **SPMW, Gemmini's PE, 256 units** | **123** | **84** |
 | SPMW, 4x4 cells a unit | 92 | 69 |
 | SPMW, the array one unit | 88 | 43 |
 | Gemmini | 125 | 73 |
 | VTA | 103 | 23 |
 
-Two things remain. The fusion is written by the design, not the compiler:
+Three things remain. The bare links are asserted by the design, not proven
+by the compiler: nothing checks that a depth-0 link's array is fed without
+gaps, and an array whose inputs can pause mid-stream needs what Gemmini's
+controller provides -- one stall for the whole array -- which SPMW does not
+generate yet; simulation catches a violation, and synthesis cannot. The
+fusion is written by the design, not the compiler:
 `fused_engine` generates the block's source, while `spmw.place` declares
 `unroll` for exactly this and `driver.py` still refuses it, so SPMW cannot yet
 take a 1x1 cell and a block size and produce that unit itself. And VTA's

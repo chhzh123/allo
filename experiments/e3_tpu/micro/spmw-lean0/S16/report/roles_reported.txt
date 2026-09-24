@@ -1,0 +1,3 @@
+main: pe_r0 vpu_r0
+links_: pe_r0 vpu_r0
+merged_: pe_r0 vpu_r0

@@ -28,3 +28,8 @@ micro,spmw-fused4-two-credits,16,16,22748,15483,0,0,-0.520,tpumicro-fused4-c2
 micro,spmw-fused4-two-credits-retimed,16,16,22763,15699,0,0,-0.426,tpumicro-fused4-c2 --retiming
 micro,spmw-fused8-one-credit,16,16,23062,12669,0,0,-0.541,tpumicro-fused8
 micro,spmw-fused16-one-credit,16,16,22846,9544,0,0,-0.490,tpumicro-fused16
+micro,spmw-lean0,16,16,39981,28264,0,0,0.413,tpumicro-lean0; 256 units; bare-register links
+micro,spmw-lean0-m,16,16,31337,22058,0,0,0.306,tpumicro-lean0-m; + one loop a cell
+micro,spmw-lean0-m-v,16,16,31515,21584,0,0,0.368,tpumicro-lean0-m-v; + lanes credited; the 256-unit headline
+micro,spmw-lean0,4,4,2708,2032,0,0,0.598,tpumicro-lean0; 16 units
+micro,spmw-lean0-m-v,4,4,2273,1604,0,0,0.575,tpumicro-lean0-m-v; 16 units

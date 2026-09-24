@@ -1,0 +1,6 @@
+stage synth 96.018
+stage opt 4.787
+stage place 172.581
+stage physopt 0.693
+stage route 33.491
+unrouted 0

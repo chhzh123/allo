@@ -61,9 +61,10 @@ use. What remains is not the instruction set -- it is the composition model,
 and the registers are where it shows.
 
 **The area and latency columns have since closed.** Written the way Gemmini
-writes its processing element, and with four cells to an HLS unit, SPMW is
-23,605 lookup tables and 17,772 registers at 16x16 -- below Gemmini's 31,932
-and 18,675 -- at 16 cycles a tile, a 50-cycle first tile and 333 MHz. See
+writes its processing element -- still 256 units, one per PE -- SPMW is 31,515
+lookup tables and 21,584 registers at 16x16, against Gemmini's 31,932 and
+18,675, at 16 cycles a tile, a 58-cycle first tile against 70, and 337 MHz.
+See
 [Gemmini's PE, written in SPMW](#gemminis-pe-written-in-spmw) below.
 
 **Against its own programmable self the fixed datapath is a straight win**:
@@ -254,25 +255,25 @@ left DSP-inferred to show it.
 ## Gemmini's PE, written in SPMW
 
 The fixed datapath's 511 flip-flops a cell turned out to be how it was written
-and scheduled, not the composition model. Three changes close it, each a
-separate build of this workload with this stimulus and golden, cosimulated
-clean (4,096 of 4,096 tokens) and routed at 3.333 ns; E9's README
-(`../../e9_vta/README.md`, "Closing the gap") takes them apart.
+and compiled, not the composition model. Four changes close it without
+changing the array -- it stays 256 units, one multiply-accumulate each, as
+Gemmini is 256 PEs. Each row is a separate build of this workload with this
+stimulus and golden, cosimulated clean (4,096 of 4,096 tokens) and routed at
+3.333 ns; E9's README (`../../e9_vta/README.md`, "Closing the gap") takes
+them apart.
 
-| 16x16 | interval / tile | first tile | LUT | FF | DSP | clock |
+| 16x16, 256 units | interval / tile | first tile | LUT | FF | DSP | clock |
 |---|---:|---:|---:|---:|---:|---:|
 | SPMW, fixed (above) | 16 | 194 | 92,880 | 130,776 | 0 | 349 MHz |
-| SPMW, lean cell | 16 | 63 | 47,682 | 38,684 | 0 | 320 MHz |
-| SPMW, 2x2 cells a unit | 16 | 62 | 34,770 | 29,128 | 0 | 337 MHz |
-| **SPMW, 4x4 cells a unit** | **16** | **50** | **23,605** | **17,772** | 0 | **333 MHz** |
-| SPMW, 8x8 cells a unit | 16 | 49 | 24,647 | 14,287 | 0 | 322 MHz |
-| SPMW, the array one unit | 16 | 43 | 22,572 | 11,118 | 0 | 311 MHz |
+| + Gemmini's weight discipline, cell between its links | 16 | 63 | 47,682 | 38,684 | 0 | 320 MHz |
+| + bare-register links | 16 | 63 | 39,981 | 28,264 | 0 | 343 MHz |
+| + one loop a cell, lanes credited | 16 | **58** | **31,515** | **21,584** | 0 | **337 MHz** |
 | Gemmini | 18 | 70 | 31,932 | 18,675 | 0 | 324 MHz |
 
 "First tile" is measured as above, the cycle the first tile's last row
-leaves, so **the latency column flips as well**: 50 cycles against Gemmini's
-70, where the fixed datapath lost it 2.8x. The lean rows are all of
-`tests/dataflow/spmw/test_spmw_tpu_micro_lean.py`.
+leaves, so **the latency column flips as well**: 58 cycles against Gemmini's
+70, where the fixed datapath lost it 2.8x. All four are options of
+`lean_engine` in `tests/dataflow/spmw/test_spmw_tpu_micro_lean.py`.
 
 1. **The weight, held the way Gemmini holds it.** One int8 a cell and a second
    behind it, the next tile's weights shifting down the row *through* the cells
@@ -283,10 +284,29 @@ leaves, so **the latency column flips as well**: 50 cycles against Gemmini's
    between two of them. `spmw.pipeline(P, ii=1, combinational=True)` credits
    the accesses; the cell is one multiply-add between two link registers,
    Gemmini's `tile_latency = 0`, and 52 flip-flops instead of 143.
-3. **Fewer, larger units.** `fused_engine` generates an `f x f` block of
-   those cells, with `f` links of each kind where the cells had `f^2`. The
-   section above said this was not expressible; it is, by writing the larger
-   unit -- what `spmw.place(unroll=)` would automate is still refused.
+3. **Bare-register links.** `spmw_fifo` at depth 0 is a register and its
+   valid with no backpressure -- Gemmini's PE-to-PE link. It is correct because
+   this array is fed without gaps and every cell takes a token from each input
+   every cycle; simulation flags any overwritten value and reports none. An
+   array whose inputs can pause mid-stream would need one stall for the whole
+   array, which SPMW does not generate yet.
+4. **One loop a cell.** Tile 0's weights shift in on the step loop's first
+   iterations rather than in a loop of their own: 107 lookup tables and 52
+   registers a cell become 76 and 29.
+
+### Fewer, larger units
+
+A second axis, and not a like-for-like one: `fused_engine` puts `f x f` of
+step 2's cells in one unit, so there are `f` links of each kind where the
+cells had `f^2`. Gemmini's `tileRows`/`tileColumns` is the same knob and was
+not built here.
+
+| 16x16 | units | interval / tile | first tile | LUT | FF | clock |
+|---|---:|---:|---:|---:|---:|---:|
+| 2x2 cells a unit | 64 | 16 | 62 | 34,770 | 29,128 | 337 MHz |
+| 4x4 cells a unit | 16 | 16 | 50 | 23,605 | 17,772 | 333 MHz |
+| 8x8 cells a unit | 4 | 16 | 49 | 24,647 | 14,287 | 322 MHz |
+| the array one unit | 1 | 16 | 43 | 22,572 | 11,118 | 311 MHz |
 
 ## What this comparison does not say
 
@@ -423,8 +443,10 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
   hierarchical split, the C synthesis reports the II claims are quoted from,
   and the cosimulation's cycle lines. `roles_reported.txt` names which matrix
   cell and which lane the committed `_csynth.rpt` files belong to.
-- `spmw-lean/S<n>/` and `spmw-fused<f>/S16/` -- Gemmini's PE written in
-  SPMW, one cell a unit and `f x f` cells a unit, laid out like the rows above:
+- `spmw-lean0/S<n>/` -- the 256-unit row above: bare-register links, one loop
+  a cell, lanes credited (design `tpumicro-lean0-m-v`); `links_` is bare links
+  alone, `merged_` adds the one loop. `spmw-lean/S<n>/` is step 2 and
+  `spmw-fused<f>/S16/` the fused units. All laid out like the rows above:
   `source/` is `test_spmw_tpu_micro_lean.py`, `generated/` holds one `.cpp`,
   one `.sv` and the `.tcl` Vitis ran for each role -- the `.tcl` carries the
   link credit -- plus the fabric, and `report/` the routed and C-synthesis
@@ -432,7 +454,8 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
   (`build_log.txt`). A variant
   of the same engine keeps its reports under a prefix and only the generated
   files that differ in `generated_<variant>/`: `hls_` no link credit,
-  `depth1_` one-register links, `gemmini_epilogue_` the bias at the top,
+  `depth1_` one-register links with backpressure, `gemmini_epilogue_` the bias
+  at the top,
   `c<n>_` a different credit, `c2_retimed_` with Vivado retiming. The fused
   engines' main builds are one credit at `f` = 2 and 4 and none at 8 and 16;
   `report/hls_fifo_delay_excerpt.txt` is what Vitis charges each operation
