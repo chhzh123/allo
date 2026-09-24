@@ -1,0 +1,2 @@
+main: blk8_r0 lanes8_r0
+c1_: blk8_r0 lanes8_r0

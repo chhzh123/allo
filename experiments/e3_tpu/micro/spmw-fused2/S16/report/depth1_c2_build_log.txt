@@ -1,0 +1,44 @@
+B_START tpumicro-fused2-d1 S=16  Wed Sep 23 04:08:21 EDT 2026
+tpumicro-fused2-d1: {"roles": 10, "instances": 72, "fifos": 400, "streams": 72}
+staged 10 role project(s) in 1.8s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  lanes2_r0: rc=0 41.4s
+  blk2_r6: rc=0 43.6s
+  blk2_r3: rc=0 44.0s
+  blk2_r5: rc=0 44.0s
+  blk2_r1: rc=0 44.2s
+  blk2_r7: rc=0 44.3s
+  blk2_r2: rc=0 44.3s
+  blk2_r4: rc=0 44.5s
+  blk2_r0: rc=0 44.6s
+  blk2_r8: rc=0 44.9s
+HLS: 44.9s wall for 10 roles and 0 movers (439.8s of CPU work, 72 instances)
+assembling the array in Vivado:
+  stage synth 346.75
+  stage opt 15.938
+  stage place 411.538
+  stage physopt 96.23
+  stage route 228.477
+  unrouted 0
+Vivado implemented 72 instances in 1148.1s
+  array clock: 10.586 ns achieved against a 3.333 ns target (WNS -7.253 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=61 first_in=1
+  SPMW XFORM 2 done_cycle=77 first_in=1
+  SPMW XFORM 3 done_cycle=93 first_in=1
+  SPMW XFORM 4 done_cycle=109 first_in=1
+  SPMW XFORM 5 done_cycle=125 first_in=1
+  SPMW XFORM 6 done_cycle=141 first_in=1
+  SPMW XFORM 7 done_cycle=157 first_in=1
+  SPMW XFORM 8 done_cycle=173 first_in=1
+  SPMW XFORM 9 done_cycle=189 first_in=1
+  SPMW XFORM 10 done_cycle=205 first_in=1
+  SPMW XFORM 11 done_cycle=221 first_in=1
+  SPMW XFORM 12 done_cycle=237 first_in=1
+  SPMW XFORM 13 done_cycle=253 first_in=1
+  SPMW XFORM 14 done_cycle=269 first_in=1
+  SPMW XFORM 15 done_cycle=285 first_in=1
+  SPMW XFORM 16 done_cycle=308 first_in=1
+  SPMW COSIM PASS (4096/4096 tokens, 0 errors)
+  SPMW CYCLES total=308 first_out=39 first_in=1
+B_RC=0 wall_s=1240

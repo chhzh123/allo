@@ -18,7 +18,7 @@ bounded by the adder's latency -- still benefits from being pipelined at the
 interval it *can* meet, which is what HLS falls back to on its own.
 
 ``pipeline(P, ii=1, registered_links=True)`` asks for no pipeline *depth* the
-links already provide.  Vitis charges each FIFO access 1.42 ns, but an SPMW
+links already provide.  Vitis charges each FIFO access 1.2-1.4 ns, but an SPMW
 link is a register slice -- a flop on either side of the unit -- so left alone
 it registers a multiply-add cell three times over on top of its links: a
 systolic cell that is its own pipeline and then the array's again.  A stage

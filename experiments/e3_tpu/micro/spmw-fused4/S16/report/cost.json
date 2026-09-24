@@ -1,0 +1,22 @@
+{
+ "cost": {
+  "roles": 10,
+  "instances": 20,
+  "fifos": 208,
+  "streams": 68
+ },
+ "hls_seconds": {
+  "lanes4_r0": 40.4,
+  "blk4_r5": 43.5,
+  "blk4_r6": 43.6,
+  "blk4_r3": 43.6,
+  "blk4_r1": 44.2,
+  "blk4_r4": 44.3,
+  "blk4_r8": 44.4,
+  "blk4_r7": 44.4,
+  "blk4_r0": 44.5,
+  "blk4_r2": 44.5
+ },
+ "hls_wall_seconds": 44.5,
+ "vivado_seconds": 610.7
+}

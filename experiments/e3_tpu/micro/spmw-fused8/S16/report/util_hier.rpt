@@ -1,0 +1,108 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Wed Sep 23 05:50:08 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file /scratch/hc676/e9_lean/b_tpumicro-fused8-hls_16_fin/util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------------------+------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|           Instance           |            Module            | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++------------------------------+------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| spmw_harness                 |                        (top) |      25596 |      25012 |       0 |  584 | 15224 |      0 |      0 |    0 |          0 |
+|   (spmw_harness)             |                        (top) |        950 |        882 |       0 |   68 |   937 |      0 |      0 |    0 |          0 |
+|   dut                        |                     spmw_top |      24647 |      24131 |       0 |  516 | 14287 |      0 |      0 |    0 |          0 |
+|     (dut)                    |                     spmw_top |          6 |          6 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     g_blk8_a0_out_a0_in[1].u |                    spmw_fifo |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a0_out_a0_in[3].u |                  spmw_fifo_0 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a1_out_a1_in[1].u |                  spmw_fifo_1 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a1_out_a1_in[3].u |                  spmw_fifo_2 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a2_out_a2_in[1].u |                  spmw_fifo_3 |          6 |          6 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a2_out_a2_in[3].u |                  spmw_fifo_4 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a3_out_a3_in[1].u |                  spmw_fifo_5 |          6 |          6 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a3_out_a3_in[3].u |                  spmw_fifo_6 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a4_out_a4_in[1].u |                  spmw_fifo_7 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a4_out_a4_in[3].u |                  spmw_fifo_8 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a5_out_a5_in[1].u |                  spmw_fifo_9 |          6 |          6 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a5_out_a5_in[3].u |                 spmw_fifo_10 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a6_out_a6_in[1].u |                 spmw_fifo_11 |          6 |          6 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a6_out_a6_in[3].u |                 spmw_fifo_12 |          6 |          6 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a7_out_a7_in[1].u |                 spmw_fifo_13 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_a7_out_a7_in[3].u |                 spmw_fifo_14 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_p0_out_p0_in[2].u |    spmw_fifo__parameterized0 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p0_out_p0_in[3].u | spmw_fifo__parameterized0_15 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p1_out_p1_in[2].u | spmw_fifo__parameterized0_16 |         16 |         16 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p1_out_p1_in[3].u | spmw_fifo__parameterized0_17 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p2_out_p2_in[2].u | spmw_fifo__parameterized0_18 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p2_out_p2_in[3].u | spmw_fifo__parameterized0_19 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p3_out_p3_in[2].u | spmw_fifo__parameterized0_20 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p3_out_p3_in[3].u | spmw_fifo__parameterized0_21 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p4_out_p4_in[2].u | spmw_fifo__parameterized0_22 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p4_out_p4_in[3].u | spmw_fifo__parameterized0_23 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p5_out_p5_in[2].u | spmw_fifo__parameterized0_24 |         16 |         16 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p5_out_p5_in[3].u | spmw_fifo__parameterized0_25 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p6_out_p6_in[2].u | spmw_fifo__parameterized0_26 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p6_out_p6_in[3].u | spmw_fifo__parameterized0_27 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p7_out_p7_in[2].u | spmw_fifo__parameterized0_28 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_p7_out_p7_in[3].u | spmw_fifo__parameterized0_29 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk8_w0_out_w0_in[1].u |                 spmw_fifo_30 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w0_out_w0_in[3].u |                 spmw_fifo_31 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w1_out_w1_in[1].u |                 spmw_fifo_32 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w1_out_w1_in[3].u |                 spmw_fifo_33 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w2_out_w2_in[1].u |                 spmw_fifo_34 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w2_out_w2_in[3].u |                 spmw_fifo_35 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w3_out_w3_in[1].u |                 spmw_fifo_36 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w3_out_w3_in[3].u |                 spmw_fifo_37 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w4_out_w4_in[1].u |                 spmw_fifo_38 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w4_out_w4_in[3].u |                 spmw_fifo_39 |          5 |          5 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w5_out_w5_in[1].u |                 spmw_fifo_40 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w5_out_w5_in[3].u |                 spmw_fifo_41 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w6_out_w6_in[1].u |                 spmw_fifo_42 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w6_out_w6_in[3].u |                 spmw_fifo_43 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w7_out_w7_in[1].u |                 spmw_fifo_44 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk8_w7_out_w7_in[3].u |                 spmw_fifo_45 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z0_in_bind[0].u | spmw_fifo__parameterized0_46 |         86 |         86 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z0_in_bind[1].u | spmw_fifo__parameterized0_47 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z1_in_bind[0].u | spmw_fifo__parameterized0_48 |         75 |         75 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z1_in_bind[1].u | spmw_fifo__parameterized0_49 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z2_in_bind[0].u | spmw_fifo__parameterized0_50 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z2_in_bind[1].u | spmw_fifo__parameterized0_51 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z3_in_bind[0].u | spmw_fifo__parameterized0_52 |         75 |         75 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z3_in_bind[1].u | spmw_fifo__parameterized0_53 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z4_in_bind[0].u | spmw_fifo__parameterized0_54 |         75 |         75 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z4_in_bind[1].u | spmw_fifo__parameterized0_55 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z5_in_bind[0].u | spmw_fifo__parameterized0_56 |         75 |         75 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z5_in_bind[1].u | spmw_fifo__parameterized0_57 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z6_in_bind[0].u | spmw_fifo__parameterized0_58 |         76 |         76 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z6_in_bind[1].u | spmw_fifo__parameterized0_59 |         77 |         77 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z7_in_bind[0].u | spmw_fifo__parameterized0_60 |         77 |         77 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes8_z7_in_bind[1].u | spmw_fifo__parameterized0_61 |         78 |         78 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     u_blk8_r0_1_1            |                      blk8_r0 |       4870 |       4741 |       0 |  129 |  2589 |      0 |      0 |    0 |          0 |
+|       u                      |                    blk8_r0_0 |       4870 |       4741 |       0 |  129 |  2589 |      0 |      0 |    0 |          0 |
+|     u_blk8_r1_0_1            |                      blk8_r1 |       5727 |       5598 |       0 |  129 |  2589 |      0 |      0 |    0 |          0 |
+|       u                      |                    blk8_r1_0 |       5727 |       5598 |       0 |  129 |  2589 |      0 |      0 |    0 |          0 |
+|     u_blk8_r2_1_0            |                      blk8_r2 |       5928 |       5799 |       0 |  129 |  2910 |      0 |      0 |    0 |          0 |
+|       u                      |                    blk8_r2_0 |       5928 |       5799 |       0 |  129 |  2910 |      0 |      0 |    0 |          0 |
+|     u_blk8_r3_0_0            |                      blk8_r3 |       5858 |       5729 |       0 |  129 |  2909 |      0 |      0 |    0 |          0 |
+|       u                      |                    blk8_r3_0 |       5858 |       5729 |       0 |  129 |  2909 |      0 |      0 |    0 |          0 |
+|     u_lanes8_r0_0            |                    lanes8_r0 |        315 |        315 |       0 |    0 |   303 |      0 |      0 |    0 |          0 |
+|       u                      |               lanes8_r0_0_64 |        315 |        315 |       0 |    0 |   303 |      0 |      0 |    0 |          0 |
+|     u_lanes8_r0_1            |                 lanes8_r0_62 |        312 |        312 |       0 |    0 |   299 |      0 |      0 |    0 |          0 |
+|       u                      |                  lanes8_r0_0 |        312 |        312 |       0 |    0 |   299 |      0 |      0 |    0 |          0 |
++------------------------------+------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

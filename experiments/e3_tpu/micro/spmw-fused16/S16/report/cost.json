@@ -1,0 +1,14 @@
+{
+ "cost": {
+  "roles": 2,
+  "instances": 2,
+  "fifos": 16,
+  "streams": 65
+ },
+ "hls_seconds": {
+  "lanes16_r0": 40.4,
+  "blk16_r0": 72.9
+ },
+ "hls_wall_seconds": 72.9,
+ "vivado_seconds": 601.5
+}

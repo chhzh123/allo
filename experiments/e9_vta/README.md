@@ -253,9 +253,10 @@ cell `j` holds the row's `(S-1-j)`-th token, and at the tile boundary
 identical, and its weight link is an int8 rather than an int32. That halves
 both columns.
 
-**2. Not pipelining on top of the links.** Vitis charges every FIFO access
-1.42 ns, so read, multiply, add and write -- 5.06 ns in its model -- cannot
-share one 3.33 ns stage, and it registers `a`, `p`, the product and the sum.
+**2. Not pipelining on top of the links.** At a 3.33 ns target Vitis charges
+every FIFO access 1.21 ns, so read, multiply, add and write -- 4.64 ns in its
+model, against a 2.43 ns budget -- cannot share a stage, and it registers `a`,
+`p`, the product and the sum, four stages in all.
 But an SPMW link *is* a register: its `dout` is a flop and its `din` lands in
 one. `spmw.pipeline(P, ii=1, combinational=True)` credits each stage the link
 accesses it touches, and the cell becomes one multiply-add between two link
@@ -460,4 +461,9 @@ is Intel.
   `-fused<f>[-d<depth>]` in `scripts/spmw_build_array.py`.
 - `scripts/lean_collect.py` -- one row per build: the `dut` instance's
   lookup tables and registers, the steady interval from tiles 2 to 15, the
-  first output, the clock.
+  first output, the clock. `lean_build.sh` and `lean_hier.sh` are the build
+  and the hierarchical split it reads.
+- `../e3_tpu/micro/spmw-lean/`, `../e3_tpu/micro/spmw-fused<f>/` -- every
+  build in "Closing the gap": the design source, the generated per-role HLS
+  C++, wrappers and Vitis scripts, the fabric, and the reports. They sit with
+  E3's other microbenchmark engines because they are that workload.

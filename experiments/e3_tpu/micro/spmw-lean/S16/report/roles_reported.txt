@@ -1,0 +1,4 @@
+main: pe_r0 vpu_r0
+hls_: pe_r0 vpu_r0
+depth1_: pe_r0 vpu_r0
+gemmini_epilogue_: pe_r0 vpu_r0

@@ -1,0 +1,26 @@
+# What Vitis charges each operation of pe_r0's step loop, from the schedule it made
+# (.autopilot/db/pe_r0_0_Pipeline_l_S_s_1_s.verbose.sched.rpt): stage, operation, delay used.
+# An ap_fifo access is charged 1.21 ns at a 3.33 ns target and 1.42 ns at the credited 6.17 ns;
+# the FIFO core's nominal delay is 1.42 in both.
+
+## b_tpumicro-lean-hls_16, scheduled at 3.33 ns
+ST_1  add  0.71 ns
+ST_2  read  1.21 ns
+ST_2  read  1.21 ns
+ST_2  read  1.21 ns
+ST_3  mul  1.34 ns
+ST_3  add  0.88 ns
+ST_4  write  1.21 ns
+ST_4  write  1.21 ns
+ST_4  write  1.21 ns
+
+## b_tpumicro-lean_16, scheduled at 6.17 ns
+ST_1  add  0.71 ns
+ST_2  read  1.42 ns
+ST_2  read  1.42 ns
+ST_2  write  1.42 ns
+ST_2  mul  1.34 ns
+ST_2  add  0.88 ns
+ST_2  write  1.42 ns
+ST_2  write  1.42 ns
+ST_2  read  1.42 ns

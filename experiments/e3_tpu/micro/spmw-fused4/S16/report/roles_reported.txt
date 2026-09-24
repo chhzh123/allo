@@ -1,0 +1,4 @@
+main: blk4_r0 lanes4_r0
+c2_: blk4_r0 lanes4_r0
+c2_retimed_: blk4_r0 lanes4_r0
+depth1_c2_: blk4_r0 lanes4_r0

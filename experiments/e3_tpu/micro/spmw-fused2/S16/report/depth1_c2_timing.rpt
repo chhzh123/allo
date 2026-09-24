@@ -1,0 +1,520 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+--------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Wed Sep 23 04:27:49 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing_summary -file timing.rpt
+| Design            : spmw_harness
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Routed
+| Temperature Grade : E
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Summary Report
+
+------------------------------------------------------------------------------------------------
+| Timer Settings
+| --------------
+------------------------------------------------------------------------------------------------
+
+  Enable Multi Corner Analysis               :  Yes
+  Enable Pessimism Removal                   :  Yes
+  Pessimism Removal Resolution               :  Nearest Common Node
+  Enable Input Delay Default Clock           :  No
+  Enable Preset / Clear Arcs                 :  No
+  Disable Flight Delays                      :  No
+  Ignore I/O Paths                           :  No
+  Timing Early Launch at Borrowing Latches   :  No
+  Borrow Time for Max Delay Exceptions       :  Yes
+  Merge Timing Exceptions                    :  Yes
+  Inter-SLR Compensation                     :  Conservative
+
+  Corner  Analyze    Analyze    
+  Name    Max Paths  Min Paths  
+  ------  ---------  ---------  
+  Slow    Yes        Yes        
+  Fast    Yes        Yes        
+
+
+------------------------------------------------------------------------------------------------
+| Report Methodology
+| ------------------
+------------------------------------------------------------------------------------------------
+
+No report available as report_methodology has not been run prior. Run report_methodology on the current design for the summary of methodology violations.
+
+
+
+check_timing report
+
+Table of Contents
+-----------------
+1. checking no_clock (0)
+2. checking constant_clock (0)
+3. checking pulse_width_clock (0)
+4. checking unconstrained_internal_endpoints (0)
+5. checking no_input_delay (2)
+6. checking no_output_delay (7)
+7. checking multiple_clock (0)
+8. checking generated_clocks (0)
+9. checking loops (0)
+10. checking partial_input_delay (0)
+11. checking partial_output_delay (0)
+12. checking latch_loops (0)
+
+1. checking no_clock (0)
+------------------------
+ There are 0 register/latch pins with no clock.
+
+
+2. checking constant_clock (0)
+------------------------------
+ There are 0 register/latch pins with constant_clock.
+
+
+3. checking pulse_width_clock (0)
+---------------------------------
+ There are 0 register/latch pins which need pulse_width check
+
+
+4. checking unconstrained_internal_endpoints (0)
+------------------------------------------------
+ There are 0 pins that are not constrained for maximum delay.
+
+ There are 0 pins that are not constrained for maximum delay due to constant clock.
+
+
+5. checking no_input_delay (2)
+------------------------------
+ There are 2 input ports with no input delay specified. (HIGH)
+
+ There are 0 input ports with no input delay but user has a false path constraint.
+
+
+6. checking no_output_delay (7)
+-------------------------------
+ There are 7 ports with no output delay specified. (HIGH)
+
+ There are 0 ports with no output delay but user has a false path constraint
+
+ There are 0 ports with no output delay but with a timing clock defined on it or propagating through it
+
+
+7. checking multiple_clock (0)
+------------------------------
+ There are 0 register/latch pins with multiple clocks.
+
+
+8. checking generated_clocks (0)
+--------------------------------
+ There are 0 generated clocks that are not connected to a clock source.
+
+
+9. checking loops (0)
+---------------------
+ There are 0 combinational loops in the design.
+
+
+10. checking partial_input_delay (0)
+------------------------------------
+ There are 0 input ports with partial input delay specified.
+
+
+11. checking partial_output_delay (0)
+-------------------------------------
+ There are 0 ports with partial output delay specified.
+
+
+12. checking latch_loops (0)
+----------------------------
+ There are 0 combinational latch loops in the design through latch input
+
+
+
+------------------------------------------------------------------------------------------------
+| Design Timing Summary
+| ---------------------
+------------------------------------------------------------------------------------------------
+
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+    -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+     -7.253   -70731.672                  24396                42987        0.002        0.000                      0                42987        1.134        0.000                       0                 21662  
+
+
+Timing constraints are not met.
+
+
+------------------------------------------------------------------------------------------------
+| Clock Summary
+| -------------
+------------------------------------------------------------------------------------------------
+
+Clock   Waveform(ns)         Period(ns)      Frequency(MHz)
+-----   ------------         ----------      --------------
+ap_clk  {0.000 1.666}        3.333           300.030         
+
+
+------------------------------------------------------------------------------------------------
+| Intra Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+-----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
+ap_clk             -7.253   -70731.672                  24396                42987        0.002        0.000                      0                42987        1.134        0.000                       0                 21662  
+
+
+------------------------------------------------------------------------------------------------
+| Inter Clock Table
+| -----------------
+------------------------------------------------------------------------------------------------
+
+From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Other Path Groups Table
+| -----------------------
+------------------------------------------------------------------------------------------------
+
+Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+----------    ----------    --------          -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------  
+
+
+------------------------------------------------------------------------------------------------
+| Timing Details
+| --------------
+------------------------------------------------------------------------------------------------
+
+
+---------------------------------------------------------------------------------------------------
+From Clock:  ap_clk
+  To Clock:  ap_clk
+
+Setup :        24396  Failing Endpoints,  Worst Slack       -7.253ns,  Total Violation   -70731.672ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.002ns,  Total Violation        0.000ns
+PW    :            0  Failing Endpoints,  Worst Slack        1.134ns,  Total Violation        0.000ns
+---------------------------------------------------------------------------------------------------
+
+
+Max Delay Paths
+--------------------------------------------------------------------------------------
+Slack (VIOLATED) :        -7.253ns  (required time - arrival time)
+  Source:                 dut/g_blk2_p0_out_p0_in[63].u/one.v0_reg/C
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[1]/CE
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             ap_clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (ap_clk rise@3.333ns - ap_clk rise@0.000ns)
+  Data Path Delay:        10.492ns  (logic 3.774ns (35.970%)  route 6.718ns (64.030%))
+  Logic Levels:           54  (LUT2=10 LUT3=1 LUT4=7 LUT5=11 LUT6=25)
+  Clock Path Skew:        0.002ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    2.601ns = ( 5.934 - 3.333 ) 
+    Source Clock Delay      (SCD):    2.979ns
+    Clock Pessimism Removal (CPR):    0.379ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+  Clock Net Delay (Source):      1.992ns (routing 0.931ns, distribution 1.061ns)
+  Clock Net Delay (Destination): 1.907ns (routing 0.848ns, distribution 1.059ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ap_clk rise edge)     0.000     0.000 r  
+    BH26                                              0.000     0.000 r  ap_clk (IN)
+                         net (fo=0)                   0.000     0.000    ap_clk_IBUF_inst/I
+    BH26                 INBUF (Prop_INBUF_HPIOB_M_PAD_O)
+                                                      0.636     0.636 r  ap_clk_IBUF_inst/INBUF_INST/O
+                         net (fo=1, routed)           0.000     0.636    ap_clk_IBUF_inst/OUT
+    BH26                 IBUFCTRL (Prop_IBUFCTRL_HPIOB_M_I_O)
+                                                      0.000     0.636 r  ap_clk_IBUF_inst/IBUFCTRL_INST/O
+                         net (fo=1, routed)           0.323     0.959    ap_clk_IBUF
+    BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.987 r  ap_clk_IBUF_BUFG_inst/O
+    X5Y2 (CLOCK_ROOT)    net (fo=21661, routed)       1.992     2.979    dut/g_blk2_p0_out_p0_in[63].u/ap_clk_IBUF_BUFG
+    SLICE_X160Y125       FDRE                                         r  dut/g_blk2_p0_out_p0_in[63].u/one.v0_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X160Y125       FDRE (Prop_BFF_SLICEL_C_Q)
+                                                      0.079     3.058 r  dut/g_blk2_p0_out_p0_in[63].u/one.v0_reg/Q
+                         net (fo=4, routed)           0.157     3.215    dut/g_blk2_w1_out_w1_in[63].u/blk2_p0_out_p0_in_empty_n[63]_127
+    SLICE_X160Y125       LUT6 (Prop_A6LUT_SLICEL_I5_O)
+                                                      0.124     3.339 r  dut/g_blk2_w1_out_w1_in[63].u/one.q0[7]_i_5__7/O
+                         net (fo=8, routed)           0.204     3.543    dut/u_blk2_r5_7_7/u/grp_blk2_r5_0_Pipeline_l_S_k_0_k_fu_58/ap_CS_fsm[4]_i_11__1_0
+    SLICE_X159Y124       LUT6 (Prop_A6LUT_SLICEL_I3_O)
+                                                      0.098     3.641 r  dut/u_blk2_r5_7_7/u/grp_blk2_r5_0_Pipeline_l_S_k_0_k_fu_58/ap_CS_fsm[4]_i_8__4/O
+                         net (fo=3, routed)           0.095     3.736    dut/u_blk2_r5_7_7/u/grp_blk2_r5_0_Pipeline_l_S_k_0_k_fu_58/blk2_w1_out_w1_in_full_n[63]_859
+    SLICE_X159Y123       LUT6 (Prop_E6LUT_SLICEL_I1_O)
+                                                      0.090     3.826 f  dut/u_blk2_r5_7_7/u/grp_blk2_r5_0_Pipeline_l_S_k_0_k_fu_58/ap_CS_fsm[4]_i_5__29/O
+                         net (fo=1, routed)           0.099     3.925    dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v44_fu_100_reg[7]_1
+    SLICE_X161Y123       LUT6 (Prop_B6LUT_SLICEM_I5_O)
+                                                      0.089     4.014 r  dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__31/O
+                         net (fo=123, routed)         0.115     4.128    dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_pp0_stage0_11001__0
+    SLICE_X161Y122       LUT5 (Prop_H6LUT_SLICEM_I2_O)
+                                                      0.101     4.229 r  dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_2__139/O
+                         net (fo=2, routed)           0.095     4.324    dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_a0_out_a0_in_full_n[62]_366
+    SLICE_X161Y121       LUT5 (Prop_D6LUT_SLICEM_I0_O)
+                                                      0.099     4.423 f  dut/u_blk2_r1_7_6/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_7__0/O
+                         net (fo=1, routed)           0.052     4.475    dut/u_blk2_r1_7_5/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v82_fu_116_reg[8]_6
+    SLICE_X161Y121       LUT6 (Prop_C6LUT_SLICEM_I5_O)
+                                                      0.145     4.620 r  dut/u_blk2_r1_7_5/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_2__50/O
+                         net (fo=121, routed)         0.181     4.801    dut/u_blk2_r1_7_5/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X162Y119       LUT6 (Prop_E6LUT_SLICEM_I3_O)
+                                                      0.148     4.949 f  dut/u_blk2_r1_7_5/u/grp_blk2_r1_0_Pipeline_l_S_s_1_s_fu_82/one.v0_i_6__2/O
+                         net (fo=1, routed)           0.103     5.052    dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v84_reg_560_reg[0]_4
+    SLICE_X162Y120       LUT6 (Prop_C6LUT_SLICEM_I3_O)
+                                                      0.145     5.197 r  dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_2__51/O
+                         net (fo=125, routed)         0.120     5.317    dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X162Y118       LUT6 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.100     5.417 r  dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.v0_i_3__30/O
+                         net (fo=6, routed)           0.089     5.506    dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_w0_out_w0_in_read[53]_1452
+    SLICE_X162Y117       LUT2 (Prop_E6LUT_SLICEM_I0_O)
+                                                      0.037     5.543 r  dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v18_fu_64[7]_i_3__40/O
+                         net (fo=3, routed)           0.176     5.719    dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_w1_out_w1_in_full_n[53]_384
+    SLICE_X162Y115       LUT6 (Prop_H6LUT_SLICEM_I4_O)
+                                                      0.152     5.871 f  dut/u_blk2_r0_6_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_6__0/O
+                         net (fo=1, routed)           0.087     5.958    dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2_2
+    SLICE_X163Y116       LUT5 (Prop_C6LUT_SLICEL_I4_O)
+                                                      0.096     6.054 r  dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_2__7/O
+                         net (fo=121, routed)         0.108     6.162    dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X163Y118       LUT4 (Prop_B6LUT_SLICEL_I1_O)
+                                                      0.036     6.198 r  dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[31]_i_2__22/O
+                         net (fo=12, routed)          0.218     6.417    dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_6
+    SLICE_X166Y119       LUT2 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.037     6.454 r  dut/u_blk2_r0_6_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_11__0/O
+                         net (fo=1, routed)           0.051     6.505    dut/u_blk2_r0_5_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_p0_out_p0_in_full_n[52]_395
+    SLICE_X166Y119       LUT6 (Prop_H6LUT_SLICEM_I3_O)
+                                                      0.125     6.630 f  dut/u_blk2_r0_5_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_6/O
+                         net (fo=1, routed)           0.040     6.670    dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2_2
+    SLICE_X166Y119       LUT5 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.052     6.722 r  dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.v0_i_2__5/O
+                         net (fo=121, routed)         0.124     6.846    dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X166Y121       LUT4 (Prop_F6LUT_SLICEM_I1_O)
+                                                      0.037     6.883 r  dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_2__42/O
+                         net (fo=12, routed)          0.244     7.126    dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__23
+    SLICE_X169Y123       LUT2 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.035     7.161 r  dut/u_blk2_r0_5_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_8__22/O
+                         net (fo=1, routed)           0.040     7.201    dut/u_blk2_r0_4_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_p0_out_p0_in_full_n[44]_399
+    SLICE_X169Y123       LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.090     7.291 f  dut/u_blk2_r0_4_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__23/O
+                         net (fo=1, routed)           0.084     7.375    dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2_2
+    SLICE_X170Y123       LUT5 (Prop_H6LUT_SLICEL_I4_O)
+                                                      0.036     7.411 r  dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__25/O
+                         net (fo=114, routed)         0.094     7.505    dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X170Y123       LUT4 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.035     7.540 r  dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[31]_i_2__30/O
+                         net (fo=12, routed)          0.102     7.642    dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__13
+    SLICE_X170Y124       LUT2 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.035     7.677 r  dut/u_blk2_r0_4_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_6__18/O
+                         net (fo=1, routed)           0.096     7.773    dut/u_blk2_r0_3_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_p1_out_p1_in_full_n[36]_389
+    SLICE_X172Y124       LUT6 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.088     7.861 f  dut/u_blk2_r0_3_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__13/O
+                         net (fo=1, routed)           0.085     7.946    dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2_2
+    SLICE_X172Y123       LUT5 (Prop_D6LUT_SLICEL_I4_O)
+                                                      0.036     7.982 r  dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__15/O
+                         net (fo=121, routed)         0.105     8.087    dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X173Y123       LUT4 (Prop_E6LUT_SLICEL_I1_O)
+                                                      0.035     8.122 r  dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[31]_i_2__23/O
+                         net (fo=12, routed)          0.165     8.288    dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_6__1
+    SLICE_X173Y118       LUT2 (Prop_D6LUT_SLICEL_I0_O)
+                                                      0.036     8.324 r  dut/u_blk2_r0_3_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_7__6/O
+                         net (fo=1, routed)           0.158     8.482    dut/u_blk2_r0_2_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_p1_out_p1_in_full_n[28]_378
+    SLICE_X176Y118       LUT6 (Prop_H6LUT_SLICEM_I1_O)
+                                                      0.053     8.535 f  dut/u_blk2_r0_2_5/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_6__1/O
+                         net (fo=1, routed)           0.180     8.715    dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2_2
+    SLICE_X177Y115       LUT5 (Prop_F6LUT_SLICEL_I4_O)
+                                                      0.035     8.750 r  dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_2__51/O
+                         net (fo=121, routed)         0.192     8.941    dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X178Y114       LUT4 (Prop_E6LUT_SLICEL_I1_O)
+                                                      0.035     8.976 r  dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[31]_i_2__25/O
+                         net (fo=12, routed)          0.108     9.084    dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__19
+    SLICE_X178Y115       LUT2 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.035     9.119 r  dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_7__15/O
+                         net (fo=1, routed)           0.112     9.231    dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_a1_out_a1_in_full_n[20]_886
+    SLICE_X178Y113       LUT6 (Prop_F6LUT_SLICEL_I2_O)
+                                                      0.148     9.379 f  dut/u_blk2_r0_2_4/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__24/O
+                         net (fo=1, routed)           0.039     9.418    dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2
+    SLICE_X178Y113       LUT5 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.035     9.453 r  dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__26/O
+                         net (fo=121, routed)         0.105     9.558    dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X178Y113       LUT6 (Prop_E6LUT_SLICEL_I2_O)
+                                                      0.035     9.593 r  dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_4__36/O
+                         net (fo=6, routed)           0.090     9.683    dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_w0_out_w0_in_read[19]_1232
+    SLICE_X179Y113       LUT2 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.037     9.720 r  dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v18_fu_64[7]_i_3__30/O
+                         net (fo=3, routed)           0.101     9.821    dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_w1_out_w1_in_full_n[19]_926
+    SLICE_X179Y111       LUT3 (Prop_E6LUT_SLICEM_I2_O)
+                                                      0.052     9.873 f  dut/u_blk2_r0_2_3/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_6__31/O
+                         net (fo=1, routed)           0.047     9.920    dut/u_blk2_r0_3_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__2
+    SLICE_X179Y111       LUT6 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.053     9.973 f  dut/u_blk2_r0_3_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_4__1/O
+                         net (fo=1, routed)           0.043    10.016    dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v84_reg_560_reg[0]_1
+    SLICE_X179Y111       LUT6 (Prop_C6LUT_SLICEM_I5_O)
+                                                      0.037    10.053 r  dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__2/O
+                         net (fo=128, routed)         0.157    10.210    dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X179Y108       LUT6 (Prop_H6LUT_SLICEM_I2_O)
+                                                      0.039    10.249 r  dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_3__2/O
+                         net (fo=6, routed)           0.153    10.402    dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v20_fu_56_reg[0]
+    SLICE_X179Y106       LUT2 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.038    10.440 r  dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v18_fu_64[7]_i_3__10/O
+                         net (fo=3, routed)           0.169    10.609    dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_w1_out_w1_in_full_n[18]_839
+    SLICE_X178Y104       LUT6 (Prop_E6LUT_SLICEL_I4_O)
+                                                      0.147    10.756 f  dut/u_blk2_r0_2_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_5__10/O
+                         net (fo=1, routed)           0.090    10.846    dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2
+    SLICE_X179Y104       LUT5 (Prop_A6LUT_SLICEM_I4_O)
+                                                      0.038    10.884 r  dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__12/O
+                         net (fo=115, routed)         0.187    11.072    dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X180Y103       LUT4 (Prop_B6LUT_SLICEM_I1_O)
+                                                      0.037    11.109 r  dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_2__29/O
+                         net (fo=12, routed)          0.114    11.222    dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_6__0
+    SLICE_X182Y103       LUT2 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.037    11.259 r  dut/u_blk2_r0_2_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_7__1/O
+                         net (fo=1, routed)           0.085    11.344    dut/u_blk2_r0_1_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_p1_out_p1_in_full_n[17]_821
+    SLICE_X182Y104       LUT6 (Prop_E6LUT_SLICEM_I1_O)
+                                                      0.091    11.435 f  dut/u_blk2_r0_1_2/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_6__0/O
+                         net (fo=1, routed)           0.087    11.522    dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_block_state3_pp0_stage0_iter2
+    SLICE_X183Y104       LUT5 (Prop_A6LUT_SLICEL_I4_O)
+                                                      0.035    11.557 r  dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/one.q0[7]_i_2__38/O
+                         net (fo=121, routed)         0.153    11.710    dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_subdone
+    SLICE_X183Y102       LUT4 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.035    11.745 r  dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_2__37/O
+                         net (fo=12, routed)          0.101    11.846    dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/ap_CS_fsm_reg[4]_6
+    SLICE_X183Y101       LUT2 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.035    11.881 r  dut/u_blk2_r0_1_1/u/grp_blk2_r0_0_Pipeline_l_S_s_1_s_fu_82/icmp_ln61_reg_556[0]_i_12/O
+                         net (fo=1, routed)           0.148    12.029    dut/u_blk2_r4_2_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/blk2_a1_out_a1_in_full_n[9]_811
+    SLICE_X183Y99        LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.089    12.118 f  dut/u_blk2_r4_2_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/icmp_ln61_reg_556[0]_i_5/O
+                         net (fo=3, routed)           0.061    12.179    dut/u_blk2_r4_1_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/v84_reg_560_reg[0]_1
+    SLICE_X183Y99        LUT6 (Prop_C6LUT_SLICEL_I2_O)
+                                                      0.123    12.302 f  dut/u_blk2_r4_1_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/flow_control_loop_pipe_sequential_init_U/ap_CS_fsm[4]_i_2__11/O
+                         net (fo=25, routed)          0.333    12.635    dut/u_blk2_r4_1_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/ap_enable_reg_pp0_iter2_reg_0
+    SLICE_X185Y100       LUT5 (Prop_A6LUT_SLICEL_I2_O)
+                                                      0.035    12.670 r  dut/u_blk2_r4_1_0/u/grp_blk2_r4_0_Pipeline_l_S_s_1_s_fu_82/icmp_ln61_reg_556[0]_i_10__0/O
+                         net (fo=1, routed)           0.093    12.763    dut/u_blk2_r2_0_1/u/grp_blk2_r2_0_Pipeline_l_S_s_1_s_fu_82/blk2_p0_out_p0_in_full_n[8]_793
+    SLICE_X186Y100       LUT6 (Prop_C6LUT_SLICEM_I5_O)
+                                                      0.037    12.800 f  dut/u_blk2_r2_0_1/u/grp_blk2_r2_0_Pipeline_l_S_s_1_s_fu_82/icmp_ln61_reg_556[0]_i_4__7/O
+                         net (fo=3, routed)           0.057    12.857    dut/u_blk2_r2_0_1/u/grp_blk2_r2_0_Pipeline_l_S_k_0_k_fu_66/n1_0_1_reg_573_reg[0]_0
+    SLICE_X186Y99        LUT6 (Prop_H6LUT_SLICEM_I4_O)
+                                                      0.039    12.896 f  dut/u_blk2_r2_0_1/u/grp_blk2_r2_0_Pipeline_l_S_k_0_k_fu_66/one.q0[7]_i_2__97/O
+                         net (fo=25, routed)          0.152    13.048    dut/u_blk2_r8_0_0/u/grp_blk2_r8_0_Pipeline_l_S_s_1_s_fu_82/ap_block_pp0_stage0_11001__0
+    SLICE_X186Y98        LUT6 (Prop_E6LUT_SLICEM_I3_O)
+                                                      0.148    13.196 r  dut/u_blk2_r8_0_0/u/grp_blk2_r8_0_Pipeline_l_S_s_1_s_fu_82/one.q0[7]_i_1/O
+                         net (fo=8, routed)           0.275    13.471    dut/g_blk2_w1_out_w1_in[1].u/E[0]
+    SLICE_X189Y96        FDRE                                         r  dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[1]/CE
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ap_clk rise edge)     3.333     3.333 r  
+    BH26                                              0.000     3.333 r  ap_clk (IN)
+                         net (fo=0)                   0.000     3.333    ap_clk_IBUF_inst/I
+    BH26                 INBUF (Prop_INBUF_HPIOB_M_PAD_O)
+                                                      0.385     3.718 r  ap_clk_IBUF_inst/INBUF_INST/O
+                         net (fo=1, routed)           0.000     3.718    ap_clk_IBUF_inst/OUT
+    BH26                 IBUFCTRL (Prop_IBUFCTRL_HPIOB_M_I_O)
+                                                      0.000     3.718 r  ap_clk_IBUF_inst/IBUFCTRL_INST/O
+                         net (fo=1, routed)           0.286     4.004    ap_clk_IBUF
+    BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     4.028 r  ap_clk_IBUF_BUFG_inst/O
+    X5Y2 (CLOCK_ROOT)    net (fo=21661, routed)       1.907     5.934    dut/g_blk2_w1_out_w1_in[1].u/ap_clk_IBUF_BUFG
+    SLICE_X189Y96        FDRE                                         r  dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[1]/C
+                         clock pessimism              0.379     6.313    
+                         clock uncertainty           -0.035     6.278    
+    SLICE_X189Y96        FDRE (Setup_DFF_SLICEL_C_CE)
+                                                     -0.060     6.218    dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[1]
+  -------------------------------------------------------------------
+                         required time                          6.218    
+                         arrival time                         -13.471    
+  -------------------------------------------------------------------
+                         slack                                 -7.253    
+
+
+
+
+
+Min Delay Paths
+--------------------------------------------------------------------------------------
+Slack (MET) :             0.002ns  (arrival time - required time)
+  Source:                 dut/u_blk2_r8_0_0/u/ap_CS_fsm_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[7]/D
+                            (rising edge-triggered cell FDRE clocked by ap_clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             ap_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ap_clk rise@0.000ns - ap_clk rise@0.000ns)
+  Data Path Delay:        0.266ns  (logic 0.123ns (46.197%)  route 0.143ns (53.803%))
+  Logic Levels:           1  (LUT4=1)
+  Clock Path Skew:        0.204ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    3.201ns
+    Source Clock Delay      (SCD):    2.559ns
+    Clock Pessimism Removal (CPR):    0.438ns
+  Clock Net Delay (Source):      1.865ns (routing 0.848ns, distribution 1.017ns)
+  Clock Net Delay (Destination): 2.214ns (routing 0.931ns, distribution 1.283ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ap_clk rise edge)     0.000     0.000 r  
+    BH26                                              0.000     0.000 r  ap_clk (IN)
+                         net (fo=0)                   0.000     0.000    ap_clk_IBUF_inst/I
+    BH26                 INBUF (Prop_INBUF_HPIOB_M_PAD_O)
+                                                      0.385     0.385 r  ap_clk_IBUF_inst/INBUF_INST/O
+                         net (fo=1, routed)           0.000     0.385    ap_clk_IBUF_inst/OUT
+    BH26                 IBUFCTRL (Prop_IBUFCTRL_HPIOB_M_I_O)
+                                                      0.000     0.385 r  ap_clk_IBUF_inst/IBUFCTRL_INST/O
+                         net (fo=1, routed)           0.286     0.671    ap_clk_IBUF
+    BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.695 r  ap_clk_IBUF_BUFG_inst/O
+    X5Y2 (CLOCK_ROOT)    net (fo=21661, routed)       1.865     2.559    dut/u_blk2_r8_0_0/u/ap_clk_IBUF_BUFG
+    SLICE_X191Y97        FDRE                                         r  dut/u_blk2_r8_0_0/u/ap_CS_fsm_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X191Y97        FDRE (Prop_CFF_SLICEM_C_Q)
+                                                      0.058     2.617 r  dut/u_blk2_r8_0_0/u/ap_CS_fsm_reg[1]/Q
+                         net (fo=21, routed)          0.119     2.736    dut/u_blk2_r8_0_0/u/grp_blk2_r8_0_Pipeline_l_S_k_0_k_fu_66/Q[1]
+    SLICE_X189Y97        LUT4 (Prop_F6LUT_SLICEL_I2_O)
+                                                      0.065     2.801 r  dut/u_blk2_r8_0_0/u/grp_blk2_r8_0_Pipeline_l_S_k_0_k_fu_66/one.q0[7]_i_2__99/O
+                         net (fo=1, routed)           0.024     2.825    dut/g_blk2_w1_out_w1_in[1].u/D[7]
+    SLICE_X189Y97        FDRE                                         r  dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[7]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ap_clk rise edge)     0.000     0.000 r  
+    BH26                                              0.000     0.000 r  ap_clk (IN)
+                         net (fo=0)                   0.000     0.000    ap_clk_IBUF_inst/I
+    BH26                 INBUF (Prop_INBUF_HPIOB_M_PAD_O)
+                                                      0.636     0.636 r  ap_clk_IBUF_inst/INBUF_INST/O
+                         net (fo=1, routed)           0.000     0.636    ap_clk_IBUF_inst/OUT
+    BH26                 IBUFCTRL (Prop_IBUFCTRL_HPIOB_M_I_O)
+                                                      0.000     0.636 r  ap_clk_IBUF_inst/IBUFCTRL_INST/O
+                         net (fo=1, routed)           0.323     0.959    ap_clk_IBUF
+    BUFGCE_X0Y72         BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.987 r  ap_clk_IBUF_BUFG_inst/O
+    X5Y2 (CLOCK_ROOT)    net (fo=21661, routed)       2.214     3.201    dut/g_blk2_w1_out_w1_in[1].u/ap_clk_IBUF_BUFG
+    SLICE_X189Y97        FDRE                                         r  dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[7]/C
+                         clock pessimism             -0.438     2.763    
+    SLICE_X189Y97        FDRE (Hold_FFF_SLICEL_C_D)
+                                                      0.060     2.823    dut/g_blk2_w1_out_w1_in[1].u/one.q0_reg[7]
+  -------------------------------------------------------------------
+                         required time                         -2.823    
+                         arrival time                           2.825    
+  -------------------------------------------------------------------
+                         slack                                  0.002    
+
+
+
+
+
+Pulse Width Checks
+--------------------------------------------------------------------------------------
+Clock Name:         ap_clk
+Waveform(ns):       { 0.000 1.666 }
+Period(ns):         3.333
+Sources:            { ap_clk }
+
+Check Type        Corner  Lib Pin     Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location       Pin
+Min Period        n/a     BUFGCE/I    n/a            1.290         3.333       2.043      BUFGCE_X0Y72   ap_clk_IBUF_BUFG_inst/I
+Low Pulse Width   Slow    SRL16E/CLK  n/a            0.532         1.667       1.135      SLICE_X166Y95  gen_blk2_a0_in_bind[0].lf_blk2_a0_in_bind_reg[19]_srl12___gen_lanes2_b_mem_r_10/CLK
+High Pulse Width  Slow    SRL16E/CLK  n/a            0.532         1.666       1.134      SLICE_X166Y95  gen_blk2_a0_in_bind[0].lf_blk2_a0_in_bind_reg[19]_srl12___gen_lanes2_b_mem_r_10/CLK
+
+
+

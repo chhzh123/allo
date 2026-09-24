@@ -1,0 +1,243 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Wed Sep 23 05:37:35 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file /scratch/hc676/e9_lean/b_tpumicro-fused4_16_fin/util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------+-------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|            Instance           |             Module            | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------+-------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| spmw_harness                  |                         (top) |      27745 |      27673 |       0 |   72 | 18727 |      0 |      0 |    0 |          0 |
+|   (spmw_harness)              |                         (top) |       4527 |       4455 |       0 |   72 |   955 |      0 |      0 |    0 |          0 |
+|   dut                         |                      spmw_top |      23605 |      23605 |       0 |    0 | 17772 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[10].u |                     spmw_fifo |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[11].u |                   spmw_fifo_0 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[13].u |                   spmw_fifo_1 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[14].u |                   spmw_fifo_2 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[15].u |                   spmw_fifo_3 |         51 |         51 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[1].u  |                   spmw_fifo_4 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[2].u  |                   spmw_fifo_5 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[3].u  |                   spmw_fifo_6 |         52 |         52 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[5].u  |                   spmw_fifo_7 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[6].u  |                   spmw_fifo_8 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[7].u  |                   spmw_fifo_9 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a0_out_a0_in[9].u  |                  spmw_fifo_10 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[10].u |                  spmw_fifo_11 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[11].u |                  spmw_fifo_12 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[13].u |                  spmw_fifo_13 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[14].u |                  spmw_fifo_14 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[15].u |                  spmw_fifo_15 |         52 |         52 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[1].u  |                  spmw_fifo_16 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[2].u  |                  spmw_fifo_17 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[3].u  |                  spmw_fifo_18 |         51 |         51 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[5].u  |                  spmw_fifo_19 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[6].u  |                  spmw_fifo_20 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[7].u  |                  spmw_fifo_21 |         48 |         48 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a1_out_a1_in[9].u  |                  spmw_fifo_22 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[10].u |                  spmw_fifo_23 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[11].u |                  spmw_fifo_24 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[13].u |                  spmw_fifo_25 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[14].u |                  spmw_fifo_26 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[15].u |                  spmw_fifo_27 |         50 |         50 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[1].u  |                  spmw_fifo_28 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[2].u  |                  spmw_fifo_29 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[3].u  |                  spmw_fifo_30 |         53 |         53 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[5].u  |                  spmw_fifo_31 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[6].u  |                  spmw_fifo_32 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[7].u  |                  spmw_fifo_33 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a2_out_a2_in[9].u  |                  spmw_fifo_34 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[10].u |                  spmw_fifo_35 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[11].u |                  spmw_fifo_36 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[13].u |                  spmw_fifo_37 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[14].u |                  spmw_fifo_38 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[15].u |                  spmw_fifo_39 |         50 |         50 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[1].u  |                  spmw_fifo_40 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[2].u  |                  spmw_fifo_41 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[3].u  |                  spmw_fifo_42 |         51 |         51 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[5].u  |                  spmw_fifo_43 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[6].u  |                  spmw_fifo_44 |         47 |         47 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[7].u  |                  spmw_fifo_45 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_a3_out_a3_in[9].u  |                  spmw_fifo_46 |         46 |         46 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[10].u |     spmw_fifo__parameterized0 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[11].u |  spmw_fifo__parameterized0_47 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[12].u |  spmw_fifo__parameterized0_48 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[13].u |  spmw_fifo__parameterized0_49 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[14].u |  spmw_fifo__parameterized0_50 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[15].u |  spmw_fifo__parameterized0_51 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[4].u  |  spmw_fifo__parameterized0_52 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[5].u  |  spmw_fifo__parameterized0_53 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[6].u  |  spmw_fifo__parameterized0_54 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[7].u  |  spmw_fifo__parameterized0_55 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[8].u  |  spmw_fifo__parameterized0_56 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p0_out_p0_in[9].u  |  spmw_fifo__parameterized0_57 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[10].u |  spmw_fifo__parameterized0_58 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[11].u |  spmw_fifo__parameterized0_59 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[12].u |  spmw_fifo__parameterized0_60 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[13].u |  spmw_fifo__parameterized0_61 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[14].u |  spmw_fifo__parameterized0_62 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[15].u |  spmw_fifo__parameterized0_63 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[4].u  |  spmw_fifo__parameterized0_64 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[5].u  |  spmw_fifo__parameterized0_65 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[6].u  |  spmw_fifo__parameterized0_66 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[7].u  |  spmw_fifo__parameterized0_67 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[8].u  |  spmw_fifo__parameterized0_68 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p1_out_p1_in[9].u  |  spmw_fifo__parameterized0_69 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[10].u |  spmw_fifo__parameterized0_70 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[11].u |  spmw_fifo__parameterized0_71 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[12].u |  spmw_fifo__parameterized0_72 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[13].u |  spmw_fifo__parameterized0_73 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[14].u |  spmw_fifo__parameterized0_74 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[15].u |  spmw_fifo__parameterized0_75 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[4].u  |  spmw_fifo__parameterized0_76 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[5].u  |  spmw_fifo__parameterized0_77 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[6].u  |  spmw_fifo__parameterized0_78 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[7].u  |  spmw_fifo__parameterized0_79 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[8].u  |  spmw_fifo__parameterized0_80 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p2_out_p2_in[9].u  |  spmw_fifo__parameterized0_81 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[10].u |  spmw_fifo__parameterized0_82 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[11].u |  spmw_fifo__parameterized0_83 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[12].u |  spmw_fifo__parameterized0_84 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[13].u |  spmw_fifo__parameterized0_85 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[14].u |  spmw_fifo__parameterized0_86 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[15].u |  spmw_fifo__parameterized0_87 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[4].u  |  spmw_fifo__parameterized0_88 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[5].u  |  spmw_fifo__parameterized0_89 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[6].u  |  spmw_fifo__parameterized0_90 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[7].u  |  spmw_fifo__parameterized0_91 |         17 |         17 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[8].u  |  spmw_fifo__parameterized0_92 |         19 |         19 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_p3_out_p3_in[9].u  |  spmw_fifo__parameterized0_93 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[10].u |                  spmw_fifo_94 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[11].u |                  spmw_fifo_95 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[13].u |                  spmw_fifo_96 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[14].u |                  spmw_fifo_97 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[15].u |                  spmw_fifo_98 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[1].u  |                  spmw_fifo_99 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[2].u  |                 spmw_fifo_100 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[3].u  |                 spmw_fifo_101 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[5].u  |                 spmw_fifo_102 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[6].u  |                 spmw_fifo_103 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[7].u  |                 spmw_fifo_104 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w0_out_w0_in[9].u  |                 spmw_fifo_105 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[10].u |                 spmw_fifo_106 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[11].u |                 spmw_fifo_107 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[13].u |                 spmw_fifo_108 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[14].u |                 spmw_fifo_109 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[15].u |                 spmw_fifo_110 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[1].u  |                 spmw_fifo_111 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[2].u  |                 spmw_fifo_112 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[3].u  |                 spmw_fifo_113 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[5].u  |                 spmw_fifo_114 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[6].u  |                 spmw_fifo_115 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[7].u  |                 spmw_fifo_116 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w1_out_w1_in[9].u  |                 spmw_fifo_117 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[10].u |                 spmw_fifo_118 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[11].u |                 spmw_fifo_119 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[13].u |                 spmw_fifo_120 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[14].u |                 spmw_fifo_121 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[15].u |                 spmw_fifo_122 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[1].u  |                 spmw_fifo_123 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[2].u  |                 spmw_fifo_124 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[3].u  |                 spmw_fifo_125 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[5].u  |                 spmw_fifo_126 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[6].u  |                 spmw_fifo_127 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[7].u  |                 spmw_fifo_128 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w2_out_w2_in[9].u  |                 spmw_fifo_129 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[10].u |                 spmw_fifo_130 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[11].u |                 spmw_fifo_131 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[13].u |                 spmw_fifo_132 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[14].u |                 spmw_fifo_133 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[15].u |                 spmw_fifo_134 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[1].u  |                 spmw_fifo_135 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[2].u  |                 spmw_fifo_136 |          3 |          3 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[3].u  |                 spmw_fifo_137 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[5].u  |                 spmw_fifo_138 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[6].u  |                 spmw_fifo_139 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[7].u  |                 spmw_fifo_140 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_blk4_w3_out_w3_in[9].u  |                 spmw_fifo_141 |          2 |          2 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z0_in_bind[0].u  | spmw_fifo__parameterized0_142 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z0_in_bind[1].u  | spmw_fifo__parameterized0_143 |         85 |         85 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z0_in_bind[2].u  | spmw_fifo__parameterized0_144 |         85 |         85 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z0_in_bind[3].u  | spmw_fifo__parameterized0_145 |         85 |         85 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z1_in_bind[0].u  | spmw_fifo__parameterized0_146 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z1_in_bind[1].u  | spmw_fifo__parameterized0_147 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z1_in_bind[2].u  | spmw_fifo__parameterized0_148 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z1_in_bind[3].u  | spmw_fifo__parameterized0_149 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z2_in_bind[0].u  | spmw_fifo__parameterized0_150 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z2_in_bind[1].u  | spmw_fifo__parameterized0_151 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z2_in_bind[2].u  | spmw_fifo__parameterized0_152 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z2_in_bind[3].u  | spmw_fifo__parameterized0_153 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z3_in_bind[0].u  | spmw_fifo__parameterized0_154 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z3_in_bind[1].u  | spmw_fifo__parameterized0_155 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z3_in_bind[2].u  | spmw_fifo__parameterized0_156 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes4_z3_in_bind[3].u  | spmw_fifo__parameterized0_157 |         84 |         84 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     u_blk4_r0_1_1             |                       blk4_r0 |       1199 |       1199 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r0_1_1)         |                       blk4_r0 |         83 |         83 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r0_0_454 |       1116 |       1116 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r0_1_2             |                   blk4_r0_158 |       1198 |       1198 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r0_1_2)         |                   blk4_r0_158 |         83 |         83 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r0_0_433 |       1115 |       1115 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r0_2_1             |                   blk4_r0_159 |       1198 |       1198 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r0_2_1)         |                   blk4_r0_159 |         83 |         83 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r0_0_412 |       1115 |       1115 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r0_2_2             |                   blk4_r0_160 |       1198 |       1198 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r0_2_2)         |                   blk4_r0_160 |         83 |         83 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r0_0 |       1115 |       1115 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r1_3_1             |                       blk4_r1 |       1199 |       1199 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r1_3_1)         |                       blk4_r1 |         83 |         83 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r1_0_375 |       1116 |       1116 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r1_3_2             |                   blk4_r1_161 |       1200 |       1200 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r1_3_2)         |                   blk4_r1_161 |         84 |         84 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r1_0 |       1116 |       1116 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r2_0_1             |                       blk4_r2 |       1201 |       1201 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r2_0_1)         |                       blk4_r2 |         84 |         84 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r2_0_338 |       1119 |       1119 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r2_0_2             |                   blk4_r2_162 |       1202 |       1202 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r2_0_2)         |                   blk4_r2_162 |         84 |         84 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r2_0 |       1119 |       1119 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r3_1_3             |                       blk4_r3 |       1120 |       1120 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r3_1_3)         |                       blk4_r3 |         53 |         53 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r3_0_301 |       1068 |       1068 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|     u_blk4_r3_2_3             |                   blk4_r3_163 |       1120 |       1120 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r3_2_3)         |                   blk4_r3_163 |         53 |         53 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r3_0 |       1068 |       1068 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|     u_blk4_r4_1_0             |                       blk4_r4 |       1276 |       1276 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r4_1_0)         |                       blk4_r4 |         84 |         84 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                 blk4_r4_0_264 |       1192 |       1192 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r4_2_0             |                   blk4_r4_164 |       1277 |       1277 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       (u_blk4_r4_2_0)         |                   blk4_r4_164 |         84 |         84 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r4_0 |       1193 |       1193 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r5_3_3             |                       blk4_r5 |       1060 |       1060 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r5_0 |       1060 |       1060 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|     u_blk4_r6_0_3             |                       blk4_r6 |       1051 |       1051 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r6_0 |       1051 |       1051 |       0 |    0 |   649 |      0 |      0 |    0 |          0 |
+|     u_blk4_r7_3_0             |                       blk4_r7 |       1543 |       1543 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r7_0 |       1543 |       1543 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_blk4_r8_0_0             |                       blk4_r8 |       1238 |       1238 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|       u                       |                     blk4_r8_0 |       1238 |       1238 |       0 |    0 |   745 |      0 |      0 |    0 |          0 |
+|     u_lanes4_r0_0             |                     lanes4_r0 |        141 |        141 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|       u                       |               lanes4_r0_0_179 |        141 |        141 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|     u_lanes4_r0_1             |                 lanes4_r0_165 |        154 |        154 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|       u                       |               lanes4_r0_0_174 |        154 |        154 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|     u_lanes4_r0_2             |                 lanes4_r0_166 |        163 |        163 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|       u                       |               lanes4_r0_0_169 |        163 |        163 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|     u_lanes4_r0_3             |                 lanes4_r0_167 |        146 |        146 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
+|       u                       |                   lanes4_r0_0 |        146 |        146 |       0 |    0 |    71 |      0 |      0 |    0 |          0 |
++-------------------------------+-------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

@@ -1,0 +1,2 @@
+main: blk2_r0 lanes2_r0
+depth1_c2_: blk2_r0 lanes2_r0

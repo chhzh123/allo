@@ -1,0 +1,265 @@
+
+
+================================================================
+== Vitis HLS Report for 'lanes16_r0_0'
+================================================================
+* Date:           Wed Sep 23 05:15:36 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        prj
+* Solution:       sol (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  4.75 ns|  3.512 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+    |   min   |   max   |    min   |    max   | min | max |   Type  |
+    +---------+---------+----------+----------+-----+-----+---------+
+    |      266|      266|  1.264 us|  1.264 us|  267|  267|       no|
+    +---------+---------+----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +--------------------------------------------------+---------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |                                                  |                                       |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+        |                     Instance                     |                 Module                |   min   |   max   |    min    |    max    | min | max |   Type  |
+        +--------------------------------------------------+---------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |grp_lanes16_r0_0_Pipeline_VITIS_LOOP_50_1_fu_104  |lanes16_r0_0_Pipeline_VITIS_LOOP_50_1  |        4|        4|  19.000 ns|  19.000 ns|    4|    4|       no|
+        |grp_lanes16_r0_0_Pipeline_l_S_m_0_m_fu_111        |lanes16_r0_0_Pipeline_l_S_m_0_m        |      259|      259|   1.230 us|   1.230 us|  259|  259|       no|
+        +--------------------------------------------------+---------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|      167|     3217|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|      323|    -|
+|Register             |        -|     -|       75|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        0|     0|      242|     3540|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +--------------------------------------------------+---------------------------------------+---------+----+-----+------+-----+
+    |                     Instance                     |                 Module                | BRAM_18K| DSP|  FF |  LUT | URAM|
+    +--------------------------------------------------+---------------------------------------+---------+----+-----+------+-----+
+    |grp_lanes16_r0_0_Pipeline_VITIS_LOOP_50_1_fu_104  |lanes16_r0_0_Pipeline_VITIS_LOOP_50_1  |        0|   0|   36|   260|    0|
+    |grp_lanes16_r0_0_Pipeline_l_S_m_0_m_fu_111        |lanes16_r0_0_Pipeline_l_S_m_0_m        |        0|   0|  131|  2957|    0|
+    +--------------------------------------------------+---------------------------------------+---------+----+-----+------+-----+
+    |Total                                             |                                       |        0|   0|  167|  3217|    0|
+    +--------------------------------------------------+---------------------------------------+---------+----+-----+------+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +-----------+----+-----------+-----+-----------+
+    |    Name   | LUT| Input Size| Bits| Total Bits|
+    +-----------+----+-----------+-----+-----------+
+    |ap_NS_fsm  |  26|          5|    1|          5|
+    |v0_blk_n   |   9|          2|    1|          2|
+    |v10_write  |   9|          2|    1|          2|
+    |v11_write  |   9|          2|    1|          2|
+    |v12_write  |   9|          2|    1|          2|
+    |v13_write  |   9|          2|    1|          2|
+    |v14_write  |   9|          2|    1|          2|
+    |v15_write  |   9|          2|    1|          2|
+    |v16_write  |   9|          2|    1|          2|
+    |v17_read   |   9|          2|    1|          2|
+    |v18_read   |   9|          2|    1|          2|
+    |v19_read   |   9|          2|    1|          2|
+    |v1_write   |   9|          2|    1|          2|
+    |v20_read   |   9|          2|    1|          2|
+    |v21_read   |   9|          2|    1|          2|
+    |v22_read   |   9|          2|    1|          2|
+    |v23_read   |   9|          2|    1|          2|
+    |v24_read   |   9|          2|    1|          2|
+    |v25_read   |   9|          2|    1|          2|
+    |v26_read   |   9|          2|    1|          2|
+    |v27_read   |   9|          2|    1|          2|
+    |v28_read   |   9|          2|    1|          2|
+    |v29_read   |   9|          2|    1|          2|
+    |v2_write   |   9|          2|    1|          2|
+    |v30_read   |   9|          2|    1|          2|
+    |v31_read   |   9|          2|    1|          2|
+    |v32_read   |   9|          2|    1|          2|
+    |v3_write   |   9|          2|    1|          2|
+    |v4_write   |   9|          2|    1|          2|
+    |v5_write   |   9|          2|    1|          2|
+    |v6_write   |   9|          2|    1|          2|
+    |v7_write   |   9|          2|    1|          2|
+    |v8_write   |   9|          2|    1|          2|
+    |v9_write   |   9|          2|    1|          2|
+    +-----------+----+-----------+-----+-----------+
+    |Total      | 323|         71|   34|         71|
+    +-----------+----+-----------+-----+-----------+
+
+    * Register: 
+    +---------------------------------------------------------------+----+----+-----+-----------+
+    |                              Name                             | FF | LUT| Bits| Const Bits|
+    +---------------------------------------------------------------+----+----+-----+-----------+
+    |ap_CS_fsm                                                      |   4|   0|    4|          0|
+    |grp_lanes16_r0_0_Pipeline_VITIS_LOOP_50_1_fu_104_ap_start_reg  |   1|   0|    1|          0|
+    |grp_lanes16_r0_0_Pipeline_l_S_m_0_m_fu_111_ap_start_reg        |   1|   0|    1|          0|
+    |v0_read_reg_190                                                |  64|   0|   64|          0|
+    |v34_loc_fu_94                                                  |   5|   0|    5|          0|
+    +---------------------------------------------------------------+----+----+-----+-----------+
+    |Total                                                          |  75|   0|   75|          0|
+    +---------------------------------------------------------------+----+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++-------------+-----+-----+--------------+--------------+--------------+
+|  RTL Ports  | Dir | Bits|   Protocol   | Source Object|    C Type    |
++-------------+-----+-----+--------------+--------------+--------------+
+|ap_clk       |   in|    1|  ap_ctrl_none|  lanes16_r0_0|  return value|
+|ap_rst       |   in|    1|  ap_ctrl_none|  lanes16_r0_0|  return value|
+|v0_dout      |   in|   64|       ap_fifo|            v0|       pointer|
+|v0_empty_n   |   in|    1|       ap_fifo|            v0|       pointer|
+|v0_read      |  out|    1|       ap_fifo|            v0|       pointer|
+|v1_din       |  out|   32|       ap_fifo|            v1|       pointer|
+|v1_full_n    |   in|    1|       ap_fifo|            v1|       pointer|
+|v1_write     |  out|    1|       ap_fifo|            v1|       pointer|
+|v2_din       |  out|   32|       ap_fifo|            v2|       pointer|
+|v2_full_n    |   in|    1|       ap_fifo|            v2|       pointer|
+|v2_write     |  out|    1|       ap_fifo|            v2|       pointer|
+|v3_din       |  out|   32|       ap_fifo|            v3|       pointer|
+|v3_full_n    |   in|    1|       ap_fifo|            v3|       pointer|
+|v3_write     |  out|    1|       ap_fifo|            v3|       pointer|
+|v4_din       |  out|   32|       ap_fifo|            v4|       pointer|
+|v4_full_n    |   in|    1|       ap_fifo|            v4|       pointer|
+|v4_write     |  out|    1|       ap_fifo|            v4|       pointer|
+|v5_din       |  out|   32|       ap_fifo|            v5|       pointer|
+|v5_full_n    |   in|    1|       ap_fifo|            v5|       pointer|
+|v5_write     |  out|    1|       ap_fifo|            v5|       pointer|
+|v6_din       |  out|   32|       ap_fifo|            v6|       pointer|
+|v6_full_n    |   in|    1|       ap_fifo|            v6|       pointer|
+|v6_write     |  out|    1|       ap_fifo|            v6|       pointer|
+|v7_din       |  out|   32|       ap_fifo|            v7|       pointer|
+|v7_full_n    |   in|    1|       ap_fifo|            v7|       pointer|
+|v7_write     |  out|    1|       ap_fifo|            v7|       pointer|
+|v8_din       |  out|   32|       ap_fifo|            v8|       pointer|
+|v8_full_n    |   in|    1|       ap_fifo|            v8|       pointer|
+|v8_write     |  out|    1|       ap_fifo|            v8|       pointer|
+|v9_din       |  out|   32|       ap_fifo|            v9|       pointer|
+|v9_full_n    |   in|    1|       ap_fifo|            v9|       pointer|
+|v9_write     |  out|    1|       ap_fifo|            v9|       pointer|
+|v10_din      |  out|   32|       ap_fifo|           v10|       pointer|
+|v10_full_n   |   in|    1|       ap_fifo|           v10|       pointer|
+|v10_write    |  out|    1|       ap_fifo|           v10|       pointer|
+|v11_din      |  out|   32|       ap_fifo|           v11|       pointer|
+|v11_full_n   |   in|    1|       ap_fifo|           v11|       pointer|
+|v11_write    |  out|    1|       ap_fifo|           v11|       pointer|
+|v12_din      |  out|   32|       ap_fifo|           v12|       pointer|
+|v12_full_n   |   in|    1|       ap_fifo|           v12|       pointer|
+|v12_write    |  out|    1|       ap_fifo|           v12|       pointer|
+|v13_din      |  out|   32|       ap_fifo|           v13|       pointer|
+|v13_full_n   |   in|    1|       ap_fifo|           v13|       pointer|
+|v13_write    |  out|    1|       ap_fifo|           v13|       pointer|
+|v14_din      |  out|   32|       ap_fifo|           v14|       pointer|
+|v14_full_n   |   in|    1|       ap_fifo|           v14|       pointer|
+|v14_write    |  out|    1|       ap_fifo|           v14|       pointer|
+|v15_din      |  out|   32|       ap_fifo|           v15|       pointer|
+|v15_full_n   |   in|    1|       ap_fifo|           v15|       pointer|
+|v15_write    |  out|    1|       ap_fifo|           v15|       pointer|
+|v16_din      |  out|   32|       ap_fifo|           v16|       pointer|
+|v16_full_n   |   in|    1|       ap_fifo|           v16|       pointer|
+|v16_write    |  out|    1|       ap_fifo|           v16|       pointer|
+|v17_dout     |   in|   32|       ap_fifo|           v17|       pointer|
+|v17_empty_n  |   in|    1|       ap_fifo|           v17|       pointer|
+|v17_read     |  out|    1|       ap_fifo|           v17|       pointer|
+|v18_dout     |   in|   32|       ap_fifo|           v18|       pointer|
+|v18_empty_n  |   in|    1|       ap_fifo|           v18|       pointer|
+|v18_read     |  out|    1|       ap_fifo|           v18|       pointer|
+|v19_dout     |   in|   32|       ap_fifo|           v19|       pointer|
+|v19_empty_n  |   in|    1|       ap_fifo|           v19|       pointer|
+|v19_read     |  out|    1|       ap_fifo|           v19|       pointer|
+|v20_dout     |   in|   32|       ap_fifo|           v20|       pointer|
+|v20_empty_n  |   in|    1|       ap_fifo|           v20|       pointer|
+|v20_read     |  out|    1|       ap_fifo|           v20|       pointer|
+|v21_dout     |   in|   32|       ap_fifo|           v21|       pointer|
+|v21_empty_n  |   in|    1|       ap_fifo|           v21|       pointer|
+|v21_read     |  out|    1|       ap_fifo|           v21|       pointer|
+|v22_dout     |   in|   32|       ap_fifo|           v22|       pointer|
+|v22_empty_n  |   in|    1|       ap_fifo|           v22|       pointer|
+|v22_read     |  out|    1|       ap_fifo|           v22|       pointer|
+|v23_dout     |   in|   32|       ap_fifo|           v23|       pointer|
+|v23_empty_n  |   in|    1|       ap_fifo|           v23|       pointer|
+|v23_read     |  out|    1|       ap_fifo|           v23|       pointer|
+|v24_dout     |   in|   32|       ap_fifo|           v24|       pointer|
+|v24_empty_n  |   in|    1|       ap_fifo|           v24|       pointer|
+|v24_read     |  out|    1|       ap_fifo|           v24|       pointer|
+|v25_dout     |   in|   32|       ap_fifo|           v25|       pointer|
+|v25_empty_n  |   in|    1|       ap_fifo|           v25|       pointer|
+|v25_read     |  out|    1|       ap_fifo|           v25|       pointer|
+|v26_dout     |   in|   32|       ap_fifo|           v26|       pointer|
+|v26_empty_n  |   in|    1|       ap_fifo|           v26|       pointer|
+|v26_read     |  out|    1|       ap_fifo|           v26|       pointer|
+|v27_dout     |   in|   32|       ap_fifo|           v27|       pointer|
+|v27_empty_n  |   in|    1|       ap_fifo|           v27|       pointer|
+|v27_read     |  out|    1|       ap_fifo|           v27|       pointer|
+|v28_dout     |   in|   32|       ap_fifo|           v28|       pointer|
+|v28_empty_n  |   in|    1|       ap_fifo|           v28|       pointer|
+|v28_read     |  out|    1|       ap_fifo|           v28|       pointer|
+|v29_dout     |   in|   32|       ap_fifo|           v29|       pointer|
+|v29_empty_n  |   in|    1|       ap_fifo|           v29|       pointer|
+|v29_read     |  out|    1|       ap_fifo|           v29|       pointer|
+|v30_dout     |   in|   32|       ap_fifo|           v30|       pointer|
+|v30_empty_n  |   in|    1|       ap_fifo|           v30|       pointer|
+|v30_read     |  out|    1|       ap_fifo|           v30|       pointer|
+|v31_dout     |   in|   32|       ap_fifo|           v31|       pointer|
+|v31_empty_n  |   in|    1|       ap_fifo|           v31|       pointer|
+|v31_read     |  out|    1|       ap_fifo|           v31|       pointer|
+|v32_dout     |   in|   32|       ap_fifo|           v32|       pointer|
+|v32_empty_n  |   in|    1|       ap_fifo|           v32|       pointer|
+|v32_read     |  out|    1|       ap_fifo|           v32|       pointer|
++-------------+-----+-----+--------------+--------------+--------------+
+

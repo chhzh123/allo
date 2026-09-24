@@ -60,6 +60,12 @@ are in the same place:** 2.7x, 2.9x and 2.9x the lookup tables, 5.5x, 6.7x and
 use. What remains is not the instruction set -- it is the composition model,
 and the registers are where it shows.
 
+**The area and latency columns have since closed.** Written the way Gemmini
+writes its processing element, and with four cells to an HLS unit, SPMW is
+23,605 lookup tables and 17,772 registers at 16x16 -- below Gemmini's 31,932
+and 18,675 -- at 16 cycles a tile, a 50-cycle first tile and 333 MHz. See
+[Gemmini's PE, written in SPMW](#gemminis-pe-written-in-spmw) below.
+
 **Against its own programmable self the fixed datapath is a straight win**:
 41x the throughput for 52%, 68% and 82% of the lookup tables, and no DSPs at
 all against `S² + 4S`. Nothing here is a trade between the two SPMW rows; the
@@ -245,6 +251,43 @@ the same way. The programmable engine's extra `4S` -- four DSPs a lane for a
 `MUL` opcode the program never issued -- is a fact about the ISA and its row is
 left DSP-inferred to show it.
 
+## Gemmini's PE, written in SPMW
+
+The fixed datapath's 511 flip-flops a cell turned out to be how it was written
+and scheduled, not the composition model. Three changes close it, each a
+separate build of this workload with this stimulus and golden, cosimulated
+clean (4,096 of 4,096 tokens) and routed at 3.333 ns; E9's README
+(`../../e9_vta/README.md`, "Closing the gap") takes them apart.
+
+| 16x16 | interval / tile | first tile | LUT | FF | DSP | clock |
+|---|---:|---:|---:|---:|---:|---:|
+| SPMW, fixed (above) | 16 | 194 | 92,880 | 130,776 | 0 | 349 MHz |
+| SPMW, lean cell | 16 | 63 | 47,682 | 38,684 | 0 | 320 MHz |
+| SPMW, 2x2 cells a unit | 16 | 62 | 34,770 | 29,128 | 0 | 337 MHz |
+| **SPMW, 4x4 cells a unit** | **16** | **50** | **23,605** | **17,772** | 0 | **333 MHz** |
+| SPMW, 8x8 cells a unit | 16 | 49 | 24,647 | 14,287 | 0 | 322 MHz |
+| SPMW, the array one unit | 16 | 43 | 22,572 | 11,118 | 0 | 311 MHz |
+| Gemmini | 18 | 70 | 31,932 | 18,675 | 0 | 324 MHz |
+
+"First tile" is measured as above, the cycle the first tile's last row
+leaves, so **the latency column flips as well**: 50 cycles against Gemmini's
+70, where the fixed datapath lost it 2.8x. The lean rows are all of
+`tests/dataflow/spmw/test_spmw_tpu_micro_lean.py`.
+
+1. **The weight, held the way Gemmini holds it.** One int8 a cell and a second
+   behind it, the next tile's weights shifting down the row *through* the cells
+   while this tile computes -- in place of the 16-tile packed file. Every cell
+   is identical and needs no position.
+2. **No HLS pipeline on top of the links.** A link is already a register, but
+   Vitis charges each FIFO access and so registered the cell four stages deep
+   between two of them. `spmw.pipeline(P, ii=1, combinational=True)` credits
+   the accesses; the cell is one multiply-add between two link registers,
+   Gemmini's `tile_latency = 0`, and 52 flip-flops instead of 143.
+3. **Fewer, larger units.** `fused_engine` generates an `f x f` block of
+   those cells, with `f` links of each kind where the cells had `f^2`. The
+   section above said this was not expressible; it is, by writing the larger
+   unit -- what `spmw.place(unroll=)` would automate is still refused.
+
 ## What this comparison does not say
 
 **The fixed datapath is not a TPU.** It computes one thing. The netlist the
@@ -380,6 +423,20 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
   hierarchical split, the C synthesis reports the II claims are quoted from,
   and the cosimulation's cycle lines. `roles_reported.txt` names which matrix
   cell and which lane the committed `_csynth.rpt` files belong to.
+- `spmw-lean/S<n>/` and `spmw-fused<f>/S16/` -- Gemmini's PE written in
+  SPMW, one cell a unit and `f x f` cells a unit, laid out like the rows above:
+  `source/` is `test_spmw_tpu_micro_lean.py`, `generated/` holds one `.cpp`,
+  one `.sv` and the `.tcl` Vitis ran for each role -- the `.tcl` carries the
+  link credit -- plus the fabric, and `report/` the routed and C-synthesis
+  reports, the cosimulation's cycle lines and the whole build log
+  (`build_log.txt`). A variant
+  of the same engine keeps its reports under a prefix and only the generated
+  files that differ in `generated_<variant>/`: `hls_` no link credit,
+  `depth1_` one-register links, `gemmini_epilogue_` the bias at the top,
+  `c<n>_` a different credit, `c2_retimed_` with Vivado retiming. The fused
+  engines' main builds are one credit at `f` = 2 and 4 and none at 8 and 16;
+  `report/hls_fifo_delay_excerpt.txt` is what Vitis charges each operation
+  of the lean cell, at 3.33 ns and at the credited clock.
 - `gemmini/S<n>/source/` -- the streaming driver and the top it drives.
 - `gemmini/S<n>/generated/` -- the xsim testbench, and how to re-emit the
   Verilog rather than commit 2.4 MB of it.

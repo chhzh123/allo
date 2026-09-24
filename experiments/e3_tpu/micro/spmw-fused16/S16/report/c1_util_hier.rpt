@@ -1,0 +1,51 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Wed Sep 23 05:40:10 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file /scratch/hc676/e9_lean/b_tpumicro-fused16_16_fin/util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------+--------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|            Instance            |    Module    | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++--------------------------------+--------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| spmw_harness                   |        (top) |      24231 |      24165 |       0 |   66 | 10472 |      0 |      0 |    0 |          0 |
+|   (spmw_harness)               |        (top) |       1406 |       1340 |       0 |   66 |   928 |      0 |      0 |    0 |          0 |
+|   dut                          |     spmw_top |      22846 |      22846 |       0 |    0 |  9544 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z0_in_bind[0].u  |    spmw_fifo |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z10_in_bind[0].u |  spmw_fifo_0 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z11_in_bind[0].u |  spmw_fifo_1 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z12_in_bind[0].u |  spmw_fifo_2 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z13_in_bind[0].u |  spmw_fifo_3 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z14_in_bind[0].u |  spmw_fifo_4 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z15_in_bind[0].u |  spmw_fifo_5 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z1_in_bind[0].u  |  spmw_fifo_6 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z2_in_bind[0].u  |  spmw_fifo_7 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z3_in_bind[0].u  |  spmw_fifo_8 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z4_in_bind[0].u  |  spmw_fifo_9 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z5_in_bind[0].u  | spmw_fifo_10 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z6_in_bind[0].u  | spmw_fifo_11 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z7_in_bind[0].u  | spmw_fifo_12 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z8_in_bind[0].u  | spmw_fifo_13 |         88 |         88 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     g_lanes16_z9_in_bind[0].u  | spmw_fifo_14 |         87 |         87 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     u_blk16_r0_0_0             |     blk16_r0 |      20962 |      20962 |       0 |    0 |  8329 |      0 |      0 |    0 |          0 |
+|       u                        |   blk16_r0_0 |      20962 |      20962 |       0 |    0 |  8329 |      0 |      0 |    0 |          0 |
+|     u_lanes16_r0_0             |   lanes16_r0 |        484 |        484 |       0 |    0 |   159 |      0 |      0 |    0 |          0 |
+|       u                        | lanes16_r0_0 |        484 |        484 |       0 |    0 |   159 |      0 |      0 |    0 |          0 |
++--------------------------------+--------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

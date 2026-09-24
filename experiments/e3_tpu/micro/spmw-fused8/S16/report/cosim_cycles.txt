@@ -1,0 +1,18 @@
+SPMW XFORM 1 done_cycle=49 first_in=1
+SPMW XFORM 2 done_cycle=65 first_in=1
+SPMW XFORM 3 done_cycle=81 first_in=1
+SPMW XFORM 4 done_cycle=97 first_in=1
+SPMW XFORM 5 done_cycle=113 first_in=1
+SPMW XFORM 6 done_cycle=129 first_in=1
+SPMW XFORM 7 done_cycle=145 first_in=1
+SPMW XFORM 8 done_cycle=161 first_in=1
+SPMW XFORM 9 done_cycle=177 first_in=1
+SPMW XFORM 10 done_cycle=193 first_in=1
+SPMW XFORM 11 done_cycle=209 first_in=1
+SPMW XFORM 12 done_cycle=225 first_in=1
+SPMW XFORM 13 done_cycle=241 first_in=1
+SPMW XFORM 14 done_cycle=257 first_in=1
+SPMW XFORM 15 done_cycle=273 first_in=1
+SPMW XFORM 16 done_cycle=291 first_in=1
+SPMW COSIM PASS (4096/4096 tokens, 0 errors)
+SPMW CYCLES total=291 first_out=32 first_in=1

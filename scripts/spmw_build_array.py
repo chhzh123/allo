@@ -63,10 +63,13 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
 
 PART = "xcu280-fsvh2892-2L-e"
 
-#: What Vitis HLS charges an `ap_fifo` read or a write on this part -- the
-#: `Core 'FIFO' ... Delay = 1.42` of its schedule report. An SPMW link is a
-#: register slice: its `dout` is a flop and its `din` lands in one, so a stage
-#: that touches a link does not really pay for the access. See `role_clock`.
+#: What Vitis HLS charges an `ap_fifo` read or a write on this part at the
+#: relaxed clocks a credited role is scheduled against -- the `Delay = 1.42` of
+#: its schedule report at 4.75 and 6.17 ns (it is 1.21 at 3.33 ns). An SPMW link
+#: is a register slice: its `dout` is a flop and its `din` lands in one, so a
+#: stage that touches a link does not really pay for the access. Crediting what
+#: the tool charges at the clock it schedules against is what makes a stage's
+#: logic budget come out at the real clock's. See `role_clock`.
 HLS_FIFO_NS = 1.42
 
 ROLE_TCL = """open_project prj
