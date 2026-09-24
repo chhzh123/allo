@@ -87,6 +87,14 @@ def fifo_module():
     ``read`` -- what a free-running (``ap_ctrl_none``) HLS IP presents for an
     ``hls::stream`` argument, so a role IP drops straight onto it.
 
+    ``spmw_fifo`` at depth **zero** is a bare register and its valid: no
+    backpressure at all, ``full_n`` tied high, the link Gemmini's mesh has
+    between PEs. It is correct only where the schedule guarantees the reader
+    takes every value before the writer replaces it -- a systolic array fed
+    without gaps, where every unit consumes a token from each input every
+    cycle once the wavefront has formed. Simulation reports any value it
+    loses as ``SPMW OVERWRITE``; nothing takes it by default.
+
     ``spmw_fifo`` at depth **one** is a single register with a combinational
     ``full_n``: half the storage of the slice below, at the price of a
     combinational path across the link in the write direction. It exists to
@@ -118,7 +126,29 @@ module spmw_fifo #(parameter DW = 32, parameter DEPTH = 2) (
   input  wire          read
 );
   generate
-    if (DEPTH <= 1) begin : one
+    if (DEPTH == 0) begin : bare
+      // A register and its valid, and no way to say "stop": `full_n` is tied
+      // high. The schedule must never write while the value is unread.
+      reg [DW-1:0] q0;
+      reg          v0;
+      assign dout    = q0;
+      assign empty_n = v0;
+      assign full_n  = 1'b1;
+      always @(posedge clk) begin
+        if (!rst_n) begin
+          v0 <= 1'b0;
+        end else if (write) begin
+          q0 <= din; v0 <= 1'b1;
+        end else if (read) begin
+          v0 <= 1'b0;
+        end
+      end
+      // synthesis translate_off
+      always @(posedge clk)
+        if (rst_n && write && v0 && !read)
+          $display("SPMW OVERWRITE %m at %0t", $time);
+      // synthesis translate_on
+    end else if (DEPTH <= 1) begin : one
       // One entry and no skid. `full_n` is combinational on `read`, so the
       // producer learns there is room in the same cycle the consumer drains
       // -- which is what removes the skid, and what puts a combinational

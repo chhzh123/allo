@@ -47,7 +47,14 @@ LINK_DEPTH = 2
 
 
 def lean_engine(
-    dim, tiles, combinational=True, link_depth=LINK_DEPTH, bias_at_top=False
+    dim,
+    tiles,
+    combinational=True,
+    link_depth=LINK_DEPTH,
+    bias_at_top=False,
+    lane_depth=None,
+    merged_prologue=False,
+    lane_credits=0,
 ):
     """A `dim x dim` weight-stationary mesh of Gemmini-shaped cells.
 
@@ -55,6 +62,14 @@ def lean_engine(
     as the top of the array's partial sum, as Gemmini's `b` input does, so the
     lane is ReLU, shift and clip with no adder; the shift reads five bits of
     the scale, as `v >> sc(4, 0)` does; and the lane is combinational too.
+
+    ``link_depth=0`` makes every mesh link a bare register (see
+    `allo.spmw.abi.fifo_module`): correct here because the array is fed
+    without gaps and every cell takes a token from each input every cycle.
+    ``lane_depth`` is the link into the lanes, which keeps its handshake.
+    ``merged_prologue`` shifts tile 0's weights in on the step loop's first
+    `dim` iterations rather than in a loop of their own, so a cell has one
+    loop's control instead of two. ``lane_credits`` is the lanes' link credit.
     """
     outs = tiles * dim
     last = dim - 1  # dim is a power of two: `s & last` is the step in a tile
@@ -74,7 +89,7 @@ def lean_engine(
         w_out = spmw.Out(int8, depth=link_depth)
 
     class LaneIO(spmw.Interface):
-        z_in = spmw.In(int32, depth=link_depth)
+        z_in = spmw.In(int32, depth=link_depth if lane_depth is None else lane_depth)
         y_out = spmw.Out(int32)
         b = spmw.MemIn(int32[NBF])
 
@@ -110,6 +125,26 @@ def lean_engine(
             nxt = io.w_in.get()
             if (s & last) == last:
                 cur = nxt
+
+    if merged_prologue:
+
+        @spmw.unit
+        def pe(io: PEIO):  # pylint: disable=function-redefined
+            # One loop: the first `dim` iterations only shift, and the tile
+            # boundary at `dim - 1` hands tile 0's weight to `cur` exactly as
+            # every later boundary hands over the next tile's.
+            nxt: int8 = 0
+            cur: int8 = 0
+            for s in range(outs + dim):
+                if s >= dim:
+                    a = io.a_in.get()
+                    p = io.p_in.get()
+                    io.a_out.put(a)
+                    io.p_out.put(p + a * cur)
+                io.w_out.put(nxt)
+                nxt = io.w_in.get()
+                if (s & last) == last:
+                    cur = nxt
 
     if bias_at_top:
 
@@ -171,6 +206,13 @@ def lean_engine(
             P = spmw.place(pe, on=mxu)
             spmw.pipeline(P, ii=1, combinational=combinational)
             V = spmw.place(vpu, on=lanes)
+            if lane_credits:
+                spmw.pipeline(
+                    V,
+                    ii=1,
+                    registered_links=lane_credits == 1,
+                    combinational=lane_credits == 2,
+                )
             spmw.shard(Bias, into=V.b)
             spmw.stream_in(A, into=P.a_in, index=(..., P.rows))
             spmw.stream_in(W, into=P.w_in, index=(..., P.rows))
@@ -413,8 +455,13 @@ def micro_lean_of(
     combinational=True,
     link_depth=LINK_DEPTH,
     bias_at_top=False,
+    **options,
 ):
-    """The lean engine with the shared stimulus attached."""
+    """The lean engine with the shared stimulus attached.
+
+    ``options`` go to `lean_engine`: ``lane_depth``, ``merged_prologue``,
+    ``lane_credits``.
+    """
     A, B, bias, shift, want = stimulus(size, tiles, seed)
     engine = lean_engine(
         size,
@@ -422,6 +469,7 @@ def micro_lean_of(
         combinational=combinational,
         link_depth=link_depth,
         bias_at_top=bias_at_top,
+        **options,
     )
     names = ("A", "W", "PB", "Bias") if bias_at_top else ("A", "W", "Bias")
     engine.spmw_operands = dict(
@@ -436,6 +484,7 @@ def micro_lean_of(
         "combinational": combinational,
         "link_depth": link_depth,
         "bias_at_top": bias_at_top,
+        **options,
         "expected": want.reshape(tiles * size, size).astype(np.int32),
     }
     return engine
@@ -547,3 +596,30 @@ def test_the_bias_at_the_top_matches_the_golden_at_16():
         *[engine.spmw_operands[n] for n in ("A", "W", "PB", "Bias")], Y
     )
     np.testing.assert_array_equal(Y, want)
+
+
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_the_merged_prologue_computes_the_same(target):
+    """Shifting tile 0 in on the step loop changes the control, not the sum."""
+    size, tiles = 4, 4
+    A, B, bias, shift, want = stimulus(size, tiles)
+    Y = np.zeros((tiles * size, size), dtype=np.int32)
+    engine = lean_engine(size, tiles, merged_prologue=True, lane_credits=1)
+    spmw.build(engine, target=target)(*lean_operands(size, A, B, bias, shift), Y)
+    np.testing.assert_array_equal(Y, want.reshape(-1, size).astype(np.int32))
+
+
+def test_bare_links_are_the_mesh_links_only():
+    """Depth 0 inside the array; the lanes' link keeps its handshake."""
+    import re
+
+    from allo.spmw import rtl
+
+    engine = lean_engine(4, 4, link_depth=0, lane_depth=2)
+    sv = rtl.StructuralEmitter(spmw.elaborate(engine)).fabric()
+    got = {
+        fam: d
+        for d, fam in re.findall(r"\.DEPTH\((\d+)\)\) u \(.*?\.din\(([a-z_]+?)_din", sv)
+    }
+    assert {got[f] for f in got if f.startswith("pe_")} == {"0"}, got
+    assert {got[f] for f in got if f.startswith("vpu_")} == {"2"}, got

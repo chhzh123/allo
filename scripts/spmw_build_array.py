@@ -318,6 +318,21 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_lean import micro_lean_of
 
         return micro_lean_of(size, bias_at_top=True)
+    if name.startswith("tpumicro-lean0"):
+        # `tpumicro-lean0[-m][-v]`: the lean cell, 256 units, with every mesh
+        # link a bare register -- no handshake, Gemmini's PE-to-PE link --
+        # and the lanes' link kept at the slice. `-m` merges tile 0's weight
+        # shift into the step loop; `-v` gives the lanes one link credit.
+        from test_spmw_tpu_micro_lean import micro_lean_of
+
+        opts = name[len("tpumicro-lean0") :].split("-")[1:]
+        return micro_lean_of(
+            size,
+            link_depth=0,
+            lane_depth=2,
+            merged_prologue="m" in opts,
+            lane_credits=1 if "v" in opts else 0,
+        )
     if name == "tpumicro-lean1":
         # The lean cell with every link one register deep on both ends: the
         # skid gone, and `full_n` combinational across each link.
@@ -1157,6 +1172,9 @@ def main():
             "tpumicro-lean",
             "tpumicro-lean-hls",
             "tpumicro-lean1",
+            "tpumicro-lean0",
+            "tpumicro-lean0-m",
+            "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
             *(
                 f"tpumicro-fused{f}{d}{c}"
