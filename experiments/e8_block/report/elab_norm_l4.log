@@ -1,0 +1,22 @@
+[info] welcome to sbt 1.10.1 (Eclipse Adoptium Java 17.0.20.1)
+[info] loading project definition from /scratch/hc676/e3_micro/gemmini/project
+[info] loading settings for project gemmini from build.sbt ...
+[info] set current project to gemmini-mesh (in build file:/scratch/hc676/e3_micro/gemmini/)
+[info] compiling 1 Scala source to /scratch/hc676/e3_micro/gemmini/target/scala-2.13/classes ...
+[warn] /scratch/hc676/e3_micro/gemmini/src/main/scala/gen/MxuVpuNorm.scala:160:8: class ChiselStage in package stage is deprecated (since Chisel 3.6): this feature will not be supported as part of the migration to the MLIR-based FIRRTL Compiler (MFC). For more information about this migration, please see the Chisel ROADMAP.md. Please switch to circt.stage.ChiselStage.
+[warn]   (new ChiselStage).emitVerilog(new MxuVpuNorm(dim, lat),
+[warn]        ^
+[warn] one warning found
+[info] done compiling
+[info] running gen.ElaborateMxuVpuNorm 
+MXUVPUNORM_ELABORATE_START dim=16 scaleLatency=4
+[[33mwarn[0m] src/main/scala/gemmini/Arithmetic.scala:101:50: Dynamic index with width 5 is too large for extractee of width 8
+[[33mwarn[0m]         val point_five = Mux(u === 0.U, 0.U, self(u - 1.U))
+[[33mwarn[0m]                                                  ^
+[[33mwarn[0m] src/main/scala/gemmini/Arithmetic.scala:103:30: Dynamic index with width 5 is too large for extractee of width 8
+[[33mwarn[0m]         val ones_digit = self(u)
+[[33mwarn[0m]                              ^
+[[33mwarn[0m] There were [33m2 warning(s)[0m during hardware elaboration.
+MXUVPUNORM_ELABORATE_OK dim=16 scaleLatency=4
+[success] Total time: 18 s, completed Sep 19, 2026, 5:04:19 AM
+rc=0 wall_s=22

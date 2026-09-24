@@ -1,0 +1,16 @@
+[info] welcome to sbt 1.10.1 (Eclipse Adoptium Java 17.0.20.1)
+[info] loading project definition from /scratch/hc676/e3_micro/gemmini/project
+[info] loading settings for project gemmini from build.sbt ...
+[info] set current project to gemmini-mesh (in build file:/scratch/hc676/e3_micro/gemmini/)
+[info] running gen.ElaborateMxuVpuNorm 
+MXUVPUNORM_ELABORATE_START dim=16 scaleLatency=8
+[[33mwarn[0m] src/main/scala/gemmini/Arithmetic.scala:101:50: Dynamic index with width 5 is too large for extractee of width 8
+[[33mwarn[0m]         val point_five = Mux(u === 0.U, 0.U, self(u - 1.U))
+[[33mwarn[0m]                                                  ^
+[[33mwarn[0m] src/main/scala/gemmini/Arithmetic.scala:103:30: Dynamic index with width 5 is too large for extractee of width 8
+[[33mwarn[0m]         val ones_digit = self(u)
+[[33mwarn[0m]                              ^
+[[33mwarn[0m] There were [33m2 warning(s)[0m during hardware elaboration.
+MXUVPUNORM_ELABORATE_OK dim=16 scaleLatency=8
+[success] Total time: 14 s, completed Sep 19, 2026, 5:04:43 AM
+rc=0 wall_s=18

@@ -1,0 +1,30 @@
+E8_SWEEP_START block_16_r8_l256_d16_m0 depth=16 Sat Sep 19 07:22:25 EDT 2026
+E8 BLOCK design: mode=2 nrow=8 len=256 nbeat=16 nacc=128 tiles=4 steps=64
+block: {"roles": 22, "instances": 308, "fifos": 855, "streams": 185}
+staged 22 role project(s) in 4.9s (frontend + per-role HLS codegen)
+synthesising and exporting 22 unit(s) concurrently:
+  red2_r0: rc=0 210.4s
+  mac_r8: rc=0 213.7s
+  mac_r0: rc=0 215.1s
+  mac_r4: rc=0 216.2s
+  mac_r2: rc=0 217.5s
+  mac_r7: rc=0 218.6s
+  sum1_r0: rc=0 220.5s
+  sca2_r0: rc=0 231.7s
+  scale_r2: rc=0 232.1s
+  mac_r1: rc=0 232.5s
+  scale_r1: rc=0 252.0s
+  sca1_r0: rc=0 253.6s
+  red1_r2: rc=0 260.5s
+  red1_r1: rc=0 260.9s
+  mac_r6: rc=0 264.5s
+  mac_r3: rc=0 266.3s
+  mac_r5: rc=0 267.5s
+  red2_r2: rc=0 271.2s
+  sum2_r0: rc=0 271.3s
+  red1_r0: rc=0 271.4s
+  red2_r1: rc=0 284.4s
+  scale_r0: rc=0 288.0s
+HLS: 288.0s wall for 22 roles and 0 movers (5419.9s of CPU work, 308 instances)
+assembling the array in Vivado:
+E8_SWEEP_RC=137 wall_s=307

@@ -1,0 +1,17 @@
+MXUVPU_STREAM dim=8 tiles=16 shift=7 correct=true rows_out=136 want_rows=136 wrong_rows=0 first_in=3 last_out=173 latency=36 interval=9 interval_min=9 interval_max=9 total=171
+MXUVPU_TILE t=0 done=38
+MXUVPU_TILE t=1 done=47
+MXUVPU_TILE t=2 done=56
+MXUVPU_TILE t=3 done=65
+MXUVPU_TILE t=4 done=74
+MXUVPU_TILE t=5 done=83
+MXUVPU_TILE t=6 done=92
+MXUVPU_TILE t=7 done=101
+MXUVPU_TILE t=8 done=110
+MXUVPU_TILE t=9 done=119
+MXUVPU_TILE t=10 done=128
+MXUVPU_TILE t=11 done=137
+MXUVPU_TILE t=12 done=146
+MXUVPU_TILE t=13 done=155
+MXUVPU_TILE t=14 done=164
+MXUVPU_TILE t=15 done=173

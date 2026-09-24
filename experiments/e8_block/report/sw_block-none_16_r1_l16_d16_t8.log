@@ -1,0 +1,163 @@
+E8_SWEEP_START block-none_16_r1_l16_d16_t8 depth=16 Sat Sep 19 06:33:44 EDT 2026
+E8 BLOCK design: mode=0 nrow=1 len=16 nbeat=1 nacc=1 tiles=8 steps=128
+block-none: {"roles": 22, "instances": 308, "fifos": 855, "streams": 185}
+staged 22 role project(s) in 4.5s (frontend + per-role HLS codegen)
+synthesising and exporting 22 unit(s) concurrently:
+  sca1_r0: rc=0 66.3s
+  mac_r8: rc=0 68.2s
+  red1_r0: rc=0 69.0s
+  mac_r7: rc=0 70.4s
+  mac_r6: rc=0 70.5s
+  mac_r3: rc=0 70.8s
+  mac_r2: rc=0 70.9s
+  mac_r5: rc=0 71.0s
+  mac_r1: rc=0 71.9s
+  mac_r0: rc=0 72.0s
+  mac_r4: rc=0 72.0s
+  red1_r2: rc=0 72.4s
+  sum1_r0: rc=0 72.6s
+  sum2_r0: rc=0 72.8s
+  red1_r1: rc=0 72.9s
+  red2_r2: rc=0 72.9s
+  red2_r1: rc=0 73.2s
+  red2_r0: rc=0 74.2s
+  scale_r2: rc=0 75.6s
+  scale_r1: rc=0 76.3s
+  scale_r0: rc=0 76.9s
+  sca2_r0: rc=0 76.9s
+HLS: 76.9s wall for 22 roles and 0 movers (1589.7s of CPU work, 308 instances)
+assembling the array in Vivado:
+Vivado elaborated 308 instances in 115.2s
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=119 first_in=1
+  SPMW XFORM 2 done_cycle=123 first_in=1
+  SPMW XFORM 3 done_cycle=126 first_in=1
+  SPMW XFORM 4 done_cycle=129 first_in=1
+  SPMW XFORM 5 done_cycle=131 first_in=1
+  SPMW XFORM 6 done_cycle=133 first_in=1
+  SPMW XFORM 7 done_cycle=135 first_in=1
+  SPMW XFORM 8 done_cycle=137 first_in=1
+  SPMW XFORM 9 done_cycle=138 first_in=1
+  SPMW XFORM 10 done_cycle=140 first_in=1
+  SPMW XFORM 11 done_cycle=141 first_in=1
+  SPMW XFORM 12 done_cycle=143 first_in=1
+  SPMW XFORM 13 done_cycle=144 first_in=1
+  SPMW XFORM 14 done_cycle=146 first_in=1
+  SPMW XFORM 15 done_cycle=147 first_in=1
+  SPMW XFORM 16 done_cycle=148 first_in=1
+  SPMW XFORM 17 done_cycle=149 first_in=1
+  SPMW XFORM 18 done_cycle=151 first_in=1
+  SPMW XFORM 19 done_cycle=152 first_in=1
+  SPMW XFORM 20 done_cycle=153 first_in=1
+  SPMW XFORM 21 done_cycle=154 first_in=1
+  SPMW XFORM 22 done_cycle=155 first_in=1
+  SPMW XFORM 23 done_cycle=156 first_in=1
+  SPMW XFORM 24 done_cycle=157 first_in=1
+  SPMW XFORM 25 done_cycle=158 first_in=1
+  SPMW XFORM 26 done_cycle=159 first_in=1
+  SPMW XFORM 27 done_cycle=160 first_in=1
+  SPMW XFORM 28 done_cycle=161 first_in=1
+  SPMW XFORM 29 done_cycle=162 first_in=1
+  SPMW XFORM 30 done_cycle=163 first_in=1
+  SPMW XFORM 31 done_cycle=164 first_in=1
+  SPMW XFORM 32 done_cycle=165 first_in=1
+  SPMW XFORM 33 done_cycle=166 first_in=1
+  SPMW XFORM 34 done_cycle=167 first_in=1
+  SPMW XFORM 35 done_cycle=168 first_in=1
+  SPMW XFORM 36 done_cycle=169 first_in=1
+  SPMW XFORM 37 done_cycle=170 first_in=1
+  SPMW XFORM 38 done_cycle=171 first_in=1
+  SPMW XFORM 39 done_cycle=172 first_in=1
+  SPMW XFORM 40 done_cycle=173 first_in=1
+  SPMW XFORM 41 done_cycle=174 first_in=1
+  SPMW XFORM 42 done_cycle=175 first_in=1
+  SPMW XFORM 43 done_cycle=176 first_in=1
+  SPMW XFORM 44 done_cycle=177 first_in=1
+  SPMW XFORM 45 done_cycle=178 first_in=1
+  SPMW XFORM 46 done_cycle=179 first_in=1
+  SPMW XFORM 47 done_cycle=180 first_in=1
+  SPMW XFORM 48 done_cycle=181 first_in=1
+  SPMW XFORM 49 done_cycle=182 first_in=1
+  SPMW XFORM 50 done_cycle=183 first_in=1
+  SPMW XFORM 51 done_cycle=184 first_in=1
+  SPMW XFORM 52 done_cycle=185 first_in=1
+  SPMW XFORM 53 done_cycle=186 first_in=1
+  SPMW XFORM 54 done_cycle=187 first_in=1
+  SPMW XFORM 55 done_cycle=188 first_in=1
+  SPMW XFORM 56 done_cycle=189 first_in=1
+  SPMW XFORM 57 done_cycle=190 first_in=1
+  SPMW XFORM 58 done_cycle=191 first_in=1
+  SPMW XFORM 59 done_cycle=192 first_in=1
+  SPMW XFORM 60 done_cycle=193 first_in=1
+  SPMW XFORM 61 done_cycle=194 first_in=1
+  SPMW XFORM 62 done_cycle=195 first_in=1
+  SPMW XFORM 63 done_cycle=196 first_in=1
+  SPMW XFORM 64 done_cycle=197 first_in=1
+  SPMW XFORM 65 done_cycle=198 first_in=1
+  SPMW XFORM 66 done_cycle=199 first_in=1
+  SPMW XFORM 67 done_cycle=200 first_in=1
+  SPMW XFORM 68 done_cycle=201 first_in=1
+  SPMW XFORM 69 done_cycle=202 first_in=1
+  SPMW XFORM 70 done_cycle=203 first_in=1
+  SPMW XFORM 71 done_cycle=204 first_in=1
+  SPMW XFORM 72 done_cycle=205 first_in=1
+  SPMW XFORM 73 done_cycle=206 first_in=1
+  SPMW XFORM 74 done_cycle=207 first_in=1
+  SPMW XFORM 75 done_cycle=208 first_in=1
+  SPMW XFORM 76 done_cycle=209 first_in=1
+  SPMW XFORM 77 done_cycle=210 first_in=1
+  SPMW XFORM 78 done_cycle=211 first_in=1
+  SPMW XFORM 79 done_cycle=212 first_in=1
+  SPMW XFORM 80 done_cycle=213 first_in=1
+  SPMW XFORM 81 done_cycle=214 first_in=1
+  SPMW XFORM 82 done_cycle=215 first_in=1
+  SPMW XFORM 83 done_cycle=216 first_in=1
+  SPMW XFORM 84 done_cycle=217 first_in=1
+  SPMW XFORM 85 done_cycle=218 first_in=1
+  SPMW XFORM 86 done_cycle=219 first_in=1
+  SPMW XFORM 87 done_cycle=220 first_in=1
+  SPMW XFORM 88 done_cycle=221 first_in=1
+  SPMW XFORM 89 done_cycle=222 first_in=1
+  SPMW XFORM 90 done_cycle=223 first_in=1
+  SPMW XFORM 91 done_cycle=224 first_in=1
+  SPMW XFORM 92 done_cycle=225 first_in=1
+  SPMW XFORM 93 done_cycle=226 first_in=1
+  SPMW XFORM 94 done_cycle=227 first_in=1
+  SPMW XFORM 95 done_cycle=228 first_in=1
+  SPMW XFORM 96 done_cycle=229 first_in=1
+  SPMW XFORM 97 done_cycle=230 first_in=1
+  SPMW XFORM 98 done_cycle=231 first_in=1
+  SPMW XFORM 99 done_cycle=232 first_in=1
+  SPMW XFORM 100 done_cycle=233 first_in=1
+  SPMW XFORM 101 done_cycle=234 first_in=1
+  SPMW XFORM 102 done_cycle=235 first_in=1
+  SPMW XFORM 103 done_cycle=236 first_in=1
+  SPMW XFORM 104 done_cycle=237 first_in=1
+  SPMW XFORM 105 done_cycle=238 first_in=1
+  SPMW XFORM 106 done_cycle=239 first_in=1
+  SPMW XFORM 107 done_cycle=240 first_in=1
+  SPMW XFORM 108 done_cycle=241 first_in=1
+  SPMW XFORM 109 done_cycle=242 first_in=1
+  SPMW XFORM 110 done_cycle=243 first_in=1
+  SPMW XFORM 111 done_cycle=245 first_in=1
+  SPMW XFORM 112 done_cycle=246 first_in=1
+  SPMW XFORM 113 done_cycle=247 first_in=1
+  SPMW XFORM 114 done_cycle=248 first_in=1
+  SPMW XFORM 115 done_cycle=250 first_in=1
+  SPMW XFORM 116 done_cycle=251 first_in=1
+  SPMW XFORM 117 done_cycle=252 first_in=1
+  SPMW XFORM 118 done_cycle=254 first_in=1
+  SPMW XFORM 119 done_cycle=256 first_in=1
+  SPMW XFORM 120 done_cycle=257 first_in=1
+  SPMW XFORM 121 done_cycle=259 first_in=1
+  SPMW XFORM 122 done_cycle=261 first_in=1
+  SPMW XFORM 123 done_cycle=263 first_in=1
+  SPMW XFORM 124 done_cycle=265 first_in=1
+  SPMW XFORM 125 done_cycle=268 first_in=1
+  SPMW XFORM 126 done_cycle=271 first_in=1
+  SPMW XFORM 127 done_cycle=275 first_in=1
+  SPMW XFORM 128 done_cycle=283 first_in=1
+  SPMW XFORM 129 done_cycle=318 first_in=1
+  SPMW COSIM PASS (2066/2066 tokens, 0 errors)
+  SPMW CYCLES total=322 first_out=111 first_in=1
+E8_SWEEP_RC=0 wall_s=268

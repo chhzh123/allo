@@ -1,0 +1,32 @@
+E8_SPMW_START design=block size=4 args=--cosim Sat Sep 19 05:11:21 EDT 2026
+block: {"roles": 20, "instances": 30, "fifos": 73, "streams": 51}
+staged 20 role project(s) in 3.6s (frontend + per-role HLS codegen)
+synthesising and exporting 20 unit(s) concurrently:
+  mac_r0: rc=0 66.2s
+  mac_r6: rc=0 66.6s
+  mac_r4: rc=0 67.2s
+  mac_r5: rc=0 67.6s
+  mac_r3: rc=0 67.8s
+  stat1_r0: rc=0 68.1s
+  mac_r1: rc=0 68.2s
+  red1_r2: rc=0 68.5s
+  mac_r2: rc=0 68.8s
+  red2_r2: rc=0 68.8s
+  mac_r7: rc=0 68.8s
+  red2_r1: rc=0 68.9s
+  mac_r8: rc=0 69.2s
+  red2_r0: rc=0 69.3s
+  red1_r0: rc=0 69.8s
+  red1_r1: rc=0 70.2s
+  stat2_r0: rc=0 71.0s
+  scale_r2: rc=0 72.7s
+  scale_r0: rc=0 72.7s
+  scale_r1: rc=0 76.1s
+HLS: 76.1s wall for 20 roles and 0 movers (1386.5s of CPU work, 30 instances)
+assembling the array in Vivado:
+Vivado elaborated 30 instances in 86.1s
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=851 first_in=1
+  SPMW COSIM PASS (1096/1096 tokens, 0 errors)
+  SPMW CYCLES total=870 first_out=22 first_in=1
+E8_SPMW_RC=0 wall_s=220

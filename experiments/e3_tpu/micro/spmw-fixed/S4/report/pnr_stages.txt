@@ -1,0 +1,2 @@
+HLS: 136.7s wall for 10 roles and 0 movers (672.9s of CPU work, 20 instances)
+  array clock: 2.499 ns achieved against a 3.333 ns target (WNS +0.834 ns)

@@ -1,0 +1,39 @@
+E8_SWEEP_START block-sm_16_r4_l64_d16 depth=16 Sat Sep 19 06:51:50 EDT 2026
+E8 BLOCK design: mode=4 nrow=4 len=64 nbeat=4 nacc=16 tiles=4 steps=64
+block-sm: {"roles": 22, "instances": 308, "fifos": 855, "streams": 185}
+staged 22 role project(s) in 5.5s (frontend + per-role HLS codegen)
+synthesising and exporting 22 unit(s) concurrently:
+  mac_r0: rc=0 85.2s
+  red1_r0: rc=0 87.8s
+  red2_r2: rc=0 96.9s
+  sca1_r0: rc=0 110.8s
+  mac_r1: rc=0 119.6s
+  mac_r6: rc=0 121.2s
+  mac_r3: rc=0 121.4s
+  mac_r7: rc=0 122.2s
+  mac_r2: rc=0 126.6s
+  sum2_r0: rc=0 127.0s
+  mac_r4: rc=0 128.0s
+  red1_r2: rc=0 128.3s
+  mac_r5: rc=0 129.6s
+  scale_r2: rc=0 130.0s
+  sum1_r0: rc=0 130.5s
+  mac_r8: rc=0 130.7s
+  scale_r0: rc=0 130.9s
+  red2_r0: rc=0 132.3s
+  red2_r1: rc=0 132.4s
+  red1_r1: rc=0 132.7s
+  sca2_r0: rc=0 133.8s
+  scale_r1: rc=0 135.7s
+HLS: 136.0s wall for 22 roles and 0 movers (2693.6s of CPU work, 308 instances)
+assembling the array in Vivado:
+Vivado elaborated 308 instances in 114.2s
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=115 first_in=1
+  SPMW XFORM 2 done_cycle=132 first_in=1
+  SPMW XFORM 3 done_cycle=149 first_in=1
+  SPMW XFORM 4 done_cycle=186 first_in=1
+  SPMW XFORM 5 done_cycle=339 first_in=1
+  SPMW COSIM PASS (1288/1288 tokens, 0 errors)
+  SPMW CYCLES total=343 first_out=78 first_in=1
+E8_SWEEP_RC=0 wall_s=329

@@ -1,0 +1,7 @@
+# chiseltest did not finish at this size.
+#
+# With no verilator on the machine chiseltest falls back to a Scala
+# interpreter: 63s at 4x4, 25 minutes at 8x8, and E1 measured six hours for a
+# 16x16 mesh. The run was retired once the xsim harness -- calibrated against
+# chiseltest at 4x4 and 8x8, where the two differ by a constant one cycle of
+# interval -- had covered this size in 16 seconds.
