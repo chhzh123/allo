@@ -118,10 +118,19 @@ def stimulus(size, tiles=TILES, seed=0):
     wider bias is not a thing both systems can be handed.  SPMW carries it in a
     32-bit register and would take any of them.
     """
+    return stimulus_mkn(tiles, size, size, size, seed)
+
+
+def stimulus_mkn(tiles, M, K, N, seed=0):
+    """`stimulus` for ``tiles`` tiles of M x K x N, not only S x S x S.
+
+    Drawn in the same order and shapes, so a square tile gets exactly the
+    operands `stimulus` always gave it.
+    """
     rng = np.random.default_rng(seed)
-    A = rng.integers(-128, 128, size=(tiles, size, size)).astype(np.int8)
-    B = rng.integers(-128, 128, size=(tiles, size, size)).astype(np.int8)
-    bias = rng.integers(-128, 128, size=size).astype(np.int32)
+    A = rng.integers(-128, 128, size=(tiles, M, K)).astype(np.int8)
+    B = rng.integers(-128, 128, size=(tiles, K, N)).astype(np.int8)
+    bias = rng.integers(-128, 128, size=N).astype(np.int32)
     acc = np.einsum("tik,tkj->tij", A.astype(np.int32), B.astype(np.int32)) + bias
     shift = choose_shift(acc)
     return A, B, bias, shift, golden(acc, shift)

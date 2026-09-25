@@ -64,8 +64,20 @@ def _mlir_type(dtype, shape=()):
     return f"memref<{extents}x{base}>"
 
 
+def model_depth(depth):
+    """A link's depth in every model but the RTL fabric.
+
+    Depth 0 is a bare register in the fabric (`allo.spmw.abi.fifo_module`):
+    one value, no backpressure. Everywhere else it is the one-entry FIFO it
+    behaves as -- the fabric's precondition, that no value is ever replaced
+    unread, is exactly that this FIFO's writer never finds it full.
+    """
+    return max(int(depth), 1)
+
+
 def _stream_type(family):
-    return f"!allo.stream<{_mlir_type(family.dtype, family.block)}, {family.depth}>"
+    depth = model_depth(family.depth)
+    return f"!allo.stream<{_mlir_type(family.dtype, family.block)}, {depth}>"
 
 
 def _ints(values):
@@ -91,7 +103,7 @@ def _family_attr(fam):
     return (
         f'#spmw.family<name = "{fam.name}", type = '
         f"{_mlir_type(fam.dtype, fam.block)}, block = {_ints(fam.block)}, "
-        f"depth = {fam.depth}, shape = {_ints(fam.shape)}>"
+        f"depth = {model_depth(fam.depth)}, shape = {_ints(fam.shape)}>"
     )
 
 
@@ -587,7 +599,9 @@ class Program:
         for stmt in stmts:
             _fill_empty_suites(stmt)
         decls = [
-            stream_decl(p.name, self.low.type_ann(fam.dtype, fam.block), fam.depth)
+            stream_decl(
+                p.name, self.low.type_ann(fam.dtype, fam.block), model_depth(fam.depth)
+            )
             for p, fam in ports
         ]
         body = decls + self.low.stationary_locals(placement) + (stmts or [ast.Pass()])

@@ -295,7 +295,10 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_fixed import micro_fixed_of
 
         return micro_fixed_of(size, weight_depth=int(name[len("tpumicro-fixedw") :]))
-    if name.startswith("tpumicro-reloadw") and name[len("tpumicro-reloadw") :].isdigit():
+    if (
+        name.startswith("tpumicro-reloadw")
+        and name[len("tpumicro-reloadw") :].isdigit()
+    ):
         # The reloading cell with its weight link `d` deep. Reloading puts a
         # beat a cycle on that chain where the file form only used it as a
         # prologue, so the depth-2 default becomes a rate limit there too.
@@ -318,6 +321,13 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_lean import micro_lean_of
 
         return micro_lean_of(size, bias_at_top=True)
+    if name == "tpumicro-blocked":
+        # E3's workload held fixed -- sixteen 16x16x16 tiles -- on a `size` x
+        # `size` array of the 256-unit lean cells: each tile blocked into
+        # (16/size)^2 weight blocks, the partial sums added up in the lanes.
+        from test_spmw_tpu_micro_blocked import micro_blocked_of
+
+        return micro_blocked_of(size)
     if name.startswith("tpumicro-lean0"):
         # `tpumicro-lean0[-m][-v]`: the lean cell, 256 units, with every mesh
         # link a bare register -- no handshake, Gemmini's PE-to-PE link --
@@ -384,9 +394,15 @@ def design(name, size, lanes=1):
         from spmw_block_drive import NAME_MODE
         from spmw_block_engine import block_of
 
-        suffix = name[len("block"):].lstrip("-")
-        alias = {"": "layernorm", "ln": "layernorm", "sm": "softmax",
-                 "gelu": "igelu", "none": "none", "relu": "relu"}
+        suffix = name[len("block") :].lstrip("-")
+        alias = {
+            "": "layernorm",
+            "ln": "layernorm",
+            "sm": "softmax",
+            "gelu": "igelu",
+            "none": "none",
+            "relu": "relu",
+        }
         if suffix not in alias:
             raise SystemExit(f"unknown block variant {name!r}")
         return block_of(size, mode=NAME_MODE[alias[suffix]])
@@ -1173,6 +1189,7 @@ def main():
             "tpumicro-lean-hls",
             "tpumicro-lean1",
             "tpumicro-lean0",
+            "tpumicro-blocked",
             "tpumicro-lean0-m",
             "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
