@@ -436,6 +436,11 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
 - `spmw-fixed/S<n>/` -- the fixed-function datapath. `report/slice_*` is every
   link on SPMW's default depth-2 slice and `report/wslice_*` only the weight
   link; both are different netlists and so bring their own area and timing.
+  At 4 and 16, `report/rebuild_*` is the same design rebuilt with the current
+  compiler -- the hierarchy E9's cost breakdown is read from -- and
+  `report/fixed1_*` is `tpumicro-fixed1`, built before commit e9b25386: it
+  asked for one-register links, and `generated_fixed1/spmw_top.sv` shows it
+  got them only on the lanes' link, the mesh's staying at depth 2.
 - `*/S<n>/generated/` -- what the split backend emitted: one `.cpp` and one
   `.sv` per role, plus the fabric. 12 roles for the programmable engine at
   every size, 10 for the fixed one.

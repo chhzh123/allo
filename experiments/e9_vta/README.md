@@ -208,7 +208,8 @@ growing.
 
 **Gemmini against SPMW was how the SPMW design was written, and it closes.**
 Both are systolic and both pay per cell, and E3's SPMW cell was 511 flip-flops
-against Gemmini's 73. Routed at 16x16 and split by hierarchy:
+against Gemmini's 73. Routed at 16x16 and split by hierarchy
+(`../e3_tpu/micro/spmw-fixed/S16/report/rebuild_util_hier.rpt`):
 
 | a cell | LUT | FF | |
 |---|---:|---:|---|
@@ -222,7 +223,9 @@ experiment behind that claim -- every link rebuilt one register deep --
 changed only the 16 lane links: a link's depth was `max(Out.depth,
 In.depth)`, `Out` defaulted to 2, and so `In(depth=1)` on a mesh link was
 silently raised back to 2. The 84 flip-flops "saved" at 4x4 were exactly four
-lane links going from 42 to 21. A link's depth is now the deepest any end
+lane links going from 42 to 21 -- `../e3_tpu/micro/spmw-fixed/S4/` has both
+hierarchies (`report/rebuild_*`, `report/fixed1_*`) and the fabric that was
+built (`generated_fixed1/spmw_top.sv`). A link's depth is now the deepest any end
 *asked* for (`allo.spmw.ports.link_depth`, tested in `test_spmw_rtl.py`), and
 every int8 link measures 18 flip-flops, skid included.
 
