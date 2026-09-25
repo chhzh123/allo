@@ -1,0 +1,8 @@
+run_S16_w4_batched   tiles=16 errs=0 cycles=7194 per_tile=449 first_tile=6235 first_gemm=4102
+run_S16_w4_tiled     tiles=16 errs=0 cycles=7659 per_tile=478 first_tile=475 first_gemm=262
+run_S16_w8_batched   tiles=16 errs=0 cycles=2586 per_tile=161 first_tile=2107 first_gemm=1030
+run_S16_w8_tiled     tiles=16 errs=0 cycles=3051 per_tile=190 first_tile=187 first_gemm=70
+run_S16_w16_batched  tiles=16 errs=0 cycles=1050 per_tile=65 first_tile=811 first_gemm=262
+run_S16_w16_tiled    tiles=16 errs=0 cycles=1515 per_tile=94 first_tile=91 first_gemm=22
+run_S4_w4_batched    tiles=16 errs=0 cycles=282 per_tile=17 first_tile=223 first_gemm=70
+run_S8_w8_batched    tiles=16 errs=0 cycles=538 per_tile=33 first_tile=419 first_gemm=134

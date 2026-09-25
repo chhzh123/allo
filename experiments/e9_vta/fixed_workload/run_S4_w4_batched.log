@@ -1,0 +1,3 @@
+VTAMICRO BENCH tiles=16 acc_rows=64 -> run_S4_w4_batched
+VTAMICRO RESULT tiles=16 errs=0 cycles=282 per_tile=17 first_tile=223 first_gemm=70
+VTAMICRO PASS

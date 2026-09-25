@@ -1,0 +1,17 @@
+MXUACC_STREAM dim=8 size=16 tiles=16 shift=8 correct= true rows_out=512 want_rows=512 wrong_rows=0 first_in=10 last_out=1333 latency=124 interval=80 interval_min=80 interval_max=80 total=1324
+MXUACC_TILE t=0 done=133
+MXUACC_TILE t=1 done=213
+MXUACC_TILE t=2 done=293
+MXUACC_TILE t=3 done=373
+MXUACC_TILE t=4 done=453
+MXUACC_TILE t=5 done=533
+MXUACC_TILE t=6 done=613
+MXUACC_TILE t=7 done=693
+MXUACC_TILE t=8 done=773
+MXUACC_TILE t=9 done=853
+MXUACC_TILE t=10 done=933
+MXUACC_TILE t=11 done=1013
+MXUACC_TILE t=12 done=1093
+MXUACC_TILE t=13 done=1173
+MXUACC_TILE t=14 done=1253
+MXUACC_TILE t=15 done=1333

@@ -33,3 +33,15 @@ micro,spmw-lean0-m,16,16,31337,22058,0,0,0.306,tpumicro-lean0-m; + one loop a ce
 micro,spmw-lean0-m-v,16,16,31515,21584,0,0,0.368,tpumicro-lean0-m-v; + lanes credited; the 256-unit headline
 micro,spmw-lean0,4,4,2708,2032,0,0,0.598,tpumicro-lean0; 16 units
 micro,spmw-lean0-m-v,4,4,2273,1604,0,0,0.575,tpumicro-lean0-m-v; 16 units
+micro-fixed16,spmw-blocked,4,256,2731,1980,0,0,0.616,tpumicro-blocked; 16 tiles of 16x16x16; total 4121; first tile 281
+micro-fixed16,gemmini-acc,4,384,3167,2058,0,0,0.219,MxuAccVpu; total 6176; first tile 416
+micro-fixed16,vta-batched,4,449,3121,1283,0,0,0.956,--width 4; total 7194; first tile 6235
+micro-fixed16,vta-tiled,4,478,3121,1283,0,0,0.956,--width 4 --order tiled; total 7659; first tile 475
+micro-fixed16,spmw-blocked,8,64,8426,6504,0,0,0.397,tpumicro-blocked; total 1057; first tile 97
+micro-fixed16,gemmini-acc,8,80,10017,6130,0,0,0.165,MxuAccVpu; total 1324; first tile 124
+micro-fixed16,vta-batched,8,161,8326,2979,0,0,0.457,--width 8; total 2586; first tile 2107
+micro-fixed16,vta-tiled,8,190,8326,2979,0,0,0.457,--width 8 --order tiled; total 3051; first tile 187
+micro-fixed16,spmw-blocked,16,16,31200,21236,0,0,0.381,tpumicro-blocked; total 305; first tile 58
+micro-fixed16,gemmini-acc,16,18,35052,21342,0,0,0.089,MxuAccVpu; total 356; first tile 86
+micro-fixed16,vta-batched,16,65,26403,5991,0,0,0.005,total 1050; first tile 811
+micro-fixed16,vta-tiled,16,94,26403,5991,0,0,0.005,--order tiled; total 1515; first tile 91

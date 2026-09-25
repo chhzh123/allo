@@ -456,7 +456,7 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
   one `.sv` and the `.tcl` Vitis ran for each role -- the `.tcl` carries the
   link credit -- plus the fabric, and `report/` the routed and C-synthesis
   reports, the cosimulation's cycle lines and the whole build log
-  (`build_log.txt`). A variant
+  (`build.log`). A variant
   of the same engine keeps its reports under a prefix and only the generated
   files that differ in `generated_<variant>/`: `hls_` no link credit,
   `depth1_` one-register links with backpressure, `gemmini_epilogue_` the bias
@@ -468,3 +468,14 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
 - `gemmini/S<n>/source/` -- the streaming driver and the top it drives.
 - `gemmini/S<n>/generated/` -- the xsim testbench, and how to re-emit the
   Verilog rather than commit 2.4 MB of it.
+- `spmw-blocked/S<n>/`, `gemmini-acc/` -- the `S = 16` workload held fixed
+  on 4x4, 8x8 and 16x16 arrays, for E9's
+  [One workload, three array sizes](../../e9_vta/README.md#one-workload-three-array-sizes).
+  `spmw-blocked` is laid out like `spmw-lean0`, and its source is
+  `test_spmw_tpu_micro_blocked.py`. `gemmini-acc/source/MxuAccVpu.scala` is
+  Gemmini's mesh with its own `AccumulatorMem` and `AccumulatorScale`.
+  `gemmini-acc/S<n>/` holds the xsim testbench that
+  `scripts/gen_mxuaccvpu_tb.py` generates for it, and the reports from
+  `scripts/run_acc_xsim.sh` and `scripts/pnr_acc.sh`. To emit the Verilog,
+  run `MESH_DIM=<n> ACC_ROWS=16 sbt -batch "runMain gen.ElaborateMxuAccVpu"`
+  in the Gemmini project.

@@ -1,0 +1,55 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Fri Sep 25 04:31:49 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : MxuAccVpu
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|     Instance     |        Module       | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| MxuAccVpu        |               (top) |      10017 |       9282 |     516 |  219 | 6130 |      0 |      0 |    0 |          0 |
+|   (MxuAccVpu)    |               (top) |          4 |          4 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|   accs_0         |      AccumulatorMem |       1999 |       1743 |     256 |    0 |  799 |      0 |      0 |    0 |          0 |
+|     (accs_0)     |      AccumulatorMem |        131 |        131 |       0 |    0 |  406 |      0 |      0 |    0 |          0 |
+|     mem          |  TwoPortSyncMem_259 |        780 |        524 |     256 |    0 |  128 |      0 |      0 |    0 |          0 |
+|     q            |         Queue_1_260 |       1088 |       1088 |       0 |    0 |  265 |      0 |      0 |    0 |          0 |
+|   accs_1         |    AccumulatorMem_0 |        423 |        167 |     256 |    0 |  393 |      0 |      0 |    0 |          0 |
+|     (accs_1)     |    AccumulatorMem_0 |          0 |          0 |       0 |    0 |    3 |      0 |      0 |    0 |          0 |
+|     mem          |      TwoPortSyncMem |        257 |          1 |     256 |    0 |  128 |      0 |      0 |    0 |          0 |
+|     q            |             Queue_1 |        166 |        166 |       0 |    0 |  262 |      0 |      0 |    0 |          0 |
+|   adders         |       AccPipeShared |          0 |          0 |       0 |    0 |  256 |      0 |      0 |    0 |          0 |
+|     m            |             AccPipe |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_1          |         AccPipe_252 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_2          |         AccPipe_253 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_3          |         AccPipe_254 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_4          |         AccPipe_255 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_5          |         AccPipe_256 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_6          |         AccPipe_257 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_7          |         AccPipe_258 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|   mxu            |      MeshWithDelays |       7592 |       7369 |       4 |  219 | 4608 |      0 |      0 |    0 |          0 |
+|     (mxu)        |      MeshWithDelays |        229 |         10 |       0 |  219 |  431 |      0 |      0 |    0 |          0 |
+|     mesh         |                Mesh |       6564 |       6564 |       0 |    0 | 3572 |      0 |      0 |    0 |          0 |
+|     tagq         |            TagQueue |         71 |         71 |       0 |    0 |   75 |      0 |      0 |    0 |          0 |
+|     total_rows_q |               Queue |         17 |         13 |       4 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     transposer   | AlwaysOutTransposer |        714 |        714 |       0 |    0 |  523 |      0 |      0 |    0 |          0 |
+|   vpu            |    AccumulatorScale |          0 |          0 |       0 |    0 |   65 |      0 |      0 |    0 |          0 |
+|     pipe_out_p   |            Pipeline |          0 |          0 |       0 |    0 |   65 |      0 |      0 |    0 |          0 |
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

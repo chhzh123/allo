@@ -19,6 +19,14 @@ measures what that costs.
 
 Both modules are instantiated over one accumulator model and share the
 micro-op port, which is how `Compute` wires them.
+
+``--width`` runs the stimulus on a narrower VTA than its tile.  A tile of
+M x K x N on a VTA of width S is ``K/S x N/S`` weight blocks: the GEMM's
+micro-ops walk (column block, row block, row), accumulating each output's
+``K/S`` partial sums in the accumulator scratchpad, which is what VTA's GEMM
+does anyway -- only the program changes.  ``--order tiled`` issues the four
+instructions tile by tile instead of each over all tiles: VTA's
+latency-oriented schedule, where the default is its throughput one.
 """
 
 import argparse
@@ -29,14 +37,15 @@ import sys
 
 import numpy as np
 
-DIM = 16
 OP_MIN, OP_MAX, OP_ADD, OP_SHR = 0, 1, 2, 3
 
 
 def read_stim(path):
     t = open(path).read()
     g = lambda k: re.search(rf"^{k} (.*)$", t, re.M).group(1).split()
-    s = int(g("S")[0]); tiles = int(g("TILES")[0]); shift = int(g("SHIFT")[0])
+    s = int(g("S")[0])
+    tiles = int(g("TILES")[0])
+    shift = int(g("SHIFT")[0])
     bias = np.array(g("BIAS"), dtype=np.int64)
     A = np.array(g("A"), dtype=np.int64).reshape(tiles, s, s)
     B = np.array(g("B"), dtype=np.int64).reshape(tiles, s, s)
@@ -44,59 +53,145 @@ def read_stim(path):
     return s, tiles, shift, bias, A, B, C
 
 
-def emit(stim, out):
+def emit(stim, out, width=None, order="batched"):
     s, tiles, shift, bias, A, B, C = read_stim(stim)
-    assert s == DIM, f"this bench is built for {DIM}x{DIM}, stimulus says {s}"
-    nacc = tiles * DIM
+    S = s if width is None else width  # the VTA's width; the tile is s x s x s
+    if s % S:
+        sys.exit(f"a {s}-wide tile does not block onto a {S}-wide VTA")
+    M = K = N = s
+    KB, NB = K // S, N // S
+    nacc, ninp, nwgt, nuop = (
+        tiles * NB * M,
+        tiles * KB * M,
+        tiles * KB * NB,
+        NB * KB * M,
+    )
 
     # The golden, recomputed from the operands so the bench checks E3's file
     # rather than trusting it: bias, then ReLU, then the shift, then the clip.
     acc = np.stack([A[t] @ B[t] for t in range(tiles)]) + bias
     want = np.minimum(np.maximum(acc, 0) >> shift, 127)
     if not np.array_equal(want, C):
-        sys.exit(f"recomputed golden differs from the stimulus in "
-                 f"{int((want != C).sum())} places -- check the op order")
+        sys.exit(
+            f"recomputed golden differs from the stimulus in "
+            f"{int((want != C).sum())} places -- check the op order"
+        )
 
     os.makedirs(out, exist_ok=True)
+    # inp row (t, kb, m) is A_t[m, kb*S : kb*S+S]; accumulator row (t, nb, m)
+    # is output row m's columns nb*S .. nb*S+S-1; weight block (t, kb, nb) is
+    # VTA's [out][in]: entry (i, j) = B_t[kb*S + j, nb*S + i].
     with open(f"{out}/inp.dat", "w") as f:
         for t in range(tiles):
-            for r in range(DIM):
-                f.write(" ".join(f"{v & 0xFF:02x}" for v in A[t][r]) + "\n")
+            for kb in range(KB):
+                for r in range(M):
+                    f.write(
+                        " ".join(
+                            f"{v & 0xFF:02x}" for v in A[t][r][kb * S : (kb + 1) * S]
+                        )
+                        + "\n"
+                    )
     with open(f"{out}/wgt.dat", "w") as f:
         for t in range(tiles):
-            f.write(" ".join(f"{int(B[t][j][i]) & 0xFF:02x}"
-                             for i in range(DIM) for j in range(DIM)) + "\n")
+            for kb in range(KB):
+                for nb in range(NB):
+                    f.write(
+                        " ".join(
+                            f"{int(B[t][kb * S + j][nb * S + i]) & 0xFF:02x}"
+                            for i in range(S)
+                            for j in range(S)
+                        )
+                        + "\n"
+                    )
     with open(f"{out}/bias.dat", "w") as f:
-        for _ in range(nacc):
-            f.write(" ".join(f"{int(v) & 0xFFFFFFFF:08x}" for v in bias) + "\n")
+        for t in range(tiles):
+            for nb in range(NB):
+                for _ in range(M):
+                    f.write(
+                        " ".join(
+                            f"{int(v) & 0xFFFFFFFF:08x}"
+                            for v in bias[nb * S : (nb + 1) * S]
+                        )
+                        + "\n"
+                    )
     with open(f"{out}/want.dat", "w") as f:
         for t in range(tiles):
-            for r in range(DIM):
-                f.write(" ".join(f"{int(v) & 0xFFFFFFFF:08x}"
-                                 for v in want[t][r]) + "\n")
-
+            for nb in range(NB):
+                for r in range(M):
+                    f.write(
+                        " ".join(
+                            f"{int(v) & 0xFFFFFFFF:08x}"
+                            for v in want[t][r][nb * S : (nb + 1) * S]
+                        )
+                        + "\n"
+                    )
+    # One tile's GEMM micro-ops, {wgt, inp, acc}: an accumulator row comes back
+    # every M micro-ops, well clear of the GEMM's pipeline.
+    with open(f"{out}/uop.dat", "w") as f:
+        for nb in range(NB):
+            for kb in range(KB):
+                for r in range(M):
+                    word = ((kb * NB + nb) << 22) | ((kb * M + r) << 11) | (nb * M + r)
+                    f.write(f"{word:08x}\n")
     conn = dict(
-        g_inp="\n".join(f"    .io_inp_rd_0_data_bits_0_{i}(inp_d[{i}])," for i in range(DIM)),
-        g_wgt="\n".join(f"    .io_wgt_rd_0_data_bits_{i}_{j}(wgt_d[{i}][{j}]),"
-                        for i in range(DIM) for j in range(DIM)),
-        g_accr="\n".join(f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(DIM)),
-        g_accw="\n".join(f"    .io_acc_wr_0_bits_data_0_{i}(g_accwd[{i}])," for i in range(DIM)),
-        g_outw="\n".join(f"    .io_out_wr_0_bits_data_0_{i}()," for i in range(DIM)),
-        g_inpw="\n".join(f"    .io_inp_wr_0_bits_data_0_{i}()," for i in range(DIM)),
-        g_wgtw="\n".join(f"    .io_wgt_wr_0_bits_data_{i}_{j}(),"
-                         for i in range(DIM) for j in range(DIM)),
-        g_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(DIM)),
-        a_accr="\n".join(f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(DIM)),
-        a_accw="\n".join(f"    .io_acc_wr_0_bits_data_0_{i}(a_accwd[{i}])," for i in range(DIM)),
-        a_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(DIM)),
-        a_outw=",\n".join(f"    .io_out_wr_0_bits_data_0_{i}(a_outwd[{i}])" for i in range(DIM)),
-        inp_load="\n".join(f"        inp_d[{i}] <= inpm[inp_ib][{i}];" for i in range(DIM)),
-        wgt_load="\n".join(f"        wgt_d[{i}][{j}] <= wgtm[wgt_ib][{i}][{j}];"
-                           for i in range(DIM) for j in range(DIM)),
-        acc_load="\n".join(f"        acc_d[{i}] <= accm[acc_ib][{i}];" for i in range(DIM)),
-        acc_store="\n".join(f"        accm[acc_wi][{i}] <= acc_wd[{i}];" for i in range(DIM)),
-        dim=DIM, tiles=tiles, nacc=nacc, shift=shift,
-        op_min=OP_MIN, op_max=OP_MAX, op_shr=OP_SHR,
+        g_inp="\n".join(
+            f"    .io_inp_rd_0_data_bits_0_{i}(inp_d[{i}])," for i in range(S)
+        ),
+        g_wgt="\n".join(
+            f"    .io_wgt_rd_0_data_bits_{i}_{j}(wgt_d[{i}][{j}]),"
+            for i in range(S)
+            for j in range(S)
+        ),
+        g_accr="\n".join(
+            f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(S)
+        ),
+        g_accw="\n".join(
+            f"    .io_acc_wr_0_bits_data_0_{i}(g_accwd[{i}])," for i in range(S)
+        ),
+        g_outw="\n".join(f"    .io_out_wr_0_bits_data_0_{i}()," for i in range(S)),
+        g_inpw="\n".join(f"    .io_inp_wr_0_bits_data_0_{i}()," for i in range(S)),
+        g_wgtw="\n".join(
+            f"    .io_wgt_wr_0_bits_data_{i}_{j}()," for i in range(S) for j in range(S)
+        ),
+        g_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(S)),
+        a_accr="\n".join(
+            f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(S)
+        ),
+        a_accw="\n".join(
+            f"    .io_acc_wr_0_bits_data_0_{i}(a_accwd[{i}])," for i in range(S)
+        ),
+        a_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(S)),
+        a_outw=",\n".join(
+            f"    .io_out_wr_0_bits_data_0_{i}(a_outwd[{i}])" for i in range(S)
+        ),
+        inp_load="\n".join(
+            f"        inp_d[{i}] <= inpm[inp_ib][{i}];" for i in range(S)
+        ),
+        wgt_load="\n".join(
+            f"        wgt_d[{i}][{j}] <= wgtm[wgt_ib][{i}][{j}];"
+            for i in range(S)
+            for j in range(S)
+        ),
+        acc_load="\n".join(
+            f"        acc_d[{i}] <= accm[acc_ib][{i}];" for i in range(S)
+        ),
+        acc_store="\n".join(
+            f"        accm[acc_wi][{i}] <= acc_wd[{i}];" for i in range(S)
+        ),
+        dim=S,
+        tiles=tiles,
+        nacc=nacc,
+        ninp=ninp,
+        nwgt=nwgt,
+        nuop=nuop,
+        shift=shift,
+        nbm=NB * M,
+        kbm=KB * M,
+        kbnb=KB * NB,
+        tiled=int(order == "tiled"),
+        op_min=OP_MIN,
+        op_max=OP_MAX,
+        op_shr=OP_SHR,
     )
     with open(f"{out}/tb.sv", "w") as f:
         f.write(TB % conn)
@@ -107,11 +202,15 @@ TB = r"""
 `timescale 1ns/1ps
 module tb;
   localparam DIM = %(dim)d, NT = %(tiles)d, NACC = %(nacc)d, SHIFT = %(shift)d;
+  localparam NINP = %(ninp)d, NWGT = %(nwgt)d, NUOP = %(nuop)d, TILED = %(tiled)d;
+  localparam NBM = %(nbm)d, KBM = %(kbm)d, KBNB = %(kbnb)d;  // one tile's rows
   reg clk = 1'b0, rst = 1'b1;
   always #1 clk = ~clk;
 
-  reg  [7:0]  inpm [0:NACC-1][0:DIM-1];
-  reg  [7:0]  wgtm [0:NT-1][0:DIM-1][0:DIM-1];
+  reg  [7:0]  inpm [0:NINP-1][0:DIM-1];
+  reg  [7:0]  wgtm [0:NWGT-1][0:DIM-1][0:DIM-1];
+  reg  [31:0] uopm [0:NUOP-1];
+  reg  [10:0] tile = 0;  // the tile a tiled program is on; 0 when batched
   reg  [31:0] accm [0:NACC-1][0:DIM-1];
   reg  [31:0] bias [0:NACC-1][0:DIM-1];
   reg  [31:0] want [0:NACC-1][0:DIM-1];
@@ -155,16 +254,16 @@ module tb;
     assign acc_wd[gi] = sel ? a_accwd[gi] : g_accwd[gi];
   end endgenerate
 
-  integer cyc = 0, t0 = -1, t1 = -1, i, j, k, errs = 0;
+  integer cyc = 0, t0 = -1, t1 = -1, tfirst = -1, tg = -1, i, j, k, t, errs = 0;
 
   TensorGemm gemm (
     .clock(clk), .reset(rst), .io_start(g_start), .io_done(g_done),
-    .io_dec_wgt_1(10'd0), .io_dec_wgt_0(10'd1),
-    .io_dec_inp_1(11'd0), .io_dec_inp_0(11'd%(dim)d),
-    .io_dec_acc_1(11'd0), .io_dec_acc_0(11'd%(dim)d),
+    .io_dec_wgt_1(10'd0), .io_dec_wgt_0(10'd%(kbnb)d),
+    .io_dec_inp_1(11'd0), .io_dec_inp_0(11'd%(kbm)d),
+    .io_dec_acc_1(11'd0), .io_dec_acc_0(11'd%(nbm)d),
     .io_dec_empty_0(1'b0),
-    .io_dec_lp_1(14'd1), .io_dec_lp_0(14'd%(tiles)d),
-    .io_dec_uop_end(14'd%(dim)d), .io_dec_uop_begin(13'd0),
+    .io_dec_lp_1(14'd1), .io_dec_lp_0(TILED ? 14'd1 : 14'd%(tiles)d),
+    .io_dec_uop_end(14'd%(nuop)d), .io_dec_uop_begin(13'd0),
     .io_dec_reset(1'b0), .io_dec_push_next(1'b0), .io_dec_push_prev(1'b0),
     .io_dec_pop_next(1'b0), .io_dec_pop_prev(1'b0), .io_dec_op(3'd0),
     .io_uop_idx_valid(g_uop_iv), .io_uop_idx_bits(g_uop_ib),
@@ -196,11 +295,11 @@ module tb;
   TensorAlu alu (
     .clock(clk), .reset(rst), .io_start(a_start), .io_done(a_done),
     .io_dec_alu_imm(alu_imm), .io_dec_alu_use_imm(1'b1), .io_dec_alu_op(alu_op),
-    .io_dec_src_1(11'd0), .io_dec_src_0(11'd%(dim)d),
-    .io_dec_dst_1(11'd0), .io_dec_dst_0(11'd%(dim)d),
+    .io_dec_src_1(11'd0), .io_dec_src_0(11'd%(nbm)d),
+    .io_dec_dst_1(11'd0), .io_dec_dst_0(11'd%(nbm)d),
     .io_dec_empty_0(1'b0),
-    .io_dec_lp_1(14'd1), .io_dec_lp_0(14'd%(tiles)d),
-    .io_dec_uop_end(14'd%(dim)d), .io_dec_uop_begin(13'd0),
+    .io_dec_lp_1(14'd1), .io_dec_lp_0(TILED ? 14'd1 : 14'd%(tiles)d),
+    .io_dec_uop_end(14'd%(nbm)d), .io_dec_uop_begin(13'd0),
     .io_dec_reset(1'b0), .io_dec_push_next(1'b0), .io_dec_push_prev(1'b0),
     .io_dec_pop_next(1'b0), .io_dec_pop_prev(1'b0), .io_dec_op(3'd0),
     .io_uop_idx_valid(a_uop_iv), .io_uop_idx_bits(a_uop_ib),
@@ -220,7 +319,15 @@ module tb;
 
   always @(posedge clk) begin
     g_uop_dv <= g_uop_iv;  a_uop_dv <= a_uop_iv;
-    if (uop_iv) begin u0 <= uop_ib[10:0]; u1 <= uop_ib[10:0]; u2 <= 10'd0; end
+    if (uop_iv) begin
+      if (sel) begin
+        u0 <= uop_ib[10:0] + tile * NBM; u1 <= uop_ib[10:0] + tile * NBM; u2 <= 10'd0;
+      end else begin
+        u0 <= uopm[uop_ib][10:0] + tile * NBM;
+        u1 <= uopm[uop_ib][21:11] + tile * KBM;
+        u2 <= uopm[uop_ib][31:22] + tile * KBNB;
+      end
+    end
     inp_dv <= g_inp_iv;
     if (g_inp_iv) begin
 %(inp_load)s
@@ -236,6 +343,8 @@ module tb;
     if (acc_wv) begin
 %(acc_store)s
       t1 = cyc;
+      // The first tile is done when the clip has written its last row.
+      if (sel && alu_op == 3'd%(op_min)d && acc_wi < NBM) tfirst = cyc;
     end
     if (!rst) cyc = cyc + 1;
     if (!rst && uop_iv && t0 < 0) t0 = cyc;
@@ -258,6 +367,7 @@ module tb;
     $readmemh("wgt.dat", wgtm);
     $readmemh("bias.dat", bias);
     $readmemh("want.dat", want);
+    $readmemh("uop.dat", uopm);
     // The bias is the accumulator's initial value, which is how all three
     // engines get it -- Gemmini and SPMW fold it into the epilogue, VTA
     // preloads the accumulator. Nobody is charged a pass for it.
@@ -266,17 +376,21 @@ module tb;
     repeat (8) @(posedge clk);
     rst = 0; @(posedge clk);
 
-    sel = 0;
-    g_start = 1; @(posedge clk); g_start = 0;
-    for (k = 0; k < 200000; k = k + 1) begin
+    for (t = 0; t < (TILED ? NT : 1); t = t + 1) begin
+      tile = t;
+      sel = 0;
+      g_start = 1; @(posedge clk); g_start = 0;
+      for (k = 0; k < 200000; k = k + 1) begin
+        @(posedge clk);
+        if (g_done) k = 200000;
+      end
       @(posedge clk);
-      if (g_done) k = 200000;
-    end
-    @(posedge clk);
+      if (tg < 0) tg = cyc;
 
-    run_alu(3'd%(op_max)d, 16'd0);        // ReLU
-    run_alu(3'd%(op_shr)d, 16'd%(shift)d); // requantise
-    run_alu(3'd%(op_min)d, 16'd127);      // clip to int8
+      run_alu(3'd%(op_max)d, 16'd0);        // ReLU
+      run_alu(3'd%(op_shr)d, 16'd%(shift)d); // requantise
+      run_alu(3'd%(op_min)d, 16'd127);      // clip to int8
+    end
 
     repeat (8) @(posedge clk);
     for (i = 0; i < NACC; i = i + 1)
@@ -287,8 +401,8 @@ module tb;
                      i, j, $signed(accm[i][j]), $signed(want[i][j]));
           errs = errs + 1;
         end
-    $display("VTAMICRO RESULT tiles=%%0d errs=%%0d cycles=%%0d per_tile=%%0d",
-             NT, errs, (t1 - t0), (t1 - t0) / NT);
+    $display("VTAMICRO RESULT tiles=%%0d errs=%%0d cycles=%%0d per_tile=%%0d first_tile=%%0d first_gemm=%%0d",
+             NT, errs, (t1 - t0), (t1 - t0) / NT, tfirst - t0 + 1, tg - t0 + 1);
     $display("VTAMICRO %%s", (errs == 0) ? "PASS" : "FAIL");
     $finish;
   end
@@ -299,18 +413,37 @@ endmodule
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stim", required=True)
-    ap.add_argument("--gemm-rtl",
-                    default="/scratch/hc676/vta/hardware/chisel/vta_out_TensorGemm")
-    ap.add_argument("--alu-rtl", default="/scratch/hc676/vta_build/rtl_alu_base")
+    ap.add_argument(
+        "--width",
+        type=int,
+        default=None,
+        help="the VTA's width; defaults to the stimulus's tile",
+    )
+    ap.add_argument("--order", choices=("batched", "tiled"), default="batched")
+    ap.add_argument("--gemm-rtl", default=None)
+    ap.add_argument("--alu-rtl", default=None)
     ap.add_argument("--out", required=True)
     ap.add_argument("--run", action="store_true")
     a = ap.parse_args()
-    tiles, nacc = emit(a.stim, a.out)
+    width = a.width or read_stim(a.stim)[0]
+    suffix = "" if width == 16 else f"_w{width}"
+    chisel = "/scratch/hc676/vta/hardware/chisel"
+    a.gemm_rtl = a.gemm_rtl or f"{chisel}/vta_out_TensorGemm{suffix}"
+    a.alu_rtl = a.alu_rtl or (
+        "/scratch/hc676/vta_build/rtl_alu_base"
+        if width == 16
+        else f"{chisel}/vta_out_TensorAlu{suffix}"
+    )
+    tiles, nacc = emit(a.stim, a.out, a.width, a.order)
     print(f"VTAMICRO BENCH tiles={tiles} acc_rows={nacc} -> {a.out}")
     if not a.run:
         return
-    v = [os.path.join(d, f) for d in (a.gemm_rtl, a.alu_rtl)
-         for f in sorted(os.listdir(d)) if f.endswith(".v")]
+    v = [
+        os.path.join(d, f)
+        for d in (a.gemm_rtl, a.alu_rtl)
+        for f in sorted(os.listdir(d))
+        if f.endswith(".v")
+    ]
     # both trees carry the shared leaf modules, so duplicates are dropped
     seen, files = set(), []
     for f in v:
@@ -318,10 +451,25 @@ def main():
         if b not in seen:
             seen.add(b)
             files.append(f)
-    for cmd in (["xvlog"] + files, ["xvlog", "-sv", "tb.sv"],
-                ["xelab", "tb", "-s", "tbsim", "-timescale", "1ns/1ps",
-                 "-L", "unisims_ver", "-L", "unimacro_ver", "-L", "secureip"],
-                ["xsim", "tbsim", "-runall"]):
+    for cmd in (
+        ["xvlog"] + files,
+        ["xvlog", "-sv", "tb.sv"],
+        [
+            "xelab",
+            "tb",
+            "-s",
+            "tbsim",
+            "-timescale",
+            "1ns/1ps",
+            "-L",
+            "unisims_ver",
+            "-L",
+            "unimacro_ver",
+            "-L",
+            "secureip",
+        ],
+        ["xsim", "tbsim", "-runall"],
+    ):
         r = subprocess.run(cmd, cwd=a.out, capture_output=True, text=True)
         tail = (r.stdout + r.stderr).strip().splitlines()
         if r.returncode:

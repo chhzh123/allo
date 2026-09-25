@@ -182,6 +182,104 @@ one, two and three passes over 256 rows, 1.03 cycles a row each.
 The bias is free on all three and nobody is charged for it: Gemmini and SPMW
 fold it into the epilogue, VTA preloads the accumulator.
 
+## One workload, three array sizes
+
+The table above changes two things at once, since each size runs its own
+`S x S x S` tiles. Here the workload is held fixed and only the array
+shrinks. The workload is E3's `S = 16` microbenchmark, the same operands:
+
+    Y_t[m, n] = min(127, max(0, sum_k A_t[m, k] B_t[k, n] + b[n]) >> 8)
+
+for sixteen tiles `t` of `M x K x N = 16 x 16 x 16`. `A_t` and `B_t` are
+int8, `b` is an int8-valued int32 and every sum is int32. That is 65,536
+multiply-accumulates. An `S x S` array takes a tile as `(16/S)^2` weight blocks
+and adds `16/S` partial sums into each output before the epilogue, and each
+engine does that its own way:
+
+- **SPMW** (`tests/dataflow/spmw/test_spmw_tpu_micro_blocked.py`, design
+  `tpumicro-blocked`) is the 256-unit lean cell of
+  [Closing the gap](#closing-the-gap), unchanged except that a weight block
+  lasts 16 rows. Each lane holds a row's running sum in a 16-deep delay line
+  and emits on the last block. At 16x16 there is one block, so there is no delay line.
+- **Gemmini** (`../e3_tpu/micro/gemmini-acc/source/MxuAccVpu.scala`) is its
+  mesh, its `AccumulatorMem` (two banks, read-modify-write through
+  `AccPipeShared`) and its `AccumulatorScale`, wired as Gemmini's
+  `Scratchpad` wires them. E3's `MxuVpu` has no accumulator because a
+  one-block tile never needs one.
+- **VTA** (`scripts/vta_micro_bench.py --width S`) is the same `TensorGemm`
+  and `TensorAlu`. The GEMM accumulates the K blocks in the acc scratchpad,
+  then three ALU passes follow. It runs in two instruction orders: *batched*
+  (every GEMM, then each pass over everything) and *tile by tile*.
+
+All twelve runs are bit-exact against one golden. Each routes at 3.333 ns
+with zero unrouted nets, and none uses a DSP or a block RAM:
+
+| array | engine | cycles / tile | first tile | total | clock | time | LUT | FF | LUT x ns / tile |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | **SPMW** | **256** | **281** | **4,121** | 368 MHz | **11.2 us** | **2,731** | 1,980 | **1.90 M** |
+| | Gemmini | 384 | 416 | 6,176 | 321 MHz | 19.2 us | 3,167 | 2,058 | 3.79 M |
+| | VTA, batched | 449 | 6,235 | 7,194 | 421 MHz | 17.1 us | 3,121 | **1,283** | 3.33 M |
+| | VTA, tile by tile | 478 | 475 | 7,659 | 421 MHz | 18.2 us | | | 3.55 M |
+| 8x8 | **SPMW** | **64** | **97** | **1,057** | 341 MHz | **3.10 us** | 8,426 | 6,504 | **1.58 M** |
+| | Gemmini | 80 | 124 | 1,324 | 316 MHz | 4.19 us | 10,017 | 6,130 | 2.54 M |
+| | VTA, batched | 161 | 2,107 | 2,586 | 348 MHz | 7.44 us | **8,326** | **2,979** | 3.86 M |
+| | VTA, tile by tile | 190 | 187 | 3,051 | 348 MHz | 8.77 us | | | 4.55 M |
+| 16x16 | **SPMW** | **16** | **58** | **305** | 339 MHz | **0.90 us** | 31,200 | 21,236 | **1.47 M** |
+| | Gemmini | 18 | 86 | 356 | 308 MHz | 1.15 us | 35,052 | 21,342 | 2.05 M |
+| | VTA, batched | 65 | 811 | 1,050 | 301 MHz | 3.49 us | **26,403** | **5,991** | 5.71 M |
+| | VTA, tile by tile | 94 | 91 | 1,515 | 301 MHz | 5.04 us | | | 8.26 M |
+
+Each engine again follows an exact law, with `M = K = N = 16`:
+
+| | cycles a tile | 4x4 | 8x8 | 16x16 |
+|---|---|---:|---:|---:|
+| SPMW | `MKN / S^2` | 256 | 64 | 16 |
+| Gemmini | `MKN / S^2 x (S + 2) / S` | 384 | 80 | 18 |
+| VTA, batched | `MKN / S^2 + 3 MN / S + 1` | 449 | 161 | 65 |
+
+- **SPMW is at the floor at every size.** The next block's weights shift in
+  behind the current block, and the partial sums are added in the lane as
+  they drain.
+- **Gemmini's two-cycle handshake is paid per request, and a request carries
+  at most `S` rows** (`MeshWithDelays` requires `total_rows <= block_size`).
+  A 16-row block is therefore `16/S` requests, and the overhead is `2/S`:
+  50% at 4x4, 25% at 8x8, 12.5% at 16x16.
+- **VTA's GEMM is also at the floor, but its epilogue is not.** Three ALU
+  passes over `MN/S` accumulator rows shrink only as `1/S`, while the GEMM
+  shrinks as `1/S^2`. The epilogue is 43% of the time at 4x4, 60% at 8x8 and
+  74% at 16x16. Tile by tile costs 29 more cycles a tile at every size, in
+  instruction overhead, and buys a first tile after 91 cycles instead of 811.
+
+From 4x4 to 16x16 each engine gets 16x the multipliers:
+
+| | cycles a tile | whole workload, in time | LUT |
+|---|---:|---:|---:|
+| SPMW | 16x fewer | 12.4x faster | 11.4x more |
+| Gemmini | 21.3x fewer | 16.7x faster | 11.1x more |
+| VTA, batched | 6.9x fewer | 4.9x faster | 8.5x more |
+
+**SPMW is fastest at every size, and it has the best lookup-tables-times-time
+at every size, improving as the array grows (1.90 M, 1.58 M, 1.47 M).**
+Gemmini scales best in cycles, but only because its overhead shrinks: from
+1.5x SPMW at 4x4 to 1.125x at 16x16. VTA has the fewest registers at every
+size and the fewest lookup tables at 8x8 and 16x16, but its time scales
+worst, 4.9x for 16x the multipliers. On a fixed workload the smallest VTA is
+its most efficient (3.33 M at 4x4 against 5.71 M at 16x16), which is the
+opposite of the other two. At 4x4, VTA's 421 MHz clock puts it ahead of
+Gemmini in time, 17.1 us against 19.2 us.
+
+The scope is the same as the rest of this file, and it cuts one way.
+**VTA's partial sums live in its acc scratchpad, block RAM outside the
+measured modules.** Gemmini's accumulator is inside the scope: 1,196 lookup
+tables at 4x4, and 4,620 at 16x16, where this workload never adds a partial
+sum. At 16x16, `MxuAccVpu` is 35,052 lookup tables against 31,932 for E3's
+`MxuVpu`. SPMW's delay lines are inside the scope too: its four lanes are 1,021
+lookup tables and 876 registers of the 4x4 array. SPMW's generator builds a
+delay line only where the shape needs one, so its 16x16 array has none.
+SPMW's mesh links are bare registers, which are correct only while the array
+is fed without gaps. Cosimulation feeds it that way, and all three runs report
+no overwritten value.
+
 ## Where the area gap comes from
 
 A 3.5x lookup-table and 22x register gap between E3's SPMW cell and VTA
@@ -518,3 +616,16 @@ is Intel.
   build in "Closing the gap": the design source, the generated per-role HLS
   C++, wrappers and Vitis scripts, the fabric, and the reports. They sit with
   E3's other microbenchmark engines because they are that workload.
+- `scripts/vta_micro_bench.py` -- E3's microbenchmark on VTA's `TensorGemm`
+  and `TensorAlu` under xsim. `--width S` blocks the tile onto a narrower
+  VTA, and `--order tiled` issues the program tile by tile.
+- `fixed_workload/` -- VTA's rows in
+  [One workload, three array sizes](#one-workload-three-array-sizes). There
+  is one log and one testbench per width and order, and `results.txt`
+  collects their result lines. `run_S4_w4_batched` and `run_S8_w8_batched`
+  rerun the square workload with the blocked bench, and they reproduce the
+  17 and 33 cycles a tile of the fair-comparison table.
+- `tests/dataflow/spmw/test_spmw_tpu_micro_blocked.py` -- SPMW's engine for
+  the same section, design `tpumicro-blocked`. Its builds are in
+  `../e3_tpu/micro/spmw-blocked/S<n>/`, and Gemmini's `MxuAccVpu`, with its
+  xsim driver and route reports, is in `../e3_tpu/micro/gemmini-acc/`.

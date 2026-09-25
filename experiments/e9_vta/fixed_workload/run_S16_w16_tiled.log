@@ -1,0 +1,3 @@
+VTAMICRO BENCH tiles=16 acc_rows=256 -> run_S16_w16_tiled
+VTAMICRO RESULT tiles=16 errs=0 cycles=1515 per_tile=94 first_tile=91 first_gemm=22
+VTAMICRO PASS
