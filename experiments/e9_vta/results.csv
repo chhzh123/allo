@@ -45,3 +45,15 @@ micro-fixed16,spmw-blocked,16,16,31200,21236,0,0,0.381,tpumicro-blocked; total 3
 micro-fixed16,gemmini-acc,16,18,35052,21342,0,0,0.089,MxuAccVpu; total 356; first tile 86
 micro-fixed16,vta-batched,16,65,26403,5991,0,0,0.005,total 1050; first tile 811
 micro-fixed16,vta-tiled,16,94,26403,5991,0,0,0.005,--order tiled; total 1515; first tile 91
+llama-gateup-slice,spmw,4,1048649,3019,2044,0,0,0.470,cycles for the slice (64 x 2048 x 128); llama-gateup; full gate+up is 128 slices
+llama-gateup-slice,gemmini-acc,4,1572944,3303,2128,0,0,0.116,MxuAccVpu ACC_ROWS=64 ACT=none
+llama-gateup-slice,vta,4,1056922,3121,1283,0,0,0.956,vta_llama_bench --width 4; 16 K pages
+llama-swiglu-slice,spmw,4,1048658,5528,3296,0,0,0.521,llama-swiglu; lane with no link credit
+llama-gateup-slice,spmw,8,262225,9860,6616,0,0,0.549,llama-gateup
+llama-gateup-slice,gemmini-acc,8,327772,10373,6264,0,0,0.196,MxuAccVpu ACC_ROWS=64 ACT=none
+llama-gateup-slice,vta,8,266330,8326,2979,0,0,0.457,vta_llama_bench --width 8; 8 K pages
+llama-swiglu-slice,spmw,8,262234,14737,9120,0,0,0.434,llama-swiglu; lane with no link credit
+llama-gateup-slice,spmw,16,65633,36471,24361,0,0,0.419,llama-gateup
+llama-gateup-slice,gemmini-acc,16,73844,35875,21619,0,0,0.057,MxuAccVpu ACC_ROWS=64 ACT=none
+llama-gateup-slice,vta,16,67642,26403,5991,0,0,0.005,vta_llama_bench --width 16; 4 K pages
+llama-swiglu-slice,spmw,16,65642,46806,29708,0,0,0.155,llama-swiglu; lane with no link credit

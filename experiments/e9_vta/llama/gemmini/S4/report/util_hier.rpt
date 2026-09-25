@@ -1,0 +1,52 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Fri Sep 25 16:27:18 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : MxuAccVpu
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|     Instance     |        Module       | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| MxuAccVpu        |               (top) |       3303 |       2919 |     324 |   60 | 2128 |      0 |      0 |    0 |          0 |
+|   (MxuAccVpu)    |               (top) |          5 |          5 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|   accs_0         |      AccumulatorMem |        749 |        589 |     160 |    0 |  412 |      0 |      0 |    0 |          0 |
+|     (accs_0)     |      AccumulatorMem |         68 |         68 |       0 |    0 |  182 |      0 |      0 |    0 |          0 |
+|     mem          |   TwoPortSyncMem_63 |        374 |        214 |     160 |    0 |   96 |      0 |      0 |    0 |          0 |
+|     q            |          Queue_1_64 |        307 |        307 |       0 |    0 |  134 |      0 |      0 |    0 |          0 |
+|   accs_1         |    AccumulatorMem_0 |        566 |        406 |     160 |    0 |  233 |      0 |      0 |    0 |          0 |
+|     (accs_1)     |    AccumulatorMem_0 |          0 |          0 |       0 |    0 |    3 |      0 |      0 |    0 |          0 |
+|     mem          |      TwoPortSyncMem |        160 |          0 |     160 |    0 |   96 |      0 |      0 |    0 |          0 |
+|     q            |             Queue_1 |        406 |        406 |       0 |    0 |  134 |      0 |      0 |    0 |          0 |
+|   adders         |       AccPipeShared |          0 |          0 |       0 |    0 |  128 |      0 |      0 |    0 |          0 |
+|     m            |             AccPipe |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_1          |          AccPipe_60 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_2          |          AccPipe_61 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|     m_3          |          AccPipe_62 |          0 |          0 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|   mxu            |      MeshWithDelays |       1981 |       1917 |       4 |   60 | 1312 |      0 |      0 |    0 |          0 |
+|     (mxu)        |      MeshWithDelays |         66 |          6 |       0 |   60 |  200 |      0 |      0 |    0 |          0 |
+|     mesh         |                Mesh |       1633 |       1633 |       0 |    0 |  898 |      0 |      0 |    0 |          0 |
+|     tagq         |            TagQueue |         84 |         84 |       0 |    0 |   75 |      0 |      0 |    0 |          0 |
+|     total_rows_q |               Queue |         17 |         13 |       4 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     transposer   | AlwaysOutTransposer |        184 |        184 |       0 |    0 |  132 |      0 |      0 |    0 |          0 |
+|   vpu            |    AccumulatorScale |          2 |          2 |       0 |    0 |   33 |      0 |      0 |    0 |          0 |
+|     (vpu)        |    AccumulatorScale |          0 |          0 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|     pipe_out_p   |            Pipeline |          2 |          2 |       0 |    0 |   33 |      0 |      0 |    0 |          0 |
++------------------+---------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

@@ -1,0 +1,75 @@
+wrote /scratch/hc676/e10_llama/gem/xsim_d4/tb.sv
+INFO: [VRFC 10-2263] Analyzing Verilog file "/scratch/hc676/e10_llama/gem/xsim_d4/MxuAccVpu.v" into library work
+INFO: [VRFC 10-311] analyzing module PE
+INFO: [VRFC 10-311] analyzing module AlwaysOutTransposer
+INFO: [VRFC 10-311] analyzing module MacUnit
+INFO: [VRFC 10-311] analyzing module PE_16
+INFO: [VRFC 10-311] analyzing module Tile
+INFO: [VRFC 10-311] analyzing module Tile_12
+INFO: [VRFC 10-311] analyzing module Mesh
+INFO: [VRFC 10-311] analyzing module TagQueue
+INFO: [VRFC 10-311] analyzing module Queue
+INFO: [VRFC 10-311] analyzing module MeshWithDelays
+INFO: [VRFC 10-311] analyzing module TwoPortSyncMem
+INFO: [VRFC 10-311] analyzing module Queue_1
+INFO: [VRFC 10-311] analyzing module AccumulatorMem
+INFO: [VRFC 10-311] analyzing module AccPipe
+INFO: [VRFC 10-311] analyzing module AccPipeShared
+INFO: [VRFC 10-311] analyzing module Pipeline
+INFO: [VRFC 10-311] analyzing module AccumulatorScale
+INFO: [VRFC 10-311] analyzing module MxuAccVpu
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/scratch/hc676/e10_llama/gem/xsim_d4/tb.sv" into library work
+INFO: [VRFC 10-311] analyzing module tb
+Vivado Simulator v2023.2
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: /opt/xilinx/Vivado/2023.2/bin/unwrapped/lnx64.o/xelab tb -s tbsim -timescale 1ns/1ps 
+Multi-threading is on. Using 46 slave threads.
+Starting static elaboration
+Pass Through NonSizing Optimizer
+WARNING: [VRFC 10-3645] port 'io_out_bits_full_data_0_0' remains unconnected for this instance [/scratch/hc676/e10_llama/gem/xsim_d4/tb.sv:71]
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module work.PE
+Compiling module work.AlwaysOutTransposer
+Compiling module work.MacUnit
+Compiling module work.PE_16
+Compiling module work.Tile
+Compiling module work.Tile_12
+Compiling module work.Mesh
+Compiling module work.TagQueue
+Compiling module work.Queue
+Compiling module work.MeshWithDelays
+Compiling module work.TwoPortSyncMem
+Compiling module work.Queue_1
+Compiling module work.AccumulatorMem
+Compiling module work.AccPipe
+Compiling module work.AccPipeShared
+Compiling module work.Pipeline
+Compiling module work.AccumulatorScale
+Compiling module work.MxuAccVpu
+Compiling module work.tb
+Built simulation snapshot tbsim
+
+****** xsim v2023.2 (64-bit)
+  **** SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+  **** IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+  **** SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+MXUACC_STREAM dim=4 m=64 k=2048 n=128 tiles=1 shift=12 correct= true rows_out=2048 want_rows=2048 wrong_rows=0 first_in=10 last_out=1572953 latency=1572944 interval=-1 interval_min=-1 interval_max=-1 total=1572944
+MXUACC_TILE t=0 done=1572953
+MXUACC_GROUPS groups=32 first=49232 interval=49152 interval_min=49152 interval_max=49152
+$finish called at time : 15729525 ns : File "/scratch/hc676/e10_llama/gem/xsim_d4/tb.sv" Line 251
+run: Time (s): cpu = 00:00:00.1 ; elapsed = 00:01:40 . Memory (MB): peak = 1577.723 ; gain = 0.000 ; free physical = 3339 ; free virtual = 91900
+exit
+INFO: xsimkernel Simulation Memory Usage: 115980 KB (Peak: 165632 KB), Simulation CPU Usage: 99550 ms
+INFO: [Common 17-206] Exiting xsim at Fri Sep 25 16:22:54 2026...
+rc=0 wall_s=116

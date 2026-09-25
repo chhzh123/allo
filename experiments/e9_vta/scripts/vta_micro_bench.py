@@ -134,50 +134,7 @@ def emit(stim, out, width=None, order="batched"):
                     word = ((kb * NB + nb) << 22) | ((kb * M + r) << 11) | (nb * M + r)
                     f.write(f"{word:08x}\n")
     conn = dict(
-        g_inp="\n".join(
-            f"    .io_inp_rd_0_data_bits_0_{i}(inp_d[{i}])," for i in range(S)
-        ),
-        g_wgt="\n".join(
-            f"    .io_wgt_rd_0_data_bits_{i}_{j}(wgt_d[{i}][{j}]),"
-            for i in range(S)
-            for j in range(S)
-        ),
-        g_accr="\n".join(
-            f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(S)
-        ),
-        g_accw="\n".join(
-            f"    .io_acc_wr_0_bits_data_0_{i}(g_accwd[{i}])," for i in range(S)
-        ),
-        g_outw="\n".join(f"    .io_out_wr_0_bits_data_0_{i}()," for i in range(S)),
-        g_inpw="\n".join(f"    .io_inp_wr_0_bits_data_0_{i}()," for i in range(S)),
-        g_wgtw="\n".join(
-            f"    .io_wgt_wr_0_bits_data_{i}_{j}()," for i in range(S) for j in range(S)
-        ),
-        g_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(S)),
-        a_accr="\n".join(
-            f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in range(S)
-        ),
-        a_accw="\n".join(
-            f"    .io_acc_wr_0_bits_data_0_{i}(a_accwd[{i}])," for i in range(S)
-        ),
-        a_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in range(S)),
-        a_outw=",\n".join(
-            f"    .io_out_wr_0_bits_data_0_{i}(a_outwd[{i}])" for i in range(S)
-        ),
-        inp_load="\n".join(
-            f"        inp_d[{i}] <= inpm[inp_ib][{i}];" for i in range(S)
-        ),
-        wgt_load="\n".join(
-            f"        wgt_d[{i}][{j}] <= wgtm[wgt_ib][{i}][{j}];"
-            for i in range(S)
-            for j in range(S)
-        ),
-        acc_load="\n".join(
-            f"        acc_d[{i}] <= accm[acc_ib][{i}];" for i in range(S)
-        ),
-        acc_store="\n".join(
-            f"        accm[acc_wi][{i}] <= acc_wd[{i}];" for i in range(S)
-        ),
+        ports(S),
         dim=S,
         tiles=tiles,
         nacc=nacc,
@@ -196,6 +153,44 @@ def emit(stim, out, width=None, order="batched"):
     with open(f"{out}/tb.sv", "w") as f:
         f.write(TB % conn)
     return tiles, nacc
+
+
+def ports(S, inp="inp_ib", wgt="wgt_ib"):
+    """The two units' port connections for a width-``S`` VTA, as template text.
+
+    ``inp`` and ``wgt`` index the scratchpad models; a bench that pages a
+    larger operand through them adds its page's base there.
+    """
+    row = range(S)
+    block = [(i, j) for i in range(S) for j in range(S)]
+    return dict(
+        g_inp="\n".join(f"    .io_inp_rd_0_data_bits_0_{i}(inp_d[{i}])," for i in row),
+        g_wgt="\n".join(
+            f"    .io_wgt_rd_0_data_bits_{i}_{j}(wgt_d[{i}][{j}])," for i, j in block
+        ),
+        g_accr="\n".join(f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in row),
+        g_accw="\n".join(
+            f"    .io_acc_wr_0_bits_data_0_{i}(g_accwd[{i}])," for i in row
+        ),
+        g_outw="\n".join(f"    .io_out_wr_0_bits_data_0_{i}()," for i in row),
+        g_inpw="\n".join(f"    .io_inp_wr_0_bits_data_0_{i}()," for i in row),
+        g_wgtw="\n".join(f"    .io_wgt_wr_0_bits_data_{i}_{j}()," for i, j in block),
+        g_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in row),
+        a_accr="\n".join(f"    .io_acc_rd_0_data_bits_0_{i}(acc_d[{i}])," for i in row),
+        a_accw="\n".join(
+            f"    .io_acc_wr_0_bits_data_0_{i}(a_accwd[{i}])," for i in row
+        ),
+        a_outr="\n".join(f"    .io_out_rd_0_data_bits_0_{i}(8'sd0)," for i in row),
+        a_outw=",\n".join(
+            f"    .io_out_wr_0_bits_data_0_{i}(a_outwd[{i}])" for i in row
+        ),
+        inp_load="\n".join(f"        inp_d[{i}] <= inpm[{inp}][{i}];" for i in row),
+        wgt_load="\n".join(
+            f"        wgt_d[{i}][{j}] <= wgtm[{wgt}][{i}][{j}];" for i, j in block
+        ),
+        acc_load="\n".join(f"        acc_d[{i}] <= accm[acc_ib][{i}];" for i in row),
+        acc_store="\n".join(f"        accm[acc_wi][{i}] <= acc_wd[{i}];" for i in row),
+    )
 
 
 TB = r"""
@@ -426,21 +421,30 @@ def main():
     ap.add_argument("--run", action="store_true")
     a = ap.parse_args()
     width = a.width or read_stim(a.stim)[0]
+    tiles, nacc = emit(a.stim, a.out, a.width, a.order)
+    print(f"VTAMICRO BENCH tiles={tiles} acc_rows={nacc} -> {a.out}")
+    if a.run:
+        simulate(a.out, *rtl_dirs(width, a.gemm_rtl, a.alu_rtl), tag="VTAMICRO ")
+
+
+def rtl_dirs(width, gemm_rtl=None, alu_rtl=None):
+    """Where the width-``width`` `TensorGemm` and `TensorAlu` Verilog is."""
     suffix = "" if width == 16 else f"_w{width}"
     chisel = "/scratch/hc676/vta/hardware/chisel"
-    a.gemm_rtl = a.gemm_rtl or f"{chisel}/vta_out_TensorGemm{suffix}"
-    a.alu_rtl = a.alu_rtl or (
+    gemm_rtl = gemm_rtl or f"{chisel}/vta_out_TensorGemm{suffix}"
+    alu_rtl = alu_rtl or (
         "/scratch/hc676/vta_build/rtl_alu_base"
         if width == 16
         else f"{chisel}/vta_out_TensorAlu{suffix}"
     )
-    tiles, nacc = emit(a.stim, a.out, a.width, a.order)
-    print(f"VTAMICRO BENCH tiles={tiles} acc_rows={nacc} -> {a.out}")
-    if not a.run:
-        return
+    return gemm_rtl, alu_rtl
+
+
+def simulate(out, gemm_rtl, alu_rtl, tag):
+    """Compile and run ``out/tb.sv`` over both units; print its ``tag`` lines."""
     v = [
         os.path.join(d, f)
-        for d in (a.gemm_rtl, a.alu_rtl)
+        for d in (gemm_rtl, alu_rtl)
         for f in sorted(os.listdir(d))
         if f.endswith(".v")
     ]
@@ -470,14 +474,14 @@ def main():
         ],
         ["xsim", "tbsim", "-runall"],
     ):
-        r = subprocess.run(cmd, cwd=a.out, capture_output=True, text=True)
+        r = subprocess.run(cmd, cwd=out, capture_output=True, text=True)
         tail = (r.stdout + r.stderr).strip().splitlines()
         if r.returncode:
             print(f"FAILED: {' '.join(cmd[:2])}")
             print("\n".join(tail[-25:]))
             sys.exit(1)
         for line in tail:
-            if line.startswith("VTAMICRO ") or "Error" in line:
+            if line.startswith(tag) or "Error" in line:
                 print(line)
 
 

@@ -1,0 +1,36 @@
+B_START llama-swiglu S=8  Fri Sep 25 16:38:39 EDT 2026
+llama-swiglu: {"roles": 10, "instances": 72, "fifos": 200, "streams": 32}
+staged 10 role project(s) in 9.9s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  pe_r0: rc=0 51.5s
+  pe_r6: rc=0 52.5s
+  pe_r3: rc=0 52.5s
+  pe_r8: rc=0 52.6s
+  pe_r4: rc=0 52.6s
+  pe_r7: rc=0 52.7s
+  pe_r1: rc=0 53.6s
+  pe_r5: rc=0 54.2s
+  pe_r2: rc=0 54.8s
+  lanesw_k256n16_r0: rc=0 56.8s
+HLS: 56.8s wall for 10 roles and 0 movers (533.8s of CPU work, 72 instances)
+assembling the array in Vivado:
+  stage synth 151.63
+  stage opt 9.867
+  stage place 217.884
+  stage physopt 2.685
+  stage route 62.169
+  unrouted 0
+Vivado implemented 72 instances in 479.2s
+  array clock: 2.899 ns achieved against a 3.333 ns target (WNS +0.434 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=32858 first_in=1
+  SPMW XFORM 2 done_cycle=65626 first_in=1
+  SPMW XFORM 3 done_cycle=98394 first_in=1
+  SPMW XFORM 4 done_cycle=131162 first_in=1
+  SPMW XFORM 5 done_cycle=163930 first_in=1
+  SPMW XFORM 6 done_cycle=196698 first_in=1
+  SPMW XFORM 7 done_cycle=229466 first_in=1
+  SPMW XFORM 8 done_cycle=262234 first_in=1
+  SPMW COSIM PASS (4096/4096 tokens, 0 errors)
+  SPMW CYCLES total=262234 first_out=32788 first_in=1
+B_RC=0 wall_s=701

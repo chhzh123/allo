@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Fri Sep 25 16:23:49 2026
+# Process ID: 294596
+# Current directory: /scratch/hc676/e10_llama/vta/run_w16
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/e10_llama/vta/run_w16/xsim.log
+# Journal file: /scratch/hc676/e10_llama/vta/run_w16/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 24, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+VTALLAMA RESULT errs=0 cycles=67642 gemm=65568 reset=519 alu=1560 instructions=8 pages=4x1
+VTALLAMA PASS
+$finish called at time : 135329 ns : File "/scratch/hc676/e10_llama/vta/run_w16/tb.sv" Line 1168
+run: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:24 . Memory (MB): peak = 1577.723 ; gain = 0.000 ; free physical = 12250 ; free virtual = 100811
+exit
+INFO: xsimkernel Simulation Memory Usage: 104364 KB (Peak: 165668 KB), Simulation CPU Usage: 23550 ms
+INFO: [Common 17-206] Exiting xsim at Fri Sep 25 16:24:17 2026...

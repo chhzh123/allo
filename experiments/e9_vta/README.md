@@ -74,6 +74,11 @@ free win, and both rows are kept so it stays one.
   transformer-block engine still uses E3's cell: 113,341 against 71,389.
 - **Efficiency:** SPMW with 256 units, on lookup tables times time a tile, by
   1.2x over Gemmini and 3.8x over VTA.
+- **On a real layer the efficiency lead goes to VTA.** On LLaMA-3.2-1B's gate
+  and up projections, `K` is 2,048 rather than 16, and VTA's epilogue falls
+  to 3% of its time. SPMW is still fastest at 8x8 and 16x16, but VTA has the
+  best lookup tables times time at every size, by 13-17% over SPMW. See
+  [A LLaMA layer](#a-llama-layer-the-ffns-gate-and-up-projections).
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA both near 300 MHz; Gemmini 34.8 MHz,
   which is a porting artifact of an unpipelined float scale path and not an
@@ -279,6 +284,115 @@ delay line only where the shape needs one, so its 16x16 array has none.
 SPMW's mesh links are bare registers, which are correct only while the array
 is fed without gaps. Cosimulation feeds it that way, and all three runs report
 no overwritten value.
+
+## A LLaMA layer: the FFN's gate and up projections
+
+LLaMA-3.2-1B's feed-forward block is `down(SiLU(x W_gate) * (x W_up))`, with
+`d_model = 2048`, `d_ff = 8192` and no bias. Over a 64-token prompt
+(prefill), each of its two up projections is a 64 x 2048 x 8192 matrix
+product. That gives two workloads:
+
+- **Gate and up, requantised.** All three engines run this on chip:
+
+      G = clip(x W_gate >> s, -128, 127)     U = clip(x W_up >> s, -128, 127)
+
+  It is E3's microbenchmark without the bias and the ReLU. The differences
+  are that `K` is 2,048 instead of 16, and one weight matrix serves all 64
+  tokens instead of one per 16 rows.
+- **SwiGLU fused.** Only SPMW runs this: `H = clip(isilu(G) * U >> s2, -128,
+  127)`, computed in the lanes as the sums drain. `isilu` is an integer SiLU,
+  I-BERT's clipped second-order polynomial. Over int8 read as `g/16` its
+  error against SiLU is at most 0.090, with an RMS of 0.034. Gemmini's scale
+  unit has ReLU, I-GELU, LayerNorm and softmax, but no SiLU, and neither
+  Gemmini nor VTA can multiply two results element by element.
+
+The simulated slice is all 64 tokens and the full `K = 2048`, over 64 columns
+of each projection, which is 128 of the 16,384. That is 16.8 million
+multiply-accumulates, and the full pair of projections is 128 such slices.
+Every engine's time is linear in the number of slices, so the table's
+full-pair time is 128 times the slice's. The operands are random int8
+(`test_spmw_llama_ffn.dump_llama`), since no engine's timing depends on the
+values. All runs are bit-exact, and every design routes at 3.333 ns with zero
+unrouted nets, no DSP and no block RAM.
+
+- **SPMW** is `blocked_engine` with a block of `M = 64` rows, so each weight
+  block is loaded once and all 64 tokens stream through it. For gate and up,
+  each lane keeps a row's running sum in a 64-deep delay line
+  (`epilogue="requant"`). For SwiGLU, each lane keeps the gate and up sums
+  side by side in a 128-deep line (`"swiglu"`).
+- **Gemmini** is `MxuAccVpu` with 64-row accumulator groups and no activation
+  (`ACC_ROWS=64 ACT=none`).
+- **VTA** is `vta_llama_bench.py`. The layer does not fit VTA's scratchpads,
+  which hold 2,048 input rows, 1,024 weight blocks and 2,048 accumulator
+  rows, so the program is paged the way a real VTA program is. For each
+  column chunk, a GEMM with `reset` set zeroes the accumulator, one GEMM per
+  `K` page accumulates into it, and three ALU passes requantise it. The pages
+  swap in at no cost. That is the work of VTA's load unit, which is outside
+  the measured modules, just as the other two engines get their operands at
+  no cost.
+
+| array | engine | slice cycles | x floor | clock | gate + up, 64 tokens | LUT | FF | LUT x time |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | SPMW | **1,048,649** | **1.000** | 349 MHz | 384.3 ms | **3,019** | 2,044 | 1,160 K |
+| | Gemmini | 1,572,944 | 1.500 | 311 MHz | 647.7 ms | 3,303 | 2,128 | 2,139 K |
+| | VTA | 1,056,922 | 1.008 | 421 MHz | **321.6 ms** | 3,121 | **1,283** | **1,004 K** |
+| | *SPMW + SwiGLU* | *1,048,658* | *1.000* | *356 MHz* | *377.4 ms* | *5,528* | *3,296* | *2,087 K* |
+| 8x8 | SPMW | **262,225** | **1.000** | 359 MHz | **93.4 ms** | 9,860 | 6,616 | 921 K |
+| | Gemmini | 327,772 | 1.250 | 319 MHz | 131.6 ms | 10,373 | 6,264 | 1,365 K |
+| | VTA | 266,330 | 1.016 | 348 MHz | 98.0 ms | **8,326** | **2,979** | **816 K** |
+| | *SPMW + SwiGLU* | *262,234* | *1.000* | *345 MHz* | *97.3 ms* | *14,737* | *9,120* | *1,434 K* |
+| 16x16 | SPMW | **65,633** | **1.001** | 343 MHz | **24.5 ms** | 36,471 | 24,361 | 893 K |
+| | Gemmini | 73,844 | 1.127 | 305 MHz | 31.0 ms | 35,875 | 21,619 | 1,111 K |
+| | VTA | 67,642 | 1.032 | 300 MHz | 28.8 ms | **26,403** | **5,991** | **761 K** |
+| | *SPMW + SwiGLU* | *65,642* | *1.002* | *315 MHz* | *26.7 ms* | *46,806* | *29,708* | *1,250 K* |
+
+The rows in italics do more work than the others: they also compute SwiGLU,
+which the others leave for a host. The laws are those of E3's microbenchmark,
+with this layer's `K`:
+
+- **SPMW** runs at the floor, `L K N / S^2`, plus under 100 cycles of fill.
+- **Gemmini** pays `(S + 2) / S` over the floor for its per-request
+  handshake, as before.
+- **VTA** pays `1 + 4S/K` over the floor. The three ALU passes and the reset
+  each cover the `L N / S` accumulator rows, against the GEMM's
+  `L K N / S^2`. That predicts 1.008, 1.016 and 1.031, and the measurements
+  are 1.008, 1.016 and 1.032.
+
+What this says:
+
+- **A deep layer removes VTA's epilogue penalty.** VTA runs at 1.03 times the
+  floor at 16x16, against 4.06 on E3's microbenchmark. So the engines are
+  separated by their clocks and their areas, not by cycles.
+- **Time.** SPMW is fastest at 16x16, 1.18x ahead of VTA and 1.26x ahead of
+  Gemmini, and at 8x8, 1.05x and 1.41x ahead. VTA is fastest at 4x4, taking
+  16% less time than SPMW, on its 421 MHz clock.
+- **Lookup tables times time.** VTA is best at every size, by 13-17% over
+  SPMW, and Gemmini is last, at 1.5-2.1 times VTA. SPMW beats Gemmini by
+  1.2-1.8x.
+- **SPMW's area grew from the microbenchmark**, to 36,471 lookup tables at
+  16x16 against 31,200. There are two causes, and both come from this
+  workload's length. First, each cell's loop counter now counts a whole
+  layer, 17 to 21 bits instead of 9 to 13, which costs about 14 lookup tables
+  and 8 registers a cell. A free-running cell would not need the counter.
+  Second, each lane holds 64 running sums, 265 lookup tables against 121.
+  That is the accumulation Gemmini keeps in `AccumulatorMem`, at 5,435 lookup
+  tables at 16x16, and VTA keeps in its uncounted scratchpad.
+- **Fusing SwiGLU costs no cycles.** It costs about 605-630 lookup tables and
+  313 registers a lane, for three multiplies bound to fabric and the 128-deep
+  line. At 16x16 the fused design takes 26.7 ms, less than VTA and Gemmini
+  take to produce `G` and `U` alone. Its clock drops to 315 MHz there, and the
+  cause is placement, not logic: a lane's pipeline start fans out to the
+  resets of its 128 delay-line registers, and the path is 95% route.
+- **The SwiGLU lane takes no link credit.** Its body has stages between its
+  reads and its writes, so by `spmw.pipeline`'s credit rule it gets no credit
+  (see [Closing the gap](#closing-the-gap)). The first build gave it one
+  credit and closed at 301-308 MHz, because HLS had packed 3.1 ns of
+  multiply and carry into one stage. Those builds are kept as `c1_`.
+
+The scope is the same as the rest of this file. VTA's scratchpads and its
+load and store units are outside it. SPMW streams its weights in from the
+testbench at `S` bytes a cycle, and Gemmini takes its operands from the
+testbench too.
 
 ## Where the area gap comes from
 
@@ -629,3 +743,17 @@ is Intel.
   the same section, design `tpumicro-blocked`. Its builds are in
   `../e3_tpu/micro/spmw-blocked/S<n>/`, and Gemmini's `MxuAccVpu`, with its
   xsim driver and route reports, is in `../e3_tpu/micro/gemmini-acc/`.
+- `tests/dataflow/spmw/test_spmw_llama_ffn.py` -- the LLaMA layer: its
+  stimulus and golden, the integer SiLU, and `llama_of`, the designs
+  `llama-gateup` and `llama-swiglu` in `scripts/spmw_build_array.py`. Run as
+  a script, it writes the stimulus the Gemmini and VTA benches read
+  (`--out llama_slice.txt`; 1.4 MB, so it is not committed).
+- `scripts/vta_llama_bench.py` -- VTA's paged program for the layer, over the
+  same units as `vta_micro_bench.py`.
+- `llama/` -- the section's runs. `spmw-gateup/S<n>/` and `spmw-swiglu/S<n>/`
+  are laid out like E3's SPMW engines, and a `c1_` report is the SwiGLU lane
+  built with one link credit. `gemmini/S<n>/` holds the xsim testbench and
+  the route reports of `MxuAccVpu` elaborated with `ACC_ROWS=64 ACT=none`
+  (`../e3_tpu/micro/scripts/run_acc_xsim.sh` and `pnr_acc.sh` with variant
+  `r64_noact`). `vta/w<n>/` holds each width's testbench and log, and
+  `vta/results.txt` their result lines.

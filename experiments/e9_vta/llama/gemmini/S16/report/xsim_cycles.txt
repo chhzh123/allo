@@ -1,0 +1,3 @@
+MXUACC_STREAM dim=16 m=64 k=2048 n=128 tiles=1 shift=12 correct= true rows_out=512 want_rows=512 wrong_rows=0 first_in=10 last_out=73853 latency=73844 interval=-1 interval_min=-1 interval_max=-1 total=73844
+MXUACC_TILE t=0 done=73853
+MXUACC_GROUPS groups=8 first=9332 interval=9216 interval_min=9216 interval_max=9216

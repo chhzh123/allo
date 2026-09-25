@@ -1,0 +1,2 @@
+main: lanesw_k512n32_r0 pe_r0
+c1_: lanesw_k512n32_r0 pe_r0

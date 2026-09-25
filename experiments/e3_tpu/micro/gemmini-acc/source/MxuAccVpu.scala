@@ -26,7 +26,10 @@ import gemmini._
 // rows of the group they are (a request carries at most `dim` rows); bit 7 is
 // Gemmini's own "garbage" marker. When a group's last row lands, its bank is
 // read out, one row a cycle, through AccumulatorScale.
-class MxuAccVpu(val dim: Int, val rows: Int) extends Module {
+//
+// `relu` picks the scale unit's activation: ReLU for E3's microbenchmark,
+// none for a layer that only requantises (LLaMA's projections).
+class MxuAccVpu(val dim: Int, val rows: Int, val relu: Boolean = true) extends Module {
   val inW = 8
   val accW = 32
   val fullDataType = Vec(dim, Vec(1, SInt(accW.W)))
@@ -105,7 +108,7 @@ class MxuAccVpu(val dim: Int, val rows: Int) extends Module {
     r.valid := reading && rdBank === k.U
     r.bits.addr := rdRow
     r.bits.scale := io.scale
-    r.bits.act := Activation.RELU
+    r.bits.act := (if (relu) Activation.RELU else Activation.NONE)
     r.bits.full := false.B
     r.bits.fromDMA := false.B
     r.bits.igelu_qb := 0.S
@@ -143,8 +146,12 @@ class MxuAccVpu(val dim: Int, val rows: Int) extends Module {
 object ElaborateMxuAccVpu extends App {
   val dim = sys.env.getOrElse("MESH_DIM", "4").toInt
   val rows = sys.env.getOrElse("ACC_ROWS", "16").toInt
-  println("MXUACCVPU_ELABORATE_START dim=" + dim + " rows=" + rows)
-  val v = (new ChiselStage).emitVerilog(new MxuAccVpu(dim, rows),
-    Array("--target-dir", "mxuaccvpu_out_" + dim))
-  println("MXUACCVPU_ELABORATE_OK dim=" + dim + " verilog_chars=" + v.length)
+  val relu = sys.env.getOrElse("ACT", "relu") == "relu"
+  // E3's configuration keeps its directory; any other names what differs.
+  val dir = "mxuaccvpu_out_" + dim + (if (rows != 16) "_r" + rows else "") +
+    (if (relu) "" else "_noact")
+  println("MXUACCVPU_ELABORATE_START dim=" + dim + " rows=" + rows + " relu=" + relu)
+  val v = (new ChiselStage).emitVerilog(new MxuAccVpu(dim, rows, relu),
+    Array("--target-dir", dir))
+  println("MXUACCVPU_ELABORATE_OK dim=" + dim + " dir=" + dir + " verilog_chars=" + v.length)
 }

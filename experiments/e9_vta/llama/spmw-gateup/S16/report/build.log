@@ -1,0 +1,36 @@
+B_START llama-gateup S=16  Fri Sep 25 16:17:50 EDT 2026
+llama-gateup: {"roles": 10, "instances": 272, "fifos": 784, "streams": 64}
+staged 10 role project(s) in 5.0s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  pe_r2: rc=0 51.6s
+  pe_r4: rc=0 52.4s
+  pe_r3: rc=0 52.6s
+  pe_r1: rc=0 53.0s
+  pe_r7: rc=0 53.0s
+  pe_r8: rc=0 53.3s
+  pe_r5: rc=0 53.9s
+  pe_r0: rc=0 54.0s
+  pe_r6: rc=0 54.0s
+  laneq_k128n8_r0: rc=0 55.9s
+HLS: 55.9s wall for 10 roles and 0 movers (533.7s of CPU work, 272 instances)
+assembling the array in Vivado:
+  stage synth 255.695
+  stage opt 18.29
+  stage place 314.01
+  stage physopt 6.564
+  stage route 122.997
+  unrouted 0
+Vivado implemented 272 instances in 770.2s
+  array clock: 2.914 ns achieved against a 3.333 ns target (WNS +0.419 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=8289 first_in=1
+  SPMW XFORM 2 done_cycle=16481 first_in=1
+  SPMW XFORM 3 done_cycle=24673 first_in=1
+  SPMW XFORM 4 done_cycle=32865 first_in=1
+  SPMW XFORM 5 done_cycle=41057 first_in=1
+  SPMW XFORM 6 done_cycle=49249 first_in=1
+  SPMW XFORM 7 done_cycle=57441 first_in=1
+  SPMW XFORM 8 done_cycle=65633 first_in=1
+  SPMW COSIM PASS (8192/8192 tokens, 0 errors)
+  SPMW CYCLES total=65633 first_out=8211 first_in=1
+B_RC=0 wall_s=960

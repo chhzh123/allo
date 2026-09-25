@@ -1,11 +1,15 @@
 #!/bin/bash
-# pnr_acc.sh <dim>: Gemmini MxuAccVpu out of context, E3's recipe: 3.333 ns,
-# xcu280, synth -> opt -> place -> phys_opt -> route, no retiming, no shell.
+# pnr_acc.sh <dim> [variant [root]]: Gemmini MxuAccVpu out of context, E3's
+# recipe: 3.333 ns, xcu280, synth -> opt -> place -> phys_opt -> route, no
+# retiming, no shell. `variant` is the elaboration's suffix (`r64_noact`:
+# 64-row groups, no ReLU) and `root` where the run goes.
 set -u
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 D=$1
-V=/scratch/hc676/e3_micro/gemmini_elab/mxuaccvpu_out_${D}
-OUT=/scratch/hc676/e9_lean/gem/pnr_d${D}
+VAR=${2:-}
+ROOT=${3:-/scratch/hc676/e9_lean/gem}
+V=/scratch/hc676/e3_micro/gemmini_elab/mxuaccvpu_out_${D}${VAR:+_$VAR}
+OUT=$ROOT/pnr_d${D}
 rm -rf "$OUT"; mkdir -p "$OUT"
 cat > "$OUT/pnr.tcl" <<TCL
 read_verilog $V/MxuAccVpu.v

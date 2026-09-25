@@ -478,4 +478,5 @@ of interval and the table quotes xsim, the reading that flatters SPMW.
   `scripts/gen_mxuaccvpu_tb.py` generates for it, and the reports from
   `scripts/run_acc_xsim.sh` and `scripts/pnr_acc.sh`. To emit the Verilog,
   run `MESH_DIM=<n> ACC_ROWS=16 sbt -batch "runMain gen.ElaborateMxuAccVpu"`
-  in the Gemmini project.
+  in the Gemmini project. `ACC_ROWS=64 ACT=none` is the LLaMA layer's
+  configuration in E9: 64-row groups, and no activation.

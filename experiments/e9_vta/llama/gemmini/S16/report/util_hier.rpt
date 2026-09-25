@@ -1,0 +1,63 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Fri Sep 25 16:33:57 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : MxuAccVpu
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------+---------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|     Instance     |        Module       | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++------------------+---------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| MxuAccVpu        |               (top) |      35875 |      33961 |    1284 |  630 | 21619 |      0 |      0 |    0 |          0 |
+|   (MxuAccVpu)    |               (top) |          6 |          6 |       0 |    0 |    12 |      0 |      0 |    0 |          0 |
+|   accs_0         |      AccumulatorMem |       4401 |       3761 |     640 |    0 |  1971 |      0 |      0 |    0 |          0 |
+|     (accs_0)     |      AccumulatorMem |        257 |        257 |       0 |    0 |  1064 |      0 |      0 |    0 |          0 |
+|     mem          | TwoPortSyncMem_1035 |       1658 |       1018 |     640 |    0 |   384 |      0 |      0 |    0 |          0 |
+|     q            |        Queue_1_1036 |       2486 |       2486 |       0 |    0 |   523 |      0 |      0 |    0 |          0 |
+|   accs_1         |    AccumulatorMem_0 |       1034 |        394 |     640 |    0 |   915 |      0 |      0 |    0 |          0 |
+|     (accs_1)     |    AccumulatorMem_0 |          0 |          0 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     mem          |      TwoPortSyncMem |        640 |          0 |     640 |    0 |   384 |      0 |      0 |    0 |          0 |
+|     q            |             Queue_1 |        394 |        394 |       0 |    0 |   523 |      0 |      0 |    0 |          0 |
+|   adders         |       AccPipeShared |          0 |          0 |       0 |    0 |   512 |      0 |      0 |    0 |          0 |
+|     m            |             AccPipe |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_1          |        AccPipe_1020 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_10         |        AccPipe_1021 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_11         |        AccPipe_1022 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_12         |        AccPipe_1023 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_13         |        AccPipe_1024 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_14         |        AccPipe_1025 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_15         |        AccPipe_1026 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_2          |        AccPipe_1027 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_3          |        AccPipe_1028 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_4          |        AccPipe_1029 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_5          |        AccPipe_1030 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_6          |        AccPipe_1031 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_7          |        AccPipe_1032 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_8          |        AccPipe_1033 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     m_9          |        AccPipe_1034 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   mxu            |      MeshWithDelays |      30434 |      29800 |       4 |  630 | 18080 |      0 |      0 |    0 |          0 |
+|     (mxu)        |      MeshWithDelays |        645 |         15 |       0 |  630 |   909 |      0 |      0 |    0 |          0 |
+|     mesh         |                Mesh |      27113 |      27113 |       0 |    0 | 15013 |      0 |      0 |    0 |          0 |
+|     tagq         |            TagQueue |         76 |         76 |       0 |    0 |    75 |      0 |      0 |    0 |          0 |
+|     total_rows_q |               Queue |         21 |         17 |       4 |    0 |     7 |      0 |      0 |    0 |          0 |
+|     transposer   | AlwaysOutTransposer |       2579 |       2579 |       0 |    0 |  2076 |      0 |      0 |    0 |          0 |
+|   vpu            |    AccumulatorScale |          0 |          0 |       0 |    0 |   129 |      0 |      0 |    0 |          0 |
+|     pipe_out_p   |            Pipeline |          0 |          0 |       0 |    0 |   129 |      0 |      0 |    0 |          0 |
++------------------+---------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+
