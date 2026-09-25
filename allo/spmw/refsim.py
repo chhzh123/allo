@@ -589,13 +589,18 @@ def _array_of(tensor, data):
 def _view(array, imap, placement, site, sym):
     """The slice of a tensor one site owns, per its binding's map."""
     if isinstance(imap, SliceMap):
-        idx = tuple(
-            slice(start, start + size) if size > 1 else start
-            for start, size in imap.slice_for(site)
-        )
+        spans = imap.slice_for(site)
         if sym.shape == ():
+            idx = tuple(
+                slice(start, start + size) if size > 1 else start
+                for start, size in spans
+            )
             return array, idx
-        return array[idx]
+        # Every axis a slice, so the result is a view even where the site owns
+        # one element of it, then shaped as the port declares. Dropping the
+        # one-element axes handed an `int32[1]` port a bare scalar.
+        full = tuple(slice(start, start + size) for start, size in spans)
+        return array[full].reshape(tuple(sym.shape))
     env = dict(placement.env(site), __coords__=site)
     idx = imap.eval(env)
     if sym.shape == ():

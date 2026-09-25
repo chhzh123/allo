@@ -90,44 +90,78 @@ class Testbench:
             bits *= int(extent)
         return bits
 
-    def stimulus(self):
-        """Per inbound channel, the tokens it must be handed, in order."""
+    #: A channel longer than this is read from a file when the caller takes
+    #: files: xvlog compiles an initial block of a million assignments far
+    #: more slowly than xsim runs the array it feeds.
+    INLINE_TOKENS = 4096
+
+    def _channels(self, arrays, inbound, files=None):
+        """Per family, per channel: ``(depth, tokens)``.
+
+        ``tokens`` is the channel's literals, or -- given ``files``, a dict to
+        fill, and a channel longer than ``INLINE_TOKENS`` -- the name of the
+        ``$readmemh`` file that holds them, its text added to ``files``.
+        """
         out = {}
         for name, entry in self.plan.items():
-            if entry["direction"] != IN:
+            if (entry["direction"] == IN) != inbound:
                 continue
-            array = self.data[entry["tensor"]]
+            array = arrays[entry["tensor"]]
             block = self.families[name].block
-            out[name] = [
-                [_bits(array[idx], self._dtype(name), block) for idx in channel]
-                for channel in entry["channels"]
-            ]
+            chans = []
+            for k, channel in enumerate(entry["channels"]):
+                if files is not None and len(channel) > self.INLINE_TOKENS:
+                    path = f"{name}_{'src' if inbound else 'exp'}{k}.dat"
+                    files[path] = self._memh(name, array, channel)
+                    chans.append((len(channel), path))
+                    continue
+                chans.append(
+                    (
+                        len(channel),
+                        [_bits(array[i], self._dtype(name), block) for i in channel],
+                    )
+                )
+            out[name] = chans
         return out
+
+    def _memh(self, name, array, channel):
+        """A channel's tokens as ``$readmemh`` text: each literal's digits."""
+        dtype, block = self._dtype(name), self.families[name].block
+        if block or str(dtype) not in ("i8", "i16", "i32", "i64"):
+            digits = (_bits(array[i], dtype, block).split("'h")[1] for i in channel)
+            return "\n".join(digits) + "\n"
+        import numpy as np  # pylint: disable=import-outside-toplevel
+
+        width = _SCALAR_BITS[str(dtype)]
+        values = np.asarray(array)[tuple(np.asarray(channel).T)]
+        bits = values.astype(f"int{width}").view(f"uint{width}")
+        return "\n".join(f"{v:0{width // 4}x}" for v in bits.tolist()) + "\n"
+
+    def stimulus(self):
+        """Per inbound channel, the tokens it must be handed, in order."""
+        chans = self._channels(self.data, inbound=True)
+        return {name: [tokens for _, tokens in c] for name, c in chans.items()}
 
     def expected(self, results):
         """Per outbound channel, the single token it should produce."""
-        out = {}
-        for name, entry in self.plan.items():
-            if entry["direction"] == IN:
-                continue
-            array = results[entry["tensor"]]
-            block = self.families[name].block
-            out[name] = [
-                [_bits(array[idx], self._dtype(name), block) for idx in channel]
-                for channel in entry["channels"]
-            ]
-        return out
+        chans = self._channels(results, inbound=False)
+        return {name: [tokens for _, tokens in c] for name, c in chans.items()}
 
-    def render(self, results, cycles=200000, top="spmw_top", per_transform=None):
+    def render(
+        self, results, cycles=200000, top="spmw_top", per_transform=None, files=None
+    ):
         """The testbench module.
 
         ``per_transform`` is the number of output tokens one transform (or
         one problem) produces. Given it, the testbench also reports the
         cycle each transform completed on, which is what makes a
         full-transform latency comparable with a flow that reports one
-        transform rather than a whole launch.
+        transform rather than a whole launch. ``files``, a dict, takes the
+        ``$readmemh`` files of any channel too long to list inline; the
+        caller writes them beside the testbench.
         """
-        stim, want = self.stimulus(), self.expected(results)
+        stim = self._channels(self.data, inbound=True, files=files)
+        want = self._channels(results, inbound=False, files=files)
         lines = [
             "`timescale 1ns/1ps",
             "",
@@ -143,7 +177,7 @@ class Testbench:
             # channels made the run stop at the first token of each and call
             # that a pass, so attention checked 2 of its 12 and still said PASS.
             f"  localparam integer TOTAL = "
-            f"{sum(len(t) for ch in want.values() for t in ch)};",
+            f"{sum(depth for ch in want.values() for depth, _ in ch)};",
         ]
         conns = [".ap_clk(clk)", ".ap_rst_n(rst_n)"]
         lines += self._inbound(stim, conns)
@@ -213,17 +247,11 @@ class Testbench:
                 f"  wire {name}_empty_n [0:{count - 1}];",
                 f"  wire {name}_read [0:{count - 1}];",
             ]
-            for k, tokens in enumerate(channels):
-                depth = len(tokens)
+            for k, (depth, tokens) in enumerate(channels):
                 lines += [
                     f"  reg [{width - 1}:0] {name}_src{k} [0:{max(depth - 1, 0)}];",
                     f"  integer {name}_p{k} = 0;",
-                    "  initial begin",
-                    *[
-                        f"    {name}_src{k}[{i}] = {tok};"
-                        for i, tok in enumerate(tokens)
-                    ],
-                    "  end",
+                    *self._fill(f"{name}_src{k}", tokens),
                     # Hold the last value once drained; empty_n gates it anyway.
                     f"  assign {name}_dout[{k}] = {name}_src{k}["
                     f"{name}_p{k} < {depth} ? {name}_p{k} : {max(depth - 1, 0)}];",
@@ -245,6 +273,17 @@ class Testbench:
             + ";"
         )
         return lines
+
+    @staticmethod
+    def _fill(array, tokens):
+        """The initial block that loads ``array``: listed, or from its file."""
+        if isinstance(tokens, str):
+            return [f'  initial $readmemh("{tokens}", {array});']
+        return [
+            "  initial begin",
+            *[f"    {array}[{i}] = {tok};" for i, tok in enumerate(tokens)],
+            "  end",
+        ]
 
     # Floating point cannot be compared bit-for-bit across two implementations.
     # The FFT's twiddles are irrational whatever the input, so the reference and
@@ -291,17 +330,11 @@ class Testbench:
                 f"  wire {name}_write [0:{count - 1}];",
                 f"  wire {name}_full_n [0:{count - 1}];",
             ]
-            for k, tokens in enumerate(channels):
-                depth = len(tokens)
+            for k, (depth, tokens) in enumerate(channels):
                 lines += [
                     f"  reg [{width - 1}:0] {name}_exp{k} [0:{max(depth - 1, 0)}];",
                     f"  integer {name}_q{k} = 0;",
-                    "  initial begin",
-                    *[
-                        f"    {name}_exp{k}[{i}] = {tok};"
-                        for i, tok in enumerate(tokens)
-                    ],
-                    "  end",
+                    *self._fill(f"{name}_exp{k}", tokens),
                     f"  assign {name}_full_n[{k}] = 1'b1;",
                     f"  always @(posedge clk) if (rst_n && {name}_write[{k}]) begin",
                     f"    if ({name}_q{k} < {depth}) begin",
@@ -328,8 +361,14 @@ class Testbench:
 
 
 def render_testbench(
-    graph, data, results, cycles=200000, top="spmw_top", tolerance=None,
+    graph,
+    data,
+    results,
+    cycles=200000,
+    top="spmw_top",
+    tolerance=None,
     per_transform=None,
+    files=None,
 ):
     """A self-checking testbench for ``graph`` driven by ``data``.
 
@@ -339,10 +378,12 @@ def render_testbench(
     ``tolerance`` is ``(relative, absolute)`` for floating-point outputs; the
     default is the class's. ``per_transform`` is the number of output tokens
     one transform produces; given it, the testbench reports each transform's
-    completion cycle as well as the launch's.
+    completion cycle as well as the launch's. ``files``, a dict, takes the
+    ``$readmemh`` files of channels too long to list; without it every token
+    is listed inline, as before.
     """
     return Testbench(graph, data, tolerance=tolerance).render(
-        results, cycles=cycles, top=top, per_transform=per_transform
+        results, cycles=cycles, top=top, per_transform=per_transform, files=files
     )
 
 

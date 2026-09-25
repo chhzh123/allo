@@ -321,6 +321,14 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_micro_lean import micro_lean_of
 
         return micro_lean_of(size, bias_at_top=True)
+    if name in ("llama-gateup", "llama-swiglu"):
+        # LLaMA-3.2-1B's FFN up projections -- 64 tokens, K = 2048, 64 of each
+        # projection's 8,192 columns -- on a `size` x `size` array of the
+        # 256-unit lean cells: gate and up requantised, which Gemmini and VTA
+        # run too, or with SwiGLU fused into the lanes, which only SPMW can.
+        from test_spmw_llama_ffn import llama_of
+
+        return llama_of(size, name.split("-")[1])
     if name == "tpumicro-blocked":
         # E3's workload held fixed -- sixteen 16x16x16 tiles -- on a `size` x
         # `size` array of the 256-unit lean cells: each tile blocked into
@@ -582,6 +590,21 @@ def operands(fabric, graph):
                 f"design's tensors: {sorted(arrays)}"
             )
         arrays[name][...] = value
+    # A design whose result is known outright -- a numpy golden -- may say so,
+    # and the array is checked against that. A workload large enough to
+    # measure takes the reference simulator far longer than xsim takes to run
+    # the RTL; the suite checks the reference against the same golden at
+    # sizes it can afford.
+    expected = getattr(fabric, "spmw_expected", None)
+    if expected is not None:
+        for name, value in expected.items():
+            if name not in written:
+                raise SystemExit(
+                    f"`spmw_expected` names {name!r}, which this design does "
+                    f"not write: {sorted(written)}"
+                )
+            arrays[name][...] = value
+        return arrays
     spmw.build(fabric, target="ref")(*[arrays[t.name] for t in graph.tensors.values()])
     return arrays
 
@@ -1042,16 +1065,32 @@ generate_target {{simulation}} [get_ips]
 """
 
 
-def cosim(graph, out, part, arrays, names, tolerance=None, per_transform=None):
+def cosim(
+    graph,
+    out,
+    part,
+    arrays,
+    names,
+    tolerance=None,
+    per_transform=None,
+    cycles=200000,
+):
     """Simulate the assembled array and compare against the reference.
 
     Elaborating is not computing, so this is the check that the mixed path is
-    right rather than merely well-formed.
+    right rather than merely well-formed. ``cycles`` bounds the run.
     """
+    files = {}  # the long channels' `$readmemh` data, written beside the bench
     _write(
         os.path.join(out, "tb.sv"),
         render_testbench(
-            graph, arrays, arrays, tolerance=tolerance, per_transform=per_transform
+            graph,
+            arrays,
+            arrays,
+            cycles=cycles,
+            tolerance=tolerance,
+            per_transform=per_transform,
+            files=files,
         ),
     )
 
@@ -1071,6 +1110,8 @@ def cosim(graph, out, part, arrays, names, tolerance=None, per_transform=None):
     sources = ["spmw_fifo.sv", "spmw_const.sv", "spmw_top.sv", "tb.sv"]
     for name in sources:
         shutil.copy(os.path.join(out, name), sim)
+    for name, text in files.items():
+        _write(os.path.join(sim, name), text)
     # Each role contributes its wrapper -- which lives in the role's own project
     # directory, not at the top -- and its exported netlist.
     for role in names:
@@ -1190,6 +1231,8 @@ def main():
             "tpumicro-lean1",
             "tpumicro-lean0",
             "tpumicro-blocked",
+            "llama-gateup",
+            "llama-swiglu",
             "tpumicro-lean0-m",
             "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
@@ -1483,6 +1526,7 @@ def main():
             names,
             tolerance=getattr(fabric, "spmw_tolerance", None),
             per_transform=getattr(fabric, "spmw_tokens_per_transform", None),
+            cycles=getattr(fabric, "spmw_cosim_cycles", 200000),
         )
     _write(
         os.path.join(args.out, "cost.json"),

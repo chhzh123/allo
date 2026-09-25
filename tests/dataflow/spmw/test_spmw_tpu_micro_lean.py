@@ -38,7 +38,7 @@ import numpy as np
 import pytest
 
 import allo.spmw as spmw
-from allo.ir.types import int8, int32
+from allo.ir.types import int8, int16, int32
 
 from test_spmw_tpu_micro import INT8_MAX, TILES, stimulus
 from test_spmw_tpu_micro_fixed import NBF
@@ -234,7 +234,7 @@ def _generated(name, src, **closure):
     """
     filename = f"<spmw-{name}>"
     linecache.cache[filename] = (len(src), None, src.splitlines(True), filename)
-    scope = {"int8": int8, "int32": int32}
+    scope = {"int8": int8, "int16": int16, "int32": int32}
     exec(compile(src, filename, "exec"), scope)  # pylint: disable=exec-used
     fn = scope["make"](**closure)
     fn.__name__ = name  # a unit takes its name when it is decorated
