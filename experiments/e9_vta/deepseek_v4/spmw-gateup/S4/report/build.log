@@ -1,0 +1,60 @@
+B_START dsv4-gateup S=4  Tue Sep 29 02:40:24 EDT 2026
+dsv4-gateup: {"roles": 10, "instances": 20, "fifos": 52, "streams": 16}
+staged 10 role project(s) in 78.1s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  pe_r6: rc=0 48.9s
+  pe_r2: rc=0 49.3s
+  pe_r4: rc=0 49.6s
+  pe_r5: rc=0 49.7s
+  pe_r3: rc=0 51.9s
+  pe_r7: rc=0 52.0s
+  laneq_k1792n32_r0: rc=0 52.7s
+  pe_r0: rc=0 54.2s
+  pe_r8: rc=0 54.2s
+  pe_r1: rc=0 54.5s
+HLS: 54.5s wall for 10 roles and 0 movers (517.0s of CPU work, 20 instances)
+assembling the array in Vivado:
+  stage synth 99.362
+  stage opt 5.858
+  stage place 189.166
+  stage physopt 1.101
+  stage route 35.465
+  unrouted 0
+Vivado implemented 20 instances in 360.1s
+  array clock: 2.768 ns achieved against a 3.333 ns target (WNS +0.565 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=114761 first_in=1
+  SPMW XFORM 2 done_cycle=229449 first_in=1
+  SPMW XFORM 3 done_cycle=344137 first_in=1
+  SPMW XFORM 4 done_cycle=458825 first_in=1
+  SPMW XFORM 5 done_cycle=573513 first_in=1
+  SPMW XFORM 6 done_cycle=688201 first_in=1
+  SPMW XFORM 7 done_cycle=802889 first_in=1
+  SPMW XFORM 8 done_cycle=917577 first_in=1
+  SPMW XFORM 9 done_cycle=1032265 first_in=1
+  SPMW XFORM 10 done_cycle=1146953 first_in=1
+  SPMW XFORM 11 done_cycle=1261641 first_in=1
+  SPMW XFORM 12 done_cycle=1376329 first_in=1
+  SPMW XFORM 13 done_cycle=1491017 first_in=1
+  SPMW XFORM 14 done_cycle=1605705 first_in=1
+  SPMW XFORM 15 done_cycle=1720393 first_in=1
+  SPMW XFORM 16 done_cycle=1835081 first_in=1
+  SPMW XFORM 17 done_cycle=1949769 first_in=1
+  SPMW XFORM 18 done_cycle=2064457 first_in=1
+  SPMW XFORM 19 done_cycle=2179145 first_in=1
+  SPMW XFORM 20 done_cycle=2293833 first_in=1
+  SPMW XFORM 21 done_cycle=2408521 first_in=1
+  SPMW XFORM 22 done_cycle=2523209 first_in=1
+  SPMW XFORM 23 done_cycle=2637897 first_in=1
+  SPMW XFORM 24 done_cycle=2752585 first_in=1
+  SPMW XFORM 25 done_cycle=2867273 first_in=1
+  SPMW XFORM 26 done_cycle=2981961 first_in=1
+  SPMW XFORM 27 done_cycle=3096649 first_in=1
+  SPMW XFORM 28 done_cycle=3211337 first_in=1
+  SPMW XFORM 29 done_cycle=3326025 first_in=1
+  SPMW XFORM 30 done_cycle=3440713 first_in=1
+  SPMW XFORM 31 done_cycle=3555401 first_in=1
+  SPMW XFORM 32 done_cycle=3670089 first_in=1
+  SPMW COSIM PASS (8192/8192 tokens, 0 errors)
+  SPMW CYCLES total=3670089 first_out=114695 first_in=1
+B_RC=0 wall_s=855

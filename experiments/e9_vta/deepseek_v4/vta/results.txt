@@ -1,0 +1,3 @@
+w4     errs=0 cycles=3678682 gemm=3670464 reset=2055 alu=6168 instructions=60 pages=56x1
+w8     errs=0 cycles=921850 gemm=917728 reset=1031 alu=3096 instructions=32 pages=28x1
+w16    errs=0 cycles=231562 gemm=229488 reset=519 alu=1560 instructions=18 pages=14x1

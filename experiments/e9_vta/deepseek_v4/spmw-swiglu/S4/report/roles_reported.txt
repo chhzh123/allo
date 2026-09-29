@@ -1,0 +1,1 @@
+main: lanesw_k1792n32_r0 pe_r0

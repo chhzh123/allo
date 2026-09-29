@@ -1,0 +1,36 @@
+B_START dsv4-swiglu S=8  Tue Sep 29 02:40:24 EDT 2026
+dsv4-swiglu: {"roles": 10, "instances": 72, "fifos": 200, "streams": 32}
+staged 10 role project(s) in 33.4s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  pe_r8: rc=0 55.9s
+  pe_r2: rc=0 57.2s
+  pe_r3: rc=0 57.2s
+  pe_r0: rc=0 57.4s
+  pe_r5: rc=0 57.5s
+  pe_r7: rc=0 59.6s
+  pe_r4: rc=0 60.0s
+  pe_r6: rc=0 61.1s
+  pe_r1: rc=0 61.7s
+  lanesw_k896n16_r0: rc=0 64.3s
+HLS: 64.4s wall for 10 roles and 0 movers (591.9s of CPU work, 72 instances)
+assembling the array in Vivado:
+  stage synth 163.79
+  stage opt 9.696
+  stage place 225.402
+  stage physopt 3.206
+  stage route 59.764
+  unrouted 0
+Vivado implemented 72 instances in 499.4s
+  array clock: 2.835 ns achieved against a 3.333 ns target (WNS +0.498 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=114776 first_in=1
+  SPMW XFORM 2 done_cycle=229464 first_in=1
+  SPMW XFORM 3 done_cycle=344152 first_in=1
+  SPMW XFORM 4 done_cycle=458840 first_in=1
+  SPMW XFORM 5 done_cycle=573528 first_in=1
+  SPMW XFORM 6 done_cycle=688216 first_in=1
+  SPMW XFORM 7 done_cycle=802904 first_in=1
+  SPMW XFORM 8 done_cycle=917592 first_in=1
+  SPMW COSIM PASS (4096/4096 tokens, 0 errors)
+  SPMW CYCLES total=917592 first_out=114706 first_in=1
+B_RC=0 wall_s=1000

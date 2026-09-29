@@ -394,6 +394,71 @@ load and store units are outside it. SPMW streams its weights in from the
 testbench at `S` bytes a cycle, and Gemmini takes its operands from the
 testbench too.
 
+## One DeepSeek-V4-Pro expert
+
+These are the same two projections, with the same engines, at the shape of
+one DeepSeek-V4-Pro routed expert. It has a hidden size of `K = 7168`, and
+its gate and up projections are 3,072 wide each. DeepSeek-V4-Pro has 384 such
+experts, and each token goes to six of them plus a shared expert. The expert
+here sees 64 tokens, which is what a 4,096-token prompt gives each routed
+expert on average, and the same row count as the LLaMA run.
+
+The slice is all 64 tokens, the full `K`, and 64 columns of each projection.
+That is 58.7 million multiply-accumulates, and the expert's whole gate and up
+pair is 48 slices. Weight bandwidth is not modelled, as in the rest of this
+file.
+
+DeepSeek-V4 clamps the gate below 10, and the up projection to +-10, before
+its SwiGLU. Here both are requantised to int8 and read as `g/16`, so they
+saturate at 7.94 before the clamp could act.
+
+The engines are the LLaMA section's, and only the workload changes:
+
+- **Gemmini and VTA** run the same routed hardware, so their area and clock
+  are the LLaMA section's. Only the simulation is new.
+- **SPMW** is rebuilt, because its array is compiled for the shape. `K` is
+  now 448 blocks at 16x16, which is not a power of two, so the lanes count
+  their blocks instead of reading them off the step (`_counts` in
+  `test_spmw_tpu_micro_blocked.py`). For power-of-two shapes they generate
+  exactly the code they did before.
+
+All runs are bit-exact, and every SPMW array routes at 3.333 ns with zero
+unrouted nets and no link overwrite.
+
+| array | engine | slice cycles | x floor | clock | expert gate + up, 64 tokens | LUT | FF | LUT x time |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | SPMW | **3,670,089** | **1.000** | 361 MHz | 487.6 ms | **3,052** | 2,196 | 1,488 K |
+| | Gemmini | 5,505,104 | 1.500 | 311 MHz | 850.1 ms | 3,303 | 2,128 | 2,808 K |
+| | VTA | 3,678,682 | 1.002 | 421 MHz | **419.7 ms** | 3,121 | **1,283** | **1,310 K** |
+| | *SPMW + SwiGLU* | *3,670,096* | *1.000* | *352 MHz* | *500.0 ms* | *5,183* | *3,296* | *2,591 K* |
+| 8x8 | SPMW | **917,585** | **1.000** | 330 MHz | 133.4 ms | 9,951 | 6,952 | 1,328 K |
+| | Gemmini | 1,146,972 | 1.250 | 319 MHz | 172.7 ms | 10,373 | 6,264 | 1,791 K |
+| | VTA | 921,850 | 1.005 | 348 MHz | **127.3 ms** | **8,326** | **2,979** | **1,060 K** |
+| | *SPMW + SwiGLU* | *917,592* | *1.000* | *353 MHz* | *124.9 ms* | *14,174* | *9,184* | *1,770 K* |
+| 16x16 | SPMW | **229,473** | **1.000** | 337 MHz | **32.7 ms** | 37,088 | 25,283 | 1,211 K |
+| | Gemmini | 258,164 | 1.126 | 305 MHz | 40.6 ms | 35,875 | 21,619 | 1,456 K |
+| | VTA | 231,562 | 1.010 | 300 MHz | 37.0 ms | **26,403** | **5,991** | **977 K** |
+| | *SPMW + SwiGLU* | *229,480* | *1.000* | *332 MHz* | *33.2 ms* | *45,999* | *30,234* | *1,528 K* |
+
+The laws hold unchanged. SPMW runs at the floor plus under 100 cycles.
+Gemmini pays `(S + 2) / S`. VTA pays `1 + 4S/K`, which predicts 1.002, 1.004
+and 1.009, and it measures 1.002, 1.005 and 1.010, the difference being its
+14 to 56 page GEMMs' instruction overhead.
+
+- **The deeper `K` moves VTA closer still to the floor, and nothing else.**
+  SPMW's and Gemmini's cycle counts grow by exactly the ratio of the `K`s,
+  3.5x. VTA's grow by 3.42x, because its epilogue does not grow with `K`.
+- **Time.** SPMW is fastest at 16x16, 1.13x ahead of VTA and 1.24x ahead of
+  Gemmini. At 8x8 VTA is 5% ahead of SPMW, because this SPMW build closed at
+  330 MHz against the LLaMA build's 359 MHz. Both builds' worst path is the
+  bottom row's multiply-add into the lane link, 61% of it route, so that is
+  placement variance and not the new block counter. At 4x4 VTA is 14% ahead,
+  on its 421 MHz clock.
+- **Lookup tables times time.** VTA is best at every size, by 14-25% over
+  SPMW, and Gemmini is last, at 1.5-2.1 times VTA.
+- **SwiGLU still costs no cycles.** It adds 505-535 lookup tables and about
+  280 registers a lane.
+
 ## Where the area gap comes from
 
 A 3.5x lookup-table and 22x register gap between E3's SPMW cell and VTA
@@ -757,3 +822,9 @@ is Intel.
   (`../e3_tpu/micro/scripts/run_acc_xsim.sh` and `pnr_acc.sh` with variant
   `r64_noact`). `vta/w<n>/` holds each width's testbench and log, and
   `vta/results.txt` their result lines.
+- `deepseek_v4/` -- the same layout for one DeepSeek-V4-Pro expert (designs
+  `dsv4-gateup`, `dsv4-swiglu`; `test_spmw_llama_ffn.deepseek_of`). Gemmini
+  runs the LLaMA section's routed hardware, so `gemmini/S<n>/` has only the
+  testbench and the simulation, and its route reports are the ones in
+  `llama/gemmini/`. The stimulus is
+  `test_spmw_llama_ffn.py --k 7168 --out dsv4_slice.txt`.

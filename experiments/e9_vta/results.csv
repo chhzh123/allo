@@ -57,3 +57,15 @@ llama-gateup-slice,spmw,16,65633,36471,24361,0,0,0.419,llama-gateup
 llama-gateup-slice,gemmini-acc,16,73844,35875,21619,0,0,0.057,MxuAccVpu ACC_ROWS=64 ACT=none
 llama-gateup-slice,vta,16,67642,26403,5991,0,0,0.005,vta_llama_bench --width 16; 4 K pages
 llama-swiglu-slice,spmw,16,65642,46806,29708,0,0,0.155,llama-swiglu; lane with no link credit
+dsv4-gateup-slice,spmw,4,3670089,3052,2196,0,0,0.565,cycles for the slice (64 x 7168 x 128); dsv4-gateup; an expert's gate+up is 48 slices
+dsv4-gateup-slice,gemmini-acc,4,5505104,3303,2128,0,0,0.116,MxuAccVpu ACC_ROWS=64 ACT=none; hardware of the LLaMA run
+dsv4-gateup-slice,vta,4,3678682,3121,1283,0,0,0.956,vta_llama_bench --width 4; 56 K pages
+dsv4-swiglu-slice,spmw,4,3670096,5183,3296,0,0,0.495,dsv4-swiglu
+dsv4-gateup-slice,spmw,8,917585,9951,6952,0,0,0.304,dsv4-gateup
+dsv4-gateup-slice,gemmini-acc,8,1146972,10373,6264,0,0,0.196,MxuAccVpu ACC_ROWS=64 ACT=none; hardware of the LLaMA run
+dsv4-gateup-slice,vta,8,921850,8326,2979,0,0,0.457,vta_llama_bench --width 8; 28 K pages
+dsv4-swiglu-slice,spmw,8,917592,14174,9184,0,0,0.498,dsv4-swiglu
+dsv4-gateup-slice,spmw,16,229473,37088,25283,0,0,0.368,dsv4-gateup
+dsv4-gateup-slice,gemmini-acc,16,258164,35875,21619,0,0,0.057,MxuAccVpu ACC_ROWS=64 ACT=none; hardware of the LLaMA run
+dsv4-gateup-slice,vta,16,231562,26403,5991,0,0,0.005,vta_llama_bench --width 16; 14 K pages
+dsv4-swiglu-slice,spmw,16,229480,45999,30234,0,0,0.318,dsv4-swiglu
