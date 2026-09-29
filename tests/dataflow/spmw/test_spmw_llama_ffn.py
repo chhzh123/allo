@@ -29,6 +29,13 @@ a block of ``M = L`` rows: each weight block is loaded once and every token
 streams through it. The simulated slice is all 64 tokens and the full
 ``K = 2048``, over ``n`` of each projection's 8,192 columns. The operands are
 random int8, since no engine's timing depends on values.
+
+`deepseek_of` is the same pair of projections at DeepSeek-V4-Pro's shape: one
+routed expert, 7168 -> 3072 each. Its 64 tokens are what a 4,096-token prompt
+gives each routed expert on average -- six of 384 experts a token. V4 clamps
+the gate below 10 and the up projection to +-10 before its SwiGLU; with both
+requantised to int8 read as ``g / 16`` they saturate at 7.94 first, so the
+clamp never acts and the fused lane is the same.
 """
 
 import argparse
@@ -47,6 +54,8 @@ from test_spmw_tpu_micro_blocked import (
 
 #: The model: its hidden size is the projections' K, its FFN width their N.
 LLAMA_3_2_1B = {"d_model": 2048, "d_ff": 8192}
+#: One routed expert of DeepSeek-V4-Pro: 384 of them, six a token.
+DEEPSEEK_V4_PRO = {"d_model": 7168, "d_expert": 3072, "experts": 384, "active": 6}
 #: Prompt tokens: prefill, where the projections are matrix products.
 TOKENS = 64
 #: Columns of each projection simulated, of ``d_ff``.
@@ -131,6 +140,11 @@ def llama_of(S, variant="gateup", L=TOKENS, K=LLAMA_3_2_1B["d_model"], n=SLICE):
     return engine
 
 
+def deepseek_of(S, variant="gateup", L=TOKENS, n=SLICE):
+    """One DeepSeek-V4-Pro expert's slice: ``K = 7168``, 448 blocks at 16."""
+    return llama_of(S, variant, L=L, K=DEEPSEEK_V4_PRO["d_model"], n=n)
+
+
 def dump_llama(L=TOKENS, K=LLAMA_3_2_1B["d_model"], n=SLICE, seed=0):
     """The shared stimulus as whitespace-separated integers.
 
@@ -188,6 +202,18 @@ def test_the_slice_is_llama_3_2_1b():
 def test_the_engines_match_the_golden(variant, target):
     """A small slice -- 16 tokens, K = 32, eight columns a projection."""
     engine = llama_of(4, variant, L=16, K=32, n=8)
+    want = engine.spmw_llama["expected"]
+    Y = np.zeros(want.shape, dtype=np.int32)
+    ops = [engine.spmw_operands[k] for k in ("A", "W", "Bias")]
+    spmw.build(engine, target=target)(*ops, Y)
+    np.testing.assert_array_equal(Y, want)
+
+
+@pytest.mark.parametrize("variant", ["gateup", "swiglu"])
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_a_block_count_that_is_not_a_power_of_two(variant, target):
+    """``K = 48`` on 4x4 is 12 blocks, which the lanes count; 7,168 is 448."""
+    engine = llama_of(4, variant, L=16, K=48, n=8)
     want = engine.spmw_llama["expected"]
     Y = np.zeros(want.shape, dtype=np.int32)
     ops = [engine.spmw_operands[k] for k in ("A", "W", "Bias")]

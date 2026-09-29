@@ -118,32 +118,50 @@ def _shift_line(depth):
     ]
 
 
+def _counts(kb):
+    """Whether a lane counts its ``kb`` blocks rather than reading them off ``s``.
+
+    A shift and a mask need ``KB`` to be a power of two, and DeepSeek's hidden
+    size is not one: 7,168 is 448 blocks of 16. Such a lane carries ``kb`` and
+    advances it on each block's last row, ``(s & MASK) == MASK``.
+    """
+    return kb & (kb - 1) != 0
+
+
 def _requant_lane_source(rows, kb):
     """A running sum, then a bare requantisation: shift, clip to int8.
 
     No bias and no activation: ``b`` is the shift alone. A pass's first block
     starts from zero, so nothing is preloaded.
     """
-    delay = kb > 1
+    delay, counts = kb > 1, _counts(kb)
     lines = [
-        "def make(total, LM, KB, INT8_MAX, IO):",
+        f"def make(total, LM, KB, INT8_MAX, IO{', MASK' if counts else ''}):",
         "    def lane(io: IO):",
         "        sh: int32 = io.b[0] & 31",
     ]
     if delay:
         lines += [f"        r{i}: int32 = 0" for i in range(rows)]
-    lines += [
-        "        for s in range(total):",
-        "            kb: int32 = (s >> LM) & (KB - 1)",
-        "            z: int32 = io.z_in.get()",
-        "            v: int32 = z",
-    ]
+    if counts:
+        lines.append("        kb: int32 = 0")
+    lines.append("        for s in range(total):")
+    if not counts:
+        lines.append("            kb: int32 = (s >> LM) & (KB - 1)")
+    lines += ["            z: int32 = io.z_in.get()", "            v: int32 = z"]
     if delay:
         lines += ["            if kb != 0:", "                v = r0 + z"]
         lines += _shift_line(rows)
     lines += ["            if kb == KB - 1:", "                v = v >> sh"]
     lines += _clip8("v", 16)
-    lines += ["                io.y_out.put(v)", "    return lane"]
+    lines.append("                io.y_out.put(v)")
+    if counts:
+        lines += [
+            "            if (s & MASK) == MASK:",
+            "                kb = kb + 1",
+            "                if kb == KB:",
+            "                    kb = 0",
+        ]
+    lines.append("    return lane")
     return "\n".join(lines) + "\n"
 
 
@@ -162,22 +180,24 @@ def _swiglu_lane_source(rows, kb):
     ``tanh(x/2)`` for ``x = g/16`` is ``1 - (1 - |x|/4)^2`` up to ``|x| = 4``
     and 1 beyond. Its three multiplies are 8 x 8, 8 x 16 and 16 x 8 bits.
     """
-    depth = 2 * rows
+    depth, counts = 2 * rows, _counts(kb)
     lines = [
-        "def make(total, LM, KB, INT8_MAX, IO):",
+        f"def make(total, LM, KB, INT8_MAX, IO{', MASK' if counts else ''}):",
         "    def lane(io: IO):",
         "        sh: int32 = io.b[0] & 31",
         "        sh2: int32 = io.b[1] & 31",
     ]
     lines += [f"        r{i}: int32 = 0" for i in range(depth)]
-    lines += [
-        "        for s in range(total):",
-        "            blk: int32 = s >> LM",
-        "            p: int32 = blk & 1",
-        "            kb: int32 = (blk >> 1) & (KB - 1)",
-        "            z: int32 = io.z_in.get()",
-        "            v: int32 = z",
-    ]
+    if counts:
+        lines += ["        p: int32 = 0", "        kb: int32 = 0"]
+    lines.append("        for s in range(total):")
+    if not counts:
+        lines += [
+            "            blk: int32 = s >> LM",
+            "            p: int32 = blk & 1",
+            "            kb: int32 = (blk >> 1) & (KB - 1)",
+        ]
+    lines += ["            z: int32 = io.z_in.get()", "            v: int32 = z"]
     if kb > 1:
         lines += ["            if kb != 0:", "                v = r0 + z"]
     lines.append(f"            g: int32 = r{rows}")
@@ -209,7 +229,18 @@ def _swiglu_lane_source(rows, kb):
         "                    h = h >> sh2",
     ]
     lines += _clip8("h", 20)
-    lines += ["                    io.y_out.put(h)", "    return lane"]
+    lines.append("                    io.y_out.put(h)")
+    if counts:
+        # A gate block, then an up block, then the next kb.
+        lines += [
+            "            if (s & MASK) == MASK:",
+            "                p = 1 - p",
+            "                if p == 0:",
+            "                    kb = kb + 1",
+            "                    if kb == KB:",
+            "                        kb = 0",
+        ]
+    lines.append("    return lane")
     return "\n".join(lines) + "\n"
 
 
@@ -250,7 +281,9 @@ def blocked_engine(S, tiles=TILES, M=M_ROWS, K=16, N=16, epilogue="relu"):
     blocks = tiles * NB * KB
     steps = blocks * M
     last = M - 1
-    _log2(M), _log2(KB), _log2(NB)
+    _log2(M)
+    if epilogue == "relu":
+        _log2(KB), _log2(NB)  # E3's lane reads both off the step
     out_nb = NB // 2 if epilogue == "swiglu" else NB
     consts = {"relu": NB + 1, "requant": 1, "swiglu": 2}[epilogue]
     # `spmw.pipeline`'s credit rule: E3's lane and the requantising one are
@@ -306,6 +339,8 @@ def blocked_engine(S, tiles=TILES, M=M_ROWS, K=16, N=16, epilogue="relu"):
     closure = dict(total=steps, LM=_log2(M), KB=KB, INT8_MAX=INT8_MAX, IO=LaneIO)
     if epilogue == "relu":
         closure.update(LKB=_log2(KB), NB=NB)
+    elif _counts(KB):
+        closure.update(MASK=M - 1)
     tag = {"relu": "", "requant": "q", "swiglu": "sw"}[epilogue]
     lane = _generated(
         f"lane{tag}_k{KB}n{NB}", _lane_source(M, KB, NB, epilogue), **closure

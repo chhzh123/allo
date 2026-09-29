@@ -329,6 +329,12 @@ def design(name, size, lanes=1):
         from test_spmw_llama_ffn import llama_of
 
         return llama_of(size, name.split("-")[1])
+    if name in ("dsv4-gateup", "dsv4-swiglu"):
+        # The same projections at one DeepSeek-V4-Pro routed expert's shape:
+        # 64 tokens, K = 7168 and 64 of each projection's 3,072 columns.
+        from test_spmw_llama_ffn import deepseek_of
+
+        return deepseek_of(size, name.split("-")[1])
     if name == "tpumicro-blocked":
         # E3's workload held fixed -- sixteen 16x16x16 tiles -- on a `size` x
         # `size` array of the 256-unit lean cells: each tile blocked into
@@ -1233,6 +1239,8 @@ def main():
             "tpumicro-blocked",
             "llama-gateup",
             "llama-swiglu",
+            "dsv4-gateup",
+            "dsv4-swiglu",
             "tpumicro-lean0-m",
             "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
