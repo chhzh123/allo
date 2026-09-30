@@ -69,3 +69,9 @@ dsv4-gateup-slice,spmw,16,229473,37088,25283,0,0,0.368,dsv4-gateup
 dsv4-gateup-slice,gemmini-acc,16,258164,35875,21619,0,0,0.057,MxuAccVpu ACC_ROWS=64 ACT=none; hardware of the LLaMA run
 dsv4-gateup-slice,vta,16,231562,26403,5991,0,0,0.005,vta_llama_bench --width 16; 14 K pages
 dsv4-swiglu-slice,spmw,16,229480,45999,30234,0,0,0.318,dsv4-swiglu
+engine-scope,vta-datapath-scratchpads,4,,5136,2948,0,10,-0.923,Core minus control (fetch; instruction queues; semaphores; counters); 2 URAM; 235 MHz; limited by the acc URAM read-modify-write
+engine-scope,vta-whole-engine,4,,10311,3456,0,14,-1.554,Core; 2 URAM; 205 MHz; limited by load DMA addressing
+engine-scope,vta-datapath-scratchpads,8,,10285,4208,0,18,-1.154,Core minus control; 6 URAM; 223 MHz; acc URAM read-modify-write
+engine-scope,vta-whole-engine,8,,15710,4747,0,22,-1.427,Core; 6 URAM; 210 MHz; load DMA addressing
+engine-scope,vta-datapath-scratchpads,16,,28580,6450,0,66,-1.444,Core minus control; 12 URAM; 209 MHz; the input URAM feeding the GEMM
+engine-scope,vta-whole-engine,16,,34174,6963,0,70,-1.515,Core; 12 URAM; 206 MHz; load DMA addressing

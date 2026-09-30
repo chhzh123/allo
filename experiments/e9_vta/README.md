@@ -74,11 +74,15 @@ free win, and both rows are kept so it stays one.
   transformer-block engine still uses E3's cell: 113,341 against 71,389.
 - **Efficiency:** SPMW with 256 units, on lookup tables times time a tile, by
   1.2x over Gemmini and 3.8x over VTA.
-- **On a real layer the efficiency lead goes to VTA.** On LLaMA-3.2-1B's gate
-  and up projections, `K` is 2,048 rather than 16, and VTA's epilogue falls
-  to 3% of its time. SPMW is still fastest at 8x8 and 16x16, but VTA has the
-  best lookup tables times time at every size, by 13-17% over SPMW. See
-  [A LLaMA layer](#a-llama-layer-the-ffns-gate-and-up-projections).
+- **On a real layer, VTA's datapath alone looks most efficient, and its
+  whole datapath does not.** On LLaMA-3.2-1B's gate and up projections, `K`
+  is 2,048 rather than 16, and VTA's epilogue falls to 3% of its time. Its
+  `TensorGemm` and `TensorAlu` alone then have the best lookup tables times
+  time. But they read a whole weight block and an accumulator row every
+  cycle, from scratchpads that scope leaves out. Counted with its
+  scratchpads, VTA runs at 209-235 MHz and is 1.5-1.7x slower than SPMW on
+  every real layer and array size. See
+  [VTA with its memory counted](#vta-with-its-memory-counted).
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA both near 300 MHz; Gemmini 34.8 MHz,
   which is a porting artifact of an unpipelined float scale path and not an
@@ -366,9 +370,10 @@ What this says:
 - **Time.** SPMW is fastest at 16x16, 1.18x ahead of VTA and 1.26x ahead of
   Gemmini, and at 8x8, 1.05x and 1.41x ahead. VTA is fastest at 4x4, taking
   16% less time than SPMW, on its 421 MHz clock.
-- **Lookup tables times time.** VTA is best at every size, by 13-17% over
-  SPMW, and Gemmini is last, at 1.5-2.1 times VTA. SPMW beats Gemmini by
-  1.2-1.8x.
+- **Lookup tables times time.** For VTA's datapath alone, VTA is best at
+  every size, by 13-17% over SPMW, and Gemmini is last, at 1.5-2.1 times VTA.
+  SPMW beats Gemmini by 1.2-1.8x. With VTA's scratchpads counted, VTA is
+  last; see [VTA with its memory counted](#vta-with-its-memory-counted).
 - **SPMW's area grew from the microbenchmark**, to 36,471 lookup tables at
   16x16 against 31,200. There are two causes, and both come from this
   workload's length. First, each cell's loop counter now counts a whole
@@ -454,10 +459,98 @@ and 1.009, and it measures 1.002, 1.005 and 1.010, the difference being its
   bottom row's multiply-add into the lane link, 61% of it route, so that is
   placement variance and not the new block counter. At 4x4 VTA is 14% ahead,
   on its 421 MHz clock.
-- **Lookup tables times time.** VTA is best at every size, by 14-25% over
-  SPMW, and Gemmini is last, at 1.5-2.1 times VTA.
+- **Lookup tables times time.** For VTA's datapath alone, VTA is best at
+  every size, by 14-25% over SPMW, and Gemmini is last, at 1.5-2.1 times VTA.
+  With VTA's scratchpads counted, the order reverses, as the next section
+  shows.
 - **SwiGLU still costs no cycles.** It adds 505-535 lookup tables and about
   280 registers a lane.
+
+## VTA with its memory counted
+
+Every VTA row above counts `TensorGemm` and `TensorAlu` alone. That datapath
+holds no weights and no partial sums. Each cycle it reads a whole weight
+block, 256 bytes at 16x16, and an accumulator row, and it writes the row
+back, all through VTA's scratchpads. Those scratchpads are block RAM and
+URAM outside the two modules. SPMW and Gemmini keep their weights and
+partial sums inside their arrays, where they are counted. So those rows
+compare VTA's arithmetic against the other two's arithmetic plus storage.
+
+This section counts the storage. VTA's whole engine, `Core`, is elaborated
+at each width with VTA's shipped buffer depths, and only `blockIn` and
+`blockOut` move. It is routed with VTA's own recipe, whose retiming the other
+two did not get. All three widths route with zero unrouted nets. The routed
+engine is then read two ways:
+
+- **Whole engine.** Everything: fetch, the instruction queues, the load and
+  store units with their DMA, compute, and every scratchpad. Its clock is
+  set everywhere by the load unit's DMA address generation. The worst path
+  runs from the load instruction queue to `vmeCmd`, and SPMW and Gemmini
+  have no counterpart of it.
+- **Datapath + scratchpads.** The whole engine minus the control that SPMW
+  and Gemmini have no counterpart of: fetch, the three instruction queues,
+  the semaphores and the event counters. Its clock is the worst path whose
+  two ends both lie in this scope (`vta_core_scope_timing.tcl`). The DMA
+  command logic is outside the scope, but the input and output buffers are
+  in it. Removing those two buffers as well moves the clock by at most
+  0.07 ns.
+
+| array | VTA scope | LUT | FF | BRAM | URAM | clock | limited by |
+|---|---|---:|---:|---:|---:|---:|---|
+| 4x4 | datapath only (above) | 3,121 | 1,283 | 0 | 0 | 421 MHz | the datapath |
+| | **datapath + scratchpads** | **5,136** | **2,948** | **10** | **2** | **235 MHz** | the accumulator's read-modify-write |
+| | whole engine | 10,311 | 3,456 | 14 | 2 | 205 MHz | load DMA addressing |
+| 8x8 | datapath only (above) | 8,326 | 2,979 | 0 | 0 | 348 MHz | the datapath |
+| | **datapath + scratchpads** | **10,285** | **4,208** | **18** | **6** | **223 MHz** | the accumulator's read-modify-write |
+| | whole engine | 15,710 | 4,747 | 22 | 6 | 210 MHz | load DMA addressing |
+| 16x16 | datapath only (above) | 26,403 | 5,991 | 0 | 0 | 300 MHz | the datapath |
+| | **datapath + scratchpads** | **28,580** | **6,450** | **66** | **12** | **209 MHz** | a URAM feeding the GEMM |
+| | whole engine | 34,174 | 6,963 | 70 | 12 | 206 MHz | load DMA addressing |
+
+The scratchpads cost VTA about 2,000 lookup tables at every width, plus the
+RAM, and 90-190 MHz of clock. At every width the accumulator's read-modify-write
+path fails 300 MHz on its own. It reads a URAM, adds, and writes the result
+back to the same URAM in one clock. At 16x16 that is a 4.13 ns path, 62% of
+it logic and mostly the URAM's clock-to-output, because VTA's RTL does not
+use the URAM's output register. At 16x16 the input buffer's URAM feeding the
+GEMM is 0.07 ns worse still. Even the datapath's own paths miss 3.333 ns once
+they sit among the scratchpads, by 0.1-0.5 ns.
+
+Counted this way, VTA falls behind on every workload. The cycle counts are
+unchanged, since the hardware is the same:
+
+| workload | array | SPMW | Gemmini | VTA + scratchpads | VTA / SPMW, time | VTA / SPMW, LUT x time |
+|---|---|---:|---:|---:|---:|---:|
+| E3 micro, 16 tiles | 4x4 | **11.2 us** | 19.2 us | 30.6 us | 2.73x | 5.1x |
+| | 8x8 | **3.10 us** | 4.19 us | 11.6 us | 3.74x | 4.6x |
+| | 16x16 | **0.90 us** | 1.15 us | 5.02 us | 5.57x | 5.1x |
+| LLaMA gate + up, 64 tokens | 4x4 | **384 ms** | 648 ms | 576 ms | 1.50x | 2.5x |
+| | 8x8 | **93.4 ms** | 132 ms | 153 ms | 1.64x | 1.7x |
+| | 16x16 | **24.5 ms** | 31.0 ms | 41.4 ms | 1.69x | 1.3x |
+| DeepSeek-V4 expert, 64 tokens | 4x4 | **488 ms** | 850 ms | 752 ms | 1.54x | 2.6x |
+| | 8x8 | **133 ms** | 173 ms | 199 ms | 1.49x | 1.5x |
+| | 16x16 | **32.7 ms** | 40.6 ms | 53.1 ms | 1.63x | 1.3x |
+
+On lookup tables times time VTA is now last at every size on every workload,
+before any of its RAM is counted. On the DeepSeek expert it is 3.86 M, 2.04 M
+and 1.52 M lookup-table milliseconds at 4x4, 8x8 and 16x16. SPMW is at
+1.49 M, 1.33 M and 1.21 M, and Gemmini at 2.81 M, 1.79 M and 1.46 M. On time,
+VTA stays ahead of Gemmini only at 4x4 on the two real layers, where
+Gemmini's handshake costs it 50%.
+
+Three things bound this reading:
+
+- **The area includes VTA's input and output buffers**, which the other two
+  do not have in scope, because they take their operands from the testbench.
+  They cannot be subtracted reliably. Retiming moves logic across the
+  hierarchy, so inside the engine `TensorGemm` reports 7,563 lookup tables
+  against 21,598 routed alone. Keeping the buffers counts slightly against
+  VTA.
+- **SPMW and Gemmini would need a memory system too**, and none is built
+  here. They need 16x less weight bandwidth than VTA, `S` bytes a cycle
+  against `S^2`, because their weights stay in the array.
+- **This is VTA's RTL as it ships.** Pipelining its accumulator path would
+  lift its clock, as the link credits lifted SPMW's.
 
 ## Where the area gap comes from
 
@@ -822,6 +915,15 @@ is Intel.
   (`../e3_tpu/micro/scripts/run_acc_xsim.sh` and `pnr_acc.sh` with variant
   `r64_noact`). `vta/w<n>/` holds each width's testbench and log, and
   `vta/results.txt` their result lines.
+- `core/w<n>/` -- VTA's whole engine routed at each width: the Vivado script,
+  the flat and hierarchical utilisation, the whole engine's timing, and the
+  two scope timings (`scope_timing.rpt`, with the input and output buffers,
+  and `scope2_timing.rpt`, without). `core/split.txt` is each engine's split
+  into control and datapath + scratchpads, from
+  `scripts/vta_core_split.py`. `scripts/elab_core_widths.sh` elaborates the
+  engine at widths 4 and 8, `scripts/pnr_vta_rtl.sh` routes it, and
+  `scripts/vta_core_scope_timing.tcl` and `vta_core_scope2_timing.tcl` time
+  the two scopes.
 - `deepseek_v4/` -- the same layout for one DeepSeek-V4-Pro expert (designs
   `dsv4-gateup`, `dsv4-swiglu`; `test_spmw_llama_ffn.deepseek_of`). Gemmini
   runs the LLaMA section's routed hardware, so `gemmini/S<n>/` has only the

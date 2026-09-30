@@ -1,0 +1,158 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Wed Sep 30 04:07:29 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 6 -file util_hier.rpt
+| Design       : Core
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Physopt postRoute
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++---------------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|          Instance         |              Module              | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++---------------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| Core                      |                            (top) |      10311 |       7947 |    2356 |    8 | 3456 |     14 |      0 |    2 |          0 |
+|   (Core)                  |                            (top) |          0 |          0 |       0 |    0 |   88 |      0 |      0 |    0 |          0 |
+|   compute                 |                          Compute |       4535 |       4453 |      74 |    8 | 1984 |      4 |      0 |    2 |          0 |
+|     (compute)             |                          Compute |          1 |          1 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|     inst_q                |                      SyncQueue_1 |       1048 |        974 |      74 |    0 |   35 |      2 |      0 |    0 |          0 |
+|       queue               |              SyncQueue2PortMem_1 |       1048 |        974 |      74 |    0 |   35 |      2 |      0 |    0 |          0 |
+|         queue             |          SyncQueue2PortMemImpl_1 |       1048 |        974 |      74 |    0 |   35 |      2 |      0 |    0 |          0 |
+|           (queue)         |          SyncQueue2PortMemImpl_1 |         12 |         12 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|           buffer          |                         Queue_43 |        920 |        846 |      74 |    0 |    5 |      0 |      0 |    0 |          0 |
+|           memoryQueue     |                  OneCycleQueue_1 |        116 |        116 |       0 |    0 |   20 |      2 |      0 |    0 |          0 |
+|             (memoryQueue) |                  OneCycleQueue_1 |         32 |         32 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|             ram0          |                     TwoPortMem_1 |         85 |         85 |       0 |    0 |    0 |      2 |      0 |    0 |          0 |
+|     loadUop               |                       LoadUopTop |        479 |        479 |       0 |    0 |  309 |      2 |      0 |    0 |          0 |
+|       loadUop             |                    TensorLoadUop |        479 |        479 |       0 |    0 |  309 |      2 |      0 |    0 |          0 |
+|         (loadUop)         |                    TensorLoadUop |          1 |          1 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         tensorLoad        |              TensorLoadWideVME_1 |        478 |        478 |       0 |    0 |  309 |      2 |      0 |    0 |          0 |
+|           (tensorLoad)    |              TensorLoadWideVME_1 |         52 |         52 |       0 |    0 |   14 |      2 |      0 |    0 |          0 |
+|           fillPadding     |                   ZeroPadding_41 |        143 |        143 |       0 |    0 |   62 |      0 |      0 |    0 |          0 |
+|           readData        |               ReadVMEDataWide_42 |         73 |         73 |       0 |    0 |   33 |      0 |      0 |    0 |          0 |
+|           vmeCmd          |                GenVMECmdWideTL_1 |        210 |        210 |       0 |    0 |  200 |      0 |      0 |    0 |          0 |
+|             (vmeCmd)      |                GenVMECmdWideTL_1 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|             cmdGen        |                  GenVMECmdWide_1 |        203 |        203 |       0 |    0 |  200 |      0 |      0 |    0 |          0 |
+|     s_0                   |                      Semaphore_2 |         11 |         11 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|     s_1                   |                      Semaphore_3 |         11 |         11 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|     tensorAcc             |                    TensorLoadAcc |        611 |        611 |       0 |    0 |  463 |      0 |      0 |    2 |          0 |
+|       (tensorAcc)         |                    TensorLoadAcc |         12 |         12 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       tensorLoad          |            TensorLoadNarrowVME_1 |        599 |        599 |       0 |    0 |  463 |      0 |      0 |    2 |          0 |
+|         (tensorLoad)      |            TensorLoadNarrowVME_1 |          1 |          1 |       0 |    0 |  161 |      0 |      0 |    2 |          0 |
+|         fillPadding       |                   ZeroPadding_40 |        389 |        389 |       0 |    0 |   62 |      0 |      0 |    0 |          0 |
+|         readData          |                    ReadVMEData_1 |         36 |         36 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|         vmeCmd            |                      GenVMECmd_1 |        173 |        173 |       0 |    0 |  206 |      0 |      0 |    0 |          0 |
+|     tensorAlu             |                        TensorAlu |       1243 |       1235 |       0 |    8 |  529 |      0 |      0 |    0 |          0 |
+|       (tensorAlu)         |                        TensorAlu |         25 |         17 |       0 |    8 |  185 |      0 |      0 |    0 |          0 |
+|       alu                 |                        AluVector |       1132 |       1132 |       0 |    0 |  256 |      0 |      0 |    0 |          0 |
+|         f_0               |                           AluReg |        275 |        275 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           (f_0)           |                           AluReg |        228 |        228 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           alu             |                           Alu_39 |         47 |         47 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         f_1               |                        AluReg_34 |        284 |        284 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           (f_1)           |                        AluReg_34 |        237 |        237 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           alu             |                           Alu_38 |         47 |         47 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         f_2               |                        AluReg_35 |        287 |        287 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           (f_2)           |                        AluReg_35 |        240 |        240 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           alu             |                           Alu_37 |         47 |         47 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         f_3               |                        AluReg_36 |        286 |        286 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           (f_3)           |                        AluReg_36 |        239 |        239 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           alu             |                              Alu |         47 |         47 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       index_generator     |          TensorAluIndexGenerator |         86 |         86 |       0 |    0 |   88 |      0 |      0 |    0 |          0 |
+|     tensorGemm            |                       TensorGemm |       1211 |       1211 |       0 |    0 |  626 |      0 |      0 |    0 |          0 |
+|       (tensorGemm)        |                       TensorGemm |         45 |         45 |       0 |    0 |   51 |      0 |      0 |    0 |          0 |
+|       acc_idx_pipe        |                           Pipe_1 |          0 |          0 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       m                   |         TensorGemmIndexGenerator |        102 |        102 |       0 |    0 |  107 |      0 |      0 |    0 |          0 |
+|       mvc_0               | MatrixVectorMultiplicationBypass |       1001 |       1001 |       0 |    0 |  416 |      0 |      0 |    0 |          0 |
+|         (mvc_0)           | MatrixVectorMultiplicationBypass |         48 |         48 |       0 |    0 |  128 |      0 |      0 |    0 |          0 |
+|         dot_0_0           |                       DotProduct |        485 |        485 |       0 |    0 |   96 |      0 |      0 |    0 |          0 |
+|           a_0_0           |                     PipeAdder_27 |         46 |         46 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_0_1           |                     PipeAdder_28 |         16 |         16 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_1_0           |                         Adder_29 |         54 |         54 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_0             |                           MAC_30 |         94 |         94 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|           m_1             |                           MAC_31 |         92 |         92 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|           m_2             |                           MAC_32 |         92 |         92 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|           m_3             |                           MAC_33 |         91 |         91 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|         dot_0_1           |                     DotProduct_6 |        156 |        156 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           a_0_0           |                     PipeAdder_20 |         46 |         46 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_0_1           |                     PipeAdder_21 |         16 |         16 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_1_0           |                         Adder_22 |         54 |         54 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_0             |                           MAC_23 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_1             |                           MAC_24 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_2             |                           MAC_25 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_3             |                           MAC_26 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         dot_0_2           |                     DotProduct_7 |        156 |        156 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           a_0_0           |                     PipeAdder_13 |         46 |         46 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_0_1           |                     PipeAdder_14 |         16 |         16 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_1_0           |                         Adder_15 |         54 |         54 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_0             |                           MAC_16 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_1             |                           MAC_17 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_2             |                           MAC_18 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_3             |                           MAC_19 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         dot_0_3           |                     DotProduct_8 |        156 |        156 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|           a_0_0           |                        PipeAdder |         46 |         46 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_0_1           |                      PipeAdder_9 |         16 |         16 |       0 |    0 |   32 |      0 |      0 |    0 |          0 |
+|           a_1_0           |                            Adder |         54 |         54 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_0             |                              MAC |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_1             |                           MAC_10 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_2             |                           MAC_11 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           m_3             |                           MAC_12 |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       reset_pipe          |                             Pipe |         22 |         22 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|       wrpipe0             |                           Pipe_2 |          0 |          0 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       wrpipe2             |                         Pipe_1_4 |          2 |          2 |       0 |    0 |   12 |      0 |      0 |    0 |          0 |
+|       wrpipeNs            |                         Pipe_1_5 |        211 |        211 |       0 |    0 |   12 |      0 |      0 |    0 |          0 |
+|   ecounters               |                    EventCounters |          2 |          2 |       0 |    0 |   64 |      0 |      0 |    0 |          0 |
+|   fetch                   |                            Fetch |        488 |        414 |      74 |    0 |  202 |      2 |      0 |    0 |          0 |
+|     fetch                 |                       Fetch64Bit |        488 |        414 |      74 |    0 |  202 |      2 |      0 |    0 |          0 |
+|       (fetch)             |                       Fetch64Bit |        204 |        204 |       0 |    0 |  173 |      0 |      0 |    0 |          0 |
+|       dec                 |                      FetchDecode |          0 |          0 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       inst_q              |                        SyncQueue |        286 |        212 |      74 |    0 |   29 |      2 |      0 |    0 |          0 |
+|         (inst_q)          |                        SyncQueue |          0 |          0 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|         queue             |                SyncQueue2PortMem |        286 |        212 |      74 |    0 |   29 |      2 |      0 |    0 |          0 |
+|           queue           |            SyncQueue2PortMemImpl |        286 |        212 |      74 |    0 |   29 |      2 |      0 |    0 |          0 |
+|             (queue)       |            SyncQueue2PortMemImpl |         21 |         21 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|             buffer        |                            Queue |        107 |         33 |      74 |    0 |    5 |      0 |      0 |    0 |          0 |
+|             memoryQueue   |                    OneCycleQueue |        159 |        159 |       0 |    0 |   16 |      2 |      0 |    0 |          0 |
+|   load                    |                             Load |       3571 |       2387 |    1184 |    0 |  852 |      6 |      0 |    0 |          0 |
+|     (load)                |                             Load |          1 |          1 |       0 |    0 |    3 |      0 |      0 |    0 |          0 |
+|     dec                   |                       LoadDecode |          0 |          0 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|     inst_q                |                        Queue_1_0 |       2109 |        925 |    1184 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     s                     |                      Semaphore_1 |         10 |         10 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|     tensorLoad_0          |                    TensorLoadInp |        452 |        452 |       0 |    0 |  309 |      2 |      0 |    0 |          0 |
+|       (tensorLoad_0)      |                    TensorLoadInp |          1 |          1 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       tensorLoad          |                TensorLoadWideVME |        451 |        451 |       0 |    0 |  309 |      2 |      0 |    0 |          0 |
+|         (tensorLoad)      |                TensorLoadWideVME |         33 |         33 |       0 |    0 |   14 |      2 |      0 |    0 |          0 |
+|         fillPadding       |                      ZeroPadding |        143 |        143 |       0 |    0 |   62 |      0 |      0 |    0 |          0 |
+|         readData          |                  ReadVMEDataWide |         69 |         69 |       0 |    0 |   33 |      0 |      0 |    0 |          0 |
+|         vmeCmd            |                  GenVMECmdWideTL |        206 |        206 |       0 |    0 |  200 |      0 |      0 |    0 |          0 |
+|           (vmeCmd)        |                  GenVMECmdWideTL |         10 |         10 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|           cmdGen          |                    GenVMECmdWide |        199 |        199 |       0 |    0 |  200 |      0 |      0 |    0 |          0 |
+|     tensorLoad_1          |                    TensorLoadWgt |       1045 |       1045 |       0 |    0 |  466 |      4 |      0 |    0 |          0 |
+|       (tensorLoad_1)      |                    TensorLoadWgt |         11 |         11 |       0 |    0 |   10 |      0 |      0 |    0 |          0 |
+|       tensorLoad          |              TensorLoadNarrowVME |       1034 |       1034 |       0 |    0 |  456 |      4 |      0 |    0 |          0 |
+|         (tensorLoad)      |              TensorLoadNarrowVME |        610 |        610 |       0 |    0 |  158 |      4 |      0 |    0 |          0 |
+|         fillPadding       |                    ZeroPadding_1 |        218 |        218 |       0 |    0 |   61 |      0 |      0 |    0 |          0 |
+|         readData          |                      ReadVMEData |         35 |         35 |       0 |    0 |   33 |      0 |      0 |    0 |          0 |
+|         vmeCmd            |                        GenVMECmd |        171 |        171 |       0 |    0 |  204 |      0 |      0 |    0 |          0 |
+|   store                   |                            Store |       1827 |        803 |    1024 |    0 |  266 |      2 |      0 |    0 |          0 |
+|     (store)               |                            Store |          1 |          1 |       0 |    0 |    3 |      0 |      0 |    0 |          0 |
+|     inst_q                |                          Queue_1 |       1486 |        462 |    1024 |    0 |   21 |      0 |      0 |    0 |          0 |
+|     s                     |                        Semaphore |         10 |         10 |       0 |    0 |    8 |      0 |      0 |    0 |          0 |
+|     tensorStore           |                   TensorStoreOut |        359 |        359 |       0 |    0 |  234 |      2 |      0 |    0 |          0 |
+|       tensorStore         |               TensorStoreWideVME |        359 |        359 |       0 |    0 |  234 |      2 |      0 |    0 |          0 |
+|         (tensorStore)     |               TensorStoreWideVME |         10 |         10 |       0 |    0 |   34 |      2 |      0 |    0 |          0 |
+|         cmdGen            |                  GenVMECmdWide_2 |        350 |        350 |       0 |    0 |  200 |      0 |      0 |    0 |          0 |
++---------------------------+----------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

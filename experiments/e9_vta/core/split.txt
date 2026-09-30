@@ -1,0 +1,6 @@
+w4: engine 10311 LUT 3456 FF 14 BRAM 2 URAM | control 5175 LUT 508 FF 4 BRAM 0 URAM | datapath+scratchpads 5136 LUT 2948 FF 10 BRAM 2 URAM
+w8: engine 15710 LUT 4747 FF 22 BRAM 6 URAM | control 5425 LUT 539 FF 4 BRAM 0 URAM | datapath+scratchpads 10285 LUT 4208 FF 18 BRAM 6 URAM
+w16: engine 34174 LUT 6963 FF 70 BRAM 12 URAM | control 5594 LUT 513 FF 4 BRAM 0 URAM | datapath+scratchpads 28580 LUT 6450 FF 66 BRAM 12 URAM
+w4 whole-engine WNS -1.554 | datapath+scratchpads -0.923 | without inp/out buffers -0.923
+w8 whole-engine WNS -1.427 | datapath+scratchpads -1.154 | without inp/out buffers -1.154
+w16 whole-engine WNS -1.515 | datapath+scratchpads -1.444 | without inp/out buffers -1.373

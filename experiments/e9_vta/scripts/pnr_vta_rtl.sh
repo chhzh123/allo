@@ -1,5 +1,7 @@
 #!/bin/bash
 # Route one VTA module from an explicit RTL directory, same recipe as E8/E9.
+# Also writes the hierarchical split and the routed checkpoint, so a scope
+# inside the module (VTA's datapath and its scratchpads) can be measured.
 set -u
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 export TMPDIR=/scratch/hc676/vta_build/tmp; mkdir -p "$TMPDIR"
@@ -18,8 +20,10 @@ phys_opt_design -retime
 route_design
 phys_opt_design -retime
 report_utilization -file util.rpt
+report_utilization -hierarchical -hierarchical_depth 6 -file util_hier.rpt
 report_timing_summary -file timing.rpt
 puts "PNR_UNROUTED [llength [get_nets -filter {ROUTE_STATUS == UNROUTED} -quiet]]"
+write_checkpoint -force routed.dcp
 TCL
 T0=$(date +%s)
 ( cd "$OUT" && exec vivado -mode batch -source pnr.tcl -nojournal -nolog > pnr.log 2>&1 )
