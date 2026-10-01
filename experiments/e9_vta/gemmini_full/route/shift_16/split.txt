@@ -1,0 +1,14 @@
+== pnr_shift_16: target 3.333 ns, WNS -7.545, 91.9 MHz
+  whole accelerator                      LUT  72215 FF  45052 BRAM    16 URAM  8 DSP 163
+  execute scope                          LUT  41426 FF  23781 BRAM    16 URAM  8 DSP   1
+    execute controller + mesh              LUT  31628 FF  18030 BRAM     0 URAM  0 DSP   0
+      of which mesh                        LUT  29549 FF  17036 BRAM     0 URAM  0 DSP   0
+    DMA                                    LUT  10205 FF   7445 BRAM     0 URAM  0 DSP   1
+    scratchpad, accumulator, scale         LUT   9798 FF   5751 BRAM    16 URAM  8 DSP   1
+    loop unrollers                         LUT   8951 FF   5479 BRAM     0 URAM  0 DSP 149
+    reservation station                    LUT   4946 FF   6016 BRAM     0 URAM  0 DSP   4
+    command queues                         LUT   4540 FF      6 BRAM     0 URAM  0 DSP   0
+    store controller                       LUT   1056 FF    235 BRAM     0 URAM  0 DSP   6
+    TLB                                    LUT    926 FF    660 BRAM     0 URAM  0 DSP   0
+    counters                               LUT    762 FF   1151 BRAM     0 URAM  0 DSP   0
+    load controller                        LUT    535 FF    279 BRAM     0 URAM  0 DSP   2

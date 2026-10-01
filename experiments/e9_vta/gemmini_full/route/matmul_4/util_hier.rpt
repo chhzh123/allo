@@ -1,0 +1,294 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Thu Oct  1 16:47:28 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 6 -file util_hier.rpt
+| Design       : Gemmini
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Physopt postRoute
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------------+-------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|               Instance              |                Module               | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------------+-------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| Gemmini                             |                               (top) |      31545 |      29562 |    1940 |   43 | 21320 |     64 |      0 |    4 |         27 |
+|   counters                          |                   CounterController |        764 |        764 |       0 |    0 |  1151 |      0 |      0 |    0 |          0 |
+|     (counters)                      |                   CounterController |          6 |          6 |       0 |    0 |    70 |      0 |      0 |    0 |          0 |
+|     counterfile                     |                         CounterFile |        758 |        758 |       0 |    0 |  1081 |      0 |      0 |    0 |          0 |
+|   ex_controller                     |                   ExecuteController |       3301 |       3210 |      48 |   43 |  2531 |      0 |      0 |    0 |          0 |
+|     (ex_controller)                 |                   ExecuteController |         40 |         40 |       0 |    0 |    75 |      0 |      0 |    0 |          0 |
+|     cmd_q                           |                  MultiHeadedQueue_1 |        843 |        843 |       0 |    0 |   720 |      0 |      0 |    0 |          0 |
+|     mesh                            |                      MeshWithDelays |       2114 |       2067 |       4 |   43 |  1548 |      0 |      0 |    0 |          0 |
+|       (mesh)                        |                      MeshWithDelays |         47 |          4 |       0 |   43 |   286 |      0 |      0 |    0 |          0 |
+|       mesh                          |                                Mesh |       1611 |       1611 |       0 |    0 |   898 |      0 |      0 |    0 |          0 |
+|         (mesh)                      |                                Mesh |         67 |         67 |       0 |    0 |   642 |      0 |      0 |    0 |          0 |
+|         mesh_0_0                    |                                Tile |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                           PE_16_103 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                           PE_16_103 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                         MacUnit_104 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_0_1                    |                             Tile_60 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                           PE_16_101 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                           PE_16_101 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                         MacUnit_102 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_0_2                    |                             Tile_61 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_99 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_99 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                         MacUnit_100 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_0_3                    |                             Tile_62 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_97 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_97 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_98 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_1_0                    |                             Tile_63 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_95 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_95 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_96 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_1_1                    |                             Tile_64 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_93 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_93 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_94 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_1_2                    |                             Tile_65 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_91 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_91 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_92 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_1_3                    |                             Tile_66 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_89 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_89 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_90 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_2_0                    |                             Tile_67 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_87 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_87 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_88 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_2_1                    |                             Tile_68 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_85 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_85 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_86 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_2_2                    |                             Tile_69 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_83 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_83 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_84 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_2_3                    |                             Tile_70 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_81 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_81 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_82 |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_3_0                    |                             Tile_71 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_79 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_79 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_80 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_3_1                    |                             Tile_72 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_77 |         98 |         98 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_77 |          6 |          6 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_78 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_3_2                    |                             Tile_73 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                            PE_16_75 |         97 |         97 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                            PE_16_75 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                          MacUnit_76 |         92 |         92 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|         mesh_3_3                    |                             Tile_74 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|           tile_0_0                  |                               PE_16 |         96 |         96 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             (tile_0_0)              |                               PE_16 |          5 |          5 |       0 |    0 |    16 |      0 |      0 |    0 |          0 |
+|             mac_unit                |                             MacUnit |         91 |         91 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       tagq                          |                            TagQueue |        252 |        252 |       0 |    0 |   225 |      0 |      0 |    0 |          0 |
+|       total_rows_q                  |        Queue6_TagWithIdAndTotalRows |         20 |         16 |       4 |    0 |     7 |      0 |      0 |    0 |          0 |
+|         (total_rows_q)              |        Queue6_TagWithIdAndTotalRows |          4 |          4 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                             ram_6x6 |         16 |         12 |       4 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       transposer                    |                 AlwaysOutTransposer |        184 |        184 |       0 |    0 |   132 |      0 |      0 |    0 |          0 |
+|         (transposer)                |                 AlwaysOutTransposer |          3 |          3 |       0 |    0 |     4 |      0 |      0 |    0 |          0 |
+|         pes_0_0                     |                                  PE |         17 |         17 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_0_1                     |                               PE_45 |         24 |         24 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_0_2                     |                               PE_46 |         24 |         24 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_0_3                     |                               PE_47 |         24 |         24 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_1_0                     |                               PE_48 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_1_1                     |                               PE_49 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_1_2                     |                               PE_50 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_1_3                     |                               PE_51 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_2_0                     |                               PE_52 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_2_1                     |                               PE_53 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_2_2                     |                               PE_54 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_2_3                     |                               PE_55 |          4 |          4 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_3_0                     |                               PE_56 |         12 |         12 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_3_1                     |                               PE_57 |         16 |         16 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_3_2                     |                               PE_58 |         16 |         16 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|         pes_3_3                     |                               PE_59 |         16 |         16 |       0 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     mesh_cntl_signals_q             |           Queue5_ComputeCntlSignals |        180 |        136 |      44 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (mesh_cntl_signals_q)         |           Queue5_ComputeCntlSignals |          7 |          7 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                            ram_5x73 |        173 |        129 |      44 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     unrolled_cmd_mod                |            TransposePreloadUnroller |        124 |        124 |       0 |    0 |   181 |      0 |      0 |    0 |          0 |
+|       (unrolled_cmd_mod)            |            TransposePreloadUnroller |          0 |          0 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       q                             |                    MultiHeadedQueue |        124 |        124 |       0 |    0 |   178 |      0 |      0 |    0 |          0 |
+|   load_controller                   |                      LoadController |        730 |        630 |     100 |    0 |   428 |      0 |      0 |    0 |          0 |
+|     (load_controller)               |                      LoadController |          1 |          1 |       0 |    0 |   183 |      0 |      0 |    0 |          0 |
+|     cmd_q                           |                   Queue8_GemminiCmd |        515 |        415 |     100 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (cmd_q)                       |                   Queue8_GemminiCmd |          7 |          7 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_8x246 |        508 |        408 |     100 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     cmd_tracker                     |                   DMACommandTracker |        214 |        214 |       0 |    0 |   238 |      0 |      0 |    0 |          0 |
+|   mod                               |                          LoopMatmul |       3129 |       2993 |     136 |    0 |  1650 |      0 |      0 |    0 |         19 |
+|     (mod)                           |                          LoopMatmul |         64 |         64 |       0 |    0 |   841 |      0 |      0 |    0 |          0 |
+|     cmd_q                           |                Queue2_GemminiCmd_43 |        239 |        103 |     136 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (cmd_q)                       |                Queue2_GemminiCmd_43 |          5 |          5 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                        ram_2x274_44 |        234 |         98 |     136 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     ex                              |                   LoopMatmulExecute |        574 |        574 |       0 |    0 |   143 |      0 |      0 |    0 |          4 |
+|     ldA                             |                       LoopMatmulLdA |        572 |        572 |       0 |    0 |   130 |      0 |      0 |    0 |          3 |
+|     ldB                             |                       LoopMatmulLdB |        484 |        484 |       0 |    0 |   138 |      0 |      0 |    0 |          4 |
+|     ldD                             |                       LoopMatmulLdD |        402 |        402 |       0 |    0 |   116 |      0 |      0 |    0 |          2 |
+|     stC                             |                       LoopMatmulStC |        613 |        613 |       0 |    0 |   171 |      0 |      0 |    0 |          5 |
+|     stC_spad                        |                   LoopMatmulStCSpad |        249 |        249 |       0 |    0 |   108 |      0 |      0 |    0 |          1 |
+|   raw_cmd_q                         |                   Queue2_GemminiCmd |        139 |          3 |     136 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     (raw_cmd_q)                     |                   Queue2_GemminiCmd |          3 |          3 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     ram_ext                         |                        ram_2x274_42 |        137 |          1 |     136 |    0 |     0 |      0 |      0 |    0 |          0 |
+|   reservation_station               |                  ReservationStation |       4607 |       4607 |       0 |    0 |  6228 |      0 |      0 |    0 |          2 |
+|   reservation_station_completed_arb |                      Arbiter3_UInt6 |          6 |          6 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|   spad                              |                          Scratchpad |      11466 |      10208 |    1258 |    0 |  8168 |     64 |      0 |    4 |          2 |
+|     (spad)                          |                          Scratchpad |          4 |          4 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     acc_adders                      |                       AccPipeShared |          0 |          0 |       0 |    0 |   128 |      0 |      0 |    0 |          0 |
+|       m                             |                             AccPipe |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|       m_1                           |                          AccPipe_39 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|       m_2                           |                          AccPipe_40 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|       m_3                           |                          AccPipe_41 |          0 |          0 |       0 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     acc_mems_0                      |                      AccumulatorMem |        278 |        278 |       0 |    0 |   452 |      0 |      0 |    2 |          0 |
+|       (acc_mems_0)                  |                      AccumulatorMem |         78 |         78 |       0 |    0 |   315 |      0 |      0 |    0 |          0 |
+|       mem                           |                   TwoPortSyncMem_36 |        133 |        133 |       0 |    0 |     0 |      0 |      0 |    2 |          0 |
+|         mem_ext                     |                     mem_2048x128_38 |        133 |        133 |       0 |    0 |     0 |      0 |      0 |    2 |          0 |
+|       q                             |       Queue1_AccumulatorReadResp_37 |         67 |         67 |       0 |    0 |   137 |      0 |      0 |    0 |          0 |
+|     acc_mems_1                      |                    AccumulatorMem_3 |        367 |        367 |       0 |    0 |   460 |      0 |      0 |    2 |          0 |
+|       (acc_mems_1)                  |                    AccumulatorMem_3 |         79 |         79 |       0 |    0 |   323 |      0 |      0 |    0 |          0 |
+|       mem                           |                      TwoPortSyncMem |        149 |        149 |       0 |    0 |     0 |      0 |      0 |    2 |          0 |
+|         mem_ext                     |                        mem_2048x128 |        149 |        149 |       0 |    0 |     0 |      0 |      0 |    2 |          0 |
+|       q                             |          Queue1_AccumulatorReadResp |        140 |        140 |       0 |    0 |   137 |      0 |      0 |    0 |          0 |
+|     acc_scale_unit                  |                    AccumulatorScale |          3 |          3 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|       pipe_out_p                    |                          Pipeline_2 |          3 |          3 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     buffer                          |             TLBuffer_a32d128s6k2z4u |        372 |        250 |     122 |    0 |     6 |      0 |      0 |    0 |          0 |
+|       nodeIn_d_q                    |  Queue2_TLBundleD_a32d128s6k2z4u_32 |        315 |        233 |      82 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeIn_d_q)                |  Queue2_TLBundleD_a32d128s6k2z4u_32 |          9 |          9 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                        ram_2x141_35 |        306 |        224 |      82 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       nodeOut_a_q                   |  Queue2_TLBundleA_a32d128s6k2z4u_33 |         57 |         17 |      40 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeOut_a_q)               |  Queue2_TLBundleA_a32d128s6k2z4u_33 |         10 |         10 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                        ram_2x193_34 |         47 |          7 |      40 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     buffer_1                        |           TLBuffer_a32d128s6k2z4u_4 |        163 |         43 |     120 |    0 |     6 |      0 |      0 |    0 |          0 |
+|       nodeIn_d_q                    |     Queue2_TLBundleD_a32d128s6k2z4u |         40 |         32 |       8 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeIn_d_q)                |     Queue2_TLBundleD_a32d128s6k2z4u |          4 |          4 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                           ram_2x141 |         36 |         28 |       8 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       nodeOut_a_q                   |     Queue2_TLBundleA_a32d128s6k2z4u |        123 |         11 |     112 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeOut_a_q)               |     Queue2_TLBundleA_a32d128s6k2z4u |          6 |          6 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                           ram_2x193 |        118 |          6 |     112 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     buffer_2                        |             TLBuffer_a32d128s7k2z4u |        211 |         11 |     200 |    0 |     6 |      0 |      0 |    0 |          0 |
+|       nodeIn_d_q                    |     Queue2_TLBundleD_a32d128s7k2z4u |         93 |          5 |      88 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeIn_d_q)                |     Queue2_TLBundleD_a32d128s7k2z4u |          3 |          3 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                           ram_2x148 |         90 |          2 |      88 |    0 |     0 |      0 |      0 |    0 |          0 |
+|       nodeOut_a_q                   |     Queue2_TLBundleA_a32d128s7k2z4u |        118 |          6 |     112 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         (nodeOut_a_q)               |     Queue2_TLBundleA_a32d128s7k2z4u |          6 |          6 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|         ram_ext                     |                           ram_2x194 |        112 |          0 |     112 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     dma_read_pipe                   |           Queue4_ScratchpadReadResp |         25 |          5 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (dma_read_pipe)               |           Queue4_ScratchpadReadResp |          4 |          4 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_31 |         21 |          1 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     dma_read_pipe_1                 |         Queue4_ScratchpadReadResp_5 |         58 |         38 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (dma_read_pipe_1)             |         Queue4_ScratchpadReadResp_5 |          6 |          6 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_30 |         52 |         32 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     dma_read_pipe_2                 |         Queue4_ScratchpadReadResp_6 |         25 |          5 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (dma_read_pipe_2)             |         Queue4_ScratchpadReadResp_6 |          5 |          5 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_29 |         20 |          0 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     dma_read_pipe_3                 |         Queue4_ScratchpadReadResp_7 |         25 |          5 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (dma_read_pipe_3)             |         Queue4_ScratchpadReadResp_7 |          5 |          5 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_28 |         20 |          0 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     ex_read_pipe                    |         Queue4_ScratchpadReadResp_8 |         32 |         12 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (ex_read_pipe)                |         Queue4_ScratchpadReadResp_8 |          6 |          6 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_27 |         26 |          6 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     ex_read_pipe_1                  |         Queue4_ScratchpadReadResp_9 |        106 |         86 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (ex_read_pipe_1)              |         Queue4_ScratchpadReadResp_9 |          6 |          6 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_26 |        100 |         80 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     ex_read_pipe_2                  |        Queue4_ScratchpadReadResp_10 |         27 |          7 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (ex_read_pipe_2)              |        Queue4_ScratchpadReadResp_10 |          6 |          6 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_4x33_25 |         21 |          1 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     ex_read_pipe_3                  |        Queue4_ScratchpadReadResp_11 |         71 |         51 |      20 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       (ex_read_pipe_3)              |        Queue4_ScratchpadReadResp_11 |          6 |          6 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                            ram_4x33 |         66 |         46 |      20 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     norm_unit_passthru_q            |              Queue2_NormalizedInput |        673 |        593 |      80 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (norm_unit_passthru_q)        |              Queue2_NormalizedInput |          4 |          4 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_2x139 |        669 |        589 |      80 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     read_issue_q                    |     Queue5_ScratchpadMemReadRequest |        128 |         56 |      72 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (read_issue_q)                |     Queue5_ScratchpadMemReadRequest |         15 |         15 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_5x229 |        113 |         41 |      72 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     reader                          |                        StreamReader |       4218 |       4218 |       0 |    0 |  4852 |      0 |      0 |    0 |          1 |
+|       (reader)                      |                        StreamReader |          0 |          0 |       0 |    0 |    22 |      0 |      0 |    0 |          0 |
+|       beatPacker                    |                          BeatMerger |       2634 |       2634 |       0 |    0 |   552 |      0 |      0 |    0 |          1 |
+|       core                          |                    StreamReaderCore |        239 |        239 |       0 |    0 |   278 |      0 |      0 |    0 |          0 |
+|         (core)                      |                    StreamReaderCore |        165 |        165 |       0 |    0 |   150 |      0 |      0 |    0 |          0 |
+|         tlb_q                       |            Queue1_TLBundleAWithInfo |         50 |         50 |       0 |    0 |    64 |      0 |      0 |    0 |          0 |
+|         translate_q                 |         Queue1_TLBundleAWithInfo_24 |         24 |         24 |       0 |    0 |    64 |      0 |      0 |    0 |          0 |
+|       xactTracker                   |                         XactTracker |       1345 |       1345 |       0 |    0 |  4000 |      0 |      0 |    0 |          0 |
+|     spad_mems_0                     |                      ScratchpadBank |         29 |         29 |       0 |    0 |    36 |     16 |      0 |    0 |          0 |
+|       (spad_mems_0)                 |                      ScratchpadBank |          0 |          0 |       0 |    0 |     2 |      0 |      0 |    0 |          0 |
+|       mem_ext                       |                     mem_16384x32_22 |          0 |          0 |       0 |    0 |     0 |     16 |      0 |    0 |          0 |
+|       q                             |        Queue1_ScratchpadReadResp_23 |         29 |         29 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     spad_mems_1                     |                   ScratchpadBank_12 |         26 |         26 |       0 |    0 |    36 |     16 |      0 |    0 |          0 |
+|       (spad_mems_1)                 |                   ScratchpadBank_12 |          0 |          0 |       0 |    0 |     2 |      0 |      0 |    0 |          0 |
+|       mem_ext                       |                     mem_16384x32_20 |          0 |          0 |       0 |    0 |     0 |     16 |      0 |    0 |          0 |
+|       q                             |        Queue1_ScratchpadReadResp_21 |         26 |         26 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     spad_mems_2                     |                   ScratchpadBank_13 |         26 |         26 |       0 |    0 |    36 |     16 |      0 |    0 |          0 |
+|       (spad_mems_2)                 |                   ScratchpadBank_13 |          0 |          0 |       0 |    0 |     2 |      0 |      0 |    0 |          0 |
+|       mem_ext                       |                     mem_16384x32_18 |          0 |          0 |       0 |    0 |     0 |     16 |      0 |    0 |          0 |
+|       q                             |        Queue1_ScratchpadReadResp_19 |         26 |         26 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     spad_mems_3                     |                   ScratchpadBank_14 |         27 |         27 |       0 |    0 |    36 |     16 |      0 |    0 |          0 |
+|       (spad_mems_3)                 |                   ScratchpadBank_14 |          0 |          0 |       0 |    0 |     2 |      0 |      0 |    0 |          0 |
+|       mem_ext                       |                        mem_16384x32 |          0 |          0 |       0 |    0 |     0 |     16 |      0 |    0 |          0 |
+|       q                             |           Queue1_ScratchpadReadResp |         27 |         27 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     vsm                             |              VectorScalarMultiplier |        763 |        763 |       0 |    0 |    85 |      0 |      0 |    0 |          0 |
+|     vsm_1                           |            VectorScalarMultiplier_1 |         42 |         42 |       0 |    0 |   189 |      0 |      0 |    0 |          0 |
+|     vsm_in_q                        |    Queue2_VectorScalarMultiplierReq |         52 |          4 |      48 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (vsm_in_q)                    |    Queue2_VectorScalarMultiplierReq |          4 |          4 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                            ram_2x87 |         48 |          0 |      48 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     vsm_in_q_1                      |  Queue2_VectorScalarMultiplierReq_1 |        115 |          7 |     108 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (vsm_in_q_1)                  |  Queue2_VectorScalarMultiplierReq_1 |          6 |          6 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_2x195 |        109 |          1 |     108 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     widget                          |                     TLWidthWidget16 |        167 |        167 |       0 |    0 |   196 |      0 |      0 |    0 |          0 |
+|       (widget)                      |                     TLWidthWidget16 |         67 |         67 |       0 |    0 |    67 |      0 |      0 |    0 |          0 |
+|       repeated_repeater             |   Repeater_TLBundleA_a32d128s7k2z4u |        100 |        100 |       0 |    0 |   129 |      0 |      0 |    0 |          0 |
+|     write_dispatch_q_q              |    Queue2_ScratchpadMemWriteRequest |        389 |        297 |      92 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (write_dispatch_q_q)          |    Queue2_ScratchpadMemWriteRequest |          2 |          2 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_2x356 |        387 |        295 |      92 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     write_issue_q                   |    Queue5_ScratchpadMemWriteRequest |        162 |         90 |      72 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (write_issue_q)               |    Queue5_ScratchpadMemWriteRequest |          7 |          7 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_5x192 |        155 |         83 |      72 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     write_norm_q                    |    Queue6_ScratchpadMemWriteRequest |        111 |         19 |      92 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (write_norm_q)                |    Queue6_ScratchpadMemWriteRequest |          6 |          6 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                        ram_6x356_17 |        106 |         14 |      92 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     write_scale_q                   | Queue6_ScratchpadMemWriteRequest_15 |        110 |         18 |      92 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       (write_scale_q)               | Queue6_ScratchpadMemWriteRequest_15 |          5 |          5 |       0 |    0 |     7 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                           ram_6x356 |        105 |         13 |      92 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     writer                          |                        StreamWriter |       2514 |       2514 |       0 |    0 |  1499 |      0 |      0 |    0 |          0 |
+|       (writer)                      |                        StreamWriter |        680 |        680 |       0 |    0 |   918 |      0 |      0 |    0 |          0 |
+|       shadow_retry_a                |          Queue1_TLBundleAWithInfo_2 |         51 |         51 |       0 |    0 |   195 |      0 |      0 |    0 |          0 |
+|       tlb_q                         |          Queue1_TLBundleAWithInfo_3 |       1471 |       1471 |       0 |    0 |   193 |      0 |      0 |    0 |          0 |
+|       translate_q                   |       Queue1_TLBundleAWithInfo_3_16 |        314 |        314 |       0 |    0 |   193 |      0 |      0 |    0 |          0 |
+|     xbar                            |         TLXbar_i2_o1_a32d128s7k2z4u |        116 |        116 |       0 |    0 |    12 |      0 |      0 |    0 |          0 |
+|     zero_writer                     |                          ZeroWriter |         52 |         52 |       0 |    0 |    19 |      0 |      0 |    0 |          1 |
+|   store_controller                  |                     StoreController |       1018 |        894 |     124 |    0 |   484 |      0 |      0 |    0 |          4 |
+|     (store_controller)              |                     StoreController |        214 |        214 |       0 |    0 |   124 |      0 |      0 |    0 |          4 |
+|     cmd_q                           |                 Queue2_GemminiCmd_1 |        408 |        284 |     124 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       (cmd_q)                       |                 Queue2_GemminiCmd_1 |         49 |         49 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|       ram_ext                       |                         ram_2x274_2 |        359 |        235 |     124 |    0 |     0 |      0 |      0 |    0 |          0 |
+|     cmd_tracker                     |                 DMACommandTracker_1 |        397 |        397 |       0 |    0 |   357 |      0 |      0 |    0 |          0 |
+|   tlb                               |                         FrontendTLB |        926 |        926 |       0 |    0 |   674 |      0 |      0 |    0 |          0 |
+|     (tlb)                           |                         FrontendTLB |          1 |          1 |       0 |    0 |   215 |      0 |      0 |    0 |          0 |
+|     tlbArbOpt                       |                           RRArbiter |        593 |        593 |       0 |    0 |    15 |      0 |      0 |    0 |          0 |
+|     tlbs_0                          |                        DecoupledTLB |        333 |        333 |       0 |    0 |   444 |      0 |      0 |    0 |          0 |
+|       (tlbs_0)                      |                        DecoupledTLB |          0 |          0 |       0 |    0 |     1 |      0 |      0 |    0 |          0 |
+|       tlb                           |                              DTLB_2 |        333 |        333 |       0 |    0 |   443 |      0 |      0 |    0 |          0 |
+|         (tlb)                       |                              DTLB_2 |        302 |        302 |       0 |    0 |   443 |      0 |      0 |    0 |          0 |
+|         pmp                         |                       PMPChecker_s6 |         31 |         31 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
+|   unrolled_cmd_q                    |                 Queue2_GemminiCmd_0 |       6346 |       6208 |     138 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     (unrolled_cmd_q)                |                 Queue2_GemminiCmd_0 |          9 |          9 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     ram_ext                         |                           ram_2x274 |       6337 |       6199 |     138 |    0 |     0 |      0 |      0 |    0 |          0 |
++-------------------------------------+-------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

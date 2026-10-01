@@ -1,0 +1,27 @@
+dsv4_w16 VTACORE PLAN width=16 M=64 K=7168 N=128 tiles=1 instructions=91 uops=128 pages=28 floor=229376
+dsv4_w16 VTACORE RESULT errs=0 total=239011 gemm=230062 alu=1554 cload=66 load=172200 store=1540 instructions=91 beats=172278 first_bad=-1 timeout=0
+dsv4_w16 VTACORE PASS
+dsv4_w4 VTACORE PLAN width=4 M=64 K=7168 N=128 tiles=1 instructions=343 uops=128 pages=112 floor=3670016
+dsv4_w4 VTACORE RESULT errs=0 total=3680381 gemm=3672742 alu=6162 cload=66 load=172592 store=1032 instructions=343 beats=172782 first_bad=-1 timeout=0
+dsv4_w4 VTACORE PASS
+dsv4_w8 VTACORE PLAN width=8 M=64 K=7168 N=128 tiles=1 instructions=175 uops=128 pages=56 floor=917504
+dsv4_w8 VTACORE RESULT errs=0 total=925364 gemm=918870 alu=3090 cload=66 load=172312 store=1032 instructions=175 beats=172446 first_bad=-1 timeout=0
+dsv4_w8 VTACORE PASS
+llama_w16 VTACORE PLAN width=16 M=64 K=2048 N=128 tiles=1 instructions=31 uops=128 pages=8 floor=65536
+llama_w16 VTACORE RESULT errs=0 total=74911 gemm=66102 alu=1554 cload=66 load=49200 store=1540 instructions=31 beats=49278 first_bad=-1 timeout=0
+llama_w16 VTACORE PASS
+llama_w4 VTACORE PLAN width=4 M=64 K=2048 N=128 tiles=1 instructions=103 uops=128 pages=32 floor=1048576
+llama_w4 VTACORE RESULT errs=0 total=1058331 gemm=1050822 alu=6162 cload=66 load=49312 store=1032 instructions=103 beats=49422 first_bad=-1 timeout=0
+llama_w4 VTACORE PASS
+llama_w8 VTACORE PLAN width=8 M=64 K=2048 N=128 tiles=1 instructions=55 uops=128 pages=16 floor=262144
+llama_w8 VTACORE RESULT errs=0 total=269578 gemm=263270 alu=3090 cload=66 load=49232 store=1032 instructions=55 beats=49326 first_bad=-1 timeout=0
+llama_w8 VTACORE PASS
+micro_w16 VTACORE PLAN width=16 M=16 K=16 N=16 tiles=16 instructions=12 uops=48 pages=1 floor=256
+micro_w16 VTACORE RESULT errs=0 total=3405 gemm=524 alu=1304 cload=37 load=1030 store=770 instructions=12 beats=1080 first_bad=-1 timeout=0
+micro_w16 VTACORE PASS
+micro_w4 VTACORE PLAN width=4 M=16 K=16 N=16 tiles=16 instructions=12 uops=384 pages=1 floor=4096
+micro_w4 VTACORE RESULT errs=0 total=11035 gemm=5132 alu=5144 cload=205 load=1029 store=516 instructions=12 beats=1248 first_bad=-1 timeout=0
+micro_w4 VTACORE PASS
+micro_w8 VTACORE PLAN width=8 M=16 K=16 N=16 tiles=16 instructions=12 uops=128 pages=1 floor=1024
+micro_w8 VTACORE RESULT errs=0 total=5198 gemm=1548 alu=2584 cload=77 load=1029 store=516 instructions=12 beats=1120 first_bad=-1 timeout=0
+micro_w8 VTACORE PASS

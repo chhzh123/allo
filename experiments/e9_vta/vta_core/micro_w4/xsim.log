@@ -1,0 +1,22 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Thu Oct  1 16:24:31 2026
+# Process ID: 3529817
+# Current directory: /scratch/hc676/vta_build/core_bench/micro_w4
+# Command line: xsim -mode tcl -source {xsim.dir/tbsim/xsim_script.tcl}
+# Log file: /scratch/hc676/vta_build/core_bench/micro_w4/xsim.log
+# Journal file: /scratch/hc676/vta_build/core_bench/micro_w4/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 2699.999 MHz, CPU Physical cores: 23, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbsim/xsim_script.tcl
+# xsim {tbsim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+VTACORE RESULT errs=0 total=11035 gemm=5132 alu=5144 cload=205 load=1029 store=516 instructions=12 beats=1248 first_bad=-1 timeout=0
+VTACORE PASS
+$finish called at time : 110635 ns : File "/scratch/hc676/vta_build/core_bench/micro_w4/tb.sv" Line 260
+exit
+INFO: [Common 17-206] Exiting xsim at Thu Oct  1 16:24:37 2026...

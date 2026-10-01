@@ -1,0 +1,14 @@
+SCOPE_CELLS 23515
+SCOPE_SLACK -11.291
+SCOPE_FROM spad/norm_unit_passthru_q/wrap_1_reg/C
+SCOPE_TO spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_2_0_reg[2]/S
+SCOPE_LEVELS 55
+EXECUTE_SLACK -3.862
+EXECUTE_FROM ex_controller/mesh_cntl_signals_q/deq_ptr_value_reg[1]/C
+EXECUTE_TO ex_controller/pending_completed_rob_ids_0_bits_reg[2]/CE
+MESH_SLACK -2.206
+WHOLE_SLACK -11.291
+WHOLE_FROM spad/norm_unit_passthru_q/wrap_1_reg/C
+WHOLE_TO spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_2_0_reg[2]/S
+WHOLE_LEVELS 55
+rc=0

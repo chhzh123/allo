@@ -1,0 +1,162 @@
+dsv4_lean_16 GEMROCC PLAN dim=16 M=64 K=7168 N=128 matmuls=1 tile=(4, 6, 51) loops=18 commands=113 floor=229376 mem=1385024
+dsv4_lean_16 GEMROCC RESULT errs=0 total=271107 ex=270102 ld=242892 st=1274 ex_only=27192 commands=113 loops=18 first_bad=-1 timeout=0
+dsv4_lean_16 GEMROCC PASS
+dsv4_lean_4 GEMROCC PLAN dim=4 M=64 K=7168 N=128 matmuls=1 tile=(16, 27, 190) loops=20 commands=125 floor=3670016 mem=1385024
+dsv4_lean_4 GEMROCC RESULT errs=0 total=3724080 ex=3723449 ld=462175 st=4354 ex_only=3257805 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_lean_4 GEMROCC PASS
+dsv4_lean_8 GEMROCC PLAN dim=8 M=64 K=7168 N=128 matmuls=1 tile=(8, 13, 97) loops=20 commands=125 floor=917504 mem=1385024
+dsv4_lean_8 GEMROCC RESULT errs=0 total=944930 ex=944489 ld=284862 st=2159 ex_only=658130 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_lean_8 GEMROCC PASS
+dsv4_matmul_16 GEMROCC PLAN dim=16 M=64 K=7168 N=128 matmuls=1 program=library tile=(4, 6, 51) loops=18 commands=113 floor=229376 mem=1385024
+dsv4_matmul_16 GEMROCC RESULT errs=0 total=271099 ex=270105 ld=242872 st=1278 ex_only=27212 commands=113 loops=18 first_bad=-1 timeout=0
+dsv4_matmul_16 GEMROCC PASS
+dsv4_matmul_16_b128 GEMROCC PLAN dim=16 M=64 K=7168 N=128 matmuls=1 program=library tile=(4, 6, 51) loops=18 commands=113 floor=229376 mem=1385024 bus=128
+dsv4_matmul_16_b128 GEMROCC RESULT errs=0 total=259074 ex=258774 ld=124970 st=1042 ex_only=133212 commands=113 loops=18 first_bad=-1 timeout=0
+dsv4_matmul_16_b128 GEMROCC PASS
+dsv4_matmul_4 GEMROCC PLAN dim=4 M=64 K=7168 N=128 matmuls=1 program=library tile=(16, 27, 190) loops=20 commands=125 floor=3670016 mem=1385024
+dsv4_matmul_4 GEMROCC RESULT errs=0 total=3723974 ex=3723449 ld=462137 st=3304 ex_only=3258701 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_matmul_4 GEMROCC PASS
+dsv4_matmul_4_b128 GEMROCC PLAN dim=4 M=64 K=7168 N=128 matmuls=1 program=library tile=(16, 27, 190) loops=20 commands=125 floor=3670016 mem=1385024 bus=128
+dsv4_matmul_4_b128 GEMROCC RESULT errs=0 total=3723971 ex=3723449 ld=462112 st=3304 ex_only=3258725 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_matmul_4_b128 GEMROCC PASS
+dsv4_matmul_8 GEMROCC PLAN dim=8 M=64 K=7168 N=128 matmuls=1 program=library tile=(8, 13, 97) loops=20 commands=125 floor=917504 mem=1385024
+dsv4_matmul_8 GEMROCC RESULT errs=0 total=945033 ex=944659 ld=284809 st=1912 ex_only=658543 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_matmul_8 GEMROCC PASS
+dsv4_matmul_8_b128 GEMROCC PLAN dim=8 M=64 K=7168 N=128 matmuls=1 program=library tile=(8, 13, 97) loops=20 commands=125 floor=917504 mem=1385024 bus=128
+dsv4_matmul_8_b128 GEMROCC RESULT errs=0 total=964222 ex=963851 ld=232718 st=1888 ex_only=729825 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_matmul_8_b128 GEMROCC PASS
+dsv4_shift_16 GEMROCC PLAN dim=16 M=64 K=7168 N=128 matmuls=1 tile=(4, 6, 51) loops=18 commands=113 floor=229376 mem=1385024
+dsv4_shift_16 GEMROCC RESULT errs=0 total=271095 ex=270098 ld=242881 st=1278 ex_only=27198 commands=113 loops=18 first_bad=-1 timeout=0
+dsv4_shift_16 GEMROCC PASS
+dsv4_shift_4 GEMROCC PLAN dim=4 M=64 K=7168 N=128 matmuls=1 tile=(16, 27, 190) loops=20 commands=125 floor=3670016 mem=1385024
+dsv4_shift_4 GEMROCC RESULT errs=0 total=3723976 ex=3723449 ld=462152 st=3304 ex_only=3258687 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_shift_4 GEMROCC PASS
+dsv4_shift_8 GEMROCC PLAN dim=8 M=64 K=7168 N=128 matmuls=1 tile=(8, 13, 97) loops=20 commands=125 floor=917504 mem=1385024
+dsv4_shift_8 GEMROCC RESULT errs=0 total=945021 ex=944645 ld=284829 st=1912 ex_only=658510 commands=125 loops=20 first_bad=-1 timeout=0
+dsv4_shift_8 GEMROCC PASS
+llama_lean_16 GEMROCC PLAN dim=16 M=64 K=2048 N=128 matmuls=1 tile=(4, 6, 51) loops=6 commands=41 floor=65536 mem=401984
+llama_lean_16 GEMROCC RESULT errs=0 total=77617 ex=77178 ld=68988 st=1274 ex_only=7606 commands=41 loops=6 first_bad=-1 timeout=0
+llama_lean_16 GEMROCC PASS
+llama_lean_4 GEMROCC PLAN dim=4 M=64 K=2048 N=128 matmuls=1 tile=(16, 27, 190) loops=6 commands=41 floor=1048576 mem=401984
+llama_lean_4 GEMROCC RESULT errs=0 total=1073716 ex=1073085 ld=131171 st=4354 ex_only=938445 commands=41 loops=6 first_bad=-1 timeout=0
+llama_lean_4 GEMROCC PASS
+llama_lean_8 GEMROCC PLAN dim=8 M=64 K=2048 N=128 matmuls=1 tile=(8, 13, 97) loops=6 commands=41 floor=262144 mem=401984
+llama_lean_8 GEMROCC RESULT errs=0 total=274426 ex=273985 ld=79326 st=2159 ex_only=193162 commands=41 loops=6 first_bad=-1 timeout=0
+llama_lean_8 GEMROCC PASS
+llama_matmul_16 GEMROCC PLAN dim=16 M=64 K=2048 N=128 matmuls=1 program=library tile=(4, 6, 51) loops=6 commands=41 floor=65536 mem=401984
+llama_matmul_16 GEMROCC RESULT errs=0 total=77605 ex=77176 ld=68978 st=1278 ex_only=7612 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_16 GEMROCC PASS
+llama_matmul_16_b128 GEMROCC PLAN dim=16 M=64 K=2048 N=128 matmuls=1 program=library tile=(4, 6, 51) loops=6 commands=41 floor=65536 mem=401984 bus=128
+llama_matmul_16_b128 GEMROCC RESULT errs=0 total=78458 ex=78158 ld=36210 st=1042 ex_only=41356 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_16_b128 GEMROCC PASS
+llama_matmul_4 GEMROCC PLAN dim=4 M=64 K=2048 N=128 matmuls=1 program=library tile=(16, 27, 190) loops=6 commands=41 floor=1048576 mem=401984
+llama_matmul_4 GEMROCC RESULT errs=0 total=1073610 ex=1073085 ld=131161 st=3304 ex_only=939313 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_4 GEMROCC PASS
+llama_matmul_4_b128 GEMROCC PLAN dim=4 M=64 K=2048 N=128 matmuls=1 program=library tile=(16, 27, 190) loops=6 commands=41 floor=1048576 mem=401984 bus=128
+llama_matmul_4_b128 GEMROCC RESULT errs=0 total=1073607 ex=1073085 ld=131150 st=3304 ex_only=939323 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_4_b128 GEMROCC PASS
+llama_matmul_8 GEMROCC PLAN dim=8 M=64 K=2048 N=128 matmuls=1 program=library tile=(8, 13, 97) loops=6 commands=41 floor=262144 mem=401984
+llama_matmul_8 GEMROCC RESULT errs=0 total=274359 ex=273985 ld=79308 st=1912 ex_only=193370 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_8 GEMROCC PASS
+llama_matmul_8_b128 GEMROCC PLAN dim=8 M=64 K=2048 N=128 matmuls=1 program=library tile=(8, 13, 97) loops=6 commands=41 floor=262144 mem=401984 bus=128
+llama_matmul_8_b128 GEMROCC RESULT errs=0 total=274884 ex=274513 ld=66634 st=1888 ex_only=206571 commands=41 loops=6 first_bad=-1 timeout=0
+llama_matmul_8_b128 GEMROCC PASS
+llama_shift_16 GEMROCC PLAN dim=16 M=64 K=2048 N=128 matmuls=1 tile=(4, 6, 51) loops=6 commands=41 floor=65536 mem=401984
+llama_shift_16 GEMROCC RESULT errs=0 total=77603 ex=77172 ld=68981 st=1278 ex_only=7606 commands=41 loops=6 first_bad=-1 timeout=0
+llama_shift_16 GEMROCC PASS
+llama_shift_4 GEMROCC PLAN dim=4 M=64 K=2048 N=128 matmuls=1 tile=(16, 27, 190) loops=6 commands=41 floor=1048576 mem=401984
+llama_shift_4 GEMROCC RESULT errs=0 total=1073612 ex=1073085 ld=131163 st=3304 ex_only=939312 commands=41 loops=6 first_bad=-1 timeout=0
+llama_shift_4 GEMROCC PASS
+llama_shift_8 GEMROCC PLAN dim=8 M=64 K=2048 N=128 matmuls=1 tile=(8, 13, 97) loops=6 commands=41 floor=262144 mem=401984
+llama_shift_8 GEMROCC RESULT errs=0 total=274361 ex=273985 ld=79314 st=1912 ex_only=193365 commands=41 loops=6 first_bad=-1 timeout=0
+llama_shift_8 GEMROCC PASS
+micro_lean_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 tile=(1, 1, 1) loops=16 commands=176 floor=256 mem=12416
+micro_lean_16 GEMROCC RESULT errs=0 total=2718 ex=1780 ld=1846 st=400 ex_only=804 commands=176 loops=16 first_bad=-1 timeout=0
+micro_lean_16 GEMROCC PASS
+micro_lean_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 tile=(4, 4, 4) loops=16 commands=176 floor=4096 mem=12416
+micro_lean_4 GEMROCC RESULT errs=0 total=7942 ex=5870 ld=3248 st=1760 ex_only=3888 commands=176 loops=16 first_bad=-1 timeout=0
+micro_lean_4 GEMROCC PASS
+micro_lean_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 tile=(2, 2, 2) loops=16 commands=176 floor=1024 mem=12416
+micro_lean_8 GEMROCC RESULT errs=0 total=1999 ex=1861 ld=1610 st=880 ex_only=192 commands=176 loops=16 first_bad=-1 timeout=0
+micro_lean_8 GEMROCC PASS
+micro_matmul_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=library tile=(1, 1, 1) loops=16 commands=176 floor=256 mem=12416
+micro_matmul_16 GEMROCC RESULT errs=0 total=2678 ex=1675 ld=1844 st=474 ex_only=774 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_16 GEMROCC PASS
+micro_matmul_16_b128 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=library tile=(1, 1, 1) loops=16 commands=176 floor=256 mem=12416 bus=128
+micro_matmul_16_b128 GEMROCC RESULT errs=0 total=2162 ex=1269 ld=1280 st=394 ex_only=838 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_16_b128 GEMROCC PASS
+micro_matmul_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=library tile=(4, 4, 4) loops=16 commands=176 floor=4096 mem=12416
+micro_matmul_4 GEMROCC RESULT errs=0 total=7785 ex=5810 ld=3216 st=1328 ex_only=3888 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_4 GEMROCC PASS
+micro_matmul_4_b128 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=library tile=(4, 4, 4) loops=16 commands=176 floor=4096 mem=12416 bus=128
+micro_matmul_4_b128 GEMROCC RESULT errs=0 total=7768 ex=5870 ld=3200 st=1328 ex_only=3888 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_4_b128 GEMROCC PASS
+micro_matmul_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=library tile=(2, 2, 2) loops=16 commands=176 floor=1024 mem=12416
+micro_matmul_8 GEMROCC RESULT errs=0 total=1944 ex=1831 ld=1704 st=688 ex_only=171 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_8 GEMROCC PASS
+micro_matmul_8_b128 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=library tile=(2, 2, 2) loops=16 commands=176 floor=1024 mem=12416 bus=128
+micro_matmul_8_b128 GEMROCC RESULT errs=0 total=1923 ex=1816 ld=1684 st=688 ex_only=171 commands=176 loops=16 first_bad=-1 timeout=0
+micro_matmul_8_b128 GEMROCC PASS
+micro_shift_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 tile=(1, 1, 1) loops=16 commands=176 floor=256 mem=12416
+micro_shift_16 GEMROCC RESULT errs=0 total=2695 ex=1675 ld=1845 st=474 ex_only=789 commands=176 loops=16 first_bad=-1 timeout=0
+micro_shift_16 GEMROCC PASS
+micro_shift_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 tile=(4, 4, 4) loops=16 commands=176 floor=4096 mem=12416
+micro_shift_4 GEMROCC RESULT errs=0 total=7802 ex=5810 ld=3232 st=1328 ex_only=3888 commands=176 loops=16 first_bad=-1 timeout=0
+micro_shift_4 GEMROCC PASS
+micro_shift_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 tile=(2, 2, 2) loops=16 commands=176 floor=1024 mem=12416
+micro_shift_8 GEMROCC RESULT errs=0 total=1961 ex=1846 ld=1720 st=688 ex_only=171 commands=176 loops=16 first_bad=-1 timeout=0
+micro_shift_8 GEMROCC PASS
+microb_lean_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=batched tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416
+microb_lean_16 GEMROCC RESULT errs=0 total=1509 ex=1388 ld=1379 st=385 ex_only=59 commands=101 loops=0 first_bad=-1 timeout=0
+microb_lean_16 GEMROCC PASS
+microb_lean_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=batched tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416
+microb_lean_4 GEMROCC RESULT errs=0 total=7377 ex=6017 ld=3428 st=1745 ex_only=3810 commands=2309 loops=0 first_bad=-1 timeout=0
+microb_lean_4 GEMROCC PASS
+microb_lean_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=batched tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416
+microb_lean_8 GEMROCC RESULT errs=0 total=2396 ex=1991 ld=1958 st=1535 ex_only=211 commands=389 loops=0 first_bad=-1 timeout=0
+microb_lean_8 GEMROCC PASS
+microb_matmul_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=batched tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416
+microb_matmul_16 GEMROCC RESULT errs=0 total=1499 ex=1388 ld=1377 st=364 ex_only=64 commands=101 loops=0 first_bad=-1 timeout=0
+microb_matmul_16 GEMROCC PASS
+microb_matmul_16_b128 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=batched tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416 bus=128
+microb_matmul_16_b128 GEMROCC RESULT errs=0 total=1015 ex=796 ld=885 st=431 ex_only=24 commands=101 loops=0 first_bad=-1 timeout=0
+microb_matmul_16_b128 GEMROCC PASS
+microb_matmul_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=batched tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416
+microb_matmul_4 GEMROCC RESULT errs=0 total=7310 ex=6017 ld=3396 st=1328 ex_only=3810 commands=2309 loops=0 first_bad=-1 timeout=0
+microb_matmul_4 GEMROCC PASS
+microb_matmul_4_b128 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=batched tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416 bus=128
+microb_matmul_4_b128 GEMROCC RESULT errs=0 total=7308 ex=6017 ld=3395 st=1328 ex_only=3810 commands=2309 loops=0 first_bad=-1 timeout=0
+microb_matmul_4_b128 GEMROCC PASS
+microb_matmul_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=batched tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416
+microb_matmul_8 GEMROCC RESULT errs=0 total=2440 ex=2039 ld=2097 st=963 ex_only=261 commands=389 loops=0 first_bad=-1 timeout=0
+microb_matmul_8 GEMROCC PASS
+microb_matmul_8_b128 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=batched tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416 bus=128
+microb_matmul_8_b128 GEMROCC RESULT errs=0 total=2419 ex=2024 ld=1965 st=963 ex_only=373 commands=389 loops=0 first_bad=-1 timeout=0
+microb_matmul_8_b128 GEMROCC PASS
+microb_shift_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=batched tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416
+microb_shift_16 GEMROCC RESULT errs=0 total=1501 ex=1388 ld=1378 st=364 ex_only=64 commands=101 loops=0 first_bad=-1 timeout=0
+microb_shift_16 GEMROCC PASS
+microb_shift_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=batched tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416
+microb_shift_4 GEMROCC RESULT errs=0 total=7327 ex=6017 ld=3412 st=1328 ex_only=3810 commands=2309 loops=0 first_bad=-1 timeout=0
+microb_shift_4 GEMROCC PASS
+microb_shift_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=batched tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416
+microb_shift_8 GEMROCC RESULT errs=0 total=2447 ex=2039 ld=2103 st=963 ex_only=261 commands=389 loops=0 first_bad=-1 timeout=0
+microb_shift_8 GEMROCC PASS
+microp_matmul_16 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=phased tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416 bus=64
+microp_matmul_16 GEMROCC RESULT errs=0 total=1904 ex=380 ld=1169 st=629 ex_only=63 commands=101 loops=0 first_bad=-1 timeout=0
+microp_matmul_16 GEMROCC PASS
+microp_matmul_16_b128 GEMROCC PLAN dim=16 M=16 K=16 N=16 matmuls=16 program=phased tile=(1, 1, 1) loops=0 commands=101 floor=256 mem=12416 bus=128
+microp_matmul_16_b128 GEMROCC RESULT errs=0 total=1336 ex=405 ld=1015 st=429 ex_only=3 commands=101 loops=0 first_bad=-1 timeout=0
+microp_matmul_16_b128 GEMROCC PASS
+microp_matmul_4 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=phased tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416 bus=64
+microp_matmul_4 GEMROCC RESULT errs=0 total=8285 ex=4220 ld=2946 st=1185 ex_only=4073 commands=2309 loops=0 first_bad=-1 timeout=0
+microp_matmul_4 GEMROCC PASS
+microp_matmul_4_b128 GEMROCC PLAN dim=4 M=16 K=16 N=16 matmuls=16 program=phased tile=(4, 4, 4) loops=0 commands=2309 floor=4096 mem=12416 bus=128
+microp_matmul_4_b128 GEMROCC RESULT errs=0 total=8283 ex=4220 ld=2945 st=1185 ex_only=4073 commands=2309 loops=0 first_bad=-1 timeout=0
+microp_matmul_4_b128 GEMROCC PASS
+microp_matmul_8 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=phased tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416 bus=64
+microp_matmul_8 GEMROCC RESULT errs=0 total=2940 ex=1123 ld=1298 st=645 ex_only=948 commands=389 loops=0 first_bad=-1 timeout=0
+microp_matmul_8 GEMROCC PASS
+microp_matmul_8_b128 GEMROCC PLAN dim=8 M=16 K=16 N=16 matmuls=16 program=phased tile=(2, 2, 2) loops=0 commands=389 floor=1024 mem=12416 bus=128
+microp_matmul_8_b128 GEMROCC RESULT errs=0 total=2886 ex=1125 ld=1233 st=645 ex_only=960 commands=389 loops=0 first_bad=-1 timeout=0
+microp_matmul_8_b128 GEMROCC PASS

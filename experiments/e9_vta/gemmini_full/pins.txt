@@ -1,0 +1,9 @@
+gemmini           8c3f9923a44a2fe2c7930587be297d6d4f8c09ca  github.com/ucb-bar/gemmini
+chipyard (pin)    e02074414158c85059c1dcb231ff2f8941254b9a  github.com/ucb-bar/chipyard
+rocket-chip       c7aabd2823d3d001a7a9e8a982bb65d6cb7c9bdf  github.com/chipsalliance/rocket-chip
+diplomacy         6b7dc988a771ff21237b102fd02a1f2d2c2e7b72  github.com/chipsalliance/diplomacy
+cde               2bcaeae2b9914bd25497ce3c6fa62dc5ca80e09f  github.com/chipsalliance/cde
+hardfloat         4225367ed282aadd70f4cbd131f6959f4d00c502  github.com/ucb-bar/berkeley-hardfloat
+firesim           b084672c2f8cf32e55d78f73a001074c23f8a2b8  github.com/firesim/firesim
+gemmini-rocc-tests 7c540b3adf1b86ad93d07f893abe3a73489b568e  github.com/ucb-bar/gemmini-rocc-tests (include/gemmini.h only)
+chisel 6.5.0, scala 2.13.12, firtool 1.62.0

@@ -1,0 +1,672 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Thu Oct  1 18:35:25 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing -from [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -to [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -max_paths 3 -nworst 1 -sort_by slack -file scope_timing.rpt
+| Design            : Gemmini
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postRoute
+| Temperature Grade : E
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (VIOLATED) :        -12.280ns  (required time - arrival time)
+  Source:                 spad/norm_unit_passthru_q/wrap_1_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]/S
+                            (rising edge-triggered cell FDSE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        15.494ns  (logic 6.858ns (44.263%)  route 8.636ns (55.737%))
+  Logic Levels:           55  (CARRY8=15 DSP_A_B_DATA=1 DSP_ALU=2 DSP_M_DATA=1 DSP_MULTIPLIER=1 DSP_OUTPUT=2 DSP_PREADD_DATA=1 LUT2=5 LUT3=2 LUT4=2 LUT5=8 LUT6=14 RAMD32=1)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 3.353 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=40277, unset)        0.030     0.030    spad/norm_unit_passthru_q/clock
+    SLICE_X145Y523       FDRE                                         r  spad/norm_unit_passthru_q/wrap_1_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X145Y523       FDRE (Prop_BFF_SLICEM_C_Q)
+                                                      0.078     0.108 r  spad/norm_unit_passthru_q/wrap_1_reg/Q
+                         net (fo=298, routed)         0.397     0.505    spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_28_41/ADDRB0
+    SLICE_X145Y524       RAMD32 (Prop_B6LUT_SLICEM_RADR0_O)
+                                                      0.149     0.654 r  spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_28_41/RAMB_D1/O
+                         net (fo=92, routed)          0.377     1.030    spad/norm_unit_passthru_q/ram_ext/_norm_unit_passthru_q_io_deq_bits_acc_read_resp_data_0_0[31]
+    SLICE_X141Y522       LUT5 (Prop_B6LUT_SLICEM_I4_O)
+                                                      0.089     1.119 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_91/O
+                         net (fo=1, routed)           0.217     1.336    spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_91_n_0
+    SLICE_X140Y521       CARRY8 (Prop_CARRY8_SLICEL_S[0]_CO[7])
+                                                      0.190     1.526 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_72/CO[7]
+                         net (fo=1, routed)           0.026     1.552    spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_72_n_0
+    SLICE_X140Y522       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015     1.567 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_54/CO[7]
+                         net (fo=1, routed)           0.026     1.593    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_54_n_0
+    SLICE_X140Y523       CARRY8 (Prop_CARRY8_SLICEL_CI_O[7])
+                                                      0.116     1.709 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_43/O[7]
+                         net (fo=1, routed)           0.263     1.972    spad/norm_unit_passthru_q/ram_ext/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn/intAsRawFloat_absIn0[24]
+    SLICE_X141Y523       LUT4 (Prop_C6LUT_SLICEM_I0_O)
+                                                      0.088     2.060 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry__0_i_32/O
+                         net (fo=4, routed)           0.123     2.183    spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry__0_i_32_n_0
+    SLICE_X141Y523       LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.152     2.335 f  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_36/O
+                         net (fo=3, routed)           0.170     2.506    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_36_n_0
+    SLICE_X138Y524       LUT5 (Prop_E6LUT_SLICEL_I4_O)
+                                                      0.147     2.653 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_40/O
+                         net (fo=2, routed)           0.155     2.808    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_40_n_0
+    SLICE_X138Y523       LUT2 (Prop_E5LUT_SLICEL_I1_O)
+                                                      0.070     2.878 f  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_21/O
+                         net (fo=42, routed)          0.284     3.162    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_21_n_0
+    SLICE_X134Y525       LUT5 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.148     3.310 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_29/O
+                         net (fo=2, routed)           0.101     3.411    spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_29_n_0
+    SLICE_X134Y525       LUT3 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.123     3.534 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_12/O
+                         net (fo=4, routed)           0.154     3.688    spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_12_n_0
+    SLICE_X132Y526       LUT3 (Prop_D6LUT_SLICEL_I2_O)
+                                                      0.089     3.777 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_1/O
+                         net (fo=1, routed)           0.196     3.973    spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn/roundAnyRawFNToRecFN/_intAsRawFloat_sig_T[0]
+    SLICE_X130Y526       CARRY8 (Prop_CARRY8_SLICEL_CI_O[5])
+                                                      0.226     4.199 f  spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn/roundAnyRawFNToRecFN/roundedSig1_carry/O[5]
+                         net (fo=1, routed)           0.309     4.508    spad/norm_unit_passthru_q/ram_ext/roundedSig1[5]
+    SLICE_X130Y529       LUT5 (Prop_H6LUT_SLICEL_I4_O)
+                                                      0.051     4.559 f  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_11/O
+                         net (fo=1, routed)           0.250     4.809    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/B[6]
+    DSP48E2_X17Y206      DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_B[6]_B2_DATA[6])
+                                                      0.151     4.960 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_A_B_DATA_INST/B2_DATA[6]
+                         net (fo=1, routed)           0.000     4.960    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_A_B_DATA.B2_DATA<6>
+    DSP48E2_X17Y206      DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_B2_DATA[6]_B2B1[6])
+                                                      0.073     5.033 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_PREADD_DATA_INST/B2B1[6]
+                         net (fo=1, routed)           0.000     5.033    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_PREADD_DATA.B2B1<6>
+    DSP48E2_X17Y206      DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_B2B1[6]_V[35])
+                                                      0.609     5.642 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_MULTIPLIER_INST/V[35]
+                         net (fo=1, routed)           0.000     5.642    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_MULTIPLIER.V<35>
+    DSP48E2_X17Y206      DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_V[35]_V_DATA[35])
+                                                      0.046     5.688 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_M_DATA_INST/V_DATA[35]
+                         net (fo=1, routed)           0.000     5.688    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_M_DATA.V_DATA<35>
+    DSP48E2_X17Y206      DSP_ALU (Prop_DSP_ALU_DSP48E2_V_DATA[35]_ALU_OUT[47])
+                                                      0.571     6.259 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000     6.259    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X17Y206      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122     6.381 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.014     6.395    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1__0/PCIN[47]
+    DSP48E2_X17Y207      DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[0])
+                                                      0.546     6.941 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1__0/DSP_ALU_INST/ALU_OUT[0]
+                         net (fo=1, routed)           0.000     6.941    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1__0/DSP_ALU.ALU_OUT<0>
+    DSP48E2_X17Y207      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[0]_P[0])
+                                                      0.109     7.050 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1__0/DSP_OUTPUT_INST/P[0]
+                         net (fo=2, routed)           0.260     7.309    spad/acc_scale_unit/activated_data_e_scaled_muladder/io_mulAddResult1__1[17]
+    SLICE_X129Y533       LUT2 (Prop_B6LUT_SLICEM_I0_O)
+                                                      0.089     7.398 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_192/O
+                         net (fo=1, routed)           0.016     7.414    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_192_n_0
+    SLICE_X129Y533       CARRY8 (Prop_CARRY8_SLICEM_S[1]_CO[7])
+                                                      0.190     7.604 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_143/CO[7]
+                         net (fo=1, routed)           0.026     7.630    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_143_n_0
+    SLICE_X129Y534       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015     7.645 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_144/CO[7]
+                         net (fo=1, routed)           0.026     7.671    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_144_n_0
+    SLICE_X129Y535       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015     7.686 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_132/CO[7]
+                         net (fo=1, routed)           0.026     7.712    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_132_n_0
+    SLICE_X129Y536       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015     7.727 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry__0_i_83/CO[7]
+                         net (fo=1, routed)           0.026     7.753    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry__0_i_83_n_0
+    SLICE_X129Y537       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[0])
+                                                      0.052     7.805 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/stages_0_resp_data_0_0_reg[7]_i_47/CO[0]
+                         net (fo=2, routed)           0.293     8.099    spad/norm_unit_passthru_q/ram_ext/CO[0]
+    SLICE_X134Y536       LUT2 (Prop_A6LUT_SLICEL_I1_O)
+                                                      0.050     8.149 r  spad/norm_unit_passthru_q/ram_ext/stages_0_resp_data_0_0[7]_i_50/O
+                         net (fo=1, routed)           0.009     8.158    spad/norm_unit_passthru_q/ram_ext/stages_0_resp_data_0_0[7]_i_50_n_0
+    SLICE_X134Y536       CARRY8 (Prop_CARRY8_SLICEL_S[0]_O[0])
+                                                      0.063     8.221 r  spad/norm_unit_passthru_q/ram_ext/stages_0_resp_data_0_0_reg[7]_i_9/O[0]
+                         net (fo=5, routed)           0.422     8.643    spad/norm_unit_passthru_q/ram_ext/O[0]
+    SLICE_X131Y540       CARRY8 (Prop_CARRY8_SLICEL_S[0]_O[0])
+                                                      0.063     8.706 f  spad/norm_unit_passthru_q/ram_ext/i__carry_i_130/O[0]
+                         net (fo=4, routed)           0.173     8.879    spad/norm_unit_passthru_q/ram_ext/stages_0_resp_data_0_0_reg[7]_i_9_0[0]
+    SLICE_X130Y539       LUT5 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.097     8.976 f  spad/norm_unit_passthru_q/ram_ext/i__carry_i_129/O
+                         net (fo=4, routed)           0.138     9.113    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_90_0
+    SLICE_X129Y538       LUT5 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.037     9.150 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_148/O
+                         net (fo=1, routed)           0.263     9.413    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_148_n_0
+    SLICE_X132Y538       LUT6 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.088     9.501 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_90/O
+                         net (fo=73, routed)          0.228     9.729    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry__1_i_50
+    SLICE_X133Y535       LUT6 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.089     9.818 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_79/O
+                         net (fo=4, routed)           0.263    10.082    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_79_n_0
+    SLICE_X134Y538       LUT6 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.124    10.206 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_38/O
+                         net (fo=2, routed)           0.106    10.312    spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry_i_38_n_0
+    SLICE_X133Y539       LUT5 (Prop_E6LUT_SLICEM_I4_O)
+                                                      0.148    10.460 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/i__carry__1_i_10/O
+                         net (fo=53, routed)          0.264    10.724    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[5]_i_8_0
+    SLICE_X132Y545       LUT2 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.035    10.759 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/i__carry_i_10/O
+                         net (fo=4, routed)           0.094    10.853    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/i__carry_i_10_n_0
+    SLICE_X133Y545       LUT2 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.038    10.891 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/i__carry_i_1/O
+                         net (fo=1, routed)           0.133    11.024    spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/stages_0_resp_data_0_0[5]_i_20
+    SLICE_X133Y546       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.153    11.177 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry/CO[7]
+                         net (fo=1, routed)           0.026    11.203    spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry_n_0
+    SLICE_X133Y547       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015    11.218 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0/CO[7]
+                         net (fo=1, routed)           0.026    11.244    spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0_n_0
+    SLICE_X133Y548       CARRY8 (Prop_CARRY8_SLICEM_CI_O[7])
+                                                      0.116    11.360 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__1/O[7]
+                         net (fo=3, routed)           0.225    11.585    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_125_1[23]
+    SLICE_X134Y546       LUT6 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.090    11.675 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_80/O
+                         net (fo=9, routed)           0.214    11.889    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_80_n_0
+    SLICE_X135Y545       LUT6 (Prop_F6LUT_SLICEL_I3_O)
+                                                      0.097    11.986 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_124/O
+                         net (fo=1, routed)           0.135    12.121    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_124_n_0
+    SLICE_X135Y545       LUT6 (Prop_D6LUT_SLICEL_I3_O)
+                                                      0.099    12.220 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_54/O
+                         net (fo=4, routed)           0.148    12.369    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_54_n_0
+    SLICE_X135Y548       LUT6 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.097    12.466 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[6]_i_30/O
+                         net (fo=58, routed)          0.308    12.774    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[6]_i_30_n_0
+    SLICE_X136Y550       LUT6 (Prop_C6LUT_SLICEL_I2_O)
+                                                      0.146    12.920 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_229/O
+                         net (fo=4, routed)           0.159    13.080    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_229_n_0
+    SLICE_X134Y550       LUT5 (Prop_C6LUT_SLICEL_I3_O)
+                                                      0.146    13.226 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_170/O
+                         net (fo=3, routed)           0.156    13.381    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_170_n_0
+    SLICE_X134Y550       LUT6 (Prop_H6LUT_SLICEL_I1_O)
+                                                      0.124    13.505 f  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_151/O
+                         net (fo=2, routed)           0.181    13.686    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_151_n_0
+    SLICE_X134Y551       LUT6 (Prop_B6LUT_SLICEL_I0_O)
+                                                      0.036    13.722 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_74/O
+                         net (fo=2, routed)           0.109    13.831    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_74_n_0
+    SLICE_X134Y551       LUT6 (Prop_D6LUT_SLICEL_I2_O)
+                                                      0.146    13.977 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[6]_i_8/O
+                         net (fo=31, routed)          0.235    14.212    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[6]_i_8_n_0
+    SLICE_X135Y554       LUT4 (Prop_E5LUT_SLICEL_I3_O)
+                                                      0.138    14.350 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_102/O
+                         net (fo=4, routed)           0.203    14.554    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_102_n_0
+    SLICE_X137Y554       LUT6 (Prop_G6LUT_SLICEM_I3_O)
+                                                      0.090    14.644 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_39/O
+                         net (fo=1, routed)           0.233    14.877    spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0[7]_i_39_n_0
+    SLICE_X137Y554       CARRY8 (Prop_CARRY8_SLICEM_DI[2]_CO[4])
+                                                      0.160    15.037 r  spad/acc_scale_unit/activated_data_e_scaled_muladder/mulAddRecFNToRaw_preMul/stages_0_resp_data_0_0_reg[7]_i_8/CO[4]
+                         net (fo=2, routed)           0.127    15.164    spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[0]_0[0]
+    SLICE_X137Y555       LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.039    15.203 r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0[6]_i_1/O
+                         net (fo=7, routed)           0.321    15.524    spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0[6]_i_1_n_0
+    SLICE_X136Y556       FDSE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]/S
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=40277, unset)        0.020     3.353    spad/acc_scale_unit/pipe_out_p/clock
+    SLICE_X136Y556       FDSE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]/C
+                         clock pessimism              0.000     3.353    
+                         clock uncertainty           -0.035     3.318    
+    SLICE_X136Y556       FDSE (Setup_HFF_SLICEL_C_S)
+                                                     -0.074     3.244    spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]
+  -------------------------------------------------------------------
+                         required time                          3.244    
+                         arrival time                         -15.524    
+  -------------------------------------------------------------------
+                         slack                                -12.280    
+
+Slack (VIOLATED) :        -12.267ns  (required time - arrival time)
+  Source:                 spad/norm_unit_passthru_q/wrap_1_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_7_0_reg[6]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        15.580ns  (logic 7.071ns (45.386%)  route 8.509ns (54.614%))
+  Logic Levels:           55  (CARRY8=14 DSP_A_B_DATA=1 DSP_ALU=2 DSP_M_DATA=1 DSP_MULTIPLIER=1 DSP_OUTPUT=2 DSP_PREADD_DATA=1 LUT2=2 LUT3=3 LUT4=4 LUT5=6 LUT6=17 RAMD32=1)
+  Clock Path Skew:        -0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.020ns = ( 3.353 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=40277, unset)        0.030     0.030    spad/norm_unit_passthru_q/clock
+    SLICE_X145Y523       FDRE                                         r  spad/norm_unit_passthru_q/wrap_1_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X145Y523       FDRE (Prop_BFF_SLICEM_C_Q)
+                                                      0.078     0.108 r  spad/norm_unit_passthru_q/wrap_1_reg/Q
+                         net (fo=298, routed)         0.429     0.537    spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_224_237/ADDRA0
+    SLICE_X142Y517       RAMD32 (Prop_A5LUT_SLICEM_RADR0_O)
+                                                      0.163     0.700 f  spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_224_237/RAMA/O
+                         net (fo=6, routed)           0.234     0.934    spad/norm_unit_passthru_q/ram_ext/_norm_unit_passthru_q_io_deq_bits_acc_read_resp_data_7_0[0]
+    SLICE_X144Y517       LUT3 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.124     1.058 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_128__1/O
+                         net (fo=1, routed)           0.232     1.290    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_128__1_n_0
+    SLICE_X143Y515       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.151     1.441 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_117__2/CO[7]
+                         net (fo=1, routed)           0.026     1.467    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_117__2_n_0
+    SLICE_X143Y516       CARRY8 (Prop_CARRY8_SLICEL_CI_O[3])
+                                                      0.082     1.549 f  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_42__5/O[3]
+                         net (fo=2, routed)           0.189     1.737    spad/norm_unit_passthru_q/ram_ext/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_7/intAsRawFloat_absIn0[12]
+    SLICE_X144Y516       LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.150     1.887 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_34__5/O
+                         net (fo=3, routed)           0.435     2.323    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_34__5_n_0
+    SLICE_X143Y506       LUT5 (Prop_C6LUT_SLICEL_I4_O)
+                                                      0.096     2.419 f  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_43__5/O
+                         net (fo=2, routed)           0.159     2.578    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_43__5_n_0
+    SLICE_X142Y506       LUT6 (Prop_G6LUT_SLICEM_I5_O)
+                                                      0.037     2.615 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_29__5/O
+                         net (fo=2, routed)           0.097     2.712    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_29__5_n_0
+    SLICE_X142Y505       LUT4 (Prop_B6LUT_SLICEM_I3_O)
+                                                      0.125     2.837 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_18__5/O
+                         net (fo=39, routed)          0.203     3.040    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_18__5_n_0
+    SLICE_X141Y504       LUT6 (Prop_D6LUT_SLICEM_I1_O)
+                                                      0.088     3.128 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_54__2/O
+                         net (fo=3, routed)           0.102     3.230    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_54__2_n_0
+    SLICE_X141Y503       LUT6 (Prop_D6LUT_SLICEM_I0_O)
+                                                      0.145     3.375 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_58__2/O
+                         net (fo=2, routed)           0.263     3.638    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_58__2_n_0
+    SLICE_X144Y502       LUT3 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.051     3.689 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_28__2/O
+                         net (fo=4, routed)           0.276     3.965    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_28__2_n_0
+    SLICE_X143Y500       LUT3 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.036     4.001 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_2__5/O
+                         net (fo=1, routed)           0.010     4.011    spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_7/roundAnyRawFNToRecFN/io_mulAddResult1[7]
+    SLICE_X143Y500       CARRY8 (Prop_CARRY8_SLICEL_S[7]_CO[7])
+                                                      0.115     4.126 r  spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_7/roundAnyRawFNToRecFN/roundedSig1_carry/CO[7]
+                         net (fo=1, routed)           0.026     4.152    spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_7/roundAnyRawFNToRecFN/roundedSig1_carry_n_0
+    SLICE_X143Y501       CARRY8 (Prop_CARRY8_SLICEL_CI_O[3])
+                                                      0.082     4.234 f  spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_7/roundAnyRawFNToRecFN/roundedSig1_carry__0/O[3]
+                         net (fo=1, routed)           0.144     4.378    spad/norm_unit_passthru_q/ram_ext/roundedSig1_20[11]
+    SLICE_X142Y501       LUT5 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.150     4.528 f  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_5__5/O
+                         net (fo=1, routed)           0.119     4.647    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/B[12]
+    DSP48E2_X18Y194      DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_B[12]_B2_DATA[12])
+                                                      0.151     4.798 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_A_B_DATA_INST/B2_DATA[12]
+                         net (fo=1, routed)           0.000     4.798    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_A_B_DATA.B2_DATA<12>
+    DSP48E2_X18Y194      DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_B2_DATA[12]_B2B1[12])
+                                                      0.073     4.871 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_PREADD_DATA_INST/B2B1[12]
+                         net (fo=1, routed)           0.000     4.871    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_PREADD_DATA.B2B1<12>
+    DSP48E2_X18Y194      DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_B2B1[12]_V[40])
+                                                      0.609     5.480 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_MULTIPLIER_INST/V[40]
+                         net (fo=1, routed)           0.000     5.480    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_MULTIPLIER.V<40>
+    DSP48E2_X18Y194      DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_V[40]_V_DATA[40])
+                                                      0.046     5.526 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_M_DATA_INST/V_DATA[40]
+                         net (fo=1, routed)           0.000     5.526    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_M_DATA.V_DATA<40>
+    DSP48E2_X18Y194      DSP_ALU (Prop_DSP_ALU_DSP48E2_V_DATA[40]_ALU_OUT[47])
+                                                      0.571     6.097 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000     6.097    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X18Y194      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122     6.219 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.014     6.233    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1__0/PCIN[47]
+    DSP48E2_X18Y195      DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[0])
+                                                      0.546     6.779 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1__0/DSP_ALU_INST/ALU_OUT[0]
+                         net (fo=1, routed)           0.000     6.779    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1__0/DSP_ALU.ALU_OUT<0>
+    DSP48E2_X18Y195      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[0]_P[0])
+                                                      0.109     6.888 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1__0/DSP_OUTPUT_INST/P[0]
+                         net (fo=2, routed)           0.259     7.147    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1__1_23[17]
+    SLICE_X142Y497       LUT4 (Prop_B6LUT_SLICEM_I0_O)
+                                                      0.089     7.236 r  spad/norm_unit_passthru_q/ram_ext/i__carry_i_192__5/O
+                         net (fo=1, routed)           0.016     7.252    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_142__5_0[1]
+    SLICE_X142Y497       CARRY8 (Prop_CARRY8_SLICEM_S[1]_CO[7])
+                                                      0.190     7.442 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_143__5/CO[7]
+                         net (fo=1, routed)           0.026     7.468    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_143__5_n_0
+    SLICE_X142Y498       CARRY8 (Prop_CARRY8_SLICEM_CI_O[5])
+                                                      0.116     7.584 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_144__5/O[5]
+                         net (fo=5, routed)           0.455     8.039    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_144__5_n_10
+    SLICE_X145Y496       CARRY8 (Prop_CARRY8_SLICEM_S[5]_CO[7])
+                                                      0.159     8.198 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_145__5/CO[7]
+                         net (fo=1, routed)           0.026     8.224    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_145__5_n_0
+    SLICE_X145Y497       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015     8.239 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_131__5/CO[7]
+                         net (fo=1, routed)           0.026     8.265    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_131__5_n_0
+    SLICE_X145Y498       CARRY8 (Prop_CARRY8_SLICEM_CI_O[5])
+                                                      0.116     8.381 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry__0_i_81__5/O[5]
+                         net (fo=4, routed)           0.194     8.575    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_postMul/notCDom_absSigSum0[46]
+    SLICE_X145Y499       LUT5 (Prop_F6LUT_SLICEM_I4_O)
+                                                      0.098     8.673 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_168__5/O
+                         net (fo=2, routed)           0.048     8.721    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_168__5_n_0
+    SLICE_X145Y499       LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.053     8.774 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_128__5/O
+                         net (fo=4, routed)           0.334     9.108    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/io_mulAddResult1__0_1
+    SLICE_X147Y496       LUT4 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.036     9.144 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_122__5/O
+                         net (fo=2, routed)           0.222     9.366    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_122__5_n_0
+    SLICE_X148Y496       LUT6 (Prop_F6LUT_SLICEL_I2_O)
+                                                      0.148     9.514 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/i__carry_i_69__5/O
+                         net (fo=72, routed)          0.157     9.671    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_67__5_0
+    SLICE_X148Y497       LUT6 (Prop_B6LUT_SLICEL_I5_O)
+                                                      0.148     9.819 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_81__5/O
+                         net (fo=12, routed)          0.157     9.976    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_81__5_n_0
+    SLICE_X148Y500       LUT5 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.035    10.011 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry__0_i_29__5/O
+                         net (fo=15, routed)          0.160    10.171    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry__0_i_29__5_n_0
+    SLICE_X148Y499       LUT6 (Prop_C6LUT_SLICEL_I4_O)
+                                                      0.050    10.221 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_28__5/O
+                         net (fo=3, routed)           0.166    10.387    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_28__5_n_0
+    SLICE_X150Y499       LUT2 (Prop_A6LUT_SLICEM_I1_O)
+                                                      0.038    10.425 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_10__5/O
+                         net (fo=4, routed)           0.218    10.643    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_10__5_n_0
+    SLICE_X149Y499       LUT2 (Prop_C5LUT_SLICEM_I0_O)
+                                                      0.068    10.711 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry_i_1__5/O
+                         net (fo=1, routed)           0.166    10.877    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/stages_0_resp_data_7_0[7]_i_391
+    SLICE_X149Y499       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.153    11.030 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry/CO[7]
+                         net (fo=1, routed)           0.026    11.056    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry_n_0
+    SLICE_X149Y500       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015    11.071 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0/CO[7]
+                         net (fo=1, routed)           0.026    11.097    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0_n_0
+    SLICE_X149Y501       CARRY8 (Prop_CARRY8_SLICEM_CI_O[7])
+                                                      0.116    11.213 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__1/O[7]
+                         net (fo=3, routed)           0.164    11.377    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_132_1[23]
+    SLICE_X150Y501       LUT6 (Prop_E6LUT_SLICEM_I4_O)
+                                                      0.124    11.501 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_84/O
+                         net (fo=9, routed)           0.120    11.621    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_84_n_0
+    SLICE_X150Y499       LUT5 (Prop_D6LUT_SLICEM_I2_O)
+                                                      0.145    11.766 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_24/O
+                         net (fo=8, routed)           0.186    11.952    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/i__carry__1_i_36__5_0
+    SLICE_X153Y499       LUT5 (Prop_E6LUT_SLICEL_I1_O)
+                                                      0.099    12.051 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_57/O
+                         net (fo=4, routed)           0.122    12.173    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_57_n_0
+    SLICE_X153Y499       LUT6 (Prop_G6LUT_SLICEL_I0_O)
+                                                      0.149    12.322 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_256/O
+                         net (fo=58, routed)          0.506    12.829    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_256_n_0
+    SLICE_X155Y497       LUT6 (Prop_C6LUT_SLICEL_I2_O)
+                                                      0.088    12.917 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_336/O
+                         net (fo=3, routed)           0.248    13.164    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_336_n_0
+    SLICE_X156Y499       LUT6 (Prop_D6LUT_SLICEM_I4_O)
+                                                      0.099    13.263 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_236/O
+                         net (fo=1, routed)           0.150    13.413    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_236_n_0
+    SLICE_X156Y503       LUT6 (Prop_D6LUT_SLICEM_I5_O)
+                                                      0.145    13.558 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_138/O
+                         net (fo=3, routed)           0.200    13.759    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_138_n_0
+    SLICE_X155Y505       LUT6 (Prop_F6LUT_SLICEL_I2_O)
+                                                      0.123    13.882 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_78/O
+                         net (fo=2, routed)           0.044    13.926    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_78_n_0
+    SLICE_X155Y505       LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090    14.016 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_215/O
+                         net (fo=24, routed)          0.373    14.389    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_215_n_0
+    SLICE_X153Y504       LUT4 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.035    14.424 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_207/O
+                         net (fo=4, routed)           0.214    14.638    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_207_n_0
+    SLICE_X153Y508       LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.124    14.762 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_114/O
+                         net (fo=1, routed)           0.261    15.023    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[7]_i_114_n_0
+    SLICE_X153Y505       CARRY8 (Prop_CARRY8_SLICEL_DI[4]_CO[7])
+                                                      0.091    15.114 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0_reg[7]_i_36/CO[7]
+                         net (fo=1, routed)           0.026    15.140    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0_reg[7]_i_36_n_0
+    SLICE_X153Y506       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[4])
+                                                      0.092    15.232 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0_reg[7]_i_7/CO[4]
+                         net (fo=8, routed)           0.205    15.438    spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/activated_data_7_01
+    SLICE_X151Y506       LUT6 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.124    15.562 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_7/mulAddRecFNToRaw_preMul/stages_0_resp_data_7_0[6]_i_1/O
+                         net (fo=1, routed)           0.048    15.610    spad/acc_scale_unit/pipe_out_p/io_in_bits_resp_data_7_0[6]
+    SLICE_X151Y506       FDRE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_7_0_reg[6]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=40277, unset)        0.020     3.353    spad/acc_scale_unit/pipe_out_p/clock
+    SLICE_X151Y506       FDRE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_7_0_reg[6]/C
+                         clock pessimism              0.000     3.353    
+                         clock uncertainty           -0.035     3.318    
+    SLICE_X151Y506       FDRE (Setup_AFF_SLICEL_C_D)
+                                                      0.025     3.343    spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_7_0_reg[6]
+  -------------------------------------------------------------------
+                         required time                          3.343    
+                         arrival time                         -15.610    
+  -------------------------------------------------------------------
+                         slack                                -12.267    
+
+Slack (VIOLATED) :        -12.254ns  (required time - arrival time)
+  Source:                 spad/norm_unit_passthru_q/wrap_1_reg/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_6_0_reg[5]/D
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        15.567ns  (logic 7.035ns (45.191%)  route 8.532ns (54.809%))
+  Logic Levels:           61  (CARRY8=19 DSP_A_B_DATA=1 DSP_ALU=2 DSP_M_DATA=1 DSP_MULTIPLIER=1 DSP_OUTPUT=2 DSP_PREADD_DATA=1 LUT2=3 LUT3=5 LUT4=4 LUT5=7 LUT6=14 RAMD32=1)
+  Clock Path Skew:        -0.009ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.021ns = ( 3.354 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=40277, unset)        0.030     0.030    spad/norm_unit_passthru_q/clock
+    SLICE_X145Y523       FDRE                                         r  spad/norm_unit_passthru_q/wrap_1_reg/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X145Y523       FDRE (Prop_BFF_SLICEM_C_Q)
+                                                      0.078     0.108 r  spad/norm_unit_passthru_q/wrap_1_reg/Q
+                         net (fo=298, routed)         0.182     0.290    spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_280_293/ADDRF0
+    SLICE_X145Y522       RAMD32 (Prop_F6LUT_SLICEM_RADR0_O)
+                                                      0.148     0.438 f  spad/norm_unit_passthru_q/ram_ext/Memory_reg_0_1_280_293/RAMF_D1/O
+                         net (fo=162, routed)         0.308     0.747    spad/norm_unit_passthru_q/ram_ext/_norm_unit_passthru_q_io_deq_bits_acc_read_resp_act[2]
+    SLICE_X143Y522       LUT3 (Prop_A6LUT_SLICEL_I1_O)
+                                                      0.090     0.837 f  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_92__0/O
+                         net (fo=62, routed)          0.255     1.091    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_92__0_n_0
+    SLICE_X140Y520       LUT3 (Prop_H6LUT_SLICEL_I1_O)
+                                                      0.090     1.181 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_128__2/O
+                         net (fo=1, routed)           0.185     1.366    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_128__2_n_0
+    SLICE_X140Y517       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.151     1.517 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_117__3/CO[7]
+                         net (fo=1, routed)           0.026     1.543    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_117__3_n_0
+    SLICE_X140Y518       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015     1.558 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_42__6/CO[7]
+                         net (fo=1, routed)           0.026     1.584    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_42__6_n_0
+    SLICE_X140Y519       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015     1.599 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_84__3/CO[7]
+                         net (fo=1, routed)           0.026     1.625    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_84__3_n_0
+    SLICE_X140Y520       CARRY8 (Prop_CARRY8_SLICEL_CI_O[1])
+                                                      0.076     1.701 f  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_44__3/O[1]
+                         net (fo=2, routed)           0.133     1.834    spad/norm_unit_passthru_q/ram_ext/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_6/intAsRawFloat_absIn0[26]
+    SLICE_X138Y520       LUT6 (Prop_H6LUT_SLICEL_I1_O)
+                                                      0.090     1.924 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_45__6/O
+                         net (fo=2, routed)           0.085     2.009    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_45__6_n_0
+    SLICE_X138Y519       LUT5 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.036     2.045 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_38__6/O
+                         net (fo=1, routed)           0.145     2.190    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_38__6_n_0
+    SLICE_X138Y516       LUT5 (Prop_C6LUT_SLICEL_I0_O)
+                                                      0.123     2.313 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_23__6/O
+                         net (fo=3, routed)           0.103     2.417    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_23__6_n_0
+    SLICE_X140Y516       LUT5 (Prop_D6LUT_SLICEL_I4_O)
+                                                      0.099     2.516 f  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_28__6/O
+                         net (fo=2, routed)           0.046     2.561    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_28__6_n_0
+    SLICE_X140Y516       LUT3 (Prop_E6LUT_SLICEL_I2_O)
+                                                      0.035     2.596 r  spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_17__6/O
+                         net (fo=42, routed)          0.216     2.813    spad/norm_unit_passthru_q/ram_ext/io_toPostMul_sExpSum0__0_carry_i_17__6_n_0
+    SLICE_X141Y515       LUT6 (Prop_F6LUT_SLICEM_I3_O)
+                                                      0.123     2.936 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_54__3/O
+                         net (fo=3, routed)           0.229     3.165    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_54__3_n_0
+    SLICE_X142Y514       LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.152     3.317 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_58__3/O
+                         net (fo=2, routed)           0.065     3.382    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_58__3_n_0
+    SLICE_X142Y514       LUT3 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.149     3.531 r  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_28__3/O
+                         net (fo=4, routed)           0.245     3.776    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_28__3_n_0
+    SLICE_X143Y510       LUT3 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.036     3.812 r  spad/norm_unit_passthru_q/ram_ext/roundedSig1_carry_i_2__6/O
+                         net (fo=1, routed)           0.010     3.822    spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_6/roundAnyRawFNToRecFN/io_mulAddResult1[7]
+    SLICE_X143Y510       CARRY8 (Prop_CARRY8_SLICEL_S[7]_CO[7])
+                                                      0.115     3.937 r  spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_6/roundAnyRawFNToRecFN/roundedSig1_carry/CO[7]
+                         net (fo=1, routed)           0.026     3.963    spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_6/roundAnyRawFNToRecFN/roundedSig1_carry_n_0
+    SLICE_X143Y511       CARRY8 (Prop_CARRY8_SLICEL_CI_O[2])
+                                                      0.067     4.030 f  spad/acc_scale_unit/activated_data_e_scaled_in_to_rec_fn_6/roundAnyRawFNToRecFN/roundedSig1_carry__0/O[2]
+                         net (fo=1, routed)           0.263     4.293    spad/norm_unit_passthru_q/ram_ext/roundedSig1_21[10]
+    SLICE_X140Y511       LUT5 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.098     4.391 f  spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1_i_6__6/O
+                         net (fo=1, routed)           0.171     4.562    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/B[11]
+    DSP48E2_X18Y198      DSP_A_B_DATA (Prop_DSP_A_B_DATA_DSP48E2_B[11]_B2_DATA[11])
+                                                      0.151     4.713 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_A_B_DATA_INST/B2_DATA[11]
+                         net (fo=1, routed)           0.000     4.713    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_A_B_DATA.B2_DATA<11>
+    DSP48E2_X18Y198      DSP_PREADD_DATA (Prop_DSP_PREADD_DATA_DSP48E2_B2_DATA[11]_B2B1[11])
+                                                      0.073     4.786 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_PREADD_DATA_INST/B2B1[11]
+                         net (fo=1, routed)           0.000     4.786    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_PREADD_DATA.B2B1<11>
+    DSP48E2_X18Y198      DSP_MULTIPLIER (Prop_DSP_MULTIPLIER_DSP48E2_B2B1[11]_V[40])
+                                                      0.609     5.395 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_MULTIPLIER_INST/V[40]
+                         net (fo=1, routed)           0.000     5.395    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_MULTIPLIER.V<40>
+    DSP48E2_X18Y198      DSP_M_DATA (Prop_DSP_M_DATA_DSP48E2_V[40]_V_DATA[40])
+                                                      0.046     5.441 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_M_DATA_INST/V_DATA[40]
+                         net (fo=1, routed)           0.000     5.441    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_M_DATA.V_DATA<40>
+    DSP48E2_X18Y198      DSP_ALU (Prop_DSP_ALU_DSP48E2_V_DATA[40]_ALU_OUT[47])
+                                                      0.571     6.012 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_ALU_INST/ALU_OUT[47]
+                         net (fo=1, routed)           0.000     6.012    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_ALU.ALU_OUT<47>
+    DSP48E2_X18Y198      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[47]_PCOUT[47])
+                                                      0.122     6.134 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1/DSP_OUTPUT_INST/PCOUT[47]
+                         net (fo=1, routed)           0.014     6.148    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1__0/PCIN[47]
+    DSP48E2_X18Y199      DSP_ALU (Prop_DSP_ALU_DSP48E2_PCIN[47]_ALU_OUT[4])
+                                                      0.546     6.694 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1__0/DSP_ALU_INST/ALU_OUT[4]
+                         net (fo=1, routed)           0.000     6.694    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1__0/DSP_ALU.ALU_OUT<4>
+    DSP48E2_X18Y199      DSP_OUTPUT (Prop_DSP_OUTPUT_DSP48E2_ALU_OUT[4]_P[4])
+                                                      0.109     6.803 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/io_mulAddResult1__0/DSP_OUTPUT_INST/P[4]
+                         net (fo=2, routed)           0.242     7.045    spad/norm_unit_passthru_q/ram_ext/io_mulAddResult1__1_24[21]
+    SLICE_X141Y509       LUT4 (Prop_F6LUT_SLICEM_I0_O)
+                                                      0.098     7.143 r  spad/norm_unit_passthru_q/ram_ext/i__carry_i_188__6/O
+                         net (fo=1, routed)           0.022     7.165    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_142__6_0[5]
+    SLICE_X141Y509       CARRY8 (Prop_CARRY8_SLICEM_S[5]_CO[7])
+                                                      0.159     7.324 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_143__6/CO[7]
+                         net (fo=1, routed)           0.052     7.376    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_143__6_n_0
+    SLICE_X141Y510       CARRY8 (Prop_CARRY8_SLICEM_CI_O[0])
+                                                      0.056     7.432 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_144__6/O[0]
+                         net (fo=4, routed)           0.457     7.889    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_144__6_n_15
+    SLICE_X142Y510       CARRY8 (Prop_CARRY8_SLICEM_S[0]_CO[7])
+                                                      0.192     8.081 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_145__6/CO[7]
+                         net (fo=1, routed)           0.026     8.107    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_145__6_n_0
+    SLICE_X142Y511       CARRY8 (Prop_CARRY8_SLICEM_CI_O[7])
+                                                      0.116     8.223 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_131__6/O[7]
+                         net (fo=3, routed)           0.397     8.620    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_postMul/notCDom_absSigSum0[40]
+    SLICE_X144Y512       LUT5 (Prop_D6LUT_SLICEL_I4_O)
+                                                      0.036     8.656 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_177__6/O
+                         net (fo=2, routed)           0.050     8.707    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_177__6_n_0
+    SLICE_X144Y512       LUT6 (Prop_F6LUT_SLICEL_I5_O)
+                                                      0.123     8.830 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_133__6/O
+                         net (fo=4, routed)           0.105     8.935    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_133__6_n_0
+    SLICE_X144Y511       LUT4 (Prop_A6LUT_SLICEL_I0_O)
+                                                      0.149     9.084 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_122__6/O
+                         net (fo=2, routed)           0.201     9.285    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_122__6_n_0
+    SLICE_X143Y508       LUT6 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.049     9.334 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_90__6/O
+                         net (fo=73, routed)          0.195     9.528    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry__1_i_50__6
+    SLICE_X143Y507       LUT6 (Prop_G6LUT_SLICEL_I2_O)
+                                                      0.097     9.625 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_78__6/O
+                         net (fo=4, routed)           0.284     9.909    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_78__6_n_0
+    SLICE_X146Y507       LUT6 (Prop_C6LUT_SLICEM_I5_O)
+                                                      0.088     9.997 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_37__6/O
+                         net (fo=2, routed)           0.103    10.100    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry_i_37__6_n_0
+    SLICE_X147Y507       LUT5 (Prop_G6LUT_SLICEL_I1_O)
+                                                      0.149    10.249 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/i__carry__1_i_10__6/O
+                         net (fo=53, routed)          0.214    10.463    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_291_0
+    SLICE_X148Y508       LUT2 (Prop_E6LUT_SLICEL_I0_O)
+                                                      0.147    10.610 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/i__carry_i_10__6/O
+                         net (fo=4, routed)           0.096    10.706    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/i__carry_i_10__6_n_0
+    SLICE_X148Y507       LUT2 (Prop_H6LUT_SLICEL_I0_O)
+                                                      0.036    10.742 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/i__carry_i_1__6/O
+                         net (fo=1, routed)           0.127    10.869    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/stages_0_resp_data_6_0[7]_i_391
+    SLICE_X149Y508       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.153    11.022 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry/CO[7]
+                         net (fo=1, routed)           0.026    11.048    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry_n_0
+    SLICE_X149Y509       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015    11.063 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0/CO[7]
+                         net (fo=1, routed)           0.052    11.115    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__0_n_0
+    SLICE_X149Y510       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[7])
+                                                      0.015    11.130 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig1_inferred__1/i__carry__1/CO[7]
+                         net (fo=1, routed)           0.026    11.156    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/CO[0]
+    SLICE_X149Y511       CARRY8 (Prop_CARRY8_SLICEM_CI_CO[0])
+                                                      0.052    11.208 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_198/CO[0]
+                         net (fo=1, routed)           0.301    11.509    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/roundRawFNToRecFN/roundAnyRawFNToRecFN/roundedSig10_in[25]
+    SLICE_X150Y512       LUT4 (Prop_C6LUT_SLICEM_I1_O)
+                                                      0.088    11.597 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_83/O
+                         net (fo=9, routed)           0.231    11.829    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_83_n_0
+    SLICE_X148Y511       LUT6 (Prop_D6LUT_SLICEL_I2_O)
+                                                      0.146    11.975 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_130/O
+                         net (fo=1, routed)           0.086    12.061    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_130_n_0
+    SLICE_X149Y511       LUT6 (Prop_C6LUT_SLICEM_I0_O)
+                                                      0.051    12.112 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_56/O
+                         net (fo=4, routed)           0.093    12.205    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_56_n_0
+    SLICE_X149Y511       LUT6 (Prop_E6LUT_SLICEM_I3_O)
+                                                      0.037    12.242 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_267/O
+                         net (fo=50, routed)          0.312    12.553    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_267_n_0
+    SLICE_X151Y511       LUT6 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.089    12.642 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_284/O
+                         net (fo=4, routed)           0.116    12.758    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_284_n_0
+    SLICE_X153Y511       LUT6 (Prop_G6LUT_SLICEL_I1_O)
+                                                      0.123    12.881 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_189/O
+                         net (fo=5, routed)           0.373    13.254    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_189_n_0
+    SLICE_X155Y511       LUT5 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.090    13.344 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_76/O
+                         net (fo=5, routed)           0.101    13.446    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/activated_data_e_scaled_rec_fn_to_in_6/p_0_in[0]
+    SLICE_X155Y513       LUT2 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.035    13.481 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_159/O
+                         net (fo=1, routed)           0.318    13.799    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/activated_data_e_scaled_rec_fn_to_in_6/complUnroundedInt[0]
+    SLICE_X153Y514       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.151    13.950 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_67/CO[7]
+                         net (fo=1, routed)           0.026    13.976    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_67_n_0
+    SLICE_X153Y515       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015    13.991 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_306/CO[7]
+                         net (fo=1, routed)           0.026    14.017    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_306_n_0
+    SLICE_X153Y516       CARRY8 (Prop_CARRY8_SLICEL_CI_CO[7])
+                                                      0.015    14.032 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_219/CO[7]
+                         net (fo=1, routed)           0.026    14.058    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_219_n_0
+    SLICE_X153Y517       CARRY8 (Prop_CARRY8_SLICEL_CI_O[1])
+                                                      0.076    14.134 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_214/O[1]
+                         net (fo=1, routed)           0.353    14.487    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_214_n_14
+    SLICE_X155Y517       LUT4 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.036    14.523 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_105/O
+                         net (fo=4, routed)           0.107    14.630    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_105_n_0
+    SLICE_X155Y518       LUT6 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.146    14.776 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_28/O
+                         net (fo=1, routed)           0.321    15.097    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[7]_i_28_n_0
+    SLICE_X151Y518       CARRY8 (Prop_CARRY8_SLICEL_DI[2]_CO[4])
+                                                      0.155    15.252 f  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0_reg[7]_i_6/CO[4]
+                         net (fo=8, routed)           0.249    15.500    spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/activated_data_6_02
+    SLICE_X150Y516       LUT6 (Prop_H6LUT_SLICEM_I1_O)
+                                                      0.039    15.539 r  spad/acc_scale_unit/activated_data_e_scaled_muladder_6/mulAddRecFNToRaw_preMul/stages_0_resp_data_6_0[5]_i_1/O
+                         net (fo=1, routed)           0.058    15.597    spad/acc_scale_unit/pipe_out_p/io_in_bits_resp_data_6_0[5]
+    SLICE_X150Y516       FDRE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_6_0_reg[5]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=40277, unset)        0.021     3.354    spad/acc_scale_unit/pipe_out_p/clock
+    SLICE_X150Y516       FDRE                                         r  spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_6_0_reg[5]/C
+                         clock pessimism              0.000     3.354    
+                         clock uncertainty           -0.035     3.319    
+    SLICE_X150Y516       FDRE (Setup_HFF_SLICEM_C_D)
+                                                      0.025     3.344    spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_6_0_reg[5]
+  -------------------------------------------------------------------
+                         required time                          3.344    
+                         arrival time                         -15.597    
+  -------------------------------------------------------------------
+                         slack                                -12.254    
+
+
+
+

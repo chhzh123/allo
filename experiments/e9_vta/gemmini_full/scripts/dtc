@@ -1,0 +1,6 @@
+#!/bin/bash
+# Stand-in for the device-tree compiler. rocket-chip embeds a DTB in its boot
+# ROM, which is outside the Gemmini module this build exists for; the bytes
+# are never read.
+cat > /dev/null
+printf "\xd0\x0d\xfe\xed"

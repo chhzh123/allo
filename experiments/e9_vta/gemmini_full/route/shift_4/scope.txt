@@ -1,0 +1,14 @@
+SCOPE_CELLS 14359
+SCOPE_SLACK -3.864
+SCOPE_FROM ex_controller/cmd_q/raddr_reg[1]_rep__0/C
+SCOPE_TO spad/spad_mems_3/mem_ext/Memory_reg_3_bram_1/CASDOMUXA
+SCOPE_LEVELS 15
+EXECUTE_SLACK -3.312
+EXECUTE_FROM ex_controller/unrolled_cmd_mod/state_reg[1]/C
+EXECUTE_TO ex_controller/cmd_q/regs_3_rob_id_bits_reg[2]/D
+MESH_SLACK -3.263
+WHOLE_SLACK -7.262
+WHOLE_FROM mod/loops_0_ld_input_started_reg/C
+WHOLE_TO mod/ld_input/command_p/stages_0_spad_addr[28]_i_92_psdsp_1/D
+WHOLE_LEVELS 39
+rc=0

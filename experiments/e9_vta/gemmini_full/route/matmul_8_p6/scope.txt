@@ -1,0 +1,14 @@
+SCOPE_CELLS 28676
+SCOPE_SLACK -0.483
+SCOPE_FROM ex_controller/cmd_q/raddr_reg[0]/C
+SCOPE_TO spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/WEA[0]
+SCOPE_LEVELS 14
+EXECUTE_SLACK 0.399
+EXECUTE_FROM ex_controller/mesh_cntl_signals_q/deq_ptr_value_reg[0]/C
+EXECUTE_TO ex_controller/pending_completed_rob_ids_0_bits_reg[1]/CE
+MESH_SLACK 1.376
+WHOLE_SLACK -0.871
+WHOLE_FROM unrolled_cmd_q/wrap_1_reg/C
+WHOLE_TO reservation_station/entries_ld_1_bits_deps_ex_7_reg/D
+WHOLE_LEVELS 22
+rc=0

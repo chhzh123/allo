@@ -87,3 +87,36 @@ dsv4-gateup-slice,spmw-programmable,16,229426,32048,22306,0,0,0.290,ptpu-dsv4; o
 mixed-5gemm,spmw-programmable,4,1326,2803,2204,0,0,0.520,ptpu-mixed; cycles for the launch; five instructions; 1312 rows + 3S + 2
 mixed-5gemm,spmw-programmable,8,410,8665,6416,0,0,0.370,ptpu-mixed; five instructions; 384 rows + 3S + 2
 mixed-5gemm,spmw-programmable,16,258,32048,22306,0,0,0.290,ptpu-mixed; five instructions; 208 rows + 3S + 2
+engine-scope,gemmini-whole,4,,31545,21320,27,64,-3.262,Gemmini whole accelerator; matmul only; 4 URAM; 152 MHz at a 3.333 ns target; limited by the store controller into the scratchpad write queue
+engine-scope,gemmini-whole-shift,4,,37513,26079,161,64,-7.262,Gemmini whole accelerator; integer shift; 4 URAM; 94 MHz at a 3.333 ns target; limited by the convolution loop unroller
+engine-scope,gemmini-whole-lean,4,,44036,29579,177,64,-11.291,Gemmini whole accelerator; as shipped (leanConfig); 4 URAM; 68 MHz at a 3.333 ns target; limited by the float32 accumulator scale
+engine-scope,gemmini-execute-scope,4,,7027,4122,1,64,-3.005,execute controller + mesh + scratchpad; accumulator and scale of the matmul-only engine; 4 URAM; 158 MHz; command queue into the scratchpad
+engine-scope,vta-whole-engine-best,4,,10099,3441,0,14,-0.084,Core at a 4.6 ns target; best of three targets; 2 URAM; 213 MHz; datapath + scratchpads 235 MHz
+engine-scope,gemmini-whole,8,,38941,25648,25,80,-3.462,Gemmini whole accelerator; matmul only; 0 URAM; 147 MHz at a 3.333 ns target; limited by the store controller into the scratchpad write queue
+engine-scope,gemmini-whole-shift,8,,45362,30560,159,80,-7.164,Gemmini whole accelerator; integer shift; 0 URAM; 95 MHz at a 3.333 ns target; limited by the convolution loop unroller
+engine-scope,gemmini-whole-lean,8,,56329,34389,183,80,-12.280,Gemmini whole accelerator; as shipped (leanConfig); 0 URAM; 64 MHz at a 3.333 ns target; limited by the float32 accumulator scale
+engine-scope,gemmini-execute-scope,8,,14053,8655,1,80,-0.483,execute controller + mesh + scratchpad; accumulator and scale of the matmul-only engine; 0 URAM; 154 MHz; command queue into the scratchpad
+engine-scope,vta-whole-engine-best,8,,15403,4747,0,22,0.005,Core at a 4.6 ns target; best of three targets; 6 URAM; 218 MHz; datapath + scratchpads 224 MHz
+engine-scope,gemmini-whole,16,,65529,39989,29,16,-0.553,Gemmini whole accelerator; matmul only; 8 URAM; 153 MHz at a 6.0 ns target; limited by the DMA writer
+engine-scope,gemmini-whole-shift,16,,72215,45052,163,16,-7.545,Gemmini whole accelerator; integer shift; 8 URAM; 92 MHz at a 3.333 ns target; limited by the convolution loop unroller
+engine-scope,gemmini-whole-lean,16,,89053,49866,203,16,-12.275,Gemmini whole accelerator; as shipped (leanConfig); 8 URAM; 64 MHz at a 3.333 ns target; limited by the float32 accumulator scale
+engine-scope,gemmini-execute-scope,16,,40654,23535,1,16,-0.113,execute controller + mesh + scratchpad; accumulator and scale of the matmul-only engine; 8 URAM; 164 MHz; command queue into the scratchpad
+engine-scope,vta-whole-engine-best,16,,33923,7387,0,70,-0.156,Core at a 4.3 ns target; best of three targets; 12 URAM; 224 MHz; datapath + scratchpads 224 MHz
+micro-fixed16,gemmini-whole,4,456.9,31545,21320,27,64,-3.262,own RoCC commands (hand-scheduled); total 7310; 2309 commands; execute only 4220; 128-bit bus total 7308
+micro-fixed16,vta-whole,4,689.7,10099,3441,0,14,-0.084,own instructions through Core; total 11035; 12 instructions; compute only 10276; 1248 beats of a 64-bit port
+micro-fixed16,gemmini-whole,8,121.5,38941,25648,25,80,-3.462,own RoCC commands (library loop_ws); total 1944; 176 commands; execute only 1123; 128-bit bus total 1923
+micro-fixed16,vta-whole,8,324.9,15403,4747,0,22,0.005,own instructions through Core; total 5198; 12 instructions; compute only 4132; 1120 beats of a 64-bit port
+micro-fixed16,gemmini-whole,16,93.7,65529,39989,29,16,-0.553,own RoCC commands (hand-scheduled); total 1499; 101 commands; execute only 380; 128-bit bus total 1015
+micro-fixed16,vta-whole,16,212.8,33923,7387,0,70,-0.156,own instructions through Core; total 3405; 12 instructions; compute only 1828; 1080 beats of a 64-bit port
+llama-gateup-slice,gemmini-whole,4,1073610,31545,21320,27,64,-3.262,own RoCC commands (library loop_ws); total 1073610; 41 commands; execute only 1073085; 128-bit bus total 1073607
+llama-gateup-slice,vta-whole,4,1058331,10099,3441,0,14,-0.084,own instructions through Core; total 1058331; 103 instructions; compute only 1056984; 49422 beats of a 64-bit port
+llama-gateup-slice,gemmini-whole,8,274359,38941,25648,25,80,-3.462,own RoCC commands (library loop_ws); total 274359; 41 commands; execute only 273985; 128-bit bus total 274884
+llama-gateup-slice,vta-whole,8,269578,15403,4747,0,22,0.005,own instructions through Core; total 269578; 55 instructions; compute only 266360; 49326 beats of a 64-bit port
+llama-gateup-slice,gemmini-whole,16,77605,65529,39989,29,16,-0.553,own RoCC commands (library loop_ws); total 77605; 41 commands; execute only 77176; 128-bit bus total 78458
+llama-gateup-slice,vta-whole,16,74911,33923,7387,0,70,-0.156,own instructions through Core; total 74911; 31 instructions; compute only 67656; 49278 beats of a 64-bit port
+dsv4-gateup-slice,gemmini-whole,4,3723974,31545,21320,27,64,-3.262,own RoCC commands (library loop_ws); total 3723974; 125 commands; execute only 3723449; 128-bit bus total 3723971
+dsv4-gateup-slice,vta-whole,4,3680381,10099,3441,0,14,-0.084,own instructions through Core; total 3680381; 343 instructions; compute only 3678904; 172782 beats of a 64-bit port
+dsv4-gateup-slice,gemmini-whole,8,945033,38941,25648,25,80,-3.462,own RoCC commands (library loop_ws); total 945033; 125 commands; execute only 944659; 128-bit bus total 964222
+dsv4-gateup-slice,vta-whole,8,925364,15403,4747,0,22,0.005,own instructions through Core; total 925364; 175 instructions; compute only 921960; 172446 beats of a 64-bit port
+dsv4-gateup-slice,gemmini-whole,16,271099,65529,39989,29,16,-0.553,own RoCC commands (library loop_ws); total 271099; 113 commands; execute only 258774; 128-bit bus total 259074
+dsv4-gateup-slice,vta-whole,16,239011,33923,7387,0,70,-0.156,own instructions through Core; total 239011; 91 instructions; compute only 231616; 172278 beats of a 64-bit port

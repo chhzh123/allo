@@ -1,0 +1,267 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Thu Oct  1 18:21:12 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing -from [get_cells -hier -filter {IS_PRIMITIVE && NAME !~ fetch/* && NAME !~ *inst_q/* && NAME !~ *vmeCmd/* && NAME !~ */dec/* && NAME !~ ecounters/* && NAME !~ store/* && NAME !~ */s/* && NAME !~ */s_0/* && NAME !~ */s_1/*}] -to [get_cells -hier -filter {IS_PRIMITIVE && NAME !~ fetch/* && NAME !~ *inst_q/* && NAME !~ *vmeCmd/* && NAME !~ */dec/* && NAME !~ ecounters/* && NAME !~ store/* && NAME !~ */s/* && NAME !~ */s_0/* && NAME !~ */s_1/*}] -max_paths 3 -nworst 1 -sort_by slack -file scope_timing.rpt
+| Design            : Core
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postRoute
+| Temperature Grade : E
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (MET) :             0.138ns  (required time - arrival time)
+  Source:                 compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Destination:            compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/DIN_A[58]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.600ns  (clk rise@4.600ns - clk rise@0.000ns)
+  Data Path Delay:        4.045ns  (logic 1.507ns (37.257%)  route 2.538ns (62.743%))
+  Logic Levels:           12  (CARRY8=7 LUT2=3 LUT4=1 LUT6=1)
+  Clock Path Skew:        0.036ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 4.664 - 4.600 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=7311, unset)         0.028     0.028    compute/tensorGemm/mvc_0/dot_0_7/a_0_0/clock
+    SLICE_X148Y548       FDRE                                         r  compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X148Y548       FDRE (Prop_BFF_SLICEL_C_Q)
+                                                      0.079     0.107 r  compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/Q
+                         net (fo=1, routed)           0.273     0.380    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20_0[1]
+    SLICE_X146Y549       LUT2 (Prop_B6LUT_SLICEM_I1_O)
+                                                      0.052     0.432 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_772/O
+                         net (fo=1, routed)           0.016     0.448    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_772_n_0
+    SLICE_X146Y549       CARRY8 (Prop_CARRY8_SLICEM_S[1]_CO[7])
+                                                      0.190     0.638 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_499/CO[7]
+                         net (fo=1, routed)           0.026     0.664    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_499_n_0
+    SLICE_X146Y550       CARRY8 (Prop_CARRY8_SLICEM_CI_O[0])
+                                                      0.056     0.720 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20/O[0]
+                         net (fo=2, routed)           0.334     1.054    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20_n_15
+    SLICE_X149Y556       LUT2 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.125     1.179 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_28/O
+                         net (fo=1, routed)           0.013     1.192    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_28_n_0
+    SLICE_X149Y556       CARRY8 (Prop_CARRY8_SLICEM_S[0]_O[5])
+                                                      0.240     1.432 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_11/O[5]
+                         net (fo=2, routed)           0.549     1.981    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/io_a__6[13]
+    SLICE_X155Y573       LUT2 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.097     2.078 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_14/O
+                         net (fo=1, routed)           0.011     2.089    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_14_n_0
+    SLICE_X155Y573       CARRY8 (Prop_CARRY8_SLICEL_S[5]_CO[7])
+                                                      0.155     2.244 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_2/CO[7]
+                         net (fo=1, routed)           0.026     2.270    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_2_n_0
+    SLICE_X155Y574       CARRY8 (Prop_CARRY8_SLICEL_CI_O[0])
+                                                      0.056     2.326 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[16]_i_2/O[0]
+                         net (fo=4, routed)           0.778     3.104    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/dot_0_7_io_y[16]
+    SLICE_X181Y597       LUT4 (Prop_A6LUT_SLICEL_I3_O)
+                                                      0.149     3.253 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_164/O
+                         net (fo=1, routed)           0.009     3.262    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_164_n_0
+    SLICE_X181Y597       CARRY8 (Prop_CARRY8_SLICEL_S[0]_CO[7])
+                                                      0.190     3.452 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_75/CO[7]
+                         net (fo=1, routed)           0.026     3.478    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_75_n_0
+    SLICE_X181Y598       CARRY8 (Prop_CARRY8_SLICEL_CI_O[2])
+                                                      0.067     3.545 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_66/O[2]
+                         net (fo=1, routed)           0.218     3.763    compute/tensorAcc/tensorLoad/fillPadding/add_0_7[26]
+    SLICE_X181Y602       LUT6 (Prop_E6LUT_SLICEL_I2_O)
+                                                      0.051     3.814 r  compute/tensorAcc/tensorLoad/fillPadding/tensorFile_3_reg_uram_0_i_6/O
+                         net (fo=1, routed)           0.259     4.073    compute/tensorAcc/tensorLoad/tensorFile_3_MPORT_3_data[58]
+    URAM288_X4Y160       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/DIN_A[58]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.600     4.600 r  
+                                                      0.000     4.600 r  clock (IN)
+                         net (fo=7311, unset)         0.064     4.664    compute/tensorAcc/tensorLoad/clock
+    URAM288_X4Y160       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/CLK
+                         clock pessimism              0.000     4.664    
+                         clock uncertainty           -0.035     4.629    
+    URAM288_X4Y160       URAM288 (Setup_URAM_288K_INST_URAM288_CLK_DIN_A[58])
+                                                     -0.418     4.211    compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0
+  -------------------------------------------------------------------
+                         required time                          4.211    
+                         arrival time                          -4.073    
+  -------------------------------------------------------------------
+                         slack                                  0.138    
+
+Slack (MET) :             0.141ns  (required time - arrival time)
+  Source:                 compute/tensorGemm/mvc_0/dot_0_4/a_0_2/rA_reg[0]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Destination:            compute/tensorAcc/tensorLoad/tensorFile_2_reg_uram_0/DIN_A[31]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.600ns  (clk rise@4.600ns - clk rise@0.000ns)
+  Data Path Delay:        3.985ns  (logic 1.691ns (42.436%)  route 2.294ns (57.564%))
+  Logic Levels:           12  (CARRY8=7 LUT2=3 LUT4=1 LUT6=1)
+  Clock Path Skew:        0.034ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 4.664 - 4.600 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=7311, unset)         0.030     0.030    compute/tensorGemm/mvc_0/dot_0_4/a_0_2/clock
+    SLICE_X156Y557       FDRE                                         r  compute/tensorGemm/mvc_0/dot_0_4/a_0_2/rA_reg[0]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X156Y557       FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 r  compute/tensorGemm/mvc_0/dot_0_4/a_0_2/rA_reg[0]/Q
+                         net (fo=2, routed)           0.330     0.437    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[8]_i_40_0[0]
+    SLICE_X154Y558       LUT2 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.090     0.527 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_1189/O
+                         net (fo=1, routed)           0.013     0.540    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_1189_n_0
+    SLICE_X154Y558       CARRY8 (Prop_CARRY8_SLICEM_S[0]_O[5])
+                                                      0.240     0.780 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_901/O[5]
+                         net (fo=2, routed)           0.339     1.119    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_901_n_10
+    SLICE_X155Y560       LUT2 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.123     1.242 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_904/O
+                         net (fo=1, routed)           0.011     1.253    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_904_n_0
+    SLICE_X155Y560       CARRY8 (Prop_CARRY8_SLICEL_S[5]_CO[7])
+                                                      0.155     1.408 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_610/CO[7]
+                         net (fo=1, routed)           0.026     1.434    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_0_reg_uram_0_i_610_n_0
+    SLICE_X155Y561       CARRY8 (Prop_CARRY8_SLICEL_CI_O[5])
+                                                      0.116     1.550 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[8]_i_29/O[5]
+                         net (fo=1, routed)           0.250     1.800    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[8]_i_29_n_10
+    SLICE_X158Y561       LUT2 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.148     1.948 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4[8]_i_14/O
+                         net (fo=1, routed)           0.011     1.959    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4[8]_i_14_n_0
+    SLICE_X158Y561       CARRY8 (Prop_CARRY8_SLICEL_S[5]_CO[7])
+                                                      0.155     2.114 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[8]_i_2/CO[7]
+                         net (fo=1, routed)           0.026     2.140    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[8]_i_2_n_0
+    SLICE_X158Y562       CARRY8 (Prop_CARRY8_SLICEL_CI_O[0])
+                                                      0.056     2.196 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/last_acc_write_0_4_reg[16]_i_2/O[0]
+                         net (fo=4, routed)           0.712     2.908    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/dot_0_4_io_y[16]
+    SLICE_X178Y586       LUT4 (Prop_A6LUT_SLICEL_I3_O)
+                                                      0.124     3.032 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_2_reg_uram_0_i_256/O
+                         net (fo=1, routed)           0.009     3.041    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_2_reg_uram_0_i_256_n_0
+    SLICE_X178Y586       CARRY8 (Prop_CARRY8_SLICEL_S[0]_CO[7])
+                                                      0.190     3.231 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_2_reg_uram_0_i_103/CO[7]
+                         net (fo=1, routed)           0.026     3.257    compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_2_reg_uram_0_i_103_n_0
+    SLICE_X178Y587       CARRY8 (Prop_CARRY8_SLICEL_CI_O[7])
+                                                      0.116     3.373 r  compute/tensorGemm/mvc_0/dot_0_4/a_2_0/tensorFile_2_reg_uram_0_i_94/O[7]
+                         net (fo=1, routed)           0.220     3.593    compute/tensorAcc/tensorLoad/fillPadding/add_0_4[31]
+    SLICE_X179Y590       LUT6 (Prop_H6LUT_SLICEM_I2_O)
+                                                      0.101     3.694 r  compute/tensorAcc/tensorLoad/fillPadding/tensorFile_2_reg_uram_0_i_33/O
+                         net (fo=1, routed)           0.321     4.015    compute/tensorAcc/tensorLoad/tensorFile_2_MPORT_2_data[31]
+    URAM288_X4Y158       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_2_reg_uram_0/DIN_A[31]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.600     4.600 r  
+                                                      0.000     4.600 r  clock (IN)
+                         net (fo=7311, unset)         0.064     4.664    compute/tensorAcc/tensorLoad/clock
+    URAM288_X4Y158       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_2_reg_uram_0/CLK
+                         clock pessimism              0.000     4.664    
+                         clock uncertainty           -0.035     4.629    
+    URAM288_X4Y158       URAM288 (Setup_URAM_288K_INST_URAM288_CLK_DIN_A[31])
+                                                     -0.473     4.156    compute/tensorAcc/tensorLoad/tensorFile_2_reg_uram_0
+  -------------------------------------------------------------------
+                         required time                          4.156    
+                         arrival time                          -4.015    
+  -------------------------------------------------------------------
+                         slack                                  0.141    
+
+Slack (MET) :             0.142ns  (required time - arrival time)
+  Source:                 compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Destination:            compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/DIN_A[61]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@2.300ns period=4.600ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            4.600ns  (clk rise@4.600ns - clk rise@0.000ns)
+  Data Path Delay:        4.044ns  (logic 1.542ns (38.132%)  route 2.502ns (61.868%))
+  Logic Levels:           12  (CARRY8=7 LUT2=3 LUT4=1 LUT6=1)
+  Clock Path Skew:        0.036ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 4.664 - 4.600 ) 
+    Source Clock Delay      (SCD):    0.028ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=7311, unset)         0.028     0.028    compute/tensorGemm/mvc_0/dot_0_7/a_0_0/clock
+    SLICE_X148Y548       FDRE                                         r  compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X148Y548       FDRE (Prop_BFF_SLICEL_C_Q)
+                                                      0.079     0.107 r  compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/Q
+                         net (fo=1, routed)           0.273     0.380    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20_0[1]
+    SLICE_X146Y549       LUT2 (Prop_B6LUT_SLICEM_I1_O)
+                                                      0.052     0.432 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_772/O
+                         net (fo=1, routed)           0.016     0.448    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_772_n_0
+    SLICE_X146Y549       CARRY8 (Prop_CARRY8_SLICEM_S[1]_CO[7])
+                                                      0.190     0.638 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_499/CO[7]
+                         net (fo=1, routed)           0.026     0.664    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_0_reg_uram_0_i_499_n_0
+    SLICE_X146Y550       CARRY8 (Prop_CARRY8_SLICEM_CI_O[0])
+                                                      0.056     0.720 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20/O[0]
+                         net (fo=2, routed)           0.334     1.054    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_20_n_15
+    SLICE_X149Y556       LUT2 (Prop_A6LUT_SLICEM_I0_O)
+                                                      0.125     1.179 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_28/O
+                         net (fo=1, routed)           0.013     1.192    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_28_n_0
+    SLICE_X149Y556       CARRY8 (Prop_CARRY8_SLICEM_S[0]_O[5])
+                                                      0.240     1.432 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_11/O[5]
+                         net (fo=2, routed)           0.549     1.981    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/io_a__6[13]
+    SLICE_X155Y573       LUT2 (Prop_F6LUT_SLICEL_I0_O)
+                                                      0.097     2.078 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_14/O
+                         net (fo=1, routed)           0.011     2.089    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7[8]_i_14_n_0
+    SLICE_X155Y573       CARRY8 (Prop_CARRY8_SLICEL_S[5]_CO[7])
+                                                      0.155     2.244 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_2/CO[7]
+                         net (fo=1, routed)           0.026     2.270    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[8]_i_2_n_0
+    SLICE_X155Y574       CARRY8 (Prop_CARRY8_SLICEL_CI_O[0])
+                                                      0.056     2.326 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/last_acc_write_0_7_reg[16]_i_2/O[0]
+                         net (fo=4, routed)           0.778     3.104    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/dot_0_7_io_y[16]
+    SLICE_X181Y597       LUT4 (Prop_A6LUT_SLICEL_I3_O)
+                                                      0.149     3.253 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_164/O
+                         net (fo=1, routed)           0.009     3.262    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_164_n_0
+    SLICE_X181Y597       CARRY8 (Prop_CARRY8_SLICEL_S[0]_CO[7])
+                                                      0.190     3.452 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_75/CO[7]
+                         net (fo=1, routed)           0.026     3.478    compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_75_n_0
+    SLICE_X181Y598       CARRY8 (Prop_CARRY8_SLICEL_CI_O[5])
+                                                      0.116     3.594 r  compute/tensorGemm/mvc_0/dot_0_7/a_2_0/tensorFile_3_reg_uram_0_i_66/O[5]
+                         net (fo=1, routed)           0.205     3.799    compute/tensorAcc/tensorLoad/fillPadding/add_0_7[29]
+    SLICE_X182Y602       LUT6 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.037     3.836 r  compute/tensorAcc/tensorLoad/fillPadding/tensorFile_3_reg_uram_0_i_3/O
+                         net (fo=1, routed)           0.236     4.072    compute/tensorAcc/tensorLoad/tensorFile_3_MPORT_3_data[61]
+    URAM288_X4Y160       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/DIN_A[61]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        4.600     4.600 r  
+                                                      0.000     4.600 r  clock (IN)
+                         net (fo=7311, unset)         0.064     4.664    compute/tensorAcc/tensorLoad/clock
+    URAM288_X4Y160       URAM288                                      r  compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/CLK
+                         clock pessimism              0.000     4.664    
+                         clock uncertainty           -0.035     4.629    
+    URAM288_X4Y160       URAM288 (Setup_URAM_288K_INST_URAM288_CLK_DIN_A[61])
+                                                     -0.415     4.214    compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0
+  -------------------------------------------------------------------
+                         required time                          4.214    
+                         arrival time                          -4.072    
+  -------------------------------------------------------------------
+                         slack                                  0.142    
+
+
+
+

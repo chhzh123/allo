@@ -1,0 +1,14 @@
+SCOPE_CELLS 13983
+SCOPE_SLACK -3.005
+SCOPE_FROM ex_controller/cmd_q/raddr_reg[1]_rep__0/C
+SCOPE_TO spad/spad_mems_3/mem_ext/Memory_reg_0_bram_1/ENARDEN
+SCOPE_LEVELS 13
+EXECUTE_SLACK -2.312
+EXECUTE_FROM ex_controller/cmd_q/raddr_reg[1]_rep__0/C
+EXECUTE_TO ex_controller/pending_completed_rob_ids_0_valid_reg/D
+MESH_SLACK -1.403
+WHOLE_SLACK -3.262
+WHOLE_FROM store_controller/porow_counter_reg[5]/C
+WHOLE_TO spad/write_dispatch_q_q/ram_ext/Memory_reg_0_1_28_41/RAME_D1/I
+WHOLE_LEVELS 25
+rc=0

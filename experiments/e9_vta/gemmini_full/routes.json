@@ -1,0 +1,1512 @@
+{
+ "gem": {
+  "lean": {
+   "16": {
+    "runs": [
+     {
+      "dir": "pnr_lean_16",
+      "target": 3.333,
+      "wns": -12.275,
+      "period": 15.608,
+      "lut": 89053,
+      "ff": 49866,
+      "bram": 16.0,
+      "uram": 8,
+      "dsp": 203,
+      "scope_period": 15.608,
+      "scope_from": "spad/norm_unit_passthru_q/wrap_1_reg/C",
+      "scope_to": "spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]/S",
+      "blocks": {
+       "counters": [
+        762,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        31494,
+        18044,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        29492,
+        17050,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        12,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        560,
+        372,
+        0.0,
+        0,
+        2
+       ],
+       "loop unrollers": [
+        8324,
+        5403,
+        0.0,
+        0,
+        149
+       ],
+       "command queues": [
+        3174,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        5463,
+        6028,
+        0.0,
+        0,
+        4
+       ],
+       "scratchpad, accumulator, scale": [
+        27623,
+        8371,
+        16.0,
+        8,
+        41
+       ],
+       "DMA": [
+        10438,
+        9557,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1010,
+        262,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        916,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       59117,
+       26415,
+       16.0,
+       8,
+       41
+      ]
+     }
+    ],
+    "lut": 89053,
+    "ff": 49866,
+    "bram": 16.0,
+    "uram": 8,
+    "dsp": 203,
+    "best": "pnr_lean_16",
+    "scope_best": "pnr_lean_16"
+   },
+   "4": {
+    "runs": [
+     {
+      "dir": "pnr_lean_4",
+      "target": 3.333,
+      "wns": -11.291,
+      "period": 14.624,
+      "lut": 44036,
+      "ff": 29579,
+      "bram": 64.0,
+      "uram": 4,
+      "dsp": 177,
+      "scope_period": 14.624,
+      "scope_from": "spad/norm_unit_passthru_q/wrap_1_reg/C",
+      "scope_to": "spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_2_0_reg[2]/S",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        3254,
+        2531,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        2164,
+        1548,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        722,
+        530,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        8435,
+        5415,
+        0.0,
+        0,
+        151
+       ],
+       "command queues": [
+        4964,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        5283,
+        6388,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        11120,
+        2917,
+        64.0,
+        4,
+        17
+       ],
+       "DMA": [
+        8322,
+        9460,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1303,
+        521,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        917,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       14374,
+       5448,
+       64.0,
+       4,
+       17
+      ]
+     }
+    ],
+    "lut": 44036,
+    "ff": 29579,
+    "bram": 64.0,
+    "uram": 4,
+    "dsp": 177,
+    "best": "pnr_lean_4",
+    "scope_best": "pnr_lean_4"
+   },
+   "8": {
+    "runs": [
+     {
+      "dir": "pnr_lean_8",
+      "target": 3.333,
+      "wns": -12.28,
+      "period": 15.613,
+      "lut": 56329,
+      "ff": 34389,
+      "bram": 80.0,
+      "uram": 0,
+      "dsp": 183,
+      "scope_period": 15.613,
+      "scope_from": "spad/norm_unit_passthru_q/wrap_1_reg/C",
+      "scope_to": "spad/acc_scale_unit/pipe_out_p/stages_0_resp_data_0_0_reg[3]/S",
+      "blocks": {
+       "counters": [
+        772,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        8714,
+        5768,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        7541,
+        4776,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        13,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        578,
+        427,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        8379,
+        5414,
+        0.0,
+        0,
+        149
+       ],
+       "command queues": [
+        6012,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4053,
+        6289,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        17102,
+        4762,
+        80.0,
+        0,
+        25
+       ],
+       "DMA": [
+        9164,
+        9543,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1183,
+        352,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        925,
+        664,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       25816,
+       10530,
+       80.0,
+       0,
+       25
+      ]
+     }
+    ],
+    "lut": 56329,
+    "ff": 34389,
+    "bram": 80.0,
+    "uram": 0,
+    "dsp": 183,
+    "best": "pnr_lean_8",
+    "scope_best": "pnr_lean_8"
+   }
+  },
+  "matmul": {
+   "16": {
+    "runs": [
+     {
+      "dir": "pnr_matmul_16",
+      "target": 3.333,
+      "wns": -3.438,
+      "period": 6.771,
+      "lut": 66003,
+      "ff": 40007,
+      "bram": 16.0,
+      "uram": 8,
+      "dsp": 29,
+      "scope_period": 6.451,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep/C",
+      "scope_to": "spad/spad_mems_3/mem_ext/Memory_reg_uram_0/ADDR_A[11]",
+      "blocks": {
+       "counters": [
+        762,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        31108,
+        18044,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        29034,
+        17050,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        505,
+        264,
+        0.0,
+        0,
+        2
+       ],
+       "loop unrollers": [
+        3083,
+        1643,
+        0.0,
+        0,
+        17
+       ],
+       "command queues": [
+        5530,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4282,
+        5973,
+        0.0,
+        0,
+        4
+       ],
+       "scratchpad, accumulator, scale": [
+        9740,
+        5511,
+        16.0,
+        8,
+        1
+       ],
+       "DMA": [
+        10038,
+        6530,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        828,
+        225,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        927,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       40848,
+       23555,
+       16.0,
+       8,
+       1
+      ]
+     },
+     {
+      "dir": "pnr_matmul_16_p6",
+      "target": 6.0,
+      "wns": -0.553,
+      "period": 6.553,
+      "lut": 65529,
+      "ff": 39989,
+      "bram": 16.0,
+      "uram": 8,
+      "dsp": 29,
+      "scope_period": 6.113,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep/C",
+      "scope_to": "spad/spad_mems_2/mem_ext/Memory_reg_uram_0/ADDR_A[5]",
+      "blocks": {
+       "counters": [
+        762,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        31095,
+        18044,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        29028,
+        17050,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        485,
+        264,
+        0.0,
+        0,
+        2
+       ],
+       "loop unrollers": [
+        2980,
+        1643,
+        0.0,
+        0,
+        17
+       ],
+       "command queues": [
+        5511,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4253,
+        5973,
+        0.0,
+        0,
+        4
+       ],
+       "scratchpad, accumulator, scale": [
+        9559,
+        5491,
+        16.0,
+        8,
+        1
+       ],
+       "DMA": [
+        9963,
+        6532,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        794,
+        225,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        926,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       40654,
+       23535,
+       16.0,
+       8,
+       1
+      ]
+     }
+    ],
+    "lut": 65529,
+    "ff": 39989,
+    "bram": 16.0,
+    "uram": 8,
+    "dsp": 29,
+    "best": "pnr_matmul_16_p6",
+    "scope_best": "pnr_matmul_16_p6"
+   },
+   "4": {
+    "runs": [
+     {
+      "dir": "pnr_matmul_4",
+      "target": 3.333,
+      "wns": -3.262,
+      "period": 6.595,
+      "lut": 31545,
+      "ff": 21320,
+      "bram": 64.0,
+      "uram": 4,
+      "dsp": 27,
+      "scope_period": 6.338,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep__0/C",
+      "scope_to": "spad/spad_mems_3/mem_ext/Memory_reg_0_bram_1/ENARDEN",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        3301,
+        2531,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        2114,
+        1548,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        730,
+        428,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        3129,
+        1650,
+        0.0,
+        0,
+        19
+       ],
+       "command queues": [
+        6485,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4613,
+        6228,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        3726,
+        1591,
+        64.0,
+        4,
+        1
+       ],
+       "DMA": [
+        7761,
+        6577,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1018,
+        484,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        926,
+        674,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       7027,
+       4122,
+       64.0,
+       4,
+       1
+      ]
+     },
+     {
+      "dir": "pnr_matmul_4_p6",
+      "target": 6.0,
+      "wns": -0.797,
+      "period": 6.797,
+      "lut": 31216,
+      "ff": 21319,
+      "bram": 64.0,
+      "uram": 4,
+      "dsp": 27,
+      "scope_period": 6.41,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep__0/C",
+      "scope_to": "spad/spad_mems_2/mem_ext/Memory_reg_1_bram_1/ENARDEN",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        3265,
+        2531,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        2099,
+        1548,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        729,
+        428,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        3044,
+        1641,
+        0.0,
+        0,
+        19
+       ],
+       "command queues": [
+        6487,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4574,
+        6228,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        3646,
+        1591,
+        64.0,
+        4,
+        1
+       ],
+       "DMA": [
+        7685,
+        6599,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1000,
+        484,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        932,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       6911,
+       4122,
+       64.0,
+       4,
+       1
+      ]
+     }
+    ],
+    "lut": 31545,
+    "ff": 21320,
+    "bram": 64.0,
+    "uram": 4,
+    "dsp": 27,
+    "best": "pnr_matmul_4",
+    "scope_best": "pnr_matmul_4"
+   },
+   "8": {
+    "runs": [
+     {
+      "dir": "pnr_matmul_8",
+      "target": 3.333,
+      "wns": -3.462,
+      "period": 6.795,
+      "lut": 38941,
+      "ff": 25648,
+      "bram": 80.0,
+      "uram": 0,
+      "dsp": 25,
+      "scope_period": 6.539,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep/C",
+      "scope_to": "spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/WEA[0]",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        9024,
+        5769,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        7863,
+        4777,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        13,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        643,
+        322,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        3082,
+        1659,
+        0.0,
+        0,
+        17
+       ],
+       "command queues": [
+        5826,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4993,
+        6162,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        5020,
+        2909,
+        80.0,
+        0,
+        1
+       ],
+       "DMA": [
+        8704,
+        6678,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        955,
+        315,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        933,
+        664,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       14044,
+       8678,
+       80.0,
+       0,
+       1
+      ]
+     },
+     {
+      "dir": "pnr_matmul_8_p6",
+      "target": 6.0,
+      "wns": -0.871,
+      "period": 6.871,
+      "lut": 38894,
+      "ff": 25586,
+      "bram": 80.0,
+      "uram": 0,
+      "dsp": 25,
+      "scope_period": 6.483,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[0]/C",
+      "scope_to": "spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/WEA[0]",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        9019,
+        5768,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        7862,
+        4776,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        13,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        634,
+        322,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        3036,
+        1647,
+        0.0,
+        0,
+        17
+       ],
+       "command queues": [
+        5850,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4994,
+        6162,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        5034,
+        2887,
+        80.0,
+        0,
+        1
+       ],
+       "DMA": [
+        8677,
+        6651,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        946,
+        315,
+        0.0,
+        0,
+        4
+       ],
+       "TLB": [
+        936,
+        664,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       14053,
+       8655,
+       80.0,
+       0,
+       1
+      ]
+     }
+    ],
+    "lut": 38941,
+    "ff": 25648,
+    "bram": 80.0,
+    "uram": 0,
+    "dsp": 25,
+    "best": "pnr_matmul_8",
+    "scope_best": "pnr_matmul_8_p6"
+   }
+  },
+  "shift": {
+   "16": {
+    "runs": [
+     {
+      "dir": "pnr_shift_16",
+      "target": 3.333,
+      "wns": -7.545,
+      "period": 10.878,
+      "lut": 72215,
+      "ff": 45052,
+      "bram": 16.0,
+      "uram": 8,
+      "dsp": 163,
+      "scope_period": 7.685,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[0]_rep__0/C",
+      "scope_to": "spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_A[3]",
+      "blocks": {
+       "counters": [
+        762,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        31628,
+        18030,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        29549,
+        17036,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        535,
+        279,
+        0.0,
+        0,
+        2
+       ],
+       "loop unrollers": [
+        8951,
+        5479,
+        0.0,
+        0,
+        149
+       ],
+       "command queues": [
+        4540,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4946,
+        6016,
+        0.0,
+        0,
+        4
+       ],
+       "scratchpad, accumulator, scale": [
+        9798,
+        5751,
+        16.0,
+        8,
+        1
+       ],
+       "DMA": [
+        10205,
+        7445,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1056,
+        235,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        926,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       41426,
+       23781,
+       16.0,
+       8,
+       1
+      ]
+     }
+    ],
+    "lut": 72215,
+    "ff": 45052,
+    "bram": 16.0,
+    "uram": 8,
+    "dsp": 163,
+    "best": "pnr_shift_16",
+    "scope_best": "pnr_shift_16"
+   },
+   "4": {
+    "runs": [
+     {
+      "dir": "pnr_shift_4",
+      "target": 3.333,
+      "wns": -7.262,
+      "period": 10.595,
+      "lut": 37513,
+      "ff": 26079,
+      "bram": 64.0,
+      "uram": 4,
+      "dsp": 161,
+      "scope_period": 7.197,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep__0/C",
+      "scope_to": "spad/spad_mems_3/mem_ext/Memory_reg_3_bram_1/CASDOMUXA",
+      "blocks": {
+       "counters": [
+        764,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        3262,
+        2531,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        2107,
+        1548,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        1,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        734,
+        437,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        8733,
+        5478,
+        0.0,
+        0,
+        151
+       ],
+       "command queues": [
+        6110,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        5442,
+        6265,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        3854,
+        1708,
+        64.0,
+        4,
+        1
+       ],
+       "DMA": [
+        7888,
+        7348,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1323,
+        494,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        926,
+        660,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       7116,
+       4239,
+       64.0,
+       4,
+       1
+      ]
+     }
+    ],
+    "lut": 37513,
+    "ff": 26079,
+    "bram": 64.0,
+    "uram": 4,
+    "dsp": 161,
+    "best": "pnr_shift_4",
+    "scope_best": "pnr_shift_4"
+   },
+   "8": {
+    "runs": [
+     {
+      "dir": "pnr_shift_8",
+      "target": 3.333,
+      "wns": -7.164,
+      "period": 10.497,
+      "lut": 45362,
+      "ff": 30560,
+      "bram": 80.0,
+      "uram": 0,
+      "dsp": 159,
+      "scope_period": 7.416,
+      "scope_from": "ex_controller/cmd_q/raddr_reg[1]_rep/C",
+      "scope_to": "spad/spad_mems_0/mem_ext/Memory_reg_7_bram_1/ADDRARDADDR[5]",
+      "blocks": {
+       "counters": [
+        772,
+        1151,
+        0.0,
+        0,
+        0
+       ],
+       "execute controller + mesh": [
+        9109,
+        5769,
+        0.0,
+        0,
+        0
+       ],
+       "of which mesh": [
+        7869,
+        4777,
+        0.0,
+        0,
+        0
+       ],
+       "im2col": [
+        0,
+        13,
+        0.0,
+        0,
+        0
+       ],
+       "load controller": [
+        536,
+        334,
+        0.0,
+        0,
+        0
+       ],
+       "loop unrollers": [
+        8653,
+        5476,
+        0.0,
+        0,
+        149
+       ],
+       "command queues": [
+        6191,
+        6,
+        0.0,
+        0,
+        0
+       ],
+       "reservation station": [
+        4471,
+        6202,
+        0.0,
+        0,
+        2
+       ],
+       "scratchpad, accumulator, scale": [
+        5321,
+        3061,
+        80.0,
+        0,
+        1
+       ],
+       "DMA": [
+        8897,
+        7559,
+        0.0,
+        0,
+        1
+       ],
+       "store controller": [
+        1158,
+        325,
+        0.0,
+        0,
+        6
+       ],
+       "TLB": [
+        936,
+        664,
+        0.0,
+        0,
+        0
+       ]
+      },
+      "scope": [
+       14430,
+       8830,
+       80.0,
+       0,
+       1
+      ]
+     }
+    ],
+    "lut": 45362,
+    "ff": 30560,
+    "bram": 80.0,
+    "uram": 0,
+    "dsp": 159,
+    "best": "pnr_shift_8",
+    "scope_best": "pnr_shift_8"
+   }
+  }
+ },
+ "vta": {
+  "4": {
+   "runs": [
+    {
+     "dir": "pnr_Core_w4",
+     "target": 3.333,
+     "wns": -1.554,
+     "period": 4.887,
+     "lut": 10311,
+     "ff": 3456,
+     "bram": 14.0,
+     "uram": 2,
+     "dsp": 0,
+     "scope_period": 4.256,
+     "scope_from": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/CLK",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[26]"
+    },
+    {
+     "dir": "pnr_Core_w4_p43",
+     "target": 4.3,
+     "wns": -0.539,
+     "period": 4.839,
+     "lut": 10122,
+     "ff": 3447,
+     "bram": 14.0,
+     "uram": 2,
+     "dsp": 0,
+     "scope_period": 4.344,
+     "scope_from": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/CLK",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[6]"
+    },
+    {
+     "dir": "pnr_Core_w4_p46",
+     "target": 4.6,
+     "wns": -0.084,
+     "period": 4.684,
+     "lut": 10099,
+     "ff": 3441,
+     "bram": 14.0,
+     "uram": 2,
+     "dsp": 0,
+     "scope_period": 4.428,
+     "scope_from": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/CLK",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[31]"
+    }
+   ],
+   "lut": 10099,
+   "ff": 3441,
+   "bram": 14.0,
+   "uram": 2,
+   "dsp": 0,
+   "best": "pnr_Core_w4_p46",
+   "scope_best": "pnr_Core_w4"
+  },
+  "8": {
+   "runs": [
+    {
+     "dir": "pnr_Core_w8",
+     "target": 3.333,
+     "wns": -1.427,
+     "period": 4.76,
+     "lut": 15710,
+     "ff": 4747,
+     "bram": 22.0,
+     "uram": 6,
+     "dsp": 0,
+     "scope_period": 4.487,
+     "scope_from": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/CLK",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[13]"
+    },
+    {
+     "dir": "pnr_Core_w8_p43",
+     "target": 4.3,
+     "wns": -0.558,
+     "period": 4.858,
+     "lut": 15469,
+     "ff": 4747,
+     "bram": 22.0,
+     "uram": 6,
+     "dsp": 0,
+     "scope_period": 4.662,
+     "scope_from": "compute/tensorGemm/mvc_0/dot_0_1/a_0_0/rA_reg[4]/C",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[59]"
+    },
+    {
+     "dir": "pnr_Core_w8_p46",
+     "target": 4.6,
+     "wns": 0.005,
+     "period": 4.595,
+     "lut": 15403,
+     "ff": 4747,
+     "bram": 22.0,
+     "uram": 6,
+     "dsp": 0,
+     "scope_period": 4.462,
+     "scope_from": "compute/tensorGemm/mvc_0/dot_0_7/a_0_0/rB_reg[1]/C",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_3_reg_uram_0/DIN_A[58]"
+    }
+   ],
+   "lut": 15403,
+   "ff": 4747,
+   "bram": 22.0,
+   "uram": 6,
+   "dsp": 0,
+   "best": "pnr_Core_w8_p46",
+   "scope_best": "pnr_Core_w8_p46"
+  },
+  "16": {
+   "runs": [
+    {
+     "dir": "pnr_Core_w16",
+     "target": 3.333,
+     "wns": -1.515,
+     "period": 4.848,
+     "lut": 34174,
+     "ff": 6963,
+     "bram": 70.0,
+     "uram": 12,
+     "dsp": 0,
+     "scope_period": 4.777,
+     "scope_from": "load/tensorLoad_0/tensorLoad/tensorFile_0_reg_uram_0/CLK",
+     "scope_to": "compute/tensorGemm/mvc_0/dot_0_2/a_2_0/rB_reg[12]/D"
+    },
+    {
+     "dir": "pnr_Core_w16_p43",
+     "target": 4.3,
+     "wns": -0.156,
+     "period": 4.456,
+     "lut": 33923,
+     "ff": 7387,
+     "bram": 70.0,
+     "uram": 12,
+     "dsp": 0,
+     "scope_period": 4.456,
+     "scope_from": "compute/tensorAcc/tensorLoad/tensorFile_1_reg_uram_0/CLK",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_1_reg_uram_0/DIN_A[20]"
+    },
+    {
+     "dir": "pnr_Core_w16_p46",
+     "target": 4.6,
+     "wns": -0.187,
+     "period": 4.787,
+     "lut": 33624,
+     "ff": 6301,
+     "bram": 70.0,
+     "uram": 12,
+     "dsp": 0,
+     "scope_period": 4.718,
+     "scope_from": "compute/tensorGemm/mvc_0/dot_0_0/a_2_1/rB_reg[0]/C",
+     "scope_to": "compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[29]"
+    }
+   ],
+   "lut": 33923,
+   "ff": 7387,
+   "bram": 70.0,
+   "uram": 12,
+   "dsp": 0,
+   "best": "pnr_Core_w16_p43",
+   "scope_best": "pnr_Core_w16_p43"
+  }
+ }
+}

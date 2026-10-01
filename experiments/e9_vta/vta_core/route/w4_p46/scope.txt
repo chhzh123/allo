@@ -1,0 +1,5 @@
+SCOPE_CELLS 7707
+SCOPE_SLACK 0.172
+SCOPE_FROM compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/CLK
+SCOPE_TO compute/tensorAcc/tensorLoad/tensorFile_0_reg_uram_0/DIN_A[31]
+DATAPATH_SLACK 1.103

@@ -1,0 +1,294 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Thu Oct  1 18:34:35 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing -from [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -to [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -max_paths 3 -nworst 1 -sort_by slack -file scope_timing.rpt
+| Design            : Gemmini
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postRoute
+| Temperature Grade : E
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (VIOLATED) :        -3.206ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[1]_rep/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/WEA[0]
+                            (rising edge-triggered cell RAMB36E2 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        6.119ns  (logic 1.533ns (25.052%)  route 4.586ns (74.948%))
+  Logic Levels:           15  (LUT5=5 LUT6=9 MUXF7=1)
+  Clock Path Skew:        0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.039ns = ( 3.372 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.029ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=30608, unset)        0.029     0.029    ex_controller/cmd_q/clock
+    SLICE_X55Y605        FDRE                                         r  ex_controller/cmd_q/raddr_reg[1]_rep/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X55Y605        FDRE (Prop_GFF2_SLICEL_C_Q)
+                                                      0.081     0.110 r  ex_controller/cmd_q/raddr_reg[1]_rep/Q
+                         net (fo=189, routed)         0.351     0.461    ex_controller/cmd_q/raddr_reg[1]_rep_n_0
+    SLICE_X57Y600        LUT6 (Prop_D6LUT_SLICEM_I2_O)
+                                                      0.088     0.549 f  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98/O
+                         net (fo=1, routed)           0.025     0.574    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98_n_0
+    SLICE_X57Y600        MUXF7 (Prop_F7MUX_CD_SLICEM_I0_O)
+                                                      0.069     0.643 f  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63/O
+                         net (fo=2, routed)           0.288     0.931    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63_n_0
+    SLICE_X58Y604        LUT5 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.149     1.080 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0/O
+                         net (fo=51, routed)          0.404     1.484    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0_n_0
+    SLICE_X60Y601        LUT6 (Prop_F6LUT_SLICEM_I4_O)
+                                                      0.088     1.572 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_79/O
+                         net (fo=1, routed)           0.234     1.806    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_79_n_0
+    SLICE_X59Y598        LUT6 (Prop_H6LUT_SLICEL_I2_O)
+                                                      0.090     1.896 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_22__0/O
+                         net (fo=2, routed)           0.263     2.158    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_22__0_n_0
+    SLICE_X58Y600        LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.150     2.308 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_2__0/O
+                         net (fo=9, routed)           0.151     2.459    ex_controller/cmd_q/d_garbage
+    SLICE_X57Y600        LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.125     2.584 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_6__0/O
+                         net (fo=50, routed)          0.355     2.939    ex_controller/cmd_q/total_rows[0]
+    SLICE_X55Y597        LUT6 (Prop_B6LUT_SLICEL_I2_O)
+                                                      0.148     3.087 r  ex_controller/cmd_q/b_fire_counter[2]_i_9/O
+                         net (fo=2, routed)           0.051     3.138    ex_controller/cmd_q/b_fire_counter[2]_i_9_n_0
+    SLICE_X55Y597        LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.099     3.237 r  ex_controller/cmd_q/b_fire_counter[2]_i_3/O
+                         net (fo=3, routed)           0.151     3.388    ex_controller/cmd_q/b_fire_counter[2]_i_3_0[2]
+    SLICE_X55Y601        LUT6 (Prop_A6LUT_SLICEL_I5_O)
+                                                      0.035     3.423 f  ex_controller/cmd_q/Memory_reg_0_bram_0_i_71/O
+                         net (fo=4, routed)           0.162     3.585    ex_controller/cmd_q/Memory_reg_0_bram_0_i_71_n_0
+    SLICE_X55Y598        LUT6 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.123     3.708 r  ex_controller/cmd_q/Memory_reg_0_bram_0_i_53/O
+                         net (fo=14, routed)          0.249     3.957    ex_controller/cmd_q/Memory_reg_0_bram_0_i_53_n_0
+    SLICE_X56Y594        LUT5 (Prop_D5LUT_SLICEM_I1_O)
+                                                      0.066     4.023 r  ex_controller/cmd_q/Memory_reg_0_bram_0_i_25/O
+                         net (fo=29, routed)          0.462     4.485    ex_controller/cmd_q/Memory_reg_0_bram_0_i_25_0
+    SLICE_X59Y582        LUT5 (Prop_D6LUT_SLICEL_I4_O)
+                                                      0.122     4.607 f  ex_controller/cmd_q/Memory_reg_0_bram_1_i_4/O
+                         net (fo=1, routed)           0.136     4.743    spad/vsm/_req_arb_io_out_bits_addr[12]
+    SLICE_X59Y578        LUT5 (Prop_C6LUT_SLICEL_I1_O)
+                                                      0.050     4.793 f  spad/vsm/Memory_reg_0_bram_1_i_1/O
+                         net (fo=33, routed)          0.673     5.466    spad/vsm/io_resp_bits_laddr_data
+    SLICE_X49Y538        LUT5 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.050     5.516 r  spad/vsm/Memory_reg_7_bram_0_i_9/O
+                         net (fo=4, routed)           0.633     6.148    spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0_2[0]
+    RAMB36_X2Y106        RAMB36E2                                     r  spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/WEA[0]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=30608, unset)        0.039     3.372    spad/spad_mems_0/mem_ext/clock
+    RAMB36_X2Y106        RAMB36E2                                     r  spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0/CLKARDCLK
+                         clock pessimism              0.000     3.372    
+                         clock uncertainty           -0.035     3.337    
+    RAMB36_X2Y106        RAMB36E2 (Setup_RAMB36E2_RAMB36_CLKARDCLK_WEA[0])
+                                                     -0.394     2.943    spad/spad_mems_0/mem_ext/Memory_reg_7_bram_0
+  -------------------------------------------------------------------
+                         required time                          2.943    
+                         arrival time                          -6.148    
+  -------------------------------------------------------------------
+                         slack                                 -3.206    
+
+Slack (VIOLATED) :        -3.194ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[1]_rep/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_3/mem_ext/Memory_reg_7_bram_0/WEA[0]
+                            (rising edge-triggered cell RAMB36E2 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        6.108ns  (logic 1.433ns (23.462%)  route 4.675ns (76.538%))
+  Logic Levels:           15  (LUT3=1 LUT5=6 LUT6=7 MUXF7=1)
+  Clock Path Skew:        0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.039ns = ( 3.372 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.029ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=30608, unset)        0.029     0.029    ex_controller/cmd_q/clock
+    SLICE_X55Y605        FDRE                                         r  ex_controller/cmd_q/raddr_reg[1]_rep/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X55Y605        FDRE (Prop_GFF2_SLICEL_C_Q)
+                                                      0.081     0.110 r  ex_controller/cmd_q/raddr_reg[1]_rep/Q
+                         net (fo=189, routed)         0.351     0.461    ex_controller/cmd_q/raddr_reg[1]_rep_n_0
+    SLICE_X57Y600        LUT6 (Prop_D6LUT_SLICEM_I2_O)
+                                                      0.088     0.549 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98/O
+                         net (fo=1, routed)           0.025     0.574    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98_n_0
+    SLICE_X57Y600        MUXF7 (Prop_F7MUX_CD_SLICEM_I0_O)
+                                                      0.069     0.643 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63/O
+                         net (fo=2, routed)           0.288     0.931    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63_n_0
+    SLICE_X58Y604        LUT5 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.149     1.080 f  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0/O
+                         net (fo=51, routed)          0.135     1.215    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0_n_0
+    SLICE_X58Y606        LUT3 (Prop_B6LUT_SLICEL_I0_O)
+                                                      0.124     1.339 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_6__0/O
+                         net (fo=108, routed)         0.516     1.856    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_6__0_n_0
+    SLICE_X61Y598        LUT6 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.090     1.946 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_63/O
+                         net (fo=3, routed)           0.308     2.254    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_63_n_0
+    SLICE_X58Y598        LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.036     2.290 f  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_16__0/O
+                         net (fo=6, routed)           0.156     2.445    ex_controller/cmd_q/Memory_reg_0_7_56_69_i_16__0_n_0
+    SLICE_X57Y599        LUT6 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.123     2.568 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_8__0/O
+                         net (fo=32, routed)          0.263     2.831    ex_controller/cmd_q/total_rows[1]
+    SLICE_X56Y598        LUT5 (Prop_E6LUT_SLICEM_I1_O)
+                                                      0.100     2.931 r  ex_controller/cmd_q/b_fire_counter[2]_i_7/O
+                         net (fo=8, routed)           0.177     3.109    ex_controller/cmd_q/b_fire_counter[2]_i_7_n_0
+    SLICE_X55Y600        LUT6 (Prop_H6LUT_SLICEL_I1_O)
+                                                      0.150     3.259 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_184/O
+                         net (fo=1, routed)           0.144     3.403    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_184_n_0
+    SLICE_X55Y599        LUT6 (Prop_D6LUT_SLICEL_I2_O)
+                                                      0.089     3.492 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_106/O
+                         net (fo=4, routed)           0.148     3.640    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_106_n_0
+    SLICE_X54Y599        LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.090     3.730 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_35__0/O
+                         net (fo=15, routed)          0.462     4.192    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_35__0_n_0
+    SLICE_X59Y592        LUT5 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.035     4.227 r  ex_controller/cmd_q/Memory_reg_0_bram_0_i_25__2/O
+                         net (fo=29, routed)          0.300     4.527    ex_controller/cmd_q/io_read_req_bits_fromDMA
+    SLICE_X59Y582        LUT5 (Prop_A6LUT_SLICEL_I4_O)
+                                                      0.050     4.577 f  ex_controller/cmd_q/Memory_reg_0_bram_1_i_4__2/O
+                         net (fo=1, routed)           0.160     4.737    spad/vsm/_req_arb_3_io_out_bits_addr[12]
+    SLICE_X59Y577        LUT5 (Prop_F6LUT_SLICEL_I1_O)
+                                                      0.123     4.860 f  spad/vsm/Memory_reg_0_bram_1_i_1__2/O
+                         net (fo=33, routed)          0.582     5.442    spad/vsm/io_resp_bits_laddr_data_2
+    SLICE_X55Y540        LUT5 (Prop_H6LUT_SLICEL_I4_O)
+                                                      0.036     5.478 r  spad/vsm/Memory_reg_7_bram_0_i_9__2/O
+                         net (fo=4, routed)           0.659     6.137    spad/spad_mems_3/mem_ext/Memory_reg_7_bram_0_2[0]
+    RAMB36_X3Y98         RAMB36E2                                     r  spad/spad_mems_3/mem_ext/Memory_reg_7_bram_0/WEA[0]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=30608, unset)        0.039     3.372    spad/spad_mems_3/mem_ext/clock
+    RAMB36_X3Y98         RAMB36E2                                     r  spad/spad_mems_3/mem_ext/Memory_reg_7_bram_0/CLKARDCLK
+                         clock pessimism              0.000     3.372    
+                         clock uncertainty           -0.035     3.337    
+    RAMB36_X3Y98         RAMB36E2 (Setup_RAMB36E2_RAMB36_CLKARDCLK_WEA[0])
+                                                     -0.394     2.943    spad/spad_mems_3/mem_ext/Memory_reg_7_bram_0
+  -------------------------------------------------------------------
+                         required time                          2.943    
+                         arrival time                          -6.137    
+  -------------------------------------------------------------------
+                         slack                                 -3.194    
+
+Slack (VIOLATED) :        -3.174ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[1]_rep/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_2/mem_ext/Memory_reg_5_bram_0/WEA[0]
+                            (rising edge-triggered cell RAMB36E2 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        6.088ns  (logic 1.462ns (24.015%)  route 4.626ns (75.985%))
+  Logic Levels:           15  (LUT3=1 LUT5=6 LUT6=7 MUXF7=1)
+  Clock Path Skew:        0.010ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.039ns = ( 3.372 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.029ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=30608, unset)        0.029     0.029    ex_controller/cmd_q/clock
+    SLICE_X55Y605        FDRE                                         r  ex_controller/cmd_q/raddr_reg[1]_rep/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X55Y605        FDRE (Prop_GFF2_SLICEL_C_Q)
+                                                      0.081     0.110 r  ex_controller/cmd_q/raddr_reg[1]_rep/Q
+                         net (fo=189, routed)         0.351     0.461    ex_controller/cmd_q/raddr_reg[1]_rep_n_0
+    SLICE_X57Y600        LUT6 (Prop_D6LUT_SLICEM_I2_O)
+                                                      0.088     0.549 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98/O
+                         net (fo=1, routed)           0.025     0.574    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_98_n_0
+    SLICE_X57Y600        MUXF7 (Prop_F7MUX_CD_SLICEM_I0_O)
+                                                      0.069     0.643 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63/O
+                         net (fo=2, routed)           0.288     0.931    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_63_n_0
+    SLICE_X58Y604        LUT5 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.149     1.080 f  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0/O
+                         net (fo=51, routed)          0.135     1.215    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_26__0_n_0
+    SLICE_X58Y606        LUT3 (Prop_B6LUT_SLICEL_I0_O)
+                                                      0.124     1.339 r  ex_controller/cmd_q/Memory_reg_0_7_0_13_i_6__0/O
+                         net (fo=108, routed)         0.516     1.856    ex_controller/cmd_q/Memory_reg_0_7_0_13_i_6__0_n_0
+    SLICE_X61Y598        LUT6 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.090     1.946 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_63/O
+                         net (fo=3, routed)           0.308     2.254    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_63_n_0
+    SLICE_X58Y598        LUT6 (Prop_H6LUT_SLICEL_I3_O)
+                                                      0.036     2.290 f  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_16__0/O
+                         net (fo=6, routed)           0.156     2.445    ex_controller/cmd_q/Memory_reg_0_7_56_69_i_16__0_n_0
+    SLICE_X57Y599        LUT6 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.123     2.568 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_8__0/O
+                         net (fo=32, routed)          0.263     2.831    ex_controller/cmd_q/total_rows[1]
+    SLICE_X56Y598        LUT5 (Prop_E6LUT_SLICEM_I1_O)
+                                                      0.100     2.931 r  ex_controller/cmd_q/b_fire_counter[2]_i_7/O
+                         net (fo=8, routed)           0.177     3.109    ex_controller/cmd_q/b_fire_counter[2]_i_7_n_0
+    SLICE_X55Y600        LUT6 (Prop_H6LUT_SLICEL_I1_O)
+                                                      0.150     3.259 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_184/O
+                         net (fo=1, routed)           0.144     3.403    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_184_n_0
+    SLICE_X55Y599        LUT6 (Prop_D6LUT_SLICEL_I2_O)
+                                                      0.089     3.492 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_106/O
+                         net (fo=4, routed)           0.196     3.688    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_106_n_0
+    SLICE_X54Y600        LUT6 (Prop_G6LUT_SLICEL_I4_O)
+                                                      0.097     3.785 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_36__0/O
+                         net (fo=15, routed)          0.468     4.254    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_36__0_n_0
+    SLICE_X59Y592        LUT5 (Prop_G6LUT_SLICEL_I1_O)
+                                                      0.035     4.289 r  ex_controller/cmd_q/Memory_reg_0_bram_0_i_25__1/O
+                         net (fo=29, routed)          0.324     4.613    ex_controller/cmd_q/Memory_reg_0_bram_0_i_25__1_0
+    SLICE_X59Y582        LUT5 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.051     4.664 f  ex_controller/cmd_q/Memory_reg_0_bram_1_i_4__1/O
+                         net (fo=1, routed)           0.086     4.750    spad/vsm/_req_arb_2_io_out_bits_addr[12]
+    SLICE_X59Y581        LUT5 (Prop_B6LUT_SLICEL_I1_O)
+                                                      0.090     4.840 f  spad/vsm/Memory_reg_0_bram_1_i_1__1/O
+                         net (fo=33, routed)          0.527     5.367    spad/vsm/io_resp_bits_laddr_data_1
+    SLICE_X73Y562        LUT5 (Prop_H6LUT_SLICEL_I4_O)
+                                                      0.090     5.457 r  spad/vsm/Memory_reg_5_bram_0_i_9__1/O
+                         net (fo=4, routed)           0.660     6.117    spad/spad_mems_2/mem_ext/Memory_reg_5_bram_0_1[0]
+    RAMB36_X6Y112        RAMB36E2                                     r  spad/spad_mems_2/mem_ext/Memory_reg_5_bram_0/WEA[0]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=30608, unset)        0.039     3.372    spad/spad_mems_2/mem_ext/clock
+    RAMB36_X6Y112        RAMB36E2                                     r  spad/spad_mems_2/mem_ext/Memory_reg_5_bram_0/CLKARDCLK
+                         clock pessimism              0.000     3.372    
+                         clock uncertainty           -0.035     3.337    
+    RAMB36_X6Y112        RAMB36E2 (Setup_RAMB36E2_RAMB36_CLKARDCLK_WEA[0])
+                                                     -0.394     2.943    spad/spad_mems_2/mem_ext/Memory_reg_5_bram_0
+  -------------------------------------------------------------------
+                         required time                          2.943    
+                         arrival time                          -6.117    
+  -------------------------------------------------------------------
+                         slack                                 -3.174    
+
+
+
+

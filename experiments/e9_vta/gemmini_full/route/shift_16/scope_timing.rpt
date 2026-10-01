@@ -1,0 +1,294 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Thu Oct  1 18:40:55 2026
+| Host              : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command           : report_timing -from [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -to [get_cells -hier -filter {IS_PRIMITIVE && (NAME =~ ex_controller/* || NAME =~ spad/*) && NAME !~ spad/reader* && NAME !~ spad/writer* && NAME !~ spad/buffer* && NAME !~ spad/xbar* && NAME !~ spad/widget*}] -max_paths 3 -nworst 1 -sort_by slack -file scope_timing.rpt
+| Design            : Gemmini
+| Device            : xcu280-fsvh2892
+| Speed File        : -2L  PRODUCTION 1.30 05-01-2022
+| Design State      : Physopt postRoute
+| Temperature Grade : E
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (VIOLATED) :        -4.352ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_A[3]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        7.203ns  (logic 1.524ns (21.158%)  route 5.679ns (78.842%))
+  Logic Levels:           15  (LUT5=6 LUT6=9)
+  Clock Path Skew:        0.034ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 3.397 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=52321, unset)        0.030     0.030    ex_controller/cmd_q/clock
+    SLICE_X111Y62        FDRE                                         r  ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X111Y62        FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 r  ex_controller/cmd_q/raddr_reg[0]_rep__0/Q
+                         net (fo=102, routed)         0.563     0.670    ex_controller/cmd_q/raddr_reg[0]_rep__0_n_0
+    SLICE_X109Y79        LUT6 (Prop_H6LUT_SLICEM_I4_O)
+                                                      0.090     0.760 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246/O
+                         net (fo=2, routed)           0.177     0.937    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246_n_0
+    SLICE_X111Y78        LUT5 (Prop_F6LUT_SLICEM_I2_O)
+                                                      0.098     1.035 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173/O
+                         net (fo=28, routed)          0.222     1.257    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173_n_0
+    SLICE_X109Y75        LUT6 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.090     1.347 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64/O
+                         net (fo=2, routed)           0.303     1.650    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64_n_0
+    SLICE_X111Y74        LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.090     1.740 r  ex_controller/cmd_q/perform_mul_pre_i_2/O
+                         net (fo=4, routed)           0.243     1.983    ex_controller/cmd_q/perform_mul_pre_i_2_n_0
+    SLICE_X111Y68        LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.125     2.108 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17/O
+                         net (fo=5, routed)           0.251     2.359    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17_n_0
+    SLICE_X108Y68        LUT5 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.098     2.457 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_1/O
+                         net (fo=13, routed)          0.295     2.752    ex_controller/cmd_q/a_garbage
+    SLICE_X106Y67        LUT5 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.125     2.877 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_12/O
+                         net (fo=26, routed)          0.261     3.138    ex_controller/cmd_q/total_rows[1]
+    SLICE_X107Y63        LUT5 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.100     3.238 r  ex_controller/cmd_q/d_fire_counter[1]_i_7/O
+                         net (fo=10, routed)          0.322     3.561    ex_controller/cmd_q/d_fire_counter[1]_i_7_n_0
+    SLICE_X106Y60        LUT6 (Prop_D6LUT_SLICEM_I0_O)
+                                                      0.088     3.649 r  ex_controller/cmd_q/b_fire_counter[1]_i_2/O
+                         net (fo=13, routed)          0.169     3.817    ex_controller/cmd_q/b_fire_counter[1]_i_2_n_0
+    SLICE_X105Y61        LUT6 (Prop_D6LUT_SLICEL_I3_O)
+                                                      0.146     3.963 f  ex_controller/cmd_q/Memory_reg_uram_0_i_307/O
+                         net (fo=2, routed)           0.331     4.295    ex_controller/cmd_q/Memory_reg_uram_0_i_307_n_0
+    SLICE_X107Y62        LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     4.348 f  ex_controller/cmd_q/Memory_reg_uram_0_i_283/O
+                         net (fo=4, routed)           0.323     4.671    ex_controller/cmd_q/Memory_reg_uram_0_i_283_n_0
+    SLICE_X113Y64        LUT6 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.035     4.706 r  ex_controller/cmd_q/Memory_reg_uram_0_i_196/O
+                         net (fo=14, routed)          0.256     4.962    ex_controller/cmd_q/Memory_reg_uram_0_i_196_n_0
+    SLICE_X112Y61        LUT5 (Prop_B6LUT_SLICEL_I1_O)
+                                                      0.124     5.086 r  ex_controller/cmd_q/q_io_enq_bits_fromDMA_REG_i_2__1/O
+                         net (fo=15, routed)          0.503     5.589    ex_controller/cmd_q/io_read_req_bits_fromDMA
+    SLICE_X101Y59        LUT5 (Prop_E6LUT_SLICEL_I3_O)
+                                                      0.035     5.624 r  ex_controller/cmd_q/Memory_reg_uram_0_i_116/O
+                         net (fo=1, routed)           0.108     5.732    spad/mvin_scale_pixel_repeater/ram_reg[71]_16
+    SLICE_X101Y59        LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.150     5.882 r  spad/mvin_scale_pixel_repeater/Memory_reg_uram_0_i_9/O
+                         net (fo=4, routed)           1.351     7.233    spad/spad_mems_3/mem_ext/ADDR_A[3]
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_A[3]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=52321, unset)        0.064     3.397    spad/spad_mems_3/mem_ext/clock
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/CLK
+                         clock pessimism              0.000     3.397    
+                         clock uncertainty           -0.035     3.362    
+    URAM288_X2Y12        URAM288 (Setup_URAM_288K_INST_URAM288_CLK_ADDR_A[3])
+                                                     -0.481     2.881    spad/spad_mems_3/mem_ext/Memory_reg_uram_1
+  -------------------------------------------------------------------
+                         required time                          2.881    
+                         arrival time                          -7.233    
+  -------------------------------------------------------------------
+                         slack                                 -4.352    
+
+Slack (VIOLATED) :        -4.139ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_A[11]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        7.006ns  (logic 1.415ns (20.198%)  route 5.591ns (79.802%))
+  Logic Levels:           15  (LUT5=6 LUT6=9)
+  Clock Path Skew:        0.034ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 3.397 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=52321, unset)        0.030     0.030    ex_controller/cmd_q/clock
+    SLICE_X111Y62        FDRE                                         r  ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X111Y62        FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 r  ex_controller/cmd_q/raddr_reg[0]_rep__0/Q
+                         net (fo=102, routed)         0.563     0.670    ex_controller/cmd_q/raddr_reg[0]_rep__0_n_0
+    SLICE_X109Y79        LUT6 (Prop_H6LUT_SLICEM_I4_O)
+                                                      0.090     0.760 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246/O
+                         net (fo=2, routed)           0.177     0.937    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246_n_0
+    SLICE_X111Y78        LUT5 (Prop_F6LUT_SLICEM_I2_O)
+                                                      0.098     1.035 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173/O
+                         net (fo=28, routed)          0.222     1.257    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173_n_0
+    SLICE_X109Y75        LUT6 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.090     1.347 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64/O
+                         net (fo=2, routed)           0.303     1.650    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64_n_0
+    SLICE_X111Y74        LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.090     1.740 r  ex_controller/cmd_q/perform_mul_pre_i_2/O
+                         net (fo=4, routed)           0.243     1.983    ex_controller/cmd_q/perform_mul_pre_i_2_n_0
+    SLICE_X111Y68        LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.125     2.108 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17/O
+                         net (fo=5, routed)           0.251     2.359    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17_n_0
+    SLICE_X108Y68        LUT5 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.098     2.457 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_1/O
+                         net (fo=13, routed)          0.295     2.752    ex_controller/cmd_q/a_garbage
+    SLICE_X106Y67        LUT5 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.125     2.877 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_12/O
+                         net (fo=26, routed)          0.261     3.138    ex_controller/cmd_q/total_rows[1]
+    SLICE_X107Y63        LUT5 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.100     3.238 r  ex_controller/cmd_q/d_fire_counter[1]_i_7/O
+                         net (fo=10, routed)          0.322     3.561    ex_controller/cmd_q/d_fire_counter[1]_i_7_n_0
+    SLICE_X106Y60        LUT6 (Prop_D6LUT_SLICEM_I0_O)
+                                                      0.088     3.649 r  ex_controller/cmd_q/b_fire_counter[1]_i_2/O
+                         net (fo=13, routed)          0.169     3.817    ex_controller/cmd_q/b_fire_counter[1]_i_2_n_0
+    SLICE_X105Y61        LUT6 (Prop_D6LUT_SLICEL_I3_O)
+                                                      0.146     3.963 f  ex_controller/cmd_q/Memory_reg_uram_0_i_307/O
+                         net (fo=2, routed)           0.331     4.295    ex_controller/cmd_q/Memory_reg_uram_0_i_307_n_0
+    SLICE_X107Y62        LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     4.348 f  ex_controller/cmd_q/Memory_reg_uram_0_i_283/O
+                         net (fo=4, routed)           0.323     4.671    ex_controller/cmd_q/Memory_reg_uram_0_i_283_n_0
+    SLICE_X113Y64        LUT6 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.035     4.706 r  ex_controller/cmd_q/Memory_reg_uram_0_i_196/O
+                         net (fo=14, routed)          0.256     4.962    ex_controller/cmd_q/Memory_reg_uram_0_i_196_n_0
+    SLICE_X112Y61        LUT5 (Prop_B6LUT_SLICEL_I1_O)
+                                                      0.124     5.086 r  ex_controller/cmd_q/q_io_enq_bits_fromDMA_REG_i_2__1/O
+                         net (fo=15, routed)          0.451     5.537    ex_controller/cmd_q/io_read_req_bits_fromDMA
+    SLICE_X100Y63        LUT5 (Prop_F6LUT_SLICEM_I3_O)
+                                                      0.037     5.574 r  ex_controller/cmd_q/Memory_reg_uram_0_i_99__2/O
+                         net (fo=1, routed)           0.042     5.616    spad/mvin_scale_pixel_repeater/ram_reg[71]_8
+    SLICE_X100Y63        LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.039     5.655 r  spad/mvin_scale_pixel_repeater/Memory_reg_uram_0_i_1/O
+                         net (fo=4, routed)           1.381     7.036    spad/spad_mems_3/mem_ext/ADDR_A[11]
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_A[11]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=52321, unset)        0.064     3.397    spad/spad_mems_3/mem_ext/clock
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/CLK
+                         clock pessimism              0.000     3.397    
+                         clock uncertainty           -0.035     3.362    
+    URAM288_X2Y12        URAM288 (Setup_URAM_288K_INST_URAM288_CLK_ADDR_A[11])
+                                                     -0.465     2.897    spad/spad_mems_3/mem_ext/Memory_reg_uram_1
+  -------------------------------------------------------------------
+                         required time                          2.897    
+                         arrival time                          -7.036    
+  -------------------------------------------------------------------
+                         slack                                 -4.139    
+
+Slack (VIOLATED) :        -4.120ns  (required time - arrival time)
+  Source:                 ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+                            (rising edge-triggered cell FDRE clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Destination:            spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_B[8]
+                            (rising edge-triggered cell URAM288 clocked by clk  {rise@0.000ns fall@1.666ns period=3.333ns})
+  Path Group:             clk
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            3.333ns  (clk rise@3.333ns - clk rise@0.000ns)
+  Data Path Delay:        7.133ns  (logic 1.410ns (19.767%)  route 5.723ns (80.233%))
+  Logic Levels:           15  (LUT5=6 LUT6=9)
+  Clock Path Skew:        0.034ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    0.064ns = ( 3.397 - 3.333 ) 
+    Source Clock Delay      (SCD):    0.030ns
+    Clock Pessimism Removal (CPR):    0.000ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk rise edge)        0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=52321, unset)        0.030     0.030    ex_controller/cmd_q/clock
+    SLICE_X111Y62        FDRE                                         r  ex_controller/cmd_q/raddr_reg[0]_rep__0/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X111Y62        FDRE (Prop_AFF_SLICEM_C_Q)
+                                                      0.077     0.107 r  ex_controller/cmd_q/raddr_reg[0]_rep__0/Q
+                         net (fo=102, routed)         0.563     0.670    ex_controller/cmd_q/raddr_reg[0]_rep__0_n_0
+    SLICE_X109Y79        LUT6 (Prop_H6LUT_SLICEM_I4_O)
+                                                      0.090     0.760 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246/O
+                         net (fo=2, routed)           0.177     0.937    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_246_n_0
+    SLICE_X111Y78        LUT5 (Prop_F6LUT_SLICEM_I2_O)
+                                                      0.098     1.035 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173/O
+                         net (fo=28, routed)          0.222     1.257    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_173_n_0
+    SLICE_X109Y75        LUT6 (Prop_G6LUT_SLICEM_I4_O)
+                                                      0.090     1.347 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64/O
+                         net (fo=2, routed)           0.303     1.650    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_64_n_0
+    SLICE_X111Y74        LUT6 (Prop_G6LUT_SLICEM_I0_O)
+                                                      0.090     1.740 r  ex_controller/cmd_q/perform_mul_pre_i_2/O
+                         net (fo=4, routed)           0.243     1.983    ex_controller/cmd_q/perform_mul_pre_i_2_n_0
+    SLICE_X111Y68        LUT6 (Prop_H6LUT_SLICEM_I5_O)
+                                                      0.125     2.108 r  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17/O
+                         net (fo=5, routed)           0.251     2.359    ex_controller/cmd_q/Memory_reg_0_7_14_27_i_17_n_0
+    SLICE_X108Y68        LUT5 (Prop_B6LUT_SLICEL_I4_O)
+                                                      0.098     2.457 f  ex_controller/cmd_q/Memory_reg_0_7_14_27_i_1/O
+                         net (fo=13, routed)          0.295     2.752    ex_controller/cmd_q/a_garbage
+    SLICE_X106Y67        LUT5 (Prop_B6LUT_SLICEM_I2_O)
+                                                      0.125     2.877 r  ex_controller/cmd_q/Memory_reg_0_7_56_69_i_12/O
+                         net (fo=26, routed)          0.261     3.138    ex_controller/cmd_q/total_rows[1]
+    SLICE_X107Y63        LUT5 (Prop_G6LUT_SLICEM_I2_O)
+                                                      0.100     3.238 r  ex_controller/cmd_q/d_fire_counter[1]_i_7/O
+                         net (fo=10, routed)          0.322     3.561    ex_controller/cmd_q/d_fire_counter[1]_i_7_n_0
+    SLICE_X106Y60        LUT6 (Prop_D6LUT_SLICEM_I0_O)
+                                                      0.088     3.649 r  ex_controller/cmd_q/b_fire_counter[1]_i_2/O
+                         net (fo=13, routed)          0.169     3.817    ex_controller/cmd_q/b_fire_counter[1]_i_2_n_0
+    SLICE_X105Y61        LUT6 (Prop_D6LUT_SLICEL_I3_O)
+                                                      0.146     3.963 f  ex_controller/cmd_q/Memory_reg_uram_0_i_307/O
+                         net (fo=2, routed)           0.331     4.295    ex_controller/cmd_q/Memory_reg_uram_0_i_307_n_0
+    SLICE_X107Y62        LUT6 (Prop_H6LUT_SLICEM_I0_O)
+                                                      0.053     4.348 f  ex_controller/cmd_q/Memory_reg_uram_0_i_283/O
+                         net (fo=4, routed)           0.323     4.671    ex_controller/cmd_q/Memory_reg_uram_0_i_283_n_0
+    SLICE_X113Y64        LUT6 (Prop_G6LUT_SLICEL_I3_O)
+                                                      0.035     4.706 r  ex_controller/cmd_q/Memory_reg_uram_0_i_196/O
+                         net (fo=14, routed)          0.256     4.962    ex_controller/cmd_q/Memory_reg_uram_0_i_196_n_0
+    SLICE_X112Y61        LUT5 (Prop_B6LUT_SLICEL_I1_O)
+                                                      0.124     5.086 r  ex_controller/cmd_q/q_io_enq_bits_fromDMA_REG_i_2__1/O
+                         net (fo=15, routed)          0.502     5.588    ex_controller/cmd_q/io_read_req_bits_fromDMA
+    SLICE_X101Y58        LUT5 (Prop_F6LUT_SLICEL_I3_O)
+                                                      0.035     5.623 r  ex_controller/cmd_q/Memory_reg_uram_0_i_105__2/O
+                         net (fo=1, routed)           0.039     5.662    spad/mvin_scale_pixel_repeater/ram_reg[71]_11
+    SLICE_X101Y58        LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.036     5.698 r  spad/mvin_scale_pixel_repeater/Memory_reg_uram_0_i_4/O
+                         net (fo=4, routed)           1.465     7.163    spad/spad_mems_3/mem_ext/ADDR_A[8]
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/ADDR_B[8]
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk rise edge)        3.333     3.333 r  
+                                                      0.000     3.333 r  clock (IN)
+                         net (fo=52321, unset)        0.064     3.397    spad/spad_mems_3/mem_ext/clock
+    URAM288_X2Y12        URAM288                                      r  spad/spad_mems_3/mem_ext/Memory_reg_uram_1/CLK
+                         clock pessimism              0.000     3.397    
+                         clock uncertainty           -0.035     3.362    
+    URAM288_X2Y12        URAM288 (Setup_URAM_288K_INST_URAM288_CLK_ADDR_B[8])
+                                                     -0.319     3.043    spad/spad_mems_3/mem_ext/Memory_reg_uram_1
+  -------------------------------------------------------------------
+                         required time                          3.043    
+                         arrival time                          -7.163    
+  -------------------------------------------------------------------
+                         slack                                 -4.120    
+
+
+
+
