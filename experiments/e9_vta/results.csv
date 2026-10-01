@@ -75,3 +75,15 @@ engine-scope,vta-datapath-scratchpads,8,,10285,4208,0,18,-1.154,Core minus contr
 engine-scope,vta-whole-engine,8,,15710,4747,0,22,-1.427,Core; 6 URAM; 210 MHz; load DMA addressing
 engine-scope,vta-datapath-scratchpads,16,,28580,6450,0,66,-1.444,Core minus control; 12 URAM; 209 MHz; the input URAM feeding the GEMM
 engine-scope,vta-whole-engine,16,,34174,6963,0,70,-1.515,Core; 12 URAM; 206 MHz; load DMA addressing
+micro-fixed16,spmw-programmable,4,256,2803,2204,0,0,0.520,ptpu-micro; one instruction; total 4110
+micro-fixed16,spmw-programmable,8,64,8665,6416,0,0,0.370,ptpu-micro; one instruction; total 1050
+micro-fixed16,spmw-programmable,16,16,32048,22306,0,0,0.290,ptpu-micro; one instruction; total 306
+llama-gateup-slice,spmw-programmable,4,1048590,2803,2204,0,0,0.520,ptpu-llama; one instruction; the ptpu-micro hardware
+llama-gateup-slice,spmw-programmable,8,262170,8665,6416,0,0,0.370,ptpu-llama; one instruction; the ptpu-micro hardware
+llama-gateup-slice,spmw-programmable,16,65586,32048,22306,0,0,0.290,ptpu-llama; one instruction; the ptpu-micro hardware
+dsv4-gateup-slice,spmw-programmable,4,3670030,2803,2204,0,0,0.520,ptpu-dsv4; one instruction; the ptpu-micro hardware
+dsv4-gateup-slice,spmw-programmable,8,917530,8665,6416,0,0,0.370,ptpu-dsv4; one instruction; the ptpu-micro hardware
+dsv4-gateup-slice,spmw-programmable,16,229426,32048,22306,0,0,0.290,ptpu-dsv4; one instruction; the ptpu-micro hardware
+mixed-5gemm,spmw-programmable,4,1326,2803,2204,0,0,0.520,ptpu-mixed; cycles for the launch; five instructions; 1312 rows + 3S + 2
+mixed-5gemm,spmw-programmable,8,410,8665,6416,0,0,0.370,ptpu-mixed; five instructions; 384 rows + 3S + 2
+mixed-5gemm,spmw-programmable,16,258,32048,22306,0,0,0.290,ptpu-mixed; five instructions; 208 rows + 3S + 2

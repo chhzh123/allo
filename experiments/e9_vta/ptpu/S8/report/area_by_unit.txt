@@ -1,0 +1,7 @@
+dut LUT 8665 FF 6416
+  pe           n=  64 LUT=   4169 FF=   1152  per=   65.1/   18.0
+  spmw_fifo    n= 192 LUT=   2350 FF=   3104  per=   12.2/   16.2
+  plane8       n=   8 LUT=   1872 FF=   2056  per=  234.0/  257.0
+  seq          n=   1 LUT=    205 FF=     88  per=  205.0/   88.0
+  tap          n=   8 LUT=     55 FF=     16  per=    6.9/    2.0
+  spmw_top     n=   1 LUT=     42 FF=      0  per=   42.0/    0.0

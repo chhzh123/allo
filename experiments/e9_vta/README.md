@@ -83,6 +83,13 @@ free win, and both rows are kept so it stays one.
   scratchpads, VTA runs at 209-235 MHz and is 1.5-1.7x slower than SPMW on
   every real layer and array size. See
   [VTA with its memory counted](#vta-with-its-memory-counted).
+- **Programmability is free on SPMW.** The 256-unit array driven by a
+  program, one 64-bit instruction per GEMM, is the size of the fixed arrays
+  it replaces, 32,048 lookup tables at 16x16, at 329-355 MHz, and it runs
+  every workload here at the floor plus `3S + 2` cycles. Its whole dispatch
+  path is 564 lookup tables. It is 1.5-1.6x faster than VTA with its
+  scratchpads on the two real layers. See
+  [A programmable SPMW engine](#a-programmable-spmw-engine).
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA both near 300 MHz; Gemmini 34.8 MHz,
   which is a porting artifact of an unpipelined float scale path and not an
@@ -552,6 +559,212 @@ Three things bound this reading:
 - **This is VTA's RTL as it ships.** Pipelining its accumulator path would
   lift its clock, as the link credits lifted SPMW's.
 
+## A programmable SPMW engine
+
+Every SPMW row above is fixed-function. The workload's shape and epilogue
+are compiled into the array, so the microbenchmark, the LLaMA layer and the
+DeepSeek expert are three different builds at each size. VTA is programmed
+at run time, and so is Gemmini in its full system, though the `MxuAccVpu`
+measured here has no controller. E3's programmable SPMW engine spent 41
+cycles a row. This section builds the programmable engine on the 256-unit
+array: one build per size, running any program, at a row a cycle.
+
+**The program** is a stream of 64-bit instructions, one per GEMM:
+
+    (REP - 1) << 32 | (KB - 1) << 16 | FINAL << 8 | BIAS | RAW | RELU | SHIFT
+
+`REP` accumulations, each the sum of `KB` K blocks of `S` rows. `BIAS`,
+`RELU`, the shift and the clip are the epilogue, and `RAW` emits the int32
+sum. The microbenchmark, the LLaMA slice and the DeepSeek slice are one
+instruction each.
+
+**The dispatch is a three-stage pipeline** (`tests/dataflow/spmw/test_spmw_ptpu.py`):
+
+- **A sequencer** fetches and decodes. It is one unit and one flat loop. It
+  holds the array's only block counters and issues one 12-bit micro-op per
+  output row. The next instruction is read and decoded in the first row of
+  the GEMM it describes.
+- **A tap per lane** distributes. The micro-ops pass along a row of taps at
+  a lane a cycle, which is the array's own skew, and each tap hands its lane
+  a copy.
+- **The lanes** execute. A lane has no counter and decodes nothing. It reads
+  one micro-op with each partial sum.
+
+The cells run no program. An activation token is the int8 value and two
+framing bits, `SWAP` on every `S`-th beat and `LAST` on the final one, as a
+bus carries TLAST. A cell is two weight registers, a multiply-add and two
+flags.
+
+**One build runs every program.** At each size the microbenchmark, the LLaMA
+slice, the DeepSeek slice and a five-GEMM program were built separately, and
+their 45 generated files -- every role's HLS C++, wrapper and Vitis script,
+and the fabric -- are byte-identical (`ptpu/S<n>/report/same_hardware.txt`).
+The microbenchmark build is routed, and each of the four programs is
+cosimulated on that same generated hardware. Every output token is right,
+and no link is overwritten.
+
+| array | clock | LUT | FF | E3 micro, 16 tiles | LLaMA slice | DeepSeek slice | five GEMMs |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | 355 MHz | 2,803 | 2,204 | 4,110 | 1,048,590 | 3,670,030 | 1,326 |
+| 8x8 | 338 MHz | 8,665 | 6,416 | 1,050 | 262,170 | 917,530 | 410 |
+| 16x16 | 329 MHz | 32,048 | 22,306 | 306 | 65,586 | 229,426 | 258 |
+
+No DSP, block RAM or URAM at any size. Every cycle count is
+
+    cycles = M K N / S^2 + 3S + 2
+
+The first term is the floor, a row a cycle. The rest is the fill: `S` beats
+to shift the first weights in, then the last row's passage down the rows,
+across the columns and through a lane. The five-GEMM program has four shapes
+and three epilogues, and two of its GEMMs are a single block of `S` rows. It
+crosses four instruction boundaries and lands on the same formula, so **an
+instruction boundary costs no cycle**.
+
+### What programmability costs
+
+Against the three fixed-function arrays it replaces:
+
+| array | | fixed, micro | fixed, LLaMA | fixed, DeepSeek | programmable |
+|---|---|---:|---:|---:|---:|
+| 4x4 | LUT | 2,731 | 3,019 | 3,052 | **2,803** |
+| | FF | 1,980 | 2,044 | 2,196 | **2,204** |
+| | clock | 368 MHz | 349 MHz | 361 MHz | **355 MHz** |
+| | cycles | 4,121 | 1,048,649 | 3,670,089 | **4,110 / 1,048,590 / 3,670,030** |
+| 8x8 | LUT | 8,426 | 9,860 | 9,951 | **8,665** |
+| | FF | 6,504 | 6,616 | 6,952 | **6,416** |
+| | clock | 341 MHz | 359 MHz | 330 MHz | **338 MHz** |
+| | cycles | 1,057 | 262,225 | 917,585 | **1,050 / 262,170 / 917,530** |
+| 16x16 | LUT | 31,200 | 36,471 | 37,088 | **32,048** |
+| | FF | 21,236 | 24,361 | 25,283 | **22,306** |
+| | clock | 339 MHz | 343 MHz | 337 MHz | **329 MHz** |
+| | cycles | 305 | 65,633 | 229,473 | **306 / 65,586 / 229,426** |
+
+**It costs nothing in area.** The programmable engine is within 3% of the
+smallest fixed array at every size, and 12-14% smaller than the fixed arrays
+for the two real layers at 8x8 and 16x16. Its clock is 1-3% below the fixed
+arrays' average. At 4x4 and 8x8 that is inside the spread of the three fixed
+builds, and at 16x16 it is 8 MHz below the slowest of them. On time it is
+between 2% ahead of the fixed array and 4% behind on eight of the nine runs.
+The ninth is the LLaMA layer at 8x8, where the fixed build routed at 359 MHz
+and the programmable engine is 6% behind.
+
+The area goes where the split by unit shows (`ptpu/S16/report/area_by_unit.txt`):
+
+| 16x16 | units | LUT | FF | each |
+|---|---:|---:|---:|---|
+| cells | 256 | 17,493 | 4,736 | 68 LUT, 19 FF |
+| links between cells | 720 | 9,837 | 11,194 | |
+| lanes, with their partial-sum links | 16 | 4,205 | 5,424 | 234 LUT, 273 FF a lane |
+| sequencer | 1 | 209 | 88 | |
+| taps and micro-op links | 16 | 355 | 864 | |
+
+The registers sum to the array's 22,306. The lookup tables sum to about a
+hundred more than its 32,048, because Vivado reports a lookup table packed
+from two units under both.
+
+- **The whole dispatch path is 564 lookup tables and 952 registers**: the
+  sequencer, the taps and the micro-op links. That is 1.8% of the array's
+  lookup tables at 16x16, 4.4% at 8x8 and 10.6% at 4x4, because the
+  sequencer does not grow with the array.
+- **The cell is smaller than the fixed one**, 68 lookup tables and 19
+  registers against 91 and 37 in the fixed LLaMA array. A fixed cell counts
+  the launch's rows, 17 bits for the LLaMA slice at 16x16, in each of 256
+  cells. A programmed cell stops on a token and swaps weights on a token,
+  so it counts nothing.
+- **A lane is 234 lookup tables and 273 registers against 265 and 199.** It
+  has a run-time shift where the fixed lane's is a constant and no block
+  counters, and it is two stages deeper.
+- The clock is set at every size by a cell's multiply-add into its
+  partial-sum link, 11 or 12 logic levels. The fixed arrays are limited by
+  that same path or by one inside a lane. No dispatch path is near it.
+
+### Programmable against programmable
+
+VTA's two scopes are the ones of [VTA with its memory counted](#vta-with-its-memory-counted).
+Gemmini's row is its datapath with a handshake, without its controller. Times
+are the microbenchmark's 16 tiles, the full gate and up pair of 128 slices,
+and an expert's 48 slices.
+
+| workload | array | SPMW programmable | SPMW fixed | Gemmini datapath | VTA + scratchpads | VTA whole engine |
+|---|---|---:|---:|---:|---:|---:|
+| E3 micro, 16 tiles | 4x4 | 11.6 us | 11.2 us | 19.2 us | 30.6 us | 35.2 us |
+| | 8x8 | 3.11 us | 3.10 us | 4.19 us | 11.6 us | 12.3 us |
+| | 16x16 | 0.93 us | 0.90 us | 1.15 us | 5.02 us | 5.09 us |
+| LLaMA gate + up, 64 tokens | 4x4 | 378 ms | 384 ms | 648 ms | 576 ms | 661 ms |
+| | 8x8 | 99.4 ms | 93.5 ms | 132 ms | 153 ms | 162 ms |
+| | 16x16 | 25.5 ms | 24.5 ms | 31.0 ms | 41.4 ms | 42.0 ms |
+| DeepSeek-V4 expert, 64 tokens | 4x4 | 496 ms | 488 ms | 850 ms | 752 ms | 863 ms |
+| | 8x8 | 131 ms | 133 ms | 173 ms | 199 ms | 211 ms |
+| | 16x16 | 33.5 ms | 32.7 ms | 40.6 ms | 53.1 ms | 53.9 ms |
+
+| array | engine | LUT | FF | BRAM | URAM | clock |
+|---|---|---:|---:|---:|---:|---:|
+| 4x4 | SPMW programmable | 2,803 | 2,204 | 0 | 0 | 355 MHz |
+| | VTA datapath + scratchpads | 5,136 | 2,948 | 10 | 2 | 235 MHz |
+| | VTA whole engine | 10,311 | 3,456 | 14 | 2 | 205 MHz |
+| 8x8 | SPMW programmable | 8,665 | 6,416 | 0 | 0 | 338 MHz |
+| | VTA datapath + scratchpads | 10,285 | 4,208 | 18 | 6 | 223 MHz |
+| | VTA whole engine | 15,710 | 4,747 | 22 | 6 | 210 MHz |
+| 16x16 | SPMW programmable | 32,048 | 22,306 | 0 | 0 | 329 MHz |
+| | VTA datapath + scratchpads | 28,580 | 6,450 | 66 | 12 | 209 MHz |
+| | VTA whole engine | 34,174 | 6,963 | 70 | 12 | 206 MHz |
+
+The programmable SPMW engine is 1.5-1.6x faster than VTA with its
+scratchpads on the two real layers and 2.6-5.4x on the microbenchmark. On
+lookup tables times time it is ahead by 1.4-2.8x on the real layers and
+4.4-4.9x on the microbenchmark, before VTA's RAM is counted. Against VTA's
+whole engine the factors are 1.6-1.8x in time and 1.7-6.4x in lookup tables
+times time on the real layers. SPMW is 1.2-1.7x faster than Gemmini's
+datapath, as the fixed array was.
+
+A program is also shorter. The LLaMA slice is one 64-bit instruction here.
+On VTA's compute core it is 20, 12 and 8 instructions of 128 bits at the
+three widths, and the DeepSeek slice 60, 32 and 18: one per page of `K`
+through a 1,024-block weight scratchpad, a reset and three ALU passes. That
+is before the loads that refill the scratchpads.
+
+Four things bound this reading:
+
+- **The instruction set is one instruction.** A GEMM with a bias, a ReLU, a
+  shift and a clip, or the raw sums. VTA's is wider: a general ALU, loads
+  and stores, and micro-coded loops. The fused SwiGLU lane of the LLaMA
+  section is not a program of this engine; it would be a second lane.
+- **There is still no memory system.** Activations, weights, biases and the
+  program arrive as streams from the testbench, and VTA's two rows include
+  its scratchpads. The host orders the weights one block ahead of their rows
+  and sets the two framing bits.
+- **`S` is hardware.** A block is `S` rows and `S` columns, so `M`, `K` and
+  `N` are multiples of `S`, as they are for Gemmini's `DIM`.
+- **The array cannot be stalled.** Its links are bare registers, so every
+  stream has to keep up with it, as in the fixed arrays.
+
+### What it took
+
+The first version that worked in RTL was too large. Its cells counted the
+launch's rows and its lanes each decoded the program and kept their own
+block counters. At 16x16 it was 51,226 lookup tables and 47,250 registers at
+308 MHz, with 32-bit comparisons in every lane on the worst path. Moving the
+counters into one sequencer and the row count onto the stream gave the
+engine above, at 63% of the lookup tables and 47% of the registers. Those
+builds were not kept.
+
+A unit that stops on a token is a `while`, and Vitis HLS got it wrong twice
+in ways the two simulators cannot see:
+
+- **It split the cell across two states.** The loop's exit depends on the
+  token just read, so Vitis scheduled that read first and everything else a
+  state later, at any clock. The cell then read its weight a cycle after its
+  activation, and its neighbour's next weight overwrote the one it had not
+  read. A `combinational` unit's `while` is now held to one state, and the
+  array build stops if Vitis schedules it in more.
+- **It kept the lanes' last three rows.** Vitis's default pipeline moves
+  only while its first stage does. After the last micro-op a lane restarts,
+  waits for one that never comes, and holds the rows still in flight. A
+  `while` deeper than one state is now built as a flushing pipeline.
+
+Both are in `allo/spmw/schedule.py` (`pipeline_whiles`) and in
+`docs/source/dive/spmw.rst`.
+
 ## Where the area gap comes from
 
 A 3.5x lookup-table and 22x register gap between E3's SPMW cell and VTA
@@ -924,6 +1137,19 @@ is Intel.
   engine at widths 4 and 8, `scripts/pnr_vta_rtl.sh` routes it, and
   `scripts/vta_core_scope_timing.tcl` and `vta_core_scope2_timing.tcl` time
   the two scopes.
+- `tests/dataflow/spmw/test_spmw_ptpu.py` -- the programmable engine: the
+  cell, the sequencer, the tap and the lane, the assembler that turns GEMMs
+  into a program and its streams, and the four workloads, designs
+  `ptpu-micro`, `ptpu-llama`, `ptpu-dsv4` and `ptpu-mixed` in
+  `scripts/spmw_build_array.py`.
+- `ptpu/S<n>/` -- its builds, laid out like E3's SPMW engines. The routed
+  build is the microbenchmark's. A `mixed_`, `llama_` or `dsv4_` report is
+  the same hardware built and cosimulated with that program, and
+  `same_hardware.txt` is the comparison of their generated files.
+  `area_by_unit.txt` splits the routed array by kind of unit.
+  `ptpu/scripts/` has the build wrapper, `same_hw.sh`, the hierarchical
+  split and `probe_hls.sh`, which synthesises each role once and prints the
+  state every link access was scheduled in.
 - `deepseek_v4/` -- the same layout for one DeepSeek-V4-Pro expert (designs
   `dsv4-gateup`, `dsv4-swiglu`; `test_spmw_llama_ffn.deepseek_of`). Gemmini
   runs the LLaMA section's routed hardware, so `gemmini/S<n>/` has only the

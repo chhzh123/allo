@@ -1,0 +1,6 @@
+dut LUT 2803 FF 2204
+  pe           n=  16 LUT=   1112 FF=    272  per=   69.5/   17.0
+  plane4       n=   4 LUT=    935 FF=    996  per=  233.8/  249.0
+  spmw_fifo    n=  48 LUT=    524 FF=    840  per=   10.9/   17.5
+  seq          n=   1 LUT=    214 FF=     88  per=  214.0/   88.0
+  tap          n=   4 LUT=     29 FF=      8  per=    7.2/    2.0

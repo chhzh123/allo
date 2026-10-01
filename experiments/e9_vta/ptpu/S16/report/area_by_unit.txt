@@ -1,0 +1,7 @@
+dut LUT 32048 FF 22306
+  pe           n= 256 LUT=  17493 FF=   4736  per=   68.3/   18.5
+  spmw_fifo    n= 768 LUT=  10565 FF=  13082  per=   13.8/   17.0
+  plane16      n=  16 LUT=   3738 FF=   4368  per=  233.6/  273.0
+  seq          n=   1 LUT=    209 FF=     88  per=  209.0/   88.0
+  tap          n=  16 LUT=     94 FF=     32  per=    5.9/    2.0
+  spmw_top     n=   1 LUT=     67 FF=      0  per=   67.0/    0.0

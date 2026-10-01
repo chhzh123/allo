@@ -1,0 +1,32 @@
+B_START ptpu-micro S=16 --jobs 6 Thu Oct  1 03:54:30 EDT 2026
+ptpu-micro: {"roles": 14, "instances": 289, "fifos": 817, "streams": 65}
+staged 14 role project(s) in 1.7s (frontend + per-role HLS codegen)
+synthesising and exporting 14 unit(s) concurrently:
+  pe_r0: rc=0 69.8s
+  pe_r3: rc=0 70.1s
+  pe_r5: rc=0 70.8s
+  pe_r1: rc=0 70.9s
+  pe_r2: rc=0 72.0s
+  pe_r4: rc=0 72.0s
+  tap_r0: rc=0 60.7s
+  tap_r1: rc=0 61.9s
+  pe_r6: rc=0 69.0s
+  pe_r8: rc=0 68.4s
+  pe_r7: rc=0 69.2s
+  seq_r0: rc=0 68.6s
+  tap_r2: rc=0 41.7s
+  plane16_r0: rc=0 46.2s
+HLS: 180.1s wall for 14 roles and 0 movers (911.3s of CPU work, 289 instances)
+assembling the array in Vivado:
+  stage synth 333.674
+  stage opt 17.498
+  stage place 333.976
+  stage physopt 6.407
+  stage route 130.788
+  unrouted 0
+Vivado implemented 289 instances in 875.7s
+  array clock: 3.043 ns achieved against a 3.333 ns target (WNS +0.290 ns)
+simulating the assembled array:
+  SPMW COSIM PASS (4096/4096 tokens, 0 errors)
+  SPMW CYCLES total=306 first_out=36 first_in=1
+B_RC=0 wall_s=1104

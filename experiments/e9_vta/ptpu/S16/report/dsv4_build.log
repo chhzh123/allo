@@ -1,0 +1,25 @@
+B_START ptpu-dsv4 S=16 --jobs 6 Thu Oct  1 03:59:50 EDT 2026
+ptpu-dsv4: {"roles": 14, "instances": 289, "fifos": 817, "streams": 65}
+staged 14 role project(s) in 17.4s (frontend + per-role HLS codegen)
+synthesising and exporting 14 unit(s) concurrently:
+  pe_r3: rc=0 60.2s
+  pe_r5: rc=0 60.6s
+  pe_r1: rc=0 61.0s
+  pe_r0: rc=0 62.6s
+  pe_r4: rc=0 62.7s
+  pe_r2: rc=0 63.2s
+  tap_r0: rc=0 57.4s
+  pe_r6: rc=0 60.6s
+  tap_r1: rc=0 58.2s
+  pe_r7: rc=0 63.4s
+  seq_r0: rc=0 62.4s
+  pe_r8: rc=0 64.2s
+  tap_r2: rc=0 49.1s
+  plane16_r0: rc=0 52.7s
+HLS: 173.5s wall for 14 roles and 0 movers (838.3s of CPU work, 289 instances)
+assembling the array in Vivado:
+Vivado elaborated 289 instances in 77.3s
+simulating the assembled array:
+  SPMW COSIM PASS (8192/8192 tokens, 0 errors)
+  SPMW CYCLES total=229426 first_out=7188 first_in=1
+B_RC=0 wall_s=690
