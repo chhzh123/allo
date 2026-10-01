@@ -302,3 +302,78 @@ def test_bind_fabric_mul_is_idempotent_on_code_with_no_multiply():
     plain = "int32_t v1 = v2 + v3;\t// L1\n"
     out, bound = sched.bind_fabric_mul(plain)
     assert out == plain and bound == []
+
+
+WHILE_CODE = (
+    "  go = 1;\t// L10\n"
+    "  while (true) {\t// L11\n"
+    "    int32_t v4 = go;\t// L12\n"
+    "    if (!(v5)) break;\n"
+    "  }\n"
+    "  l_S_i_0_i: for (int i = 0; i < 4; i++) {\t// L20\n"
+    "  }\n"
+)
+
+
+def test_a_while_loop_is_pipelined_in_its_body():
+    """`apply` cannot reach a `while`: it is in no loop band.
+
+    A unit that stops on a token rather than a count -- `test_spmw_ptpu`'s
+    cells and lanes -- is one `while`, and the pragma goes first in its body.
+    """
+    out, count = sched.pipeline_whiles(WHILE_CODE, 1)
+    assert count == 1
+    lines = out.split("\n")
+    at = lines.index("  while (true) {\t// L11")
+    # Flushing: the loop ends with iterations in flight and no input to push
+    # them. `test_spmw_ptpu`'s lanes kept their last three rows without it.
+    assert lines[at + 1] == "    #pragma HLS pipeline II=1 style=flp"
+    # A `for` loop is the schedule's to pipeline, through its band.
+    assert out.count("#pragma HLS pipeline") == 1
+
+
+def test_code_with_no_while_is_left_alone():
+    plain = "  l_S_i_0_i: for (int i = 0; i < 4; i++) {\t// L20\n  }\n"
+    assert sched.pipeline_whiles(plain, 1) == (plain, 0)
+
+
+def test_a_combinational_while_is_held_to_one_state():
+    """A token-driven loop splits unless told not to, and bare links cannot wait.
+
+    Vitis puts the read its exit test depends on in the first state and
+    everything else in the second, at any clock. `test_spmw_ptpu`'s cell then
+    read its weight a cycle after its activation, and its neighbour's next
+    weight overwrote the one it had not read.
+    """
+    out, _count = sched.pipeline_whiles(WHILE_CODE, 1, one_stage=True)
+    lines = out.split("\n")
+    at = lines.index("  while (true) {\t// L11")
+    assert lines[at + 1 : at + 3] == [
+        "    #pragma HLS pipeline II=1",
+        "    " + sched.ONE_STAGE,
+    ]
+    # One state has nothing in flight to flush.
+    assert "style=flp" not in out
+    assert sched.ONE_STAGE not in sched.pipeline_whiles(WHILE_CODE, 1)[0]
+
+
+LOOP_TABLE = """
+    |ap_clk  |  6.17 ns|  3.736 ns|     0.90 ns|
+        +-------------------+---------+---------+----------+-----------+
+        |                   |  Latency (cycles) | Iteration|  Initiation Interval  |
+        |     Loop Name     |   min   |   max   |  Latency |  achieved |   target  |
+        +-------------------+---------+---------+----------+-----------+
+        |- VITIS_LOOP_28_1  |        ?|        ?|         {}|          1|          1|
+        |- Loop 1           |        ?|        ?|         1|          -|          -|
+        +-------------------+---------+---------+----------+-----------+
+|Total                |        0|     0|       39|      233|    0|
+"""
+
+
+@pytest.mark.parametrize("depth", [1, 2])
+def test_the_report_says_how_many_states_a_body_took(depth):
+    assert sched.iteration_latency(LOOP_TABLE.format(depth)) == depth
+
+
+def test_a_report_with_no_loop_has_no_iteration_latency():
+    assert sched.iteration_latency("|Total | 0| 0| 39| 233| 0|\n") is None

@@ -680,6 +680,11 @@ def optimise(code, built):
     bound = []
     if interval_ and names:
         code, bound = sched.bind_recurrences(code, names, max(interval_ - 1, 0))
+    # A `while` is in no loop band, so `sched.apply` left it sequential.
+    if interval_:
+        code, _whiles = sched.pipeline_whiles(
+            code, interval_, one_stage=getattr(built, "spmw_link_credits", 0) == 2
+        )
     # A design may also ask for its feed-forward float adds in fabric. That is
     # a separate question from the recurrence budget above: those adders do not
     # set the interval, they set the DSP count, because Vitis implements a

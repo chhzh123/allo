@@ -267,6 +267,39 @@ A rank-0 source is the constant sequence and costs nothing --
 the consuming sites.
 
 
+Scheduling
+==========
+
+``spmw.pipeline(P, ii=1)`` pipelines the loops of a placement's unit, and is the
+default.  ``registered_links=True`` and ``combinational=True`` credit a unit the
+registers its links already provide; ``allo.spmw.schedule`` has the reasoning.
+
+A unit need not know how long it runs.  Written as a ``while``, it stops on a
+token -- a framing bit of its input stream -- and is pipelined like a counted
+loop:
+
+.. code-block:: python
+
+   @spmw.unit
+   def tap(io: TapIO):
+       go: uint1 = 1
+       while go != 0:
+           u: int16 = io.u_in.get()
+           io.u_out.put(u)
+           io.c_out.put(u)
+           if ((u >> 11) & 1) != 0:
+               go = 0
+
+``combinational=True`` holds such a body to one state.  It has to: the exit test
+depends on the token just read, so Vitis HLS schedules that read a state ahead
+of everything else, and on bare-register links (``depth=0``) a unit that touches
+its links in two states is out of step with its neighbours.  The array build
+stops if a body asked for one state was scheduled in more.  A ``while`` left to
+take several states is built as a flushing pipeline, so that the iterations
+still in flight when the stream ends are not left waiting on a token that never
+comes.
+
+
 Targets
 =======
 
@@ -331,6 +364,8 @@ What is checked
      - build
    * - A brick read and written in one phase, or written twice
      - build
+   * - A ``combinational`` ``while`` body scheduled across states
+     - array build, after ``csynth``
 
 
 Current limits

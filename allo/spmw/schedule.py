@@ -41,6 +41,8 @@ from .errors import SPMWMemoryError, SPMWPlacementError
 
 PIPELINE = "pipeline"
 LINK_CREDITS = "link_credits"
+#: What bounds a loop body at one state in generated HLS C++.
+ONE_STAGE = "#pragma HLS latency max=0"
 
 
 class Directive:
@@ -269,9 +271,7 @@ def bind_fabric_arith(code):
     out, bound = [], []
     for line in code.splitlines(True):
         out.append(line)
-        match = re.match(
-            r"(\s*)float\s+(v\d+)\s*=\s*[^;]*?([-+])\s*v\d+\s*;", line
-        )
+        match = re.match(r"(\s*)float\s+(v\d+)\s*=\s*[^;]*?([-+])\s*v\d+\s*;", line)
         if match:
             indent, value, op = match.group(1), match.group(2), match.group(3)
             out.append(
@@ -280,6 +280,60 @@ def bind_fabric_arith(code):
             )
             bound.append(value)
     return "".join(out), bound
+
+
+def pipeline_whiles(code, ii, one_stage=False):
+    """Pipeline every ``while`` loop of generated HLS C++ at interval ``ii``.
+
+    `apply` reaches a loop through the schedule's bands, and a ``while`` has
+    none. A unit that stops on a token rather than on a count -- a cell that
+    runs until its stream's last beat -- is one ``while``, emitted as
+    ``while (true) {`` with the exit test first, and the pragma goes at the top
+    of that body, where Vitis reads it.
+
+    ``one_stage`` holds the body to a single state, which is what
+    ``combinational=True`` asserts and what a unit on bare-register links
+    needs. A loop that stops on a token carries a recurrence from the read of
+    that token to its own exit test, so Vitis schedules that one read in the
+    first state and, left alone, everything else in the second -- whatever the
+    clock. The unit then holds its other links' values a cycle longer than its
+    neighbour takes to send the next, and a bare register has no way to say so.
+
+    A body left to take several states is made a *flushing* pipeline. Vitis's
+    default pipeline advances only while its first stage does, and a loop that
+    ends on a token ends with its last iterations still in flight: the unit
+    restarts, waits in its first stage for a token that never comes, and the
+    rows behind it never leave. Each stage of a flushing pipeline moves on its
+    own.
+
+    Returns the rewritten code and how many loops it pipelined.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    out, count = [], 0
+    for line in code.split("\n"):
+        out.append(line)
+        opened = re.match(r"(\s*)while \(true\) \{", line)
+        if opened:
+            pad = opened.group(1)
+            if one_stage:
+                out += [f"{pad}  #pragma HLS pipeline II={ii}", f"{pad}  {ONE_STAGE}"]
+            else:
+                out.append(f"{pad}  #pragma HLS pipeline II={ii} style=flp")
+            count += 1
+    return "\n".join(out), count
+
+
+def iteration_latency(report):
+    """The deepest iteration latency among the loops of a ``csynth`` report.
+
+    One means every loop body is a single state. None means the report lists
+    no loop.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    rows = re.findall(r"^\s*\|\s*[-+]+\s*[^|]*\|[^|]*\|[^|]*\|\s*(\d+)\|", report, re.M)
+    return max(int(row) for row in rows) if rows else None
 
 
 def bind_fabric_mul(code):
@@ -325,8 +379,7 @@ def bind_fabric_mul(code):
         if match:
             indent, value = match.group(1), match.group(2)
             out.append(
-                f"{indent}#pragma HLS bind_op variable={value} "
-                f"op=mul impl=fabric\n"
+                f"{indent}#pragma HLS bind_op variable={value} op=mul impl=fabric\n"
             )
             bound.append(value)
     return "".join(out), bound
@@ -386,4 +439,7 @@ __all__ = [
     "interval",
     "partition_banks",
     "pipeline",
+    "pipeline_whiles",
+    "iteration_latency",
+    "ONE_STAGE",
 ]

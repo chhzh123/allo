@@ -45,6 +45,7 @@ sys.path.insert(
 
 import allo.spmw as spmw  # pylint: disable=wrong-import-position
 from allo.spmw import rtl, shell  # pylint: disable=wrong-import-position
+from allo.spmw import schedule as sched  # pylint: disable=wrong-import-position
 from allo.spmw.cosim import (  # pylint: disable=wrong-import-position
     render_testbench,
 )
@@ -329,6 +330,13 @@ def design(name, size, lanes=1):
         from test_spmw_llama_ffn import llama_of
 
         return llama_of(size, name.split("-")[1])
+    if name in ("ptpu-micro", "ptpu-llama", "ptpu-dsv4", "ptpu-mixed"):
+        # The programmable mini-TPU: one engine, four programs. The hardware
+        # is identical across them (`test_spmw_ptpu`); only the program and
+        # the data streams differ.
+        from test_spmw_ptpu import ptpu_workload
+
+        return ptpu_workload(size, name.split("-")[1])
     if name in ("dsv4-gateup", "dsv4-swiglu"):
         # The same projections at one DeepSeek-V4-Pro routed expert's shape:
         # 64 tokens, K = 7168 and 64 of each projection's 3,072 columns.
@@ -966,7 +974,31 @@ def _synthesise_one(out, name):
                 os.path.join(directory, f"{name}.sv"), encoding="utf-8"
             ) as handle:
                 check_wrapper(handle.read(), netlist)
+        check_one_stage(directory, name)
     return name, seconds, done.returncode
+
+
+def check_one_stage(directory, name):
+    """A body held to one state has to have been scheduled in one.
+
+    Vitis reports a latency bound it cannot meet as a warning and schedules
+    the body across states anyway. On bare-register links that is a design
+    that simulates correctly and overwrites its links in hardware, so it stops
+    the build here rather than surfacing in cosim.
+    """
+    with open(os.path.join(directory, "kernel.cpp"), encoding="utf-8") as handle:
+        if sched.ONE_STAGE not in handle.read():
+            return
+    report = os.path.join(
+        directory, "prj", "sol", "syn", "report", f"{name}_0_csynth.rpt"
+    )
+    with open(report, encoding="utf-8") as handle:
+        depth = sched.iteration_latency(handle.read())
+    if depth != 1:
+        raise SystemExit(
+            f"{name} was asked for a one-state body and Vitis scheduled it in "
+            f"{depth}; its links would not stay in step. See {report}"
+        )
 
 
 def assemble(
@@ -1241,6 +1273,10 @@ def main():
             "llama-swiglu",
             "dsv4-gateup",
             "dsv4-swiglu",
+            "ptpu-micro",
+            "ptpu-llama",
+            "ptpu-dsv4",
+            "ptpu-mixed",
             "tpumicro-lean0-m",
             "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
