@@ -377,3 +377,70 @@ def test_the_report_says_how_many_states_a_body_took(depth):
 
 def test_a_report_with_no_loop_has_no_iteration_latency():
     assert sched.iteration_latency("|Total | 0| 0| 39| 233| 0|\n") is None
+
+
+RAM_CODE = (
+    "  int32_t buf[2048];\t// L9\n"
+    "  for (int v9 = 0; v9 < 2048; v9++) {\t// L10\n"
+    "    buf[v9] = 0;\t// L10\n"
+    "  }\n"
+    "  int32_t p;\t// L13\n"
+    "  p = 0;\t// L14\n"
+    "  while (true) {\t// L24\n"
+    "    int32_t v43 = buf[v42];\t// L50\n"
+    "    buf[v42] = v61;\t// L71\n"
+    "  }\n"
+)
+
+
+def test_a_ram_starts_as_zeros_without_a_loop_to_fill_it():
+    """The fill is cycles after reset, and bare links do not wait for a unit.
+
+    `test_spmw_ptpu_mem`'s lane keeps a tile's partial sums in 2,048 words. As
+    Allo emits it the lane spends its first 2,050 cycles zeroing them, and the
+    array above it has been handing it rows for most of those.
+    """
+    out = sched.hold_rams(RAM_CODE, {"buf": None})
+    assert "  static int32_t buf[2048] = {0};\t// L9\n" in out
+    assert "for (int v9" not in out and "buf[v9] = 0" not in out
+    # what the body does with it is untouched, and nothing is promised
+    assert "    buf[v42] = v61;\t// L71\n" in out
+    assert "#pragma" not in out
+
+
+def test_a_ram_distance_is_a_dependence_inside_the_loop():
+    """A read-modify-write holds II=1 only if told how far apart its visits are."""
+    lines = sched.hold_rams(RAM_CODE, {"buf": 4}).split("\n")
+    at = lines.index("  while (true) {\t// L24")
+    assert lines[at + 1] == (
+        "    #pragma HLS dependence variable=buf type=inter direction=RAW "
+        "distance=4 true"
+    )
+
+
+def test_a_ram_the_unit_does_not_declare_is_refused():
+    """A name that matches nothing would leave the loop in and say nothing."""
+    with pytest.raises(Exception, match="acc.*declares no such array"):
+        sched.hold_rams(RAM_CODE, {"acc": None})
+    # a scalar of that name is not an array to hold
+    with pytest.raises(Exception, match="declares no such array"):
+        sched.hold_rams(RAM_CODE, {"p": None})
+
+
+def test_ram_is_a_directive_of_the_placement():
+    placement = spmw.elaborate(gemm_of(3)).placements[0]
+    assert sched.rams(placement) == {}
+    spmw.ram(placement, "buf")
+    spmw.ram(placement, "tab", distance=4)
+    spmw.ram(placement, "buf", distance=2)
+    assert sched.rams(placement) == {"tab": 4, "buf": 2}, "re-applying replaces"
+    # and it leaves the interval the placement asked for alone
+    spmw.pipeline(placement, ii=2)
+    assert sched.interval(placement) == 2 and sched.rams(placement)["buf"] == 2
+    for bad in (0, -1, 1.5, True, "4"):
+        with pytest.raises(Exception, match="positive int"):
+            spmw.ram(placement, "buf", distance=bad)
+    with pytest.raises(Exception, match="names an array"):
+        spmw.ram(placement, "not a name")
+    with pytest.raises(Exception, match="applies to a placement"):
+        spmw.ram(object(), "buf")

@@ -35,12 +35,20 @@ multiply and two adder levels into one stage.  On E3's 16x16 microbenchmark: a
 4x4 block of cells closed at 260 MHz credited both and 333 MHz credited one;
 8x8 and 16x16 blocks, three stages deep, at 258 and 262 MHz credited one and
 322 and 311 credited none.
+
+``ram(P, "buf")`` keeps an array a unit declares as the memory it is.  Allo
+zeroes a declared array with a loop ahead of the body, and in hardware that
+loop is cycles after reset in which the unit takes no token: 2,048 of them for
+a 2,048-entry accumulator, while its neighbours on bare-register links have
+nowhere to put theirs.  ``distance=n`` adds what a read-modify-write needs to
+hold II=1: that an element written is not read again for ``n`` iterations.
 """
 
 from .errors import SPMWMemoryError, SPMWPlacementError
 
 PIPELINE = "pipeline"
 LINK_CREDITS = "link_credits"
+RAM = "ram"
 #: What bounds a loop body at one state in generated HLS C++.
 ONE_STAGE = "#pragma HLS latency max=0"
 
@@ -90,6 +98,51 @@ def pipeline(target, ii=1, registered_links=False, combinational=False):
     if given:
         target.schedule.append(Directive(LINK_CREDITS, given))
     return target
+
+
+def ram(target, name, distance=None):
+    """Keep the unit's local array ``name`` as a RAM.
+
+    ``target`` is a placement and ``name`` an array its unit declares.  The
+    array then starts as zeros because it was configured that way, not because
+    a loop filled it: the unit takes its first token the cycle after reset, and
+    a second run finds what the first one left.
+
+    ``distance`` is a promise about the unit's own addressing: an element
+    written in one iteration is not read again for at least that many.  A
+    read-modify-write is a recurrence through the memory -- the read, the
+    arithmetic and the write of one iteration before the read of the next --
+    unless the tool is told how far apart two visits to one element are, and
+    with that it may take ``distance`` stages over them at II=1.
+    """
+    if not hasattr(target, "schedule"):
+        raise SPMWPlacementError(
+            f"ram() applies to a placement; got {type(target).__name__}."
+        )
+    if not isinstance(name, str) or not name.isidentifier():
+        raise SPMWPlacementError(
+            f"ram() names an array of the unit's body, got {name!r}"
+        )
+    if distance is not None and (
+        isinstance(distance, bool) or not isinstance(distance, int) or distance < 1
+    ):
+        raise SPMWPlacementError(
+            f"ram(distance=) must be a positive int, got {distance!r}"
+        )
+    target.schedule = [
+        d for d in target.schedule if not (d.kind == RAM and d.value[0] == name)
+    ]
+    target.schedule.append(Directive(RAM, (name, distance)))
+    return target
+
+
+def rams(placement):
+    """The arrays this placement's unit keeps as RAMs, each with its distance."""
+    return {
+        d.value[0]: d.value[1]
+        for d in getattr(placement, "schedule", ())
+        if d.kind == RAM
+    }
 
 
 def link_credits(placement):
@@ -324,6 +377,56 @@ def pipeline_whiles(code, ii, one_stage=False):
     return "\n".join(out), count
 
 
+def hold_rams(code, held):
+    """Make each array of ``held`` a RAM in generated HLS C++.
+
+    Allo declares an array and zeroes it in a loop, ``int32_t buf[2048];`` and
+    three lines after it.  The loop goes and the declaration becomes ``static``
+    with its initial value, which is how Vitis is told that a memory's contents
+    are part of the configuration.  A ``distance`` becomes a ``dependence``
+    pragma in the body of every ``while``, where the accesses are.
+
+    An array that is not found raises, as an unpartitioned bank does: what is
+    lost is not speed.  The fill loop of an accumulator runs for thousands of
+    cycles after reset, and a unit that has not started loses its neighbours'
+    tokens on bare-register links.
+    """
+    import re  # pylint: disable=import-outside-toplevel
+
+    missing = []
+    for name, distance in held.items():
+        fill = re.compile(
+            rf"^(?P<pad>[ \t]*)(?P<type>\w+) {re.escape(name)}(?P<dims>\[\d+\]);"
+            rf"(?P<note>[^\n]*)\n"
+            rf"[ \t]*for \(int (?P<i>v\d+) = 0; (?P=i) < \d+; (?P=i)\+\+\) \{{[^\n]*\n"
+            rf"[ \t]*{re.escape(name)}\[(?P=i)\] = 0;[^\n]*\n"
+            rf"[ \t]*\}}[^\n]*\n",
+            re.M,
+        )
+        code, count = fill.subn(
+            rf"\g<pad>static \g<type> {name}\g<dims> = {{0}};\g<note>\n", code
+        )
+        if count != 1:
+            missing.append(name)
+        elif distance:
+            code = re.sub(
+                r"^([ \t]*)while \(true\) \{[^\n]*\n",
+                lambda m, n=name, d=distance: (
+                    f"{m.group(0)}{m.group(1)}  #pragma HLS dependence "
+                    f"variable={n} type=inter direction=RAW distance={d} true\n"
+                ),
+                code,
+                flags=re.M,
+            )
+    if missing:
+        raise SPMWMemoryError(
+            f"`ram()` names {', '.join(sorted(missing))}, and the unit declares no "
+            f"such array for a loop to fill. It would be built as it was, a loop "
+            f"of cycles ahead of its first token, so this is refused."
+        )
+    return code
+
+
 def iteration_latency(report):
     """The deepest iteration latency among the loops of a ``csynth`` report.
 
@@ -436,10 +539,13 @@ __all__ = [
     "bind_fabric_arith",
     "apply",
     "bind_recurrences",
+    "hold_rams",
     "interval",
     "partition_banks",
     "pipeline",
     "pipeline_whiles",
+    "ram",
+    "rams",
     "iteration_latency",
     "ONE_STAGE",
 ]

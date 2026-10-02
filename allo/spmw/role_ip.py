@@ -638,6 +638,7 @@ def build_unit(graph, placement, order, target="vhls", ii=None, **kwargs):
     built.spmw_accumulators = carried
     built.spmw_interval = want
     built.spmw_link_credits = sched.link_credits(placement)
+    built.spmw_rams = sched.rams(placement)
     # Fabric binding is a fabric-wide choice, not a per-role one: the point is
     # that every butterfly in the design spends the same resource. It is read
     # off the fabric, where the design sets it -- `Placement` has no back
@@ -707,6 +708,11 @@ def optimise(code, built):
     banked = getattr(built, "spmw_banked", None)
     if banked:
         code, _placed = sched.partition_banks(code, banked)
+    # An array the design keeps as a RAM loses the loop that fills it, which
+    # is otherwise cycles after reset before the unit takes a token.
+    held = getattr(built, "spmw_rams", None)
+    if held:
+        code = sched.hold_rams(code, held)
     return code, bound
 
 

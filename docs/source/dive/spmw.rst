@@ -299,6 +299,33 @@ take several states is built as a flushing pipeline, so that the iterations
 still in flight when the stream ends are not left waiting on a token that never
 comes.
 
+A unit may keep state in an array it declares, and ``spmw.ram(P, "buf")`` keeps
+that array as the memory it is.  Allo zeroes a declared array with a loop ahead
+of the body; in hardware the loop is cycles after reset in which the unit takes
+no token -- 2,048 of them for a 2,048-entry accumulator -- and its neighbours on
+bare-register links have nowhere to put theirs.  As a RAM the array starts as
+zeros because it was configured so, and the unit takes its first token the cycle
+after reset.  ``distance=n`` promises that an element written is not read again
+for ``n`` iterations, which is what lets a read-modify-write hold II=1:
+
+.. code-block:: python
+
+   @spmw.unit
+   def lane(io: LaneIO):
+       buf: int32[2048]
+       p: int32 = 0
+       go: uint1 = 1
+       while go != 0:
+           u: int16 = io.c_in.get()
+           z: int32 = io.z_in.get()
+           buf[p] = buf[p] + z
+           ...
+
+   V = spmw.place(lane, on=lanes)
+   spmw.ram(V, "buf", distance=4)
+
+The build stops if the unit declares no array of that name.
+
 
 Targets
 =======
