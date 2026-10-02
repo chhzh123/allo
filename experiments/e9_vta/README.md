@@ -62,7 +62,9 @@ SPMW is shown twice because the weight discipline is a real choice:
 current tile's arithmetic -- and buys 4 cycles a tile (20.6 -> 16.0, a 21%
 shorter block) for **28% more lookup tables, 21% more registers and 256 more
 multipliers**. Both route with zero unrouted nets. It is a real choice, not a
-free win, and both rows are kept so it stays one.
+free win, and both rows are kept so it stays one. The reload build's route
+reports and its runs at 8 to 32 tiles are
+`../e8_block/report/sw_block*_rl1*`.
 
 ### Reading the two together
 
