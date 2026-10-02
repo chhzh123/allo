@@ -337,6 +337,16 @@ def design(name, size, lanes=1):
         from test_spmw_ptpu import ptpu_workload
 
         return ptpu_workload(size, name.split("-")[1])
+    if name in ("ptpumem-micro", "ptpumem-llama", "ptpumem-dsv4", "ptpumem-mixed"):
+        # That engine with its memory system: a requester and a dealer on a
+        # 64-bit read port, a packer and a write requester on a 64-bit write
+        # port, and the edge streams' contents fetched from memory
+        # (`test_spmw_ptpu_mem`). The cosim plays the memory from the request
+        # order the launch is known to make; `spmw_mem_bench.py` puts a real
+        # one behind the ports.
+        from test_spmw_ptpu_mem import mem_workload
+
+        return mem_workload(size, name.split("-")[1])
     if name in ("dsv4-gateup", "dsv4-swiglu"):
         # The same projections at one DeepSeek-V4-Pro routed expert's shape:
         # 64 tokens, K = 7168 and 64 of each projection's 3,072 columns.
@@ -989,15 +999,22 @@ def check_one_stage(directory, name):
     with open(os.path.join(directory, "kernel.cpp"), encoding="utf-8") as handle:
         if sched.ONE_STAGE not in handle.read():
             return
-    report = os.path.join(
-        directory, "prj", "sol", "syn", "report", f"{name}_0_csynth.rpt"
-    )
-    with open(report, encoding="utf-8") as handle:
-        depth = sched.iteration_latency(handle.read())
+    # A unit that does something ahead of its loop -- reads its site's
+    # coordinate -- has the loop outlined into a module of its own, and the
+    # loop's row is in that module's report rather than the top's.
+    reports = os.path.join(directory, "prj", "sol", "syn", "report")
+    depths = []
+    for report in sorted(os.listdir(reports)):
+        if report.startswith(f"{name}_0") and report.endswith("_csynth.rpt"):
+            with open(os.path.join(reports, report), encoding="utf-8") as handle:
+                depth = sched.iteration_latency(handle.read())
+            if depth is not None:
+                depths.append(depth)
+    depth = max(depths) if depths else None
     if depth != 1:
         raise SystemExit(
             f"{name} was asked for a one-state body and Vitis scheduled it in "
-            f"{depth}; its links would not stay in step. See {report}"
+            f"{depth}; its links would not stay in step. See {reports}"
         )
 
 
@@ -1277,6 +1294,10 @@ def main():
             "ptpu-llama",
             "ptpu-dsv4",
             "ptpu-mixed",
+            "ptpumem-micro",
+            "ptpumem-llama",
+            "ptpumem-dsv4",
+            "ptpumem-mixed",
             "tpumicro-lean0-m",
             "tpumicro-lean0-m-v",
             "tpumicro-lean-g",
