@@ -1815,12 +1815,14 @@ is Intel.
   the microbenchmark's, a `mixed_` report is the five-GEMM program's build
   of the same hardware, and a `p30_` report is the same HLS output routed
   again at 3.0 ns. `area_by_unit.txt` splits a route by what each unit is
-  for and gives the worst path through each kind. `ptpu_mem/results.txt` is
-  every bench run's result line, `_stall25` the runs on the stalling memory,
-  and `ptpu_mem/routes.txt` every route. `ptpu_mem/scripts/` has the build
-  and bench wrappers, the second route, the split and the export.
-  `ptpu/routes.txt` and `ptpu/S<n>/report/p30_*` are the stream-fed engine's
-  second route.
+  for and gives the worst path through each kind. `ptpu_mem/sim/<run>/` is
+  each bench run's testbench, its instruction words and the simulator's log,
+  and `ptpu_mem/results.txt` their result lines, `_stall25` the runs on the
+  stalling memory. `ptpu_mem/routes.txt` is every route. `ptpu_mem/scripts/`
+  has the build and bench wrappers, the second route, the split and the
+  export. `ptpu/routes.txt` and `ptpu/S<n>/report/p30_*` are the stream-fed
+  engine's second route, and `r2_build.log` the rebuild it was routed from,
+  whose first route reproduces the recorded one.
 - `gemmini_full/` -- Gemmini's whole accelerator. `pins.txt` is every
   repository's commit. `source/` is the sbt build and
   `ElaborateGemmini.scala`, which elaborates rocket-chip's example system

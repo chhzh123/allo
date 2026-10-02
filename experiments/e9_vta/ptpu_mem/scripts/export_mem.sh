@@ -30,6 +30,14 @@ for s in 4 8 16; do
 done
 mkdir -p $X/ptpu_mem/scripts
 for d in $(ls -d $E/bench/*/ | sort); do grep -h SPMWMEM $d/bench.log; done > $X/ptpu_mem/results.txt
+# each bench run: its testbench, its instruction words -- four a GEMM, at the
+# start of the memory image -- and the simulator's log
+for d in $(ls -d $E/bench/*/ | sort); do
+  o=$X/ptpu_mem/sim/$(basename $d); mkdir -p $o
+  cp $d/tbm.sv $d/xsim.log $o/
+  n=$(grep -o 'gemms=[0-9]*' $d/bench.log | head -1 | cut -d= -f2)
+  head -$((4 * ${n:-1})) $d/mem.hex > $o/ins.hex
+done
 cp $E/routes.txt $X/ptpu_mem/routes.txt
 cp $E/build.sh $X/ptpu_mem/scripts/spmw_build.sh
 cp $E/bench.sh $E/same_hw.sh $E/hier_mem.sh $E/reroute.sh $E/routes.sh $E/export_mem.sh $X/ptpu_mem/scripts/

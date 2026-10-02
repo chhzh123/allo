@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Fri Oct  2 04:14:27 2026
+# Process ID: 2736929
+# Current directory: /scratch/hc676/e13_mem/bench/llama_16_stall25
+# Command line: xsim -mode tcl -source {xsim.dir/tbmsim/xsim_script.tcl}
+# Log file: /scratch/hc676/e13_mem/bench/llama_16_stall25/xsim.log
+# Journal file: /scratch/hc676/e13_mem/bench/llama_16_stall25/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 2699.999 MHz, CPU Physical cores: 22, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbmsim/xsim_script.tcl
+# xsim {tbmsim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+SPMWMEM RESULT errs=0 total=66776 rows=65552 first=25 paused=293 rd_reqs=1153 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+SPMWMEM PASS
+$finish called at time : 668045 ns : File "/scratch/hc676/e13_mem/bench/llama_16_stall25/tbm.sv" Line 132
+run: Time (s): cpu = 00:00:00.18 ; elapsed = 00:01:45 . Memory (MB): peak = 1577.723 ; gain = 0.000 ; free physical = 79574 ; free virtual = 144463
+exit
+INFO: xsimkernel Simulation Memory Usage: 110116 KB (Peak: 175920 KB), Simulation CPU Usage: 104810 ms
+INFO: [Common 17-206] Exiting xsim at Fri Oct  2 04:16:17 2026...

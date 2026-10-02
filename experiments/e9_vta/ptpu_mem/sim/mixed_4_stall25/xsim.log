@@ -1,0 +1,22 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Fri Oct  2 04:14:22 2026
+# Process ID: 2736027
+# Current directory: /scratch/hc676/e13_mem/bench/mixed_4_stall25
+# Command line: xsim -mode tcl -source {xsim.dir/tbmsim/xsim_script.tcl}
+# Log file: /scratch/hc676/e13_mem/bench/mixed_4_stall25/xsim.log
+# Journal file: /scratch/hc676/e13_mem/bench/mixed_4_stall25/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 2510.714 MHz, CPU Physical cores: 22, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/tbmsim/xsim_script.tcl
+# xsim {tbmsim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+SPMWMEM RESULT errs=0 total=1582 rows=1504 first=24 paused=21 rd_reqs=152 rd_beats=470 wr_reqs=9 wr_beats=142 first_bad=-1 timeout=0
+SPMWMEM PASS
+$finish called at time : 16105 ns : File "/scratch/hc676/e13_mem/bench/mixed_4_stall25/tbm.sv" Line 132
+exit
+INFO: [Common 17-206] Exiting xsim at Fri Oct  2 04:14:28 2026...
