@@ -1,0 +1,16 @@
+HIER route_4_p30 dut LUT 2828 FF 2204
+  plane4_r0                        n=   4 LUT=    954 FF=    996  per=  238.5/  249.0
+  spmw_fifo                        n=  48 LUT=    533 FF=    840  per=   11.1/   17.5
+  pe_r0                            n=   4 LUT=    272 FF=     76  per=   68.0/   19.0
+  seq_r0                           n=   1 LUT=    214 FF=     88  per=  214.0/   88.0
+  pe_r4                            n=   2 LUT=    167 FF=     38  per=   83.5/   19.0
+  pe_r1                            n=   2 LUT=    141 FF=     38  per=   70.5/   19.0
+  pe_r3                            n=   2 LUT=    129 FF=     22  per=   64.5/   11.0
+  pe_r2                            n=   2 LUT=    115 FF=     38  per=   57.5/   19.0
+  pe_r7                            n=   1 LUT=     84 FF=     19  per=   84.0/   19.0
+  pe_r8                            n=   1 LUT=     78 FF=     19  per=   78.0/   19.0
+  pe_r5                            n=   1 LUT=     65 FF=     11  per=   65.0/   11.0
+  pe_r6                            n=   1 LUT=     55 FF=     11  per=   55.0/   11.0
+  tap_r0                           n=   2 LUT=     16 FF=      4  per=    8.0/    2.0
+  tap_r2                           n=   1 LUT=      9 FF=      2  per=    9.0/    2.0
+  tap_r1                           n=   1 LUT=      4 FF=      2  per=    4.0/    2.0

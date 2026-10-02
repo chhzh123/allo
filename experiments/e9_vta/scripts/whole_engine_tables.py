@@ -9,9 +9,13 @@ Everything is read from the files beside this script:
 * `gemmini_full/routes.json` -- every route of Gemmini's whole accelerator and
   of VTA's `Core`, with Gemmini's split by block and both engines' scope
   timings (`collect_routes.py`);
-* `gemmini_full/sim/results.txt`, `vta_core/results.txt` -- the result line
-  of every instruction-level simulation;
-* `results.csv` -- SPMW's programmable engine;
+* `gemmini_full/sim/results.txt`, `vta_core/results.txt`,
+  `ptpu_mem/results.txt` -- the result line of every instruction-level
+  simulation, of Gemmini, VTA and SPMW's whole engine;
+* `ptpu_mem/routes.txt` -- every route of SPMW's whole engine, and
+  `ptpu_mem/S<n>/report/[p30_]area_by_unit.txt` its split by unit;
+* `results.csv` -- the cycles of SPMW's programmable array, fed by streams,
+  and `ptpu/routes.txt` its routes;
 * `core/split.txt` -- VTA's datapath + scratchpads.
 
 Per design the route with the best clock is the one reported. Gemmini's end
@@ -57,6 +61,26 @@ CSV_NAMES = {
     "dsv4": "dsv4-gateup-slice",
 }
 TARGET = 3.333
+#: SPMW's whole engine by unit, as `area_by_unit.txt` names them: what decodes
+#: and executes with the storage it works from, and what moves data to it and
+#: from it.
+EXECUTE = (
+    "cells",
+    "links between cells",
+    "edge taps and their links",
+    "head",
+    "micro-op queue, taps and links",
+    "lanes, with their accumulators",
+    "result taps and their links",
+)
+MEMORY = (
+    "requester",
+    "dealer",
+    "operand queues to the head",
+    "row buffer and its credits",
+    "packer",
+    "write requester",
+)
 
 
 def results(path):
@@ -98,13 +122,73 @@ def load(root):
             )
             if hit:
                 scope[int(hit.group(1))] = tuple(int(g) for g in hit.groups()[1:])
+    runs = whole_routes(os.path.join(root, "ptpu_mem/routes.txt"))
+    fed = whole_routes(os.path.join(root, "ptpu/routes.txt"))
+    for S in SIZES:
+        spmw[S].update(
+            lut=fed[S][0]["lut"], ff=fed[S][0]["ff"], period=fed[S][0]["period"]
+        )
     return {
         "routes": routes,
         "gem": results(os.path.join(root, "gemmini_full/sim/results.txt")),
         "vta": results(os.path.join(root, "vta_core/results.txt")),
+        "mem": results(os.path.join(root, "ptpu_mem/results.txt")),
         "spmw": spmw,
+        "whole_routes": runs,
+        "fed_routes": fed,
+        "whole": {S: runs[S][0] for S in SIZES},
+        "units": {S: unit_split(root, S, runs[S][0]) for S in SIZES},
         "vta_scope": scope,
     }
+
+
+def whole_routes(path):
+    """One SPMW engine's routes by size, the best clock first."""
+    runs = {S: [] for S in SIZES}
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            if not line.startswith("ROUTE "):
+                continue
+            f = dict(re.findall(r"(\w+)=(\S+)", line))
+            runs[int(f["size"])].append(
+                {
+                    "target": float(f["target"]),
+                    "period": float(f["period"]),
+                    "lut": int(f["lut"]),
+                    "ff": int(f["ff"]),
+                    "bram": int(f.get("ramb36", 0)) + int(f.get("ramb18", 0)) / 2,
+                    "dir": f["dir"],
+                }
+            )
+    return {
+        S: sorted(group, key=lambda run: run["period"]) for S, group in runs.items()
+    }
+
+
+def unit_split(root, S, run):
+    """``{unit: (LUT, FF, RAMB36, RAMB18)}`` of one route of the whole engine."""
+    prefix = "" if run["dir"].startswith("b_") else run["dir"].split("_")[-1] + "_"
+    path = os.path.join(root, f"ptpu_mem/S{S}/report/{prefix}area_by_unit.txt")
+    split = {}
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            hit = re.match(
+                r"  (\S.*?) +n= *\d+ LUT= *(\d+) FF= *(\d+) RAMB36= *(\d+) RAMB18= *(\d+)",
+                line,
+            )
+            if hit:
+                split[hit.group(1)] = tuple(int(g) for g in hit.groups()[1:])
+    return split
+
+
+def part(data, S, names):
+    """The lookup tables, registers and block RAM tiles of some of the units."""
+    rows = [data["units"][S][name] for name in names]
+    return (
+        sum(r[0] for r in rows),
+        sum(r[1] for r in rows),
+        sum(r[2] + r[3] / 2 for r in rows),
+    )
 
 
 def best(entry):
@@ -160,10 +244,10 @@ def hardware(data):
     print("| array | engine | LUT | FF | BRAM | URAM | DSP | clock |")
     print("|---|---|---:|---:|---:|---:|---:|---:|")
     for S in SIZES:
-        s = data["spmw"][S]
+        s = data["whole"][S]
         print(
-            f"| {S}x{S} | SPMW, no memory system | {s['lut']:,} | {s['ff']:,} "
-            f"| 0 | 0 | 0 | {mhz(s['period'])} |"
+            f"| {S}x{S} | SPMW | {s['lut']:,} | {s['ff']:,} | {s['bram']:g} "
+            f"| 0 | 0 | {mhz(s['period'])} |"
         )
         for config, label in CONFIGS:
             g = routes["gem"].get(config, {}).get(str(S))
@@ -187,8 +271,13 @@ def scopes(data):
     for S in SIZES:
         s = data["spmw"][S]
         print(
-            f"| {S}x{S} | SPMW, the whole programmable engine | {s['lut']:,} "
-            f"| {s['ff']:,} | 0 | 0 | {mhz(s['period'])} |"
+            f"| {S}x{S} | SPMW, the array and its dispatch, fed by streams "
+            f"| {s['lut']:,} | {s['ff']:,} | 0 | 0 | {mhz(s['period'])} |"
+        )
+        lut, ff, bram = part(data, S, EXECUTE)
+        print(
+            f"| | SPMW, the whole engine less its read and write sides "
+            f"| {lut:,} | {ff:,} | {bram:g} | 0 | {mhz(data['whole'][S]['period'])} |"
         )
         g = routes["gem"]["matmul"].get(str(S))
         if g:
@@ -201,6 +290,47 @@ def scopes(data):
         print(
             f"| | VTA, datapath and scratchpads | {lut:,} | {ff:,} | {bram} "
             f"| {uram} | {mhz(scope_best(routes['vta'][str(S)]))} |"
+        )
+
+
+def units(data):
+    """SPMW's whole engine by unit, at the smallest size and the largest."""
+    print(
+        "| unit | 4x4 LUT | FF | 16x16 LUT | FF | block RAM tiles, 4x4 / 8x8 / 16x16 |"
+    )
+    print("|---|---:|---:|---:|---:|---|")
+    for name in EXECUTE + MEMORY:
+        small, large = data["units"][4][name], data["units"][16][name]
+        tiles = [
+            data["units"][S][name][2] + data["units"][S][name][3] / 2 for S in SIZES
+        ]
+        ram = " / ".join(f"{t:g}" for t in tiles) if any(tiles) else ""
+        print(
+            f"| {name} | {small[0]:,} | {small[1]:,} | {large[0]:,} | {large[1]:,} "
+            f"| {ram} |"
+        )
+    for label, names in (("the read and write sides", MEMORY), ("the rest", EXECUTE)):
+        cells = ", ".join(
+            f"{S}x{S} {part(data, S, names)[0]:,} LUT {part(data, S, names)[1]:,} FF "
+            f"{part(data, S, names)[2]:g} BRAM"
+            for S in SIZES
+        )
+        print(f"\n{label}: {cells}")
+    print("\nagainst the stream-fed array, both routed at 3.333 ns:\n")
+    at = lambda runs: next(run for run in runs if run["target"] == TARGET)
+    print("| array | | stream-fed | whole engine | |")
+    print("|---|---|---:|---:|---:|")
+    for S in SIZES:
+        w, a = at(data["whole_routes"][S]), at(data["fed_routes"][S])
+        print(
+            f"| {S}x{S} | LUT | {a['lut']:,} | {w['lut']:,} "
+            f"| {w['lut'] / a['lut'] - 1:+.0%} |"
+        )
+        print(f"| | FF | {a['ff']:,} | {w['ff']:,} | {w['ff'] / a['ff'] - 1:+.0%} |")
+        print(f"| | block RAM | 0 | {w['bram']:g} | |")
+        print(
+            f"| | clock | {mhz(a['period'])} | {mhz(w['period'])} "
+            f"| {a['period'] / w['period'] - 1:+.1%} |"
         )
 
 
@@ -226,37 +356,37 @@ def cycles(data):
     """Cycles, end to end and in the execute scope."""
     print(
         "| workload | array | floor | SPMW | Gemmini | VTA "
-        "| Gemmini, execute only | VTA, compute only |"
+        "| SPMW, array only | Gemmini, execute only | VTA, compute only |"
     )
-    print("|---|---|---:|---:|---:|---:|---:|---:|")
+    print("|---|---|---:|---:|---:|---:|---:|---:|---:|")
     for workload, label, macs in WORKLOADS:
         for S in SIZES:
             g = gemmini(data, "matmul", workload, S)
             v = data["vta"][f"{workload}_w{S}"]
             print(
                 f"| {label if S == SIZES[0] else ''} | {S}x{S} | {macs // S**2:,} "
-                f"| **{data['spmw'][S][CSV_NAMES[workload]]:,}** | {g['total']:,} "
-                f"| {v['total']:,} | {execute(data, workload, S):,} "
-                f"| {v['gemm'] + v['alu']:,} |"
+                f"| **{data['mem'][f'{workload}_{S}']['total']:,}** | {g['total']:,} "
+                f"| {v['total']:,} | {data['spmw'][S][CSV_NAMES[workload]]:,} "
+                f"| {execute(data, workload, S):,} | {v['gemm'] + v['alu']:,} |"
             )
 
 
-def times(data):
-    """Time end to end, at each engine's routed clock.
+def whole_time(data, workload, S):
+    """SPMW's whole engine end to end, in seconds at its routed clock."""
+    return data["mem"][f"{workload}_{S}"]["total"] * data["whole"][S]["period"] * 1e-9
 
-    SPMW's array has no memory system, so its column is a bound, and the
-    ratios to it are left to `detail`.
-    """
+
+def times(data):
+    """Time end to end, at each whole engine's routed clock."""
     routes = data["routes"]
     print(
-        "| workload | array | SPMW, no memory system | Gemmini, matmul only "
-        "| Gemmini, as shipped | VTA | Gemmini / VTA |"
+        "| workload | array | SPMW | Gemmini, matmul only "
+        "| Gemmini, as shipped | VTA | Gemmini / SPMW | VTA / SPMW |"
     )
-    print("|---|---|---:|---:|---:|---:|---:|")
+    print("|---|---|---:|---:|---:|---:|---:|---:|")
     for workload, label, _ in WORKLOADS:
         for S in SIZES:
-            s = data["spmw"][S]
-            ts = s[CSV_NAMES[workload]] * s["period"] * 1e-9
+            ts = whole_time(data, workload, S)
             cells, tg = [], None
             for config in ("matmul", "lean"):
                 g = routes["gem"].get(config, {}).get(str(S))
@@ -271,8 +401,24 @@ def times(data):
             )
             over = lambda t, base: f"{t / base:.2f}x" if t else "..."
             print(
-                f"| {label if S == SIZES[0] else ''} | {S}x{S} | {clock(ts, workload)} "
-                f"| {cells[0]} | {cells[1]} | {clock(tv, workload)} | {over(tg, tv)} |"
+                f"| {label if S == SIZES[0] else ''} | {S}x{S} "
+                f"| **{clock(ts, workload)}** | {cells[0]} | {cells[1]} "
+                f"| {clock(tv, workload)} | {over(tg, ts)} | {over(tv, ts)} |"
+            )
+
+
+def stalls(data):
+    """SPMW's whole engine on a memory that withholds a quarter of its beats."""
+    print("| workload | array | floor | ideal memory | stalling memory | change |")
+    print("|---|---|---:|---:|---:|---:|")
+    for workload, label, macs in WORKLOADS[:2] + (("mixed", "five GEMMs", 0),):
+        for S in SIZES:
+            ideal = data["mem"][f"{workload}_{S}"]["total"]
+            slow = data["mem"][f"{workload}_{S}_stall25"]["total"]
+            floor = f"{macs // S**2:,}" if macs else ""
+            print(
+                f"| {label if S == SIZES[0] else ''} | {S}x{S} | {floor} "
+                f"| {ideal:,} | {slow:,} | {slow / ideal - 1:+.1%} |"
             )
 
 
@@ -329,8 +475,9 @@ def bus(data):
 def detail(data):
     """What the prose quotes: ratios to the floor and every route's clock."""
     print(
-        "over the floor: SPMW, Gemmini, VTA end to end | Gemmini, VTA in scope "
-        "| end-to-end time over SPMW's: Gemmini, VTA"
+        "over the floor: SPMW, Gemmini, VTA end to end | SPMW's array, Gemmini, "
+        "VTA in scope | end-to-end time over SPMW's: Gemmini, VTA "
+        "| end-to-end LUT x time over SPMW's: Gemmini, VTA"
     )
     routes = data["routes"]
     for workload, _, macs in WORKLOADS:
@@ -338,18 +485,26 @@ def detail(data):
             floor = macs // S**2
             g = gemmini(data, "matmul", workload, S)
             v = data["vta"][f"{workload}_w{S}"]
-            s = data["spmw"][S]
-            ts = s[CSV_NAMES[workload]] * s["period"]
-            tg = g["total"] * best(routes["gem"]["matmul"][str(S)])
-            tv = v["total"] * best(routes["vta"][str(S)])
+            total = data["mem"][f"{workload}_{S}"]["total"]
+            ts = whole_time(data, workload, S) * 1e9
+            gem, vta = routes["gem"]["matmul"][str(S)], routes["vta"][str(S)]
+            tg = g["total"] * best(gem)
+            tv = v["total"] * best(vta)
+            area = ts * data["whole"][S]["lut"]
             print(
-                f"  {workload:6s} {S:2d}: {data['spmw'][S][CSV_NAMES[workload]] / floor:.3f} "
+                f"  {workload:6s} {S:2d}: {total / floor:.4f} "
                 f"{g['total'] / floor:.3f} {v['total'] / floor:.3f} "
-                f"| {execute(data, workload, S) / floor:.3f} "
+                f"| {data['spmw'][S][CSV_NAMES[workload]] / floor:.3f} "
+                f"{execute(data, workload, S) / floor:.3f} "
                 f"{(v['gemm'] + v['alu']) / floor:.3f} "
-                f"| {tg / ts:.2f} {tv / ts:.2f}"
+                f"| {tg / ts:.2f} {tv / ts:.2f} "
+                f"| {tg * gem['lut'] / area:.1f} {tv * vta['lut'] / area:.1f}"
             )
     print("every route, target -> period in ns (scope period):")
+    for name, group in (("whole", "whole_routes"), ("stream-fed", "fed_routes")):
+        for S in SIZES:
+            runs = ", ".join(f"{r['target']} -> {r['period']}" for r in data[group][S])
+            print(f"  spmw {name} {S}: {runs}")
     designs = [(f"gemmini {c}", data["routes"]["gem"].get(c, {})) for c, _ in CONFIGS]
     for name, group in designs + [("vta", data["routes"]["vta"])]:
         for S in SIZES:
@@ -369,9 +524,11 @@ def main():
     for title, table in (
         ("The hardware, whole", hardware),
         ("The hardware, execute scope", scopes),
+        ("SPMW by unit", units),
         ("Gemmini by block", blocks),
         ("Cycles", cycles),
         ("Time, end to end", times),
+        ("SPMW on a stalling memory", stalls),
         ("Time, execute scope", scope_times),
         ("Gemmini's memory bus", bus),
         ("Detail", detail),

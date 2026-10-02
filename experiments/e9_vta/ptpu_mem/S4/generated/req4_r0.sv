@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module req4_r0 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  input  wire [63:0] ins_in_dout,
+  input  wire ins_in_empty_n,
+  output wire ins_in_read,
+  input  wire [63:0] launch_dout,
+  input  wire launch_empty_n,
+  output wire launch_read,
+  output wire [63:0] op_out_din,
+  input  wire op_out_full_n,
+  output wire op_out_write,
+  output wire [63:0] rd_cmd_din,
+  input  wire rd_cmd_full_n,
+  output wire rd_cmd_write,
+  output wire [31:0] tag_out_din,
+  input  wire tag_out_full_n,
+  output wire tag_out_write,
+  output wire [63:0] y_out_din,
+  input  wire y_out_full_n,
+  output wire y_out_write
+);
+  req4_r0_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_dout(ins_in_dout),
+      .v0_empty_n(ins_in_empty_n),
+      .v0_read(ins_in_read),
+      .v1_dout(launch_dout),
+      .v1_empty_n(launch_empty_n),
+      .v1_read(launch_read),
+      .v2_din(op_out_din),
+      .v2_full_n(op_out_full_n),
+      .v2_write(op_out_write),
+      .v3_din(rd_cmd_din),
+      .v3_full_n(rd_cmd_full_n),
+      .v3_write(rd_cmd_write),
+      .v4_din(tag_out_din),
+      .v4_full_n(tag_out_full_n),
+      .v4_write(tag_out_write),
+      .v5_din(y_out_din),
+      .v5_full_n(y_out_full_n),
+      .v5_write(y_out_write));
+endmodule

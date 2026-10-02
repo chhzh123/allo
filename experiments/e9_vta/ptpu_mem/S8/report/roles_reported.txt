@@ -1,0 +1,2 @@
+main: ctap_r0 deal8_r0 etap_r0 head8_r0 lane_r0 pack8_r0 pe_r0 req8_r0 tap_r0 uq_r0 wreq8_r0
+mixed_: ctap_r0 deal8_r0 etap_r0 head8_r0 lane_r0 pack8_r0 pe_r0 req8_r0 tap_r0 uq_r0 wreq8_r0

@@ -1,0 +1,6 @@
+ROUTE size=4 target=3.333 wns=+0.461 period=2.872 lut=4786 ff=5582 ramb36=10 ramb18=2 lutram=166 dir=b_ptpumem-micro_4 worst=dut/u_pe_r0_2_1/u/v27_fu_82_reg[1]/C
+ROUTE size=4 target=3.0 wns=+0.179 period=2.821 lut=4860 ff=5582 ramb36=10 ramb18=2 lutram=166 dir=route_4_p30 worst=dut/u_pe_r1_3_2/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/C
+ROUTE size=8 target=3.333 wns=+0.358 period=2.975 lut=10845 ff=11799 ramb36=12 ramb18=0 lutram=202 dir=b_ptpumem-micro_8 worst=dut/u_pe_r4_4_0/u/v27_fu_82_reg[1]/C
+ROUTE size=8 target=3.0 wns=+0.273 period=2.727 lut=10872 ff=11799 ramb36=12 ramb18=0 lutram=202 dir=route_8_p30 worst=dut/u_pe_r1_7_2/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/C
+ROUTE size=16 target=3.333 wns=+0.087 period=3.246 lut=35391 ff=33601 ramb36=6 ramb18=16 lutram=302 dir=b_ptpumem-micro_16 worst=dut/u_pe_r0_10_4/u/v27_fu_82_reg[0]/C
+ROUTE size=16 target=3.0 wns=+0.004 period=2.996 lut=35544 ff=33603 ramb36=6 ramb18=16 lutram=302 dir=route_16_p30 worst=dut/u_pe_r0_3_6/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/C

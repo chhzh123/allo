@@ -1,0 +1,37 @@
+HIER b_ptpumem-micro_4 dut LUT 4786 FF 5582 RAMB36 10 RAMB18 2 LUTRAM 166
+  cells                              n=  16 LUT=  1039 FF=   272 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  links between cells                n=  36 LUT=   406 FF=   464 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  edge taps and their links          n=  16 LUT=    88 FF=   254 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  head                               n=   1 LUT=   512 FF=   564 RAMB36= 0 RAMB18= 0 LUTRAM=38
+  requester                          n=   2 LUT=   607 FF=   579 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  dealer                             n=   2 LUT=   165 FF=    98 RAMB36= 0 RAMB18= 0 LUTRAM=16
+  operand queues to the head         n=   4 LUT=   207 FF=   295 RAMB36= 0 RAMB18= 2 LUTRAM=40
+  micro-op queue, taps and links     n=  14 LUT=   331 FF=   931 RAMB36= 0 RAMB18= 0 LUTRAM=32
+  lanes, with their accumulators     n=   8 LUT=   914 FF=  1524 RAMB36= 8 RAMB18= 0 LUTRAM=0
+  result taps and their links        n=  11 LUT=   117 FF=   210 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  row buffer and its credits         n=   2 LUT=   139 FF=   110 RAMB36= 2 RAMB18= 0 LUTRAM=0
+  packer                             n=   1 LUT=    13 FF=    38 RAMB36= 0 RAMB18= 0 LUTRAM=0
+  write requester                    n=   2 LUT=   268 FF=   243 RAMB36= 0 RAMB18= 0 LUTRAM=40
+  sum                                 LUT=  4806 FF=  5582
+SCOPE u_req slack 0.864 levels 6 from dut/g_wreq4_y_cmd_bind[0].u/deep.ram/count_reg[0]/C to dut/g_deal4_tag_in_bind[0].u/deep.ram/mem_reg_0_3_0_13/RAMA/WE
+INSIDE u_req slack 0.773 levels 9 from dut/u_req4_r0_0/u/go_2_reg_283_reg[0]/C to dut/u_req4_r0_0/u/v226_fu_216_reg[31]/D
+SCOPE u_deal slack 1.038 levels 6 from dut/u_deal4_r0_0/u/v18_load_reg_583_reg[0]/C to dut/g_req4_ins_in_bind[0].u/slice.q1_reg[33]/CE
+INSIDE u_deal slack 1.231 levels 5 from dut/u_deal4_r0_0/u/v18_load_reg_583_reg[0]/C to dut/u_deal4_r0_0/u/v77_fu_104_reg[12]/CE
+SCOPE u_head slack 0.525 levels 7 from dut/g_uq_u_in_bind[0].u/deep.ram/count_reg[2]/C to dut/g_head4_a_in_bind[0].u/u/xpm_fifo_base_inst/gen_sdpram.xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg/ENARDEN
+INSIDE u_head slack 0.619 levels 5 from dut/u_head4_r0_0/u/v64_reg_2361_pp0_iter1_reg_reg[0]/C to dut/u_head4_r0_0/u/v333_fu_214_reg[10]/CE
+SCOPE u_wreq slack 1.255 levels 2 from dut/g_wreq4_y_cmd_bind[0].u/deep.out/slice.v1_reg/C to dut/g_wreq4_y_cmd_bind[0].u/deep.out/slice.q1_reg[19]/CE
+INSIDE u_wreq slack 1.037 levels 9 from dut/u_wreq4_r0_0/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/C to dut/u_wreq4_r0_0/u/v61_fu_80_reg[26]/D
+SCOPE u_pack slack 0.696 levels 4 from dut/g_head4_credit_bind[0].u/u/xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_cc.fifo_wr_rst_cc_reg[2]/C to dut/g_pack4_row_in_bind[0].u/u/xpm_fifo_base_inst/gen_sdpram.xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_bram_0/REGCEB
+INSIDE u_pack slack 1.808 levels 3 from dut/u_pack4_r0_0/u/go_2_reg_83_reg[0]/C to dut/u_pack4_r0_0/u/v48_fu_58_reg[14]/R
+SCOPE u_lane slack 1.042 levels 3 from dut/g_ctap_y_in_bind[3].u/slice.v1_reg/C to dut/g_lane_c_in_bind[3].u/slice.q1_reg[44]/CE
+INSIDE u_lane slack 0.772 levels 7 from dut/u_lane_r0_1/u/grp_lane_r0_0_Pipeline_VITIS_LOOP_33_1_fu_40/v82_reg_552_reg[20]/C to dut/u_lane_r0_1/u/grp_lane_r0_0_Pipeline_VITIS_LOOP_33_1_fu_40/select_ln146_reg_563_reg[1]/S
+SCOPE u_etap slack 1.129 levels 1 from dut/g_etap_e_out_e_in[1].u/bare.v0_reg/C to dut/g_etap_e_out_e_in[2].u/bare.q0_reg[42]/CE
+INSIDE u_etap slack 2.301 levels 1 from dut/u_etap_r1_3/u/go_1_reg_86_reg[0]/C to dut/u_etap_r1_3/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/D
+SCOPE u_ctap slack 0.973 levels 5 from dut/g_pack4_row_in_bind[0].u/u/xpm_fifo_base_inst/xpm_fifo_rst_inst/gen_rst_cc.fifo_wr_rst_cc_reg[2]/C to dut/g_pack4_row_in_bind[0].u/u/xpm_fifo_base_inst/gen_sdpram.xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_bram_0/WEA[1]
+INSIDE u_ctap slack 2.224 levels 2 from dut/u_ctap_r1_3/u/grp_ctap_r1_0_Pipeline_VITIS_LOOP_27_1_fu_38_ap_start_reg_reg/C to dut/u_ctap_r1_3/u/grp_ctap_r1_0_Pipeline_VITIS_LOOP_27_1_fu_38/flow_control_loop_pipe_sequential_init_U/ap_loop_init_int_reg/D
+SCOPE u_tap slack 0.891 levels 3 from dut/g_tap_u_out_u_in[2].u/slice.v1_reg/C to dut/g_tap_u_out_u_in[1].u/slice.q1_reg[46]/CE
+INSIDE u_tap slack 2.585 levels 1 from dut/u_tap_r1_3/u/go_1_reg_64_reg[0]/C to dut/u_tap_r1_3/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/D
+SCOPE u_uq slack 1.875 levels 2 from dut/g_tap_u_in_bind[0].u/slice.v0_reg/C to dut/g_tap_u_in_bind[0].u/slice.q1_reg[38]/CE
+INSIDE u_uq slack 2.697 levels 1 from dut/u_uq_r0_0/u/go_1_reg_64_reg[0]/C to dut/u_uq_r0_0/u/flow_control_loop_pipe_no_ap_cont_U/ap_loop_init_reg/D
+SCOPE u_pe slack 0.461 levels 11 from dut/u_pe_r0_2_1/u/v27_fu_82_reg[1]/C to dut/g_pe_p_out_p_in[13].u/bare.q0_reg[17]/D
+INSIDE u_pe slack 1.147 levels 1 from dut/u_pe_r0_2_2/u/go_1_reg_140_reg[0]/C to dut/u_pe_r0_2_2/u/v27_fu_82_reg[4]/D

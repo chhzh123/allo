@@ -1,0 +1,17 @@
+HIER route_16_p30 dut LUT 32441 FF 22306
+  pe_r0                            n= 196 LUT=  13547 FF=   3724  per=   69.1/   19.0
+  spmw_fifo                        n= 768 LUT=  10599 FF=  13082  per=   13.8/   17.0
+  plane16_r0                       n=  16 LUT=   3812 FF=   4368  per=  238.2/  273.0
+  pe_r4                            n=  14 LUT=   1193 FF=    266  per=   85.2/   19.0
+  pe_r1                            n=  14 LUT=   1024 FF=    266  per=   73.1/   19.0
+  pe_r3                            n=  14 LUT=    905 FF=    154  per=   64.6/   11.0
+  pe_r2                            n=  14 LUT=    847 FF=    266  per=   60.5/   19.0
+  seq_r0                           n=   1 LUT=    209 FF=     88  per=  209.0/   88.0
+  pe_r7                            n=   1 LUT=     90 FF=     19  per=   90.0/   19.0
+  tap_r0                           n=  14 LUT=     83 FF=     28  per=    5.9/    2.0
+  pe_r8                            n=   1 LUT=     82 FF=     19  per=   82.0/   19.0
+  spmw_top                         n=   1 LUT=     67 FF=      0  per=   67.0/    0.0
+  pe_r5                            n=   1 LUT=     65 FF=     11  per=   65.0/   11.0
+  pe_r6                            n=   1 LUT=     54 FF=     11  per=   54.0/   11.0
+  tap_r2                           n=   1 LUT=      7 FF=      2  per=    7.0/    2.0
+  tap_r1                           n=   1 LUT=      4 FF=      2  per=    4.0/    2.0

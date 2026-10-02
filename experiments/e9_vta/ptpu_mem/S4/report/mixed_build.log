@@ -1,0 +1,36 @@
+B_START ptpumem-mixed S=4 --jobs 4 Fri Oct  2 03:47:32 EDT 2026
+ptpumem-mixed: {"roles": 25, "instances": 38, "fifos": 92, "streams": 7}
+staged 25 role project(s) in 2.7s (frontend + per-role HLS codegen)
+synthesising and exporting 25 unit(s) concurrently:
+  pe_r3: rc=0 51.4s
+  pe_r2: rc=0 52.3s
+  pe_r0: rc=0 52.8s
+  pe_r1: rc=0 53.4s
+  pe_r4: rc=0 53.2s
+  pe_r6: rc=0 52.3s
+  pe_r5: rc=0 54.0s
+  pe_r7: rc=0 56.2s
+  etap_r1: rc=0 48.9s
+  etap_r0: rc=0 51.3s
+  pe_r8: rc=0 52.1s
+  etap_r2: rc=0 49.1s
+  uq_r0: rc=0 48.1s
+  req4_r0: rc=0 52.7s
+  deal4_r0: rc=0 53.4s
+  head4_r0: rc=0 54.6s
+  tap_r0: rc=0 40.1s
+  tap_r1: rc=0 40.4s
+  tap_r2: rc=0 40.4s
+  lane_r0: rc=0 43.3s
+  ctap_r0: rc=0 45.4s
+  ctap_r1: rc=0 46.1s
+  ctap_r2: rc=0 45.2s
+  wreq4_r0: rc=0 43.9s
+  pack4_r0: rc=0 40.4s
+HLS: 332.8s wall for 25 roles and 0 movers (1221.0s of CPU work, 38 instances)
+assembling the array in Vivado:
+Vivado elaborated 38 instances in 71.2s
+simulating the assembled array:
+  SPMW COSIM PASS (304/304 tokens, 0 errors)
+  SPMW CYCLES total=1562 first_out=3 first_in=2
+B_RC=0 wall_s=452

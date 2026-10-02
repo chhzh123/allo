@@ -1,0 +1,37 @@
+{
+ "cost": {
+  "roles": 25,
+  "instances": 102,
+  "fifos": 268,
+  "streams": 7
+ },
+ "hls_seconds": {
+  "pe_r2": 52.8,
+  "pe_r3": 55.3,
+  "pe_r1": 56.1,
+  "pe_r0": 56.6,
+  "pe_r4": 54.4,
+  "pe_r6": 53.1,
+  "pe_r5": 54.3,
+  "pe_r7": 54.3,
+  "etap_r0": 48.7,
+  "etap_r1": 50.4,
+  "etap_r2": 49.9,
+  "pe_r8": 53.8,
+  "uq_r0": 47.8,
+  "req8_r0": 51.5,
+  "deal8_r0": 53.0,
+  "head8_r0": 53.9,
+  "tap_r0": 40.0,
+  "tap_r1": 40.3,
+  "tap_r2": 39.5,
+  "lane_r0": 43.3,
+  "ctap_r0": 45.6,
+  "ctap_r1": 45.0,
+  "ctap_r2": 45.0,
+  "wreq8_r0": 43.4,
+  "pack8_r0": 40.2
+ },
+ "hls_wall_seconds": 334.6,
+ "vivado_seconds": 72.8
+}

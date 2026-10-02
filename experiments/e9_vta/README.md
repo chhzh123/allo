@@ -98,18 +98,21 @@ reports and its runs at 8 to 32 tiles are
   every workload here at the floor plus `3S + 2` cycles. Its whole dispatch
   path is 564 lookup tables. See
   [A programmable SPMW engine](#a-programmable-spmw-engine).
-- **Programmable against programmable, SPMW is 1.5x faster than VTA and
-  2.3-2.4x faster than Gemmini on the two real layers**, each run through
-  its own instructions, in the scope all three have: what decodes and
-  executes, with its storage. Nearly all of it is clock, 329-355 MHz
-  against 224-235 and 154-164, since all three are within 18% of the floor
-  in cycles.
-- **As whole engines, Gemmini is 31,545-65,529 lookup tables at 147-153 MHz
-  and VTA 10,099-33,923 at 213-224 MHz.** That is Gemmini with matmul only.
-  As shipped it is 44,036-89,053 at 64-68 MHz. SPMW's programmable engine is
-  not whole in their sense, because it has no memory system: it takes `2S`
-  operand bytes every cycle, more than their 64-bit port carries at 8x8 and
-  16x16, and an operand store in front of it is not built. See
+- **Programmable against programmable, SPMW is 1.54-1.62x faster than
+  VTA and 2.31-2.47x faster than Gemmini on the two real layers**, each
+  run through its own instructions, in the scope all three have: what
+  decodes and executes, with its storage. Nearly all of it is clock,
+  343-378 MHz against 224-235 and 154-164, since all three are within 18%
+  of the floor in cycles.
+- **As whole engines, from a memory port in to a memory port out, it is
+  1.55-1.73x faster than VTA and 2.37-2.61x faster than Gemmini
+  on them.** SPMW's whole engine is 4,860-35,544 lookup tables at
+  334-367 MHz, VTA's 10,099-33,923 at 213-224 MHz and Gemmini's
+  31,545-65,529 at 147-153 MHz with matmul only, 44,036-89,053 at 64-68 MHz
+  as shipped. SPMW's memory system is about 1,400 lookup tables and 11 to 14
+  block RAMs: it runs a GEMM a K block at a time, so that every weight is
+  used as it arrives, and keeps one activation chunk and the partial sums.
+  See [SPMW with a memory system](#spmw-with-a-memory-system) and
   [Whole engines, run by their own instructions](#whole-engines-run-by-their-own-instructions).
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA's datapath both near 300 MHz. The
@@ -581,13 +584,14 @@ Three things bound this reading:
   against 21,598 routed alone. Keeping the buffers counts slightly against
   VTA.
 - **SPMW and Gemmini would need a memory system too**, and none is counted
-  in this section. Gemmini's is built and counted in
-  [Whole engines, run by their own instructions](#whole-engines-run-by-their-own-instructions).
-  SPMW's is not built, and what it would need differs in kind. VTA's
-  datapath reads `S^2` weight bytes a cycle, but from its scratchpad, and
-  memory supplies each byte once. SPMW keeps no operand outside the array,
-  so memory has to supply `2S` bytes every cycle and send each operand more
-  than once.
+  in this section. Both are built and counted further on: Gemmini's in
+  [Whole engines, run by their own instructions](#whole-engines-run-by-their-own-instructions)
+  and SPMW's in [SPMW with a memory system](#spmw-with-a-memory-system).
+  What SPMW needs differs in kind. VTA's datapath reads `S^2` weight bytes a
+  cycle, but from its scratchpad, and memory supplies each byte once. The
+  SPMW arrays of this section keep no operand outside the array, so memory
+  has to supply `2S` bytes every cycle and send each operand more than once;
+  the whole engine reorders the GEMM so that it does not.
 - **This is VTA's RTL as it ships.** Pipelining its accumulator path would
   lift its clock, as the link credits lifted SPMW's.
 
@@ -714,8 +718,9 @@ from two units under both.
 
 Gemmini's and VTA's rows so far are their datapaths with a testbench playing
 the controller, which is not what this engine should be measured against.
-The next section builds Gemmini's whole accelerator and runs it and VTA's
-whole engine through their own instructions.
+The next section gives this engine a memory system, and the one after it
+builds Gemmini's whole accelerator and runs all three whole engines through
+their own instructions.
 
 Three things bound what this engine is, whatever it is compared with:
 
@@ -727,7 +732,9 @@ Three things bound what this engine is, whatever it is compared with:
 - **`S` is hardware.** A block is `S` rows and `S` columns, so `M`, `K` and
   `N` are multiples of `S`, as they are for Gemmini's `DIM`.
 - **The array cannot be stalled.** Its links are bare registers, so every
-  stream has to keep up with it, as in the fixed arrays.
+  stream has to keep up with it, as in the fixed arrays. The next section's
+  engine waits at the array's edge instead, where a pause reaches every row
+  at once.
 
 ### What it took
 
@@ -756,12 +763,261 @@ in ways the two simulators cannot see:
 Both are in `allo/spmw/schedule.py` (`pipeline_whiles`) and in
 `docs/source/dive/spmw.rst`.
 
+## SPMW with a memory system
+
+The engine above is fed by streams. It takes `2S` operand bytes every cycle,
+each sent again for every block that uses it, in an order a testbench works
+out. Gemmini and VTA fetch their operands from memory, once, into
+scratchpads, and that machinery is most of what they are. This section gives
+the array one (`tests/dataflow/spmw/test_spmw_ptpu_mem.py`). The engine
+fetches its program and its operands through one 64-bit read port and writes
+its results through one 64-bit write port, a request and then its beats, as
+VTA's `Core` does through its VME.
+
+**The order of the GEMM is what keeps it small.** The engine above ran a
+GEMM an output block at a time, `S` rows by `S` columns, and so took each
+activation block once per column block and each weight block once per row
+block. This one runs it a K block at a time: for each `S` of `K`, for each
+`S` columns, the tile's `L` rows. Then
+
+- **a weight block is used once, as it arrives**, and is never stored
+  outside the array;
+- **an activation chunk**, `L` rows of `S` values, serves the column blocks
+  of its K block and is done. One chunk of up to 64 rows is all that is
+  kept, in distributed RAM;
+- **the partial sums persist across K blocks**, one a lane for every output
+  of the tile. A lane keeps them in a RAM and adds into it, as VTA's
+  accumulator scratchpad does and Gemmini's `AccumulatorMem`: 8,192 sums in
+  all, which is the 64 rows by 128 columns of the two layers.
+
+Within a tile no operand crosses the port twice. The LLaMA slice is 49,156
+beats in, its 393 KB and one 32-byte instruction, and 1,024 out. The
+stream-fed engine took 8.4, 4.2 and 2.1 MB at the three sizes.
+
+**An instruction** is four 64-bit words, a GEMM of `T` tiles of up to 64 rows:
+
+    (T - 1) << 52 | (L - 1) << 44 | (NB - 1) << 32 | (KB - 1) << 16
+        | FINAL << 8 | BIAS | REUSE | RELU | SHIFT
+    weights << 32 | activations
+    results << 32 | biases
+    chunk beats << 16 | rows of results a tile
+
+`REUSE` reads every tile's weights from the same address, a layer's tokens
+taken 64 at a time, and the biases are read again for each tile. Memory
+holds each tensor in the order the array takes it, and the results are
+written in the layout the next layer's activations are read in. The
+microbenchmark, the LLaMA slice and the DeepSeek slice are one instruction
+each.
+
+**Around the cells are ten kinds of unit.** The cells are those of the
+engine above, unchanged, and so are the taps that pass a micro-op along the
+lanes. The rest:
+
+- **A requester** owns the read port's requests. It walks the GEMM a request
+  at a time: per K block a weight block, the activation chunk and the rest
+  of the weight blocks, and a block's biases before a block of the first
+  K block. Nothing it does waits on a beat of data but an instruction's four
+  words, so it runs ahead of memory and a burst follows the one before it
+  with no cycle between.
+- **A dealer** owns the read port's beats. Each request sends it a tag, and
+  it hands the beats that come back to the streams that want them, as far
+  ahead of the array as their queues let it: a chunk, some weight blocks, a
+  block's biases. That is what hides a load behind the arithmetic.
+- **The head** is the sequencer: one iteration a row. It takes the row's
+  activation word from the dealer on a K block's first column block and from
+  its chunk buffer after; a weight word on a block's last `S` rows, which is
+  the next block's weights shifting in; and it issues the row's micro-op,
+  which waits in a queue until the row's sums have come down the array.
+- **An edge tap per array row** hands its row a byte of each and passes the
+  rest down, a row a cycle, which is the array's own skew.
+- **A lane** adds a row's partial sum into its accumulator and applies the
+  epilogue on a GEMM's last K block. Its bias comes down the micro-op chain,
+  a lane at a time on the `S` rows before the block that needs it.
+- **A result tap per lane** gathers a row's `S` results into one word, **a
+  packer** packs the words into beats, and **a write requester** asks for a
+  tile's results a burst at a time, each burst before the one before it is
+  acknowledged. The launch is done when the last is.
+
+**The array can wait now, and no cell changed.** A cell's links are still
+bare registers. But a row's activations and weights enter the array as one
+token, so a row the head does not issue is a pause in every row of cells at
+once, and a bare register carries a pause without loss. The head waits
+whenever a word has not arrived. On the way out the lanes must never be
+held, so the head issues a row of results only into a place the row buffer
+is known to have: it counts the buffer's places down, and when they are gone
+it takes one of the packer's credits before each such row.
+
+**One build runs every program.** The microbenchmark and a five-GEMM program
+were built separately at each size, and their 78 generated files are
+byte-identical (`ptpu_mem/S<n>/report/same_hardware.txt`). The
+microbenchmark's build is routed. `scripts/spmw_mem_bench.py` puts the
+memory of VTA's bench behind its two ports -- a request taken whenever there
+is room, a beat a cycle from the next, a write acknowledged the cycle after
+its last beat -- and runs the stimulus files the other two engines' benches
+read. Every run leaves the golden result in memory, compared word for word
+over the whole image, and no link is overwritten.
+
+| array | clock | LUT | FF | block RAM | E3 micro, 16 tiles | LLaMA slice | DeepSeek slice | five GEMMs |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | 354 MHz | 4,860 | 5,582 | 11 | 4,149 | 1,048,625 | 3,670,065 | 1,561 |
+| 8x8 | 367 MHz | 10,872 | 11,799 | 12 | 1,216 | 262,211 | 917,571 | 760 |
+| 16x16 | 334 MHz | 35,544 | 33,603 | 14 | 1,221 | 66,246 | 230,086 | 1,496 |
+
+Cycles are from the launch to `done`, which follows the last write's
+acknowledgement.
+
+- **On the two layers the engine is at the floor**: 49, 67 and 710 cycles
+  over it on either slice, which is the instruction and the first operands
+  in, the fill, and the last results out. At 16x16 the last is most of it.
+  The final K block's 512 rows of results are 1,024 beats, and the port
+  carries one a cycle.
+- **The loads hide.** The LLaMA slice's 49,156 beats arrive during
+  1,048,576, 262,144 and 65,536 cycles of arithmetic, so the read port is
+  busy 5%, 19% and 74% of the time. In the whole run the head waits for an
+  operand in 4, 8 and 111 cycles.
+- **The microbenchmark is as fast as its port.** Sixteen 16x16x16 matmuls
+  are 1,156 beats in. At 4x4 the array is the limit, 4,149 cycles for a
+  floor of 4,096. At 8x8 and 16x16 it is the read port: 1,216 and 1,221
+  cycles for 1,156 beats, where the array alone would take 1,024 and 256.
+
+### What the memory system costs
+
+Against the stream-fed engine, both routed once at 3.333 ns:
+
+| array | | stream-fed | whole engine | |
+|---|---|---:|---:|---:|
+| 4x4 | LUT | 2,803 | 4,786 | +71% |
+| | FF | 2,204 | 5,582 | +153% |
+| | block RAM | 0 | 11 | |
+| | clock | 355 MHz | 348 MHz | -2.1% |
+| 8x8 | LUT | 8,665 | 10,845 | +25% |
+| | FF | 6,416 | 11,799 | +84% |
+| | block RAM | 0 | 12 | |
+| | clock | 337 MHz | 336 MHz | -0.4% |
+| 16x16 | LUT | 32,048 | 35,391 | +10% |
+| | FF | 22,306 | 33,601 | +51% |
+| | block RAM | 0 | 14 | |
+| | clock | 329 MHz | 308 MHz | -6.3% |
+
+**The clock is the cells'.** At every size and at both targets the worst
+path is a cell's multiply-add into its partial-sum link, as in the
+stream-fed engine. On the 3.333 ns route at 16x16 that path has 0.09 ns of
+slack, and no path through a unit of the memory system has less than 0.32.
+Routed again at 3.0 ns the whole engine closes at 354, 367 and 334 MHz and the
+stream-fed one at 378, 347 and 343: a route moves a clock by more than the memory
+system does.
+
+**Its own logic is about 1,400 lookup tables at every size**, and the rest
+of what it adds is at the array's edge and in the lanes. By unit, on the
+faster route (`ptpu_mem/S<n>/report/p30_area_by_unit.txt`):
+
+| unit | 4x4 LUT | FF | 16x16 LUT | FF | block RAM tiles, 4x4 / 8x8 / 16x16 |
+|---|---:|---:|---:|---:|---|
+| cells | 1,041 | 272 | 17,362 | 4,738 |  |
+| links between cells | 406 | 464 | 9,799 | 11,102 |  |
+| edge taps and their links | 88 | 254 | 349 | 2,550 |  |
+| head | 527 | 564 | 785 | 1,142 |  |
+| micro-op queue, taps and links | 331 | 931 | 1,082 | 3,419 |  |
+| lanes, with their accumulators | 924 | 1,524 | 3,832 | 6,768 | 8 / 8 / 8 |
+| result taps and their links | 118 | 210 | 868 | 2,382 |  |
+| requester | 647 | 579 | 704 | 635 |  |
+| dealer | 168 | 98 | 116 | 164 |  |
+| operand queues to the head | 209 | 295 | 212 | 294 | 1 / 2 / 4 |
+| row buffer and its credits | 143 | 110 | 116 | 94 | 2 / 2 / 2 |
+| packer | 13 | 38 | 45 | 71 |  |
+| write requester | 268 | 243 | 270 | 244 |  |
+
+- **The read and write sides are 1,448, 1,308 and 1,463 lookup tables**: the requester,
+  the dealer, the operand queues, the row buffer, the packer and the write
+  requester. They do not grow with the array. Gemmini's DMA, TLB and load
+  and store controllers are 10,435 to 12,168, with 12,744 to 14,227 more in
+  its command path. VTA's `Core` outside its datapath and scratchpads is
+  4,963 to 5,343.
+- **The head is 527 to 785 lookup tables** where the stream-fed sequencer
+  was 209: it sequences the operands as well as the micro-ops.
+- **A lane is 240 lookup tables and 423 registers at 16x16**,
+  against 234 and 273 without an accumulator.
+- **The registers are in the tokens.** A micro-op is 51 bits where it was
+  12, because a lane's 32-bit bias rides it: its queue, taps and links are
+  3,419 registers at 16x16 where they were 864. The array's operands enter
+  as one token of `2S + 1` bytes, passed down `S` edge taps, and a row of
+  results is gathered through `S` result taps: 2,550 and 2,382 more.
+- **The RAM is 11, 12 and 14 block RAM tiles**: the lanes' accumulators, 8,192
+  sums of 32 bits, in 8 at every size; the row buffer in 2; the two operand
+  queues in 1, 2 and 4. VTA's scratchpads are 14, 22 and 70 with 2, 6 and
+  12 URAMs, and Gemmini's 64, 80 and 16 with 4, 0 and 8.
+
+### A memory that is not ideal
+
+The same bench with every one of the memory's handshakes withheld a quarter
+of the time, each on its own coin: requests, read beats, write requests,
+write beats and acknowledgements.
+
+| workload | array | floor | ideal memory | stalling memory | change |
+|---|---|---:|---:|---:|---:|
+| E3 micro, 16 tiles | 4x4 | 4,096 | 4,149 | 4,169 | +0.5% |
+|  | 8x8 | 1,024 | 1,216 | 1,580 | +29.9% |
+|  | 16x16 | 256 | 1,221 | 1,599 | +31.0% |
+| LLaMA slice | 4x4 | 1,048,576 | 1,048,625 | 1,048,977 | +0.0% |
+|  | 8x8 | 262,144 | 262,211 | 262,606 | +0.2% |
+|  | 16x16 | 65,536 | 66,246 | 66,776 | +0.8% |
+| five GEMMs | 4x4 |  | 1,561 | 1,582 | +1.3% |
+|  | 8x8 |  | 760 | 969 | +27.5% |
+|  | 16x16 |  | 1,496 | 1,943 | +29.9% |
+
+Every run is right and no link is overwritten, which is the claim above put
+to the test: the array waits for its operands and for room for its results,
+in RTL, at every size. On a layer the slow memory costs under 1%, because
+the loads were hidden with room to spare. Where the port was the limit it
+costs what a quarter fewer beats cost.
+
+### What it took
+
+- **The first version passed every test and was twice too slow.** One unit
+  read memory and one wrote it, each written as the software it is: ask,
+  take the beats, work out what comes next. Both simulators ran its
+  programs. Vitis scheduled every loop at II=1 and estimated the head at
+  7.2 ns, the writer at 6.1 and the loader at 4.0. The head's path ran from
+  the row counter through two subtractions and a comparison to the
+  instruction stream's read, from what was read to whether the bias stream
+  is read, and back to the counter. So the units that count are now written
+  as a hardware designer writes them. Counters run down to zero, with a flag
+  set as each one moves, so that a row is decided by flags alone. A read
+  that decides anything takes an iteration of its own. Requests are one unit
+  and beats another. The estimates are 2.8 to 2.9 ns, and on the 16x16
+  engine routed at 3.333 ns no path of the memory system is within 0.23 ns
+  of the cells'.
+- **A request that waits for its data costs cycles every burst.** With one
+  unit asking and dealing, a burst was two cycles longer than its beats. At 8x8
+  the microbenchmark is eight bursts a tile for 72 beats. The requester asks
+  ahead instead, and the dealer takes the next burst's tag with a burst's
+  last beat.
+- **A declared array is a loop before it is a memory.** Allo zeroes one with
+  a loop ahead of the body. As emitted, a lane spent its first 2,050 cycles
+  zeroing its accumulator, and a lane that has not started would lose the
+  rows the array hands it. Its read-modify-write also held it at II=2. A unit now
+  says an array is a memory: `spmw.ram(P, "buf", distance=4)` makes it
+  static with its zeros, and promises that an element written is not read
+  again for four iterations, which lets Vitis take the stages it needs at
+  II=1. The array build stops if the unit declares no such array.
+- **A credit a tile was too coarse.** The head first waited for the tile
+  before to leave the row buffer before starting a tile's results. At 16x16
+  that round trip is longer than a tile of the microbenchmark, and it ran in
+  1,350 cycles. With a credit a row and a count of the buffer's places it
+  runs in 1,221.
+- **A one-state loop behind a read is reported elsewhere.** A unit that
+  reads its site's coordinate ahead of its loop has the loop outlined into a
+  module of its own, and the check that a `combinational` body was scheduled
+  in one state read only the top module's report. It reads them all now.
+
+`spmw.ram` is in `allo/spmw/schedule.py` and `docs/source/dive/spmw.rst`.
+
 ## Whole engines, run by their own instructions
 
 Every Gemmini and VTA cycle count above comes from a datapath under one of
 this experiment's testbenches. That is not programmable against
-programmable. This section builds Gemmini's whole accelerator, and runs it
-and VTA's whole engine on the same stimulus files through their own
+programmable. This section builds Gemmini's whole accelerator, and runs it,
+VTA's whole engine and SPMW's on the same stimulus files through their own
 instructions, so that each is measured from its first instruction to its
 last result in memory.
 
@@ -785,19 +1041,21 @@ their DMA and TLB, and the mesh. Three configurations are routed:
 **VTA's whole engine** is the `Core` of
 [VTA with its memory counted](#vta-with-its-memory-counted).
 
-**SPMW's engine** is the programmable array of the section above, and it is
-whole in a narrower sense: **it has no memory system.** Its operands arrive
-on streams. Gemmini and VTA fetch theirs from memory into scratchpads, and
-that machinery is most of what this section adds to them. So there are two
-scopes, and SPMW is in one of them:
+**SPMW's whole engine** is the one of
+[SPMW with a memory system](#spmw-with-a-memory-system): the array, its
+dispatch, and what fetches its operands and writes its results.
 
-- **The whole engine**, from a memory port in to a memory port out. Only
-  Gemmini and VTA have one.
+Each is measured in two scopes:
+
+- **The whole engine**, from a memory port in to a memory port out.
 - **The execute scope**: what decodes and executes instructions, with the
-  storage it works from. For SPMW that is the whole programmable engine. For
-  Gemmini it is the execute controller, the mesh, the scratchpad and
-  accumulator memories and the scale units. For VTA it is the datapath and
-  scratchpads of the earlier section.
+  storage it works from. For Gemmini it is the execute controller, the mesh,
+  the scratchpad and accumulator memories and the scale units. For VTA it is
+  the datapath and scratchpads of the earlier section. For SPMW it is
+  measured twice: as the stream-fed engine of
+  [A programmable SPMW engine](#a-programmable-spmw-engine), which has no
+  storage at all, and as the whole engine less its read and write sides,
+  which has the lanes' accumulators and the head's chunk buffer.
 
 **The programs** are each engine's own:
 
@@ -812,23 +1070,25 @@ scopes, and SPMW is in one of them:
   accumulator, GEMMs, ALU passes, a store and a finish, kept in step by its
   dependency tokens. A layer is paged through its scratchpads' two halves,
   so that loads hide behind compute.
-- **SPMW** runs the programs of the section above.
+- **SPMW** runs four-word GEMM instructions fetched from memory
+  (`scripts/spmw_mem_bench.py`).
 
 The LLaMA slice is one instruction on SPMW, 41 commands on Gemmini and 103,
 55 and 31 instructions on VTA at the three sizes. The DeepSeek slice is one,
 113 to 125, and 343, 175 and 91.
 
 The CPU and the memory are ideal. Gemmini is offered a command the cycle the
-last was taken, and both baselines' memory answers every request with a
-beat a cycle, through a 64-bit port. All 63 runs produce the right result:
-36 on Gemmini's three configurations, 18 more on the matmul-only one, and 9
-on VTA. Gemmini as shipped rounds where the other two shift, so each
-configuration is checked against its own arithmetic.
+last was taken, and every engine's memory answers every request with a beat
+a cycle, through a 64-bit port. All 84 runs produce the right result: 36 on
+Gemmini's three configurations, 18 more on the matmul-only one, 9 on VTA and
+21 on SPMW, nine of those against a memory that stalls. Gemmini as shipped
+rounds where the other two shift, so each configuration is checked against
+its own arithmetic.
 
 Gemmini is routed out of context with the recipe VTA's `Core` was routed
-with, retiming on, at 3.333 ns. VTA is also routed at 4.3 and 4.6 ns and the
-matmul-only Gemmini at 6.0 ns, and an engine's clock is the best of its
-routes. SPMW's engine is the routed build of the section above.
+with, retiming on, at 3.333 ns. VTA is also routed at 4.3 and 4.6 ns, the
+matmul-only Gemmini at 6.0 ns and both SPMW engines at 3.0 ns, and an
+engine's clock is the best of its routes.
 `scripts/whole_engine_tables.py` prints every table below from the result
 files.
 
@@ -836,22 +1096,27 @@ files.
 
 | array | engine | LUT | FF | BRAM | URAM | DSP | clock |
 |---|---|---:|---:|---:|---:|---:|---:|
-| 4x4 | SPMW, no memory system | 2,803 | 2,204 | 0 | 0 | 0 | 355 MHz |
+| 4x4 | SPMW | 4,860 | 5,582 | 11 | 0 | 0 | 354 MHz |
 | | Gemmini, matmul only | 31,545 | 21,320 | 64 | 4 | 27 | 152 MHz |
 | | Gemmini, integer shift | 37,513 | 26,079 | 64 | 4 | 161 | 94 MHz |
 | | Gemmini, as shipped | 44,036 | 29,579 | 64 | 4 | 177 | 68 MHz |
 | | VTA | 10,099 | 3,441 | 14 | 2 | 0 | 213 MHz |
-| 8x8 | SPMW, no memory system | 8,665 | 6,416 | 0 | 0 | 0 | 337 MHz |
+| 8x8 | SPMW | 10,872 | 11,799 | 12 | 0 | 0 | 367 MHz |
 | | Gemmini, matmul only | 38,941 | 25,648 | 80 | 0 | 25 | 147 MHz |
 | | Gemmini, integer shift | 45,362 | 30,560 | 80 | 0 | 159 | 95 MHz |
 | | Gemmini, as shipped | 56,329 | 34,389 | 80 | 0 | 183 | 64 MHz |
 | | VTA | 15,403 | 4,747 | 22 | 6 | 0 | 218 MHz |
-| 16x16 | SPMW, no memory system | 32,048 | 22,306 | 0 | 0 | 0 | 329 MHz |
+| 16x16 | SPMW | 35,544 | 33,603 | 14 | 0 | 0 | 334 MHz |
 | | Gemmini, matmul only | 65,529 | 39,989 | 16 | 8 | 29 | 153 MHz |
 | | Gemmini, integer shift | 72,215 | 45,052 | 16 | 8 | 163 | 92 MHz |
 | | Gemmini, as shipped | 89,053 | 49,866 | 16 | 8 | 203 | 64 MHz |
 | | VTA | 33,923 | 7,387 | 70 | 12 | 0 | 224 MHz |
 
+- **SPMW's whole engine is the smallest at 4x4 and 8x8 and VTA's size at
+  16x16.** It has 0.48, 0.71 and 1.05 of VTA's lookup tables and 0.15, 0.28 and 0.54 of the
+  matmul-only Gemmini's. It has 1.6, 2.5 and 4.5 times VTA's registers, because
+  its weights, its links and its tokens are registers, and 0.26, 0.46 and 0.84 of
+  Gemmini's.
 - **Gemmini's whole accelerator is 10, 3.9 and 1.9 times its datapath.**
   `MxuAccVpu` above is 3,167, 10,017 and 35,052 lookup tables, and the
   matmul-only engine around it is 31,545, 38,941 and 65,529. What it has
@@ -864,12 +1129,17 @@ files.
 - **VTA's whole engine is a third to a half of Gemmini's.** It has 0.32, 0.40
   and 0.52 of the matmul-only engine's lookup tables and 0.16-0.19 of its
   registers.
-- **Both hold their operands in RAM.** Gemmini's is a 256 KB scratchpad and a
-  64 KB accumulator at every size, which Vivado maps to different RAMs as
-  the rows widen. VTA's scratchpads grow with the array.
-- **Gemmini routes at 147-153 MHz with matmul only, 92-95 MHz with the
-  integer shift and 64-68 MHz as shipped. VTA routes at 213-224 MHz.** Each
-  Gemmini configuration is limited by a different block:
+- **Gemmini and VTA hold their operands in RAM, and SPMW only what it has to
+  keep.** Gemmini's is a 256 KB scratchpad and a 64 KB accumulator at every
+  size, which Vivado maps to different RAMs as the rows widen. VTA's
+  scratchpads grow with the array. SPMW keeps a tile's 8,192 partial sums,
+  one activation chunk and its queues, 11 to 14 block RAMs, because it uses
+  each weight as it arrives.
+- **SPMW routes at 334-367 MHz, VTA at 213-224 MHz, and Gemmini at
+  147-153 MHz with matmul only, 92-95 MHz with the integer shift and
+  64-68 MHz as shipped.** SPMW is limited by a cell's multiply-add into its
+  partial-sum link at every size, as its array alone is. Each Gemmini
+  configuration is limited by a different block:
   - *As shipped*, by the accumulator's float32 scale, 55 to 57 logic levels
     in one stage. The scale unit's pipeline registers sit after its logic,
     to be retimed into it, and Vivado's retiming does not move them.
@@ -900,63 +1170,77 @@ The blocks sum to 1-3% more than the engine, because Vivado counts a lookup
 table shared by two blocks under both.
 
 - **The memory system** -- the DMA, the TLB and the load and store
-  controllers -- is 10,435, 11,235 and 12,168 lookup tables.
+  controllers -- is 10,435, 11,235 and 12,168 lookup tables. SPMW's read and
+  write sides are 1,448, 1,308 and 1,463, and VTA's `Core` outside its datapath and
+  scratchpads 4,963, 5,118 and 5,343.
 - **The command path** -- the two command queues, the reservation station
   and the matmul loop unroller -- is 14,227, 13,901 and 12,744. The queues
   alone are 5,500 to 6,500, in distributed RAM.
 - **The mesh** is 2,114, 7,863 and 29,028 lookup tables: 7%, 20% and 44% of
   the engine.
 
-In the execute scope all three can be compared:
+In the execute scope:
 
 | array | engine, execute scope | LUT | FF | BRAM | URAM | clock |
 |---|---|---:|---:|---:|---:|---:|
-| 4x4 | SPMW, the whole programmable engine | 2,803 | 2,204 | 0 | 0 | 355 MHz |
+| 4x4 | SPMW, the array and its dispatch, fed by streams | 2,828 | 2,204 | 0 | 0 | 378 MHz |
+| | SPMW, the whole engine less its read and write sides | 3,435 | 4,219 | 8 | 0 | 354 MHz |
 | | Gemmini, execute controller, mesh and storage | 7,027 | 4,122 | 64 | 4 | 158 MHz |
 | | VTA, datapath and scratchpads | 5,136 | 2,948 | 10 | 2 | 235 MHz |
-| 8x8 | SPMW, the whole programmable engine | 8,665 | 6,416 | 0 | 0 | 337 MHz |
+| 8x8 | SPMW, the array and its dispatch, fed by streams | 8,726 | 6,416 | 0 | 0 | 347 MHz |
+| | SPMW, the whole engine less its read and write sides | 9,510 | 10,507 | 8 | 0 | 367 MHz |
 | | Gemmini, execute controller, mesh and storage | 14,053 | 8,655 | 80 | 0 | 154 MHz |
 | | VTA, datapath and scratchpads | 10,285 | 4,208 | 18 | 6 | 224 MHz |
-| 16x16 | SPMW, the whole programmable engine | 32,048 | 22,306 | 0 | 0 | 329 MHz |
+| 16x16 | SPMW, the array and its dispatch, fed by streams | 32,441 | 22,306 | 0 | 0 | 343 MHz |
+| | SPMW, the whole engine less its read and write sides | 34,077 | 32,101 | 8 | 0 | 334 MHz |
 | | Gemmini, execute controller, mesh and storage | 40,654 | 23,535 | 16 | 8 | 164 MHz |
 | | VTA, datapath and scratchpads | 28,580 | 6,450 | 66 | 12 | 224 MHz |
 
-- **Lookup tables.** SPMW's engine has 0.40, 0.62 and 0.79 of Gemmini's
-  execute scope, and 0.55, 0.84 and 1.12 of VTA's.
-- **Registers.** It has 0.53, 0.74 and 0.95 of Gemmini's, and 0.75, 1.5 and
-  3.5 times VTA's, because it keeps weights and partial sums in registers
-  where VTA uses RAM.
-- **RAM.** SPMW has none, and that is where the scopes differ. Gemmini's and
-  VTA's hold the scratchpads their operands sit in. SPMW's engine stores no
-  operand: it holds the weights and partial sums in the array and takes
-  everything else from its streams.
-- **Clock.** SPMW closes at 329-355 MHz, VTA's scope at 224-235 MHz and
-  Gemmini's at 154-164 MHz. Gemmini's worst path in the scope runs from the
-  execute controller's command queue to the scratchpad's address and enable
-  pins, 13 or 14 logic levels. VTA's is its accumulator URAM at every size:
-  the read-modify-write, or the GEMM's write into it.
+- **Lookup tables.** SPMW's stream-fed engine has 0.40, 0.62 and 0.80 of
+  Gemmini's execute scope, and 0.55, 0.85 and 1.14 of VTA's. The whole
+  engine's scope has 0.49, 0.68 and 0.84 and 0.67, 0.92 and 1.19.
+- **Registers.** The stream-fed engine has 0.53, 0.74 and 0.95 of Gemmini's,
+  and 0.75, 1.5 and 3.5 times VTA's, because it keeps weights and partial
+  sums in registers where VTA uses RAM. The whole engine's scope has
+  1.4, 2.5 and 5.0 times VTA's: its operands and micro-ops travel as wide
+  tokens through register links.
+- **RAM.** The stream-fed engine has none: it stores no operand and takes
+  everything from its streams. The whole engine's scope has 8 block RAM
+  tiles at every size, the lanes' accumulators. Gemmini's and VTA's hold the
+  scratchpads their operands sit in.
+- **Clock.** SPMW closes at 334-378 MHz, VTA's scope at 224-235 MHz
+  and Gemmini's at 154-164 MHz. Gemmini's worst path in the scope runs from
+  the execute controller's command queue to the scratchpad's address and
+  enable pins, 13 or 14 logic levels. VTA's is its accumulator URAM at every
+  size: the read-modify-write, or the GEMM's write into it.
 
 ### Cycles
 
 End to end is from the first instruction to the last result in memory.
+SPMW's array only is the stream-fed engine, whose operands are always there.
 Execute only is the cycles Gemmini's execute controller is busy, and compute
 only the cycles VTA's `Compute` spends in GEMM and ALU instructions.
 
-| workload | array | floor | SPMW | Gemmini | VTA | Gemmini, execute only | VTA, compute only |
-|---|---|---:|---:|---:|---:|---:|---:|
-| E3 micro, 16 tiles | 4x4 | 4,096 | **4,110** | 7,310 | 11,035 | 4,220 | 10,276 |
-|  | 8x8 | 1,024 | **1,050** | 1,944 | 5,198 | 1,123 | 4,132 |
-|  | 16x16 | 256 | **306** | 1,499 | 3,405 | 380 | 1,828 |
-| LLaMA slice | 4x4 | 1,048,576 | **1,048,590** | 1,073,610 | 1,058,331 | 1,073,085 | 1,056,984 |
-|  | 8x8 | 262,144 | **262,170** | 274,359 | 269,578 | 273,985 | 266,360 |
-|  | 16x16 | 65,536 | **65,586** | 77,605 | 74,911 | 77,176 | 67,656 |
-| DeepSeek slice | 4x4 | 3,670,016 | **3,670,030** | 3,723,974 | 3,680,381 | 3,723,449 | 3,678,904 |
-|  | 8x8 | 917,504 | **917,530** | 945,033 | 925,364 | 944,659 | 921,960 |
-|  | 16x16 | 229,376 | **229,426** | 271,099 | 239,011 | 258,774 | 231,616 |
+| workload | array | floor | SPMW | Gemmini | VTA | SPMW, array only | Gemmini, execute only | VTA, compute only |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| E3 micro, 16 tiles | 4x4 | 4,096 | **4,149** | 7,310 | 11,035 | 4,110 | 4,220 | 10,276 |
+|  | 8x8 | 1,024 | **1,216** | 1,944 | 5,198 | 1,050 | 1,123 | 4,132 |
+|  | 16x16 | 256 | **1,221** | 1,499 | 3,405 | 306 | 380 | 1,828 |
+| LLaMA slice | 4x4 | 1,048,576 | **1,048,625** | 1,073,610 | 1,058,331 | 1,048,590 | 1,073,085 | 1,056,984 |
+|  | 8x8 | 262,144 | **262,211** | 274,359 | 269,578 | 262,170 | 273,985 | 266,360 |
+|  | 16x16 | 65,536 | **66,246** | 77,605 | 74,911 | 65,586 | 77,176 | 67,656 |
+| DeepSeek slice | 4x4 | 3,670,016 | **3,670,065** | 3,723,974 | 3,680,381 | 3,670,030 | 3,723,449 | 3,678,904 |
+|  | 8x8 | 917,504 | **917,571** | 945,033 | 925,364 | 917,530 | 944,659 | 921,960 |
+|  | 16x16 | 229,376 | **230,086** | 271,099 | 239,011 | 229,426 | 258,774 | 231,616 |
 
-- **On the two layers every engine is within 18% of the floor.** SPMW is at
-  it. VTA is 0.3-0.9% over at 4x4, 0.9-2.8% at 8x8 and 4.2-14.3% at 16x16.
-  Gemmini is 1.5-2.4%, 3.0-4.7% and 18%.
+- **On the two layers every engine is within 18% of the floor, and SPMW is
+  at it.** It is 49 and 67 cycles over at 4x4 and 8x8 and 710, or 1.1% and
+  0.3%, at 16x16. VTA is 0.3-0.9% over at 4x4, 0.9-2.8% at 8x8 and 4.2-14.3%
+  at 16x16. Gemmini is 1.5-2.4%, 3.0-4.7% and 18%.
+- **SPMW's memory system costs it 35, 41 and 660 cycles a layer.** That is
+  end to end against the array alone. Its head pauses 4, 8 and 111 times in
+  a whole layer; the rest is the instruction fetch at the start and the
+  results at the end, where 512 rows of 16 bytes are 1,024 beats.
 - **Gemmini's loads hide behind its compute, and its cost is the weight
   change.** End to end is within 0.6% of execute only, except on the
   DeepSeek slice at 16x16. A weight block serves the 64 rows as 16, 8 and 4
@@ -973,63 +1257,72 @@ only the cycles VTA's `Compute` spends in GEMM and ALU instructions.
 - **On the microbenchmark a whole engine mostly moves data.** Sixteen
   16x16x16 matmuls are 8 KB of operands in and 4 KB of results out for
   65,536 multiply-accumulates. Through a 64-bit port the operands are 1,024
-  beats, which is the 8x8 floor and four times the 16x16 one. End to end,
-  Gemmini takes 1.7, 1.7 and 3.9 times its execute only, and VTA 1.07, 1.26
-  and 1.86 times its compute only. SPMW's 4,110, 1,050 and 306 cycles are
-  those of an array with no port, and only the first could be fed through
-  one. Execute only and compute only take the memory out: Gemmini's execute
-  controller is busy for 1.03, 1.10 and 1.48 times the floor, in the run
-  with every load issued first, and VTA's compute for 2.5, 4.0 and 7.1
-  times: a pass that clears the accumulator, the GEMM, and four ALU passes
-  at 1.26 cycles a row.
+  beats, which is the 8x8 floor and four times the 16x16 one. SPMW runs at
+  its array's rate at 4x4 and at its port's at 8x8 and 16x16: 4,149, 1,216
+  and 1,221 cycles for 1,156 beats in, which are the operands, a bias a tile
+  and the instruction. Gemmini takes 1.7, 1.7 and 3.9 times its execute
+  only, and VTA 1.07, 1.26 and 1.86 times its compute only. Execute only and
+  compute only take the memory out:
+  Gemmini's execute controller is busy for 1.03, 1.10 and 1.48 times the
+  floor, in the run with every load issued first, and VTA's compute for 2.5,
+  4.0 and 7.1 times: a pass that clears the accumulator, the GEMM, and four
+  ALU passes at 1.26 cycles a row.
 
 ### Time
 
-End to end, at each whole engine's routed clock. SPMW's column is its array
-fed at full rate, so it is a bound and not a like-for-like row:
+End to end, at each whole engine's routed clock:
 
-| workload | array | SPMW, no memory system | Gemmini, matmul only | Gemmini, as shipped | VTA | Gemmini / VTA |
-|---|---|---:|---:|---:|---:|---:|
-| E3 micro, 16 tiles | 4x4 | 11.6 us | 48.2 us | 108 us | 51.7 us | 0.93x |
-|  | 8x8 | 3.11 us | 13.2 us | 31.2 us | 23.9 us | 0.55x |
-|  | 16x16 | 0.931 us | 9.82 us | 23.6 us | 15.2 us | 0.65x |
-| LLaMA slice | 4x4 | 2.95 ms | 7.08 ms | 15.7 ms | 4.96 ms | 1.43x |
-|  | 8x8 | 0.777 ms | 1.86 ms | 4.28 ms | 1.24 ms | 1.51x |
-|  | 16x16 | 0.200 ms | 0.509 ms | 1.21 ms | 0.334 ms | 1.52x |
-| DeepSeek slice | 4x4 | 10.3 ms | 24.6 ms | 54.5 ms | 17.2 ms | 1.42x |
-|  | 8x8 | 2.72 ms | 6.42 ms | 14.8 ms | 4.25 ms | 1.51x |
-|  | 16x16 | 0.698 ms | 1.78 ms | 4.23 ms | 1.07 ms | 1.67x |
+| workload | array | SPMW | Gemmini, matmul only | Gemmini, as shipped | VTA | Gemmini / SPMW | VTA / SPMW |
+|---|---|---:|---:|---:|---:|---:|---:|
+| E3 micro, 16 tiles | 4x4 | **11.7 us** | 48.2 us | 108 us | 51.7 us | 4.12x | 4.42x |
+|  | 8x8 | **3.32 us** | 13.2 us | 31.2 us | 23.9 us | 3.98x | 7.20x |
+|  | 16x16 | **3.66 us** | 9.82 us | 23.6 us | 15.2 us | 2.69x | 4.15x |
+| LLaMA slice | 4x4 | **2.96 ms** | 7.08 ms | 15.7 ms | 4.96 ms | 2.39x | 1.68x |
+|  | 8x8 | **0.715 ms** | 1.86 ms | 4.28 ms | 1.24 ms | 2.61x | 1.73x |
+|  | 16x16 | **0.198 ms** | 0.509 ms | 1.21 ms | 0.334 ms | 2.56x | 1.68x |
+| DeepSeek slice | 4x4 | **10.4 ms** | 24.6 ms | 54.5 ms | 17.2 ms | 2.37x | 1.67x |
+|  | 8x8 | **2.50 ms** | 6.42 ms | 14.8 ms | 4.25 ms | 2.57x | 1.70x |
+|  | 16x16 | **0.689 ms** | 1.78 ms | 4.23 ms | 1.07 ms | 2.58x | 1.55x |
+
+- **Whole engine against whole engine, SPMW is 1.55-1.73 times faster than
+  VTA and 2.37-2.61 times faster than Gemmini on the two layers.** Nearly
+  all of it is clock, 334-367 MHz against 213-224 and 147-153, since
+  the three are within 18% of each other in cycles. It has 0.48, 0.71 and 1.05 of
+  VTA's lookup tables, so on lookup tables times time it is ahead of VTA by
+  1.5-3.5 times and of Gemmini by 4.7-15.5.
+- **On the microbenchmark it is 2.7-4.1 times faster than Gemmini and
+  4.1-7.2 times faster than VTA.** All three are moving data there. SPMW
+  waits for nothing but its port, and VTA also runs four ALU passes.
+- **VTA is 1.4-1.7 times faster than Gemmini on the layers**, with a third
+  to a half of the lookup tables. Its clock is 1.4-1.5 times Gemmini's and
+  it takes 1-12% fewer cycles. Gemmini is the faster on the microbenchmark,
+  by 1.1-1.8 times, because it has no ALU passes.
 
 In the execute scope: each engine's execute or compute cycles at its scope's
-clock, and its lookup tables times that time, relative to SPMW's:
+clock, and its lookup tables times that time, relative to SPMW's. SPMW's row
+is the stream-fed engine:
 
 | workload | array | SPMW | Gemmini | VTA | Gemmini / SPMW | VTA / SPMW | Gemmini, LUT x time | VTA, LUT x time |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| E3 micro, 16 tiles | 4x4 | **11.6 us** | 26.7 us | 43.7 us | 2.31x | 3.78x | 5.8x | 6.9x |
-|  | 8x8 | **3.11 us** | 7.28 us | 18.4 us | 2.34x | 5.93x | 3.8x | 7.0x |
-|  | 16x16 | **0.931 us** | 2.32 us | 8.15 us | 2.49x | 8.75x | 3.2x | 7.8x |
-| LLaMA slice | 4x4 | **2.95 ms** | 6.80 ms | 4.50 ms | 2.31x | 1.53x | 5.8x | 2.8x |
-|  | 8x8 | **0.777 ms** | 1.78 ms | 1.19 ms | 2.29x | 1.53x | 3.7x | 1.8x |
-|  | 16x16 | **0.200 ms** | 0.472 ms | 0.301 ms | 2.36x | 1.51x | 3.0x | 1.3x |
-| DeepSeek slice | 4x4 | **10.3 ms** | 23.6 ms | 15.7 ms | 2.29x | 1.52x | 5.7x | 2.8x |
-|  | 8x8 | **2.72 ms** | 6.12 ms | 4.11 ms | 2.25x | 1.51x | 3.7x | 1.8x |
-|  | 16x16 | **0.698 ms** | 1.58 ms | 1.03 ms | 2.27x | 1.48x | 2.9x | 1.3x |
+| E3 micro, 16 tiles | 4x4 | **10.9 us** | 26.7 us | 43.7 us | 2.46x | 4.03x | 6.1x | 7.3x |
+|  | 8x8 | **3.03 us** | 7.28 us | 18.4 us | 2.40x | 6.09x | 3.9x | 7.2x |
+|  | 16x16 | **0.893 us** | 2.32 us | 8.15 us | 2.60x | 9.12x | 3.3x | 8.0x |
+| LLaMA slice | 4x4 | **2.77 ms** | 6.80 ms | 4.50 ms | 2.45x | 1.62x | 6.1x | 2.9x |
+|  | 8x8 | **0.756 ms** | 1.78 ms | 1.19 ms | 2.35x | 1.57x | 3.8x | 1.9x |
+|  | 16x16 | **0.191 ms** | 0.472 ms | 0.301 ms | 2.47x | 1.58x | 3.1x | 1.4x |
+| DeepSeek slice | 4x4 | **9.70 ms** | 23.6 ms | 15.7 ms | 2.43x | 1.61x | 6.0x | 2.9x |
+|  | 8x8 | **2.65 ms** | 6.12 ms | 4.11 ms | 2.31x | 1.55x | 3.7x | 1.8x |
+|  | 16x16 | **0.669 ms** | 1.58 ms | 1.03 ms | 2.36x | 1.54x | 3.0x | 1.4x |
 
-- **In the execute scope SPMW is 1.5 times faster than VTA and 2.3-2.4 times
-  faster than Gemmini on the two layers, at every size.** Nearly all of it
-  is clock, since the cycles are within 18% of each other. On lookup tables
-  times time it is ahead of VTA by 1.3-2.8 times and of Gemmini by 2.9-5.8,
-  and neither figure counts the baselines' RAM.
-- **On the microbenchmark, in the execute scope, it is 2.3-2.5 times faster
-  than Gemmini and 3.8-8.8 times faster than VTA.**
-- **Whole engine against whole engine, VTA is 1.4-1.7 times faster than
-  Gemmini on the layers**, with a third to a half of the lookup tables. Its
-  clock is 1.4-1.5 times Gemmini's and it takes 1-12% fewer cycles. Gemmini
-  is the faster on the microbenchmark, by 1.1-1.8 times, because it has no
-  ALU passes.
-- **SPMW's end-to-end column is a bound.** It is 1.5-1.7 times ahead of VTA
-  and 2.4-2.5 ahead of Gemmini on the layers, and nothing here says how
-  much of that a memory system would keep.
+- **In the execute scope SPMW is 1.54-1.62 times faster than VTA and
+  2.31-2.47 times faster than Gemmini on the two layers.** On lookup tables
+  times time it is ahead of VTA by 1.4-2.9 times and of Gemmini by
+  3.0-6.1, and neither figure counts the baselines' RAM.
+- **On the microbenchmark, in the execute scope, it is 2.4-2.6 times
+  faster than Gemmini and 4.0-9.1 times faster than VTA.**
+- **The lead survives the memory system.** Whole engine against whole
+  engine the ratios are 1.55-1.73 and 2.37-2.61, where the execute scope's
+  are 1.54-1.62 and 2.31-2.47.
 
 ### What this changes above
 
@@ -1051,34 +1344,36 @@ clock, and its lookup tables times that time, relative to SPMW's:
 - **Gemmini's float scale stays slow with retiming.** E8's 34.8 MHz was
   `MxuVpuNorm` routed as written. The whole accelerator as shipped, retimed,
   reaches 64-68 MHz, and its worst path is the same float32 scale.
+- **SPMW's microbenchmark was an array's, not an engine's.** The stream-fed
+  306 cycles at 16x16 need four beats of a 64-bit port every cycle. Through
+  one port it is 1,221, which is still ahead of Gemmini's 1,499 and VTA's
+  3,405.
 - **SPMW's lead on the layers stands against VTA and grows against
-  Gemmini.** In the execute scope it is 1.5 times, where it was 1.5-1.7 with
-  VTA's scratchpads counted. Against Gemmini it is 2.3-2.4 times, where the
-  datapath rows had 1.2-1.7: Gemmini's datapath routes at 305-321 MHz alone,
-  and its execute scope at 154-164 MHz inside the engine.
+  Gemmini.** As whole engines it is 1.55-1.73 times against VTA, where it
+  was 1.5-1.7 with VTA's scratchpads counted and SPMW's memory system not
+  built. Against Gemmini it is 2.37-2.61 times, where the datapath rows had
+  1.2-1.7: Gemmini's datapath routes at 305-321 MHz alone, and its whole
+  accelerator at 147-153 MHz.
 
 ### What bounds it
 
-- **SPMW has no memory system, and its array needs more bandwidth than the
-  other two's port carries.** It takes `2S` operand bytes every cycle
-  and cannot be stalled. That is one beat of a 64-bit port every cycle at
-  4x4, two at 8x8 and four at 16x16. It also takes each operand more than
-  once, an activation block for every column block and a weight block for
-  every row block: the LLaMA slice streams 8.4, 4.2 and 2.1 MB where memory
-  holds 393 KB. Gemmini and VTA bring each operand in about once, 49,278
-  beats for VTA on that slice at 16x16, and work from their scratchpads. A
-  whole SPMW engine needs an operand store and a loader in front of the
-  array. Neither is built, so nothing here says what they cost or whether
-  they keep the array's clock. Today the testbench orders the weights one
-  block ahead of their rows and sets the two framing bits.
-- **The memory is ideal and the port is 64 bits.** VTA's `Core` is driven
-  above its memory arbiter, so each of its read channels is answered at a
-  beat a cycle; its load unit runs one load at a time, so only instruction
-  fetch and the micro-op load ever overlap a data load. Gemmini's DMA is 128
-  bits wide inside, and Chipyard widens the system bus to match. Here it
-  sits on rocket-chip's 64-bit bus behind its own width adapter, 167 lookup
-  tables at 4x4, so that both baselines have the same port. The matmul-only
-  engine rerun on a 128-bit bus, end to end:
+- **SPMW's memory system is sized for these layers, and it is the smallest
+  that runs them.** A tile is at most 64 rows and 8,192 results, the head's
+  chunk buffer and the lanes' accumulators. A layer of more rows runs 64 at
+  a time and reads its weights again for each tile, where a scratchpad would
+  keep them. It has no TLB and takes physical addresses, as VTA does.
+  Memory holds its operands in the order it takes them, the weights a block
+  at a time in shift order, as VTA's are blocked by its compiler; Gemmini
+  takes plain matrices.
+- **The memory is ideal and the port is 64 bits.** SPMW has one read channel
+  and everything comes through it. VTA's `Core` is driven above its memory
+  arbiter, so each of its five read channels is answered at a beat a cycle;
+  its load unit runs one load at a time, so only instruction fetch and the
+  micro-op load ever overlap a data load. Gemmini's DMA is 128 bits wide
+  inside, and Chipyard widens the system bus to match. Here it sits on
+  rocket-chip's 64-bit bus behind its own width adapter, 167 lookup tables
+  at 4x4, so that all three have the same port. The matmul-only engine rerun
+  on a 128-bit bus, end to end:
 
   | workload | array | 64-bit bus | 128-bit bus | change |
   |---|---|---:|---:|---:|
@@ -1093,7 +1388,9 @@ clock, and its lookup tables times that time, relative to SPMW's:
   |  | 16x16 | 271,099 | 259,074 | -4.4% |
 
   It helps where the port was the limit, on the microbenchmark and the
-  DeepSeek slice at 16x16, and moves the rest by -1.1% to +2.0%.
+  DeepSeek slice at 16x16, and moves the rest by -1.1% to +2.0%. SPMW's
+  ports are 64 bits and are not rerun wider: at 8x8 and 16x16 its
+  microbenchmark would gain as Gemmini's does.
 - **These are this FPGA's clocks.** Gemmini is written for an ASIC flow: its
   controllers put 13 to 31 logic levels between registers and its scale unit
   leaves its pipeline to retiming. The cycle counts carry to any target and
@@ -1104,8 +1401,17 @@ clock, and its lookup tables times that time, relative to SPMW's:
   columns, which map to block RAM. The 4x4 engine needs no change.
 - **The routes are single runs at a few targets.** VTA has three and the
   matmul-only Gemmini two, whose 6.0 ns routes are within 3% of its
-  3.333 ns ones: slower at 4x4 and 8x8, faster at 16x16. SPMW has one, at
-  3.333 ns, which it meets.
+  3.333 ns ones: slower at 4x4 and 8x8, faster at 16x16. Each SPMW engine
+  has two:
+
+  | engine | target | 4x4 | 8x8 | 16x16 |
+  |---|---:|---:|---:|---:|
+  | stream-fed | 3.333 ns | 2.813 ns | 2.963 ns | 3.043 ns |
+  | | 3.0 ns | 2.643 ns | 2.885 ns | 2.918 ns |
+  | whole | 3.333 ns | 2.872 ns | 2.975 ns | 3.246 ns |
+  | | 3.0 ns | 2.821 ns | 2.727 ns | 2.996 ns |
+
+  A route moves SPMW's clock by more than its memory system does.
 - **The baselines' instruction sets do more.** The matmul-only
   configuration removes what Gemmini's options can remove. Its reservation
   station, its command queues and its loop unroller stay general, as do
@@ -1496,6 +1802,25 @@ is Intel.
   `ptpu/scripts/` has the build wrapper, `same_hw.sh`, the hierarchical
   split and `probe_hls.sh`, which synthesises each role once and prints the
   state every link access was scheduled in.
+- `tests/dataflow/spmw/test_spmw_ptpu_mem.py` -- the whole engine: the
+  requester, the dealer, the head, the edge and result taps, the lane with
+  its accumulator, the packer and the write requester, the model that lays a
+  program and its operands out in memory, and the four workloads, designs
+  `ptpumem-micro`, `ptpumem-llama`, `ptpumem-dsv4` and `ptpumem-mixed` in
+  `scripts/spmw_build_array.py`.
+- `scripts/spmw_mem_bench.py` -- its bench: a build's units against a memory
+  behind the two ports, a stimulus file or the five-GEMM program as the
+  launch, and `--stall` for a memory that is not always ready.
+- `ptpu_mem/S<n>/` -- its builds, laid out like `ptpu/`. The routed build is
+  the microbenchmark's, a `mixed_` report is the five-GEMM program's build
+  of the same hardware, and a `p30_` report is the same HLS output routed
+  again at 3.0 ns. `area_by_unit.txt` splits a route by what each unit is
+  for and gives the worst path through each kind. `ptpu_mem/results.txt` is
+  every bench run's result line, `_stall25` the runs on the stalling memory,
+  and `ptpu_mem/routes.txt` every route. `ptpu_mem/scripts/` has the build
+  and bench wrappers, the second route, the split and the export.
+  `ptpu/routes.txt` and `ptpu/S<n>/report/p30_*` are the stream-fed engine's
+  second route.
 - `gemmini_full/` -- Gemmini's whole accelerator. `pins.txt` is every
   repository's commit. `source/` is the sbt build and
   `ElaborateGemmini.scala`, which elaborates rocket-chip's example system
@@ -1521,7 +1846,9 @@ is Intel.
   of each width with their scope timings.
 - `scripts/whole_engine_tables.py` -- prints every table of
   [Whole engines, run by their own instructions](#whole-engines-run-by-their-own-instructions)
-  from those files, `results.csv` and `core/split.txt`.
+  and the generated ones of
+  [SPMW with a memory system](#spmw-with-a-memory-system) from those files,
+  `ptpu_mem/`, `ptpu/routes.txt`, `results.csv` and `core/split.txt`.
 - `deepseek_v4/` -- the same layout for one DeepSeek-V4-Pro expert (designs
   `dsv4-gateup`, `dsv4-swiglu`; `test_spmw_llama_ffn.deepseek_of`). Gemmini
   runs the LLaMA section's routed hardware, so `gemmini/S<n>/` has only the

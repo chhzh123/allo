@@ -1,0 +1,43 @@
+B_START ptpumem-micro S=4 --jobs 6 Fri Oct  2 03:47:32 EDT 2026
+ptpumem-micro: {"roles": 25, "instances": 38, "fifos": 92, "streams": 7}
+staged 25 role project(s) in 2.7s (frontend + per-role HLS codegen)
+synthesising and exporting 25 unit(s) concurrently:
+  pe_r2: rc=0 50.9s
+  pe_r1: rc=0 51.7s
+  pe_r5: rc=0 51.9s
+  pe_r0: rc=0 53.7s
+  pe_r4: rc=0 55.9s
+  pe_r3: rc=0 56.8s
+  etap_r0: rc=0 49.3s
+  pe_r7: rc=0 52.4s
+  etap_r1: rc=0 49.3s
+  pe_r8: rc=0 54.2s
+  etap_r2: rc=0 50.6s
+  pe_r6: rc=0 56.7s
+  req4_r0: rc=0 51.1s
+  tap_r0: rc=0 48.2s
+  tap_r1: rc=0 49.1s
+  uq_r0: rc=0 50.9s
+  deal4_r0: rc=0 55.6s
+  head4_r0: rc=0 56.2s
+  tap_r2: rc=0 47.8s
+  lane_r0: rc=0 49.5s
+  ctap_r1: rc=0 53.6s
+  ctap_r0: rc=0 55.2s
+  ctap_r2: rc=0 52.9s
+  wreq4_r0: rc=0 52.2s
+  pack4_r0: rc=0 41.5s
+HLS: 243.4s wall for 25 roles and 0 movers (1297.2s of CPU work, 38 instances)
+assembling the array in Vivado:
+  stage synth 138.164
+  stage opt 10.557
+  stage place 226.759
+  stage physopt 1.72
+  stage route 40.934
+  unrouted 0
+Vivado implemented 38 instances in 449.3s
+  array clock: 2.872 ns achieved against a 3.333 ns target (WNS +0.461 ns)
+simulating the assembled array:
+  SPMW COSIM PASS (914/914 tokens, 0 errors)
+  SPMW CYCLES total=4150 first_out=3 first_in=2
+B_RC=0 wall_s=740

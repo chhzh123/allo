@@ -1,0 +1,6 @@
+ROUTE size=4 target=3.333 wns=+0.520 period=2.813 lut=2803 ff=2204 dir=b_ptpu-micro_4
+ROUTE size=4 target=3.0 wns=+0.357 period=2.643 lut=2828 ff=2204 dir=route_4_p30
+ROUTE size=8 target=3.333 wns=+0.370 period=2.963 lut=8665 ff=6416 dir=b_ptpu-micro_8
+ROUTE size=8 target=3.0 wns=+0.115 period=2.885 lut=8726 ff=6416 dir=route_8_p30
+ROUTE size=16 target=3.333 wns=+0.290 period=3.043 lut=32048 ff=22306 dir=b_ptpu-micro_16
+ROUTE size=16 target=3.0 wns=+0.082 period=2.918 lut=32441 ff=22306 dir=route_16_p30

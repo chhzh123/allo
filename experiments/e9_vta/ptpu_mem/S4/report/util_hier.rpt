@@ -1,0 +1,201 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Fri Oct  2 04:04:45 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 3 -file /scratch/hc676/e13_mem/b_ptpumem-micro_4/util_hier.rpt
+| Design       : spmw_harness
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++----------------------------------+--------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|             Instance             |                Module                | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++----------------------------------+--------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| spmw_harness                     |                                (top) |       4788 |       4622 |     166 |    0 | 5678 |     10 |      2 |    0 |          0 |
+|   (spmw_harness)                 |                                (top) |          2 |          2 |       0 |    0 |   96 |      0 |      0 |    0 |          0 |
+|   dut                            |                             spmw_top |       4786 |       4620 |     166 |    0 | 5582 |     10 |      2 |    0 |          0 |
+|     g_ctap_r_out_r_in[1].u       |            spmw_fifo__parameterized9 |          2 |          2 |       0 |    0 |   18 |      0 |      0 |    0 |          0 |
+|     g_ctap_r_out_r_in[2].u       |          spmw_fifo__parameterized9_0 |          7 |          7 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|     g_ctap_r_out_r_in[3].u       |          spmw_fifo__parameterized9_1 |         11 |         11 |       0 |    0 |   50 |      0 |      0 |    0 |          0 |
+|     g_ctap_y_in_bind[0].u        |            spmw_fifo__parameterized8 |          6 |          6 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_ctap_y_in_bind[1].u        |          spmw_fifo__parameterized8_2 |          6 |          6 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_ctap_y_in_bind[2].u        |          spmw_fifo__parameterized8_3 |          6 |          6 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_ctap_y_in_bind[3].u        |          spmw_fifo__parameterized8_4 |          6 |          6 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_deal4_tag_in_bind[0].u     |            spmw_fifo__parameterized4 |         30 |         14 |      16 |    0 |   33 |      0 |      0 |    0 |          0 |
+|       deep.out                   |        spmw_fifo__parameterized2_138 |          9 |          9 |       0 |    0 |   26 |      0 |      0 |    0 |          0 |
+|       deep.ram                   |                     spmw_fifo_lutram |         21 |          5 |      16 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     g_etap_e_in_bind[0].u        |            spmw_fifo__parameterized3 |          1 |          1 |       0 |    0 |   67 |      0 |      0 |    0 |          0 |
+|     g_etap_e_out_e_in[1].u       |          spmw_fifo__parameterized3_5 |          1 |          1 |       0 |    0 |   51 |      0 |      0 |    0 |          0 |
+|     g_etap_e_out_e_in[2].u       |          spmw_fifo__parameterized3_6 |          1 |          1 |       0 |    0 |   35 |      0 |      0 |    0 |          0 |
+|     g_etap_e_out_e_in[3].u       |          spmw_fifo__parameterized3_7 |          1 |          1 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_head4_a_in_bind[0].u       |                       spmw_fifo_bram |         46 |         46 |       0 |    0 |   39 |      0 |      1 |    0 |          0 |
+|       (g_head4_a_in_bind[0].u)   |                       spmw_fifo_bram |          2 |          2 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       u                          |                        xpm_fifo_sync |         44 |         44 |       0 |    0 |   39 |      0 |      1 |    0 |          0 |
+|     g_head4_b_in_bind[0].u       |            spmw_fifo__parameterized6 |         94 |         54 |      40 |    0 |  147 |      0 |      0 |    0 |          0 |
+|       deep.out                   |        spmw_fifo__parameterized5_132 |         33 |         33 |       0 |    0 |  130 |      0 |      0 |    0 |          0 |
+|       deep.ram                   | spmw_fifo_lutram__parameterized0_133 |         61 |         21 |      40 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_head4_credit_bind[0].u     |       spmw_fifo_bram__parameterized1 |         70 |         70 |       0 |    0 |   55 |      0 |      0 |    0 |          0 |
+|       (g_head4_credit_bind[0].u) |       spmw_fifo_bram__parameterized1 |          2 |          2 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       u                          |        xpm_fifo_sync__parameterized1 |         68 |         68 |       0 |    0 |   55 |      0 |      0 |    0 |          0 |
+|     g_head4_op_in_bind[0].u      |            spmw_fifo__parameterized5 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_head4_w_in_bind[0].u       |       spmw_fifo_bram__parameterized0 |         51 |         51 |       0 |    0 |   43 |      0 |      1 |    0 |          0 |
+|       (g_head4_w_in_bind[0].u)   |       spmw_fifo_bram__parameterized0 |          1 |          1 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       u                          |        xpm_fifo_sync__parameterized0 |         50 |         50 |       0 |    0 |   43 |      0 |      1 |    0 |          0 |
+|     g_lane_c_in_bind[0].u        |          spmw_fifo__parameterized5_8 |         29 |         29 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_lane_c_in_bind[1].u        |          spmw_fifo__parameterized5_9 |         29 |         29 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_lane_c_in_bind[2].u        |         spmw_fifo__parameterized5_10 |         29 |         29 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_lane_c_in_bind[3].u        |         spmw_fifo__parameterized5_11 |         28 |         28 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_lane_z_in_bind[0].u        |            spmw_fifo__parameterized2 |         16 |         16 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_lane_z_in_bind[1].u        |         spmw_fifo__parameterized2_12 |         16 |         16 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_lane_z_in_bind[2].u        |         spmw_fifo__parameterized2_13 |         17 |         17 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_lane_z_in_bind[3].u        |         spmw_fifo__parameterized2_14 |         16 |         16 |       0 |    0 |   42 |      0 |      0 |    0 |          0 |
+|     g_pack4_row_in_bind[0].u     |       spmw_fifo_bram__parameterized2 |         69 |         69 |       0 |    0 |   55 |      2 |      0 |    0 |          0 |
+|       (g_pack4_row_in_bind[0].u) |       spmw_fifo_bram__parameterized2 |          2 |          2 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       u                          |        xpm_fifo_sync__parameterized2 |         67 |         67 |       0 |    0 |   55 |      2 |      0 |    0 |          0 |
+|     g_pe_a_in_bind[0].u          |                            spmw_fifo |         17 |         17 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_in_bind[1].u          |                         spmw_fifo_15 |         17 |         17 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_in_bind[2].u          |                         spmw_fifo_16 |         17 |         17 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_a_in_bind[3].u          |                         spmw_fifo_17 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[10].u        |                         spmw_fifo_18 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[11].u        |                         spmw_fifo_19 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[13].u        |                         spmw_fifo_20 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[14].u        |                         spmw_fifo_21 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[15].u        |                         spmw_fifo_22 |         22 |         22 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[1].u         |                         spmw_fifo_23 |         19 |         19 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[2].u         |                         spmw_fifo_24 |         19 |         19 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[3].u         |                         spmw_fifo_25 |         19 |         19 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[5].u         |                         spmw_fifo_26 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[6].u         |                         spmw_fifo_27 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[7].u         |                         spmw_fifo_28 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_a_out_a_in[9].u         |                         spmw_fifo_29 |         18 |         18 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[10].u        |            spmw_fifo__parameterized1 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[11].u        |         spmw_fifo__parameterized1_30 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[12].u        |         spmw_fifo__parameterized1_31 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[13].u        |         spmw_fifo__parameterized1_32 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[14].u        |         spmw_fifo__parameterized1_33 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[15].u        |         spmw_fifo__parameterized1_34 |         16 |         16 |       0 |    0 |   20 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[4].u         |         spmw_fifo__parameterized1_35 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[5].u         |         spmw_fifo__parameterized1_36 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[6].u         |         spmw_fifo__parameterized1_37 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[7].u         |         spmw_fifo__parameterized1_38 |         14 |         14 |       0 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[8].u         |         spmw_fifo__parameterized1_39 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_p_out_p_in[9].u         |         spmw_fifo__parameterized1_40 |         15 |         15 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     g_pe_w_in_bind[0].u          |            spmw_fifo__parameterized0 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_in_bind[1].u          |         spmw_fifo__parameterized0_41 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_in_bind[2].u          |         spmw_fifo__parameterized0_42 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_in_bind[3].u          |         spmw_fifo__parameterized0_43 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[10].u        |         spmw_fifo__parameterized0_44 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[11].u        |         spmw_fifo__parameterized0_45 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[13].u        |         spmw_fifo__parameterized0_46 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[14].u        |         spmw_fifo__parameterized0_47 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[15].u        |         spmw_fifo__parameterized0_48 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[1].u         |         spmw_fifo__parameterized0_49 |          1 |          1 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[2].u         |         spmw_fifo__parameterized0_50 |          1 |          1 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[3].u         |         spmw_fifo__parameterized0_51 |          1 |          1 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[5].u         |         spmw_fifo__parameterized0_52 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[6].u         |         spmw_fifo__parameterized0_53 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[7].u         |         spmw_fifo__parameterized0_54 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_pe_w_out_w_in[9].u         |         spmw_fifo__parameterized0_55 |          0 |          0 |       0 |    0 |    9 |      0 |      0 |    0 |          0 |
+|     g_req4_ins_in_bind[0].u      |         spmw_fifo__parameterized5_56 |         16 |         16 |       0 |    0 |   66 |      0 |      0 |    0 |          0 |
+|     g_tap_u_in_bind[0].u         |         spmw_fifo__parameterized5_57 |         26 |         26 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_tap_u_out_u_in[1].u        |         spmw_fifo__parameterized5_58 |         27 |         27 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_tap_u_out_u_in[2].u        |         spmw_fifo__parameterized5_59 |         27 |         27 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_tap_u_out_u_in[3].u        |         spmw_fifo__parameterized5_60 |         27 |         27 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|     g_uq_u_in_bind[0].u          |            spmw_fifo__parameterized7 |         77 |         45 |      32 |    0 |  121 |      0 |      0 |    0 |          0 |
+|       deep.out                   |        spmw_fifo__parameterized5_119 |         30 |         30 |       0 |    0 |  100 |      0 |      0 |    0 |          0 |
+|       deep.ram                   |     spmw_fifo_lutram__parameterized1 |         47 |         15 |      32 |    0 |   21 |      0 |      0 |    0 |          0 |
+|     g_wreq4_y_cmd_bind[0].u      |         spmw_fifo__parameterized6_61 |         91 |         51 |      40 |    0 |  139 |      0 |      0 |    0 |          0 |
+|       deep.out                   |        spmw_fifo__parameterized5_118 |         31 |         31 |       0 |    0 |  122 |      0 |      0 |    0 |          0 |
+|       deep.ram                   |     spmw_fifo_lutram__parameterized0 |         60 |         20 |      40 |    0 |   17 |      0 |      0 |    0 |          0 |
+|     u_ctap_r0_1                  |                              ctap_r0 |         19 |         19 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|       u                          |                        ctap_r0_0_115 |         19 |         19 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     u_ctap_r0_2                  |                           ctap_r0_62 |         20 |         20 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|       u                          |                            ctap_r0_0 |         20 |         20 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     u_ctap_r1_3                  |                              ctap_r1 |         13 |         13 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|       u                          |                            ctap_r1_0 |         13 |         13 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     u_ctap_r2_0                  |                              ctap_r2 |         21 |         21 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|       u                          |                            ctap_r2_0 |         21 |         21 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|     u_deal4_r0_0                 |                             deal4_r0 |        135 |        135 |       0 |    0 |   65 |      0 |      0 |    0 |          0 |
+|       u                          |                           deal4_r0_0 |        135 |        135 |       0 |    0 |   65 |      0 |      0 |    0 |          0 |
+|     u_etap_r0_1                  |                              etap_r0 |          5 |          5 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                        etap_r0_0_113 |          5 |          5 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_etap_r0_2                  |                           etap_r0_63 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                            etap_r0_0 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_etap_r1_3                  |                              etap_r1 |          3 |          3 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                            etap_r1_0 |          3 |          3 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_etap_r2_0                  |                              etap_r2 |          3 |          3 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                            etap_r2_0 |          3 |          3 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_head4_r0_0                 |                             head4_r0 |        512 |        474 |      38 |    0 |  564 |      0 |      0 |    0 |          0 |
+|       (u_head4_r0_0)             |                             head4_r0 |          6 |          6 |       0 |    0 |    0 |      0 |      0 |    0 |          0 |
+|       u                          |                           head4_r0_0 |        507 |        469 |      38 |    0 |  564 |      0 |      0 |    0 |          0 |
+|     u_lane_r0_0                  |                              lane_r0 |        212 |        212 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|       u                          |                        lane_r0_0_106 |        212 |        212 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|     u_lane_r0_1                  |                           lane_r0_64 |        213 |        213 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|       u                          |                        lane_r0_0_102 |        213 |        213 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|     u_lane_r0_2                  |                           lane_r0_65 |        213 |        213 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|       u                          |                         lane_r0_0_98 |        213 |        213 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|     u_lane_r0_3                  |                           lane_r0_66 |        211 |        211 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|       u                          |                            lane_r0_0 |        211 |        211 |       0 |    0 |  339 |      2 |      0 |    0 |          0 |
+|     u_pack4_r0_0                 |                             pack4_r0 |         13 |         13 |       0 |    0 |   38 |      0 |      0 |    0 |          0 |
+|       u                          |                           pack4_r0_0 |         13 |         13 |       0 |    0 |   38 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_1_1                  |                                pe_r0 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r0_0_95 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_1_2                  |                             pe_r0_67 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r0_0_92 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_2_1                  |                             pe_r0_68 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r0_0_89 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_2_2                  |                             pe_r0_69 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r0_0 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r1_3_1                  |                                pe_r1 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r1_0_86 |         72 |         72 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r1_3_2                  |                             pe_r1_70 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r1_0 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r2_0_1                  |                                pe_r2 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r2_0_83 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r2_0_2                  |                             pe_r2_71 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r2_0 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r3_1_3                  |                                pe_r3 |         64 |         64 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r3_0_80 |         64 |         64 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     u_pe_r3_2_3                  |                             pe_r3_72 |         65 |         65 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r3_0 |         65 |         65 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     u_pe_r4_1_0                  |                                pe_r4 |         67 |         67 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                           pe_r4_0_77 |         67 |         67 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r4_2_0                  |                             pe_r4_73 |         67 |         67 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r4_0 |         67 |         67 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r5_3_3                  |                                pe_r5 |         61 |         61 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r5_0 |         61 |         61 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     u_pe_r6_0_3                  |                                pe_r6 |         55 |         55 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r6_0 |         55 |         55 |       0 |    0 |   11 |      0 |      0 |    0 |          0 |
+|     u_pe_r7_3_0                  |                                pe_r7 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r7_0 |         68 |         68 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_pe_r8_0_0                  |                                pe_r8 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|       u                          |                              pe_r8_0 |         60 |         60 |       0 |    0 |   19 |      0 |      0 |    0 |          0 |
+|     u_req4_r0_0                  |                              req4_r0 |        591 |        591 |       0 |    0 |  513 |      0 |      0 |    0 |          0 |
+|       u                          |                            req4_r0_0 |        591 |        591 |       0 |    0 |  513 |      0 |      0 |    0 |          0 |
+|     u_tap_r0_1                   |                               tap_r0 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                          tap_r0_0_75 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_tap_r0_2                   |                            tap_r0_74 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                             tap_r0_0 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_tap_r1_3                   |                               tap_r1 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                             tap_r1_0 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_tap_r2_0                   |                               tap_r2 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                             tap_r2_0 |          8 |          8 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_uq_r0_0                    |                                uq_r0 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|       u                          |                              uq_r0_0 |          4 |          4 |       0 |    0 |    2 |      0 |      0 |    0 |          0 |
+|     u_wreq4_r0_0                 |                             wreq4_r0 |        177 |        177 |       0 |    0 |  104 |      0 |      0 |    0 |          0 |
+|       u                          |                           wreq4_r0_0 |        177 |        177 |       0 |    0 |  104 |      0 |      0 |    0 |          0 |
++----------------------------------+--------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

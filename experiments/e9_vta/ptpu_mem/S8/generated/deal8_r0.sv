@@ -1,0 +1,46 @@
+`timescale 1ns/1ps
+
+module deal8_r0 (
+  input  wire ap_clk,
+  input  wire ap_rst_n,
+  output wire [63:0] a_out_din,
+  input  wire a_out_full_n,
+  output wire a_out_write,
+  output wire [63:0] b_out_din,
+  input  wire b_out_full_n,
+  output wire b_out_write,
+  output wire [63:0] ins_out_din,
+  input  wire ins_out_full_n,
+  output wire ins_out_write,
+  input  wire [63:0] rd_data_dout,
+  input  wire rd_data_empty_n,
+  output wire rd_data_read,
+  input  wire [31:0] tag_in_dout,
+  input  wire tag_in_empty_n,
+  output wire tag_in_read,
+  output wire [63:0] w_out_din,
+  input  wire w_out_full_n,
+  output wire w_out_write
+);
+  deal8_r0_0 u (
+      .ap_clk(ap_clk),
+      .ap_rst(~ap_rst_n),
+      .v0_din(a_out_din),
+      .v0_full_n(a_out_full_n),
+      .v0_write(a_out_write),
+      .v1_din(b_out_din),
+      .v1_full_n(b_out_full_n),
+      .v1_write(b_out_write),
+      .v2_din(ins_out_din),
+      .v2_full_n(ins_out_full_n),
+      .v2_write(ins_out_write),
+      .v3_dout(rd_data_dout),
+      .v3_empty_n(rd_data_empty_n),
+      .v3_read(rd_data_read),
+      .v4_dout(tag_in_dout),
+      .v4_empty_n(tag_in_empty_n),
+      .v4_read(tag_in_read),
+      .v5_din(w_out_din),
+      .v5_full_n(w_out_full_n),
+      .v5_write(w_out_write));
+endmodule

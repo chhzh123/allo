@@ -1,0 +1,63 @@
+dsv4_16 SPMWMEM PLAN size=16 M=64 K=7168 N=128 tiles=1 stall=0% floor=229376 words=173060 rd_reqs=4033 rd_beats=172036 wr_reqs=4 wr_beats=1024
+dsv4_16 SPMWMEM RESULT errs=0 total=230086 rows=229392 first=25 paused=111 rd_reqs=4033 rd_beats=172036 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+dsv4_16 SPMWMEM PASS
+dsv4_4 SPMWMEM PLAN size=4 M=64 K=7168 N=128 tiles=1 stall=0% floor=3670016 words=173060 rd_reqs=59137 rd_beats=172036 wr_reqs=4 wr_beats=1024
+dsv4_4 SPMWMEM RESULT errs=0 total=3670065 rows=3670020 first=22 paused=4 rd_reqs=59137 rd_beats=172036 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+dsv4_4 SPMWMEM PASS
+dsv4_8 SPMWMEM PLAN size=8 M=64 K=7168 N=128 tiles=1 stall=0% floor=917504 words=173060 rd_reqs=15233 rd_beats=172036 wr_reqs=4 wr_beats=1024
+dsv4_8 SPMWMEM RESULT errs=0 total=917571 rows=917512 first=22 paused=8 rd_reqs=15233 rd_beats=172036 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+dsv4_8 SPMWMEM PASS
+llama_16 SPMWMEM PLAN size=16 M=64 K=2048 N=128 tiles=1 stall=0% floor=65536 words=50180 rd_reqs=1153 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_16 SPMWMEM RESULT errs=0 total=66246 rows=65552 first=25 paused=111 rd_reqs=1153 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_16 SPMWMEM PASS
+llama_16_stall25 SPMWMEM PLAN size=16 M=64 K=2048 N=128 tiles=1 stall=25% floor=65536 words=50180 rd_reqs=1153 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_16_stall25 SPMWMEM RESULT errs=0 total=66776 rows=65552 first=25 paused=293 rd_reqs=1153 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_16_stall25 SPMWMEM PASS
+llama_4 SPMWMEM PLAN size=4 M=64 K=2048 N=128 tiles=1 stall=0% floor=1048576 words=50180 rd_reqs=16897 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_4 SPMWMEM RESULT errs=0 total=1048625 rows=1048580 first=22 paused=4 rd_reqs=16897 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_4 SPMWMEM PASS
+llama_4_stall25 SPMWMEM PLAN size=4 M=64 K=2048 N=128 tiles=1 stall=25% floor=1048576 words=50180 rd_reqs=16897 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_4_stall25 SPMWMEM RESULT errs=0 total=1048977 rows=1048580 first=22 paused=16 rd_reqs=16897 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_4_stall25 SPMWMEM PASS
+llama_8 SPMWMEM PLAN size=8 M=64 K=2048 N=128 tiles=1 stall=0% floor=262144 words=50180 rd_reqs=4353 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_8 SPMWMEM RESULT errs=0 total=262211 rows=262152 first=22 paused=8 rd_reqs=4353 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_8 SPMWMEM PASS
+llama_8_stall25 SPMWMEM PLAN size=8 M=64 K=2048 N=128 tiles=1 stall=25% floor=262144 words=50180 rd_reqs=4353 rd_beats=49156 wr_reqs=4 wr_beats=1024
+llama_8_stall25 SPMWMEM RESULT errs=0 total=262606 rows=262152 first=22 paused=31 rd_reqs=4353 rd_beats=49156 wr_reqs=4 wr_beats=1024 first_bad=-1 timeout=0
+llama_8_stall25 SPMWMEM PASS
+micro_16 SPMWMEM PLAN size=16 M=16 K=16 N=16 tiles=16 stall=0% floor=256 words=1548 rd_reqs=49 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_16 SPMWMEM RESULT errs=0 total=1221 rows=272 first=33 paused=871 rd_reqs=49 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_16 SPMWMEM PASS
+micro_16_stall25 SPMWMEM PLAN size=16 M=16 K=16 N=16 tiles=16 stall=25% floor=256 words=1548 rd_reqs=49 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_16_stall25 SPMWMEM RESULT errs=0 total=1599 rows=272 first=39 paused=1232 rd_reqs=49 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_16_stall25 SPMWMEM PASS
+micro_4 SPMWMEM PLAN size=4 M=16 K=16 N=16 tiles=16 stall=0% floor=4096 words=1548 rd_reqs=385 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_4 SPMWMEM RESULT errs=0 total=4149 rows=4100 first=24 paused=6 rd_reqs=385 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_4 SPMWMEM PASS
+micro_4_stall25 SPMWMEM PLAN size=4 M=16 K=16 N=16 tiles=16 stall=25% floor=4096 words=1548 rd_reqs=385 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_4_stall25 SPMWMEM RESULT errs=0 total=4169 rows=4100 first=24 paused=13 rd_reqs=385 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_4_stall25 SPMWMEM PASS
+micro_8 SPMWMEM PLAN size=8 M=16 K=16 N=16 tiles=16 stall=0% floor=1024 words=1548 rd_reqs=129 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_8 SPMWMEM RESULT errs=0 total=1216 rows=1032 first=26 paused=132 rd_reqs=129 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_8 SPMWMEM PASS
+micro_8_stall25 SPMWMEM PLAN size=8 M=16 K=16 N=16 tiles=16 stall=25% floor=1024 words=1548 rd_reqs=129 rd_beats=1156 wr_reqs=16 wr_beats=512
+micro_8_stall25 SPMWMEM RESULT errs=0 total=1580 rows=1032 first=26 paused=487 rd_reqs=129 rd_beats=1156 wr_reqs=16 wr_beats=512 first_bad=-1 timeout=0
+micro_8_stall25 SPMWMEM PASS
+mixed_16 SPMWMEM PLAN size=16 gemms=5 stall=0% floor=384 words=1564 rd_reqs=56 rd_beats=1364 wr_reqs=9 wr_beats=448
+mixed_16 SPMWMEM RESULT errs=0 total=1496 rows=400 first=33 paused=1003 rd_reqs=56 rd_beats=1364 wr_reqs=9 wr_beats=448 first_bad=-1 timeout=0
+mixed_16 SPMWMEM PASS
+mixed_16_stall25 SPMWMEM PLAN size=16 gemms=5 stall=25% floor=384 words=1564 rd_reqs=56 rd_beats=1364 wr_reqs=9 wr_beats=448
+mixed_16_stall25 SPMWMEM RESULT errs=0 total=1943 rows=400 first=39 paused=1433 rd_reqs=56 rd_beats=1364 wr_reqs=9 wr_beats=448 first_bad=-1 timeout=0
+mixed_16_stall25 SPMWMEM PASS
+mixed_4 SPMWMEM PLAN size=4 gemms=5 stall=0% floor=1500 words=580 rd_reqs=152 rd_beats=470 wr_reqs=9 wr_beats=142
+mixed_4 SPMWMEM RESULT errs=0 total=1561 rows=1504 first=24 paused=14 rd_reqs=152 rd_beats=470 wr_reqs=9 wr_beats=142 first_bad=-1 timeout=0
+mixed_4 SPMWMEM PASS
+mixed_4_stall25 SPMWMEM PLAN size=4 gemms=5 stall=25% floor=1500 words=580 rd_reqs=152 rd_beats=470 wr_reqs=9 wr_beats=142
+mixed_4_stall25 SPMWMEM RESULT errs=0 total=1582 rows=1504 first=24 paused=21 rd_reqs=152 rd_beats=470 wr_reqs=9 wr_beats=142 first_bad=-1 timeout=0
+mixed_4_stall25 SPMWMEM PASS
+mixed_8 SPMWMEM PLAN size=8 gemms=5 stall=0% floor=568 words=812 rd_reqs=78 rd_beats=676 wr_reqs=9 wr_beats=216
+mixed_8 SPMWMEM RESULT errs=0 total=760 rows=576 first=26 paused=132 rd_reqs=78 rd_beats=676 wr_reqs=9 wr_beats=216 first_bad=-1 timeout=0
+mixed_8 SPMWMEM PASS
+mixed_8_stall25 SPMWMEM PLAN size=8 gemms=5 stall=25% floor=568 words=812 rd_reqs=78 rd_beats=676 wr_reqs=9 wr_beats=216
+mixed_8_stall25 SPMWMEM RESULT errs=0 total=969 rows=576 first=26 paused=337 rd_reqs=78 rd_beats=676 wr_reqs=9 wr_beats=216 first_bad=-1 timeout=0
+mixed_8_stall25 SPMWMEM PASS
