@@ -16,7 +16,9 @@ Everything is read from the files beside this script:
   `ptpu_mem/S<n>/report/[p30_]area_by_unit.txt` its split by unit;
 * `results.csv` -- the cycles of SPMW's programmable array, fed by streams,
   and `ptpu/routes.txt` its routes;
-* `core/split.txt` -- VTA's datapath + scratchpads.
+* `core/split.txt` -- VTA's datapath + scratchpads;
+* each reported route's `timing.rpt` and `scope_timing.rpt`, for its worst
+  path.
 
 Per design the route with the best clock is the one reported. Gemmini's end
 to end is the faster of the library's and the hand-scheduled program on the
@@ -129,6 +131,7 @@ def load(root):
             lut=fed[S][0]["lut"], ff=fed[S][0]["ff"], period=fed[S][0]["period"]
         )
     return {
+        "root": root,
         "routes": routes,
         "gem": results(os.path.join(root, "gemmini_full/sim/results.txt")),
         "vta": results(os.path.join(root, "vta_core/results.txt")),
@@ -210,6 +213,101 @@ def scope_best(entry):
 def run_of(entry):
     """The route whose area is reported: the one with the best clock."""
     return next(run for run in entry["runs"] if run["dir"] == entry["best"])
+
+
+def report(kind, S, name, scope=False):
+    """Where the timing report of one committed route is, by its directory."""
+    rpt = "scope_timing.rpt" if scope else "timing.rpt"
+    if kind == "vta":
+        target = name.replace(f"pnr_Core_w{S}", "")
+        return f"vta_core/route/w{S}{target}/{rpt}" if target else f"core/w{S}/{rpt}"
+    if kind == "gem":
+        return f"gemmini_full/route/{name.replace('pnr_', '')}/{rpt}"
+    prefix = "" if name.startswith("b_") else name.split("_")[-1] + "_"
+    return f"{kind}/S{S}/report/{prefix}timing.rpt"
+
+
+def block(pin):
+    """The block a timing path's end is in: its register and pin left off."""
+    parts = pin.split("/")
+    if parts[0] == "dut":
+        # SPMW: a unit `u_<role>_<site>` or a link `g_<family>[i].u`
+        if parts[1].startswith("u_pe_"):
+            return "a cell"
+        if "p_out_p_in" in parts[1] or "z_in_bind" in parts[1]:
+            return "its partial-sum link"
+        return re.sub(r"_r\d+(_\d+)*$|\[\d+\]\.u$", "", parts[1])
+    kept = []
+    for name in parts[:-1]:
+        if "_reg" in name:
+            kind = (
+                " (URAM)"
+                if "uram" in name
+                else (
+                    " (block RAM)"
+                    if "bram" in name
+                    else " (LUT RAM)" if "Memory_reg" in name else ""
+                )
+            )
+            return "/".join(kept) + kind
+        kept.append(name)
+    return "/".join(kept)
+
+
+def worst(root, where):
+    """The worst path of a timing report: its ends, its levels, its delay."""
+    with open(os.path.join(root, where), encoding="utf-8", errors="replace") as handle:
+        hit = re.search(
+            r"Source:\s+(\S+).*?Destination:\s+(\S+).*?"
+            r"Data Path Delay:\s+([\d.]+)ns.*?Logic Levels:\s+(\d+)",
+            handle.read(),
+            re.S,
+        )
+    return (
+        block(hit.group(1)),
+        block(hit.group(2)),
+        int(hit.group(4)),
+        float(hit.group(3)),
+    )
+
+
+def paths(data, root=None):
+    """What limits each engine's clock, on the route it is reported at."""
+    root = root or data["root"]
+    routes = data["routes"]
+    rows = []
+    for S in SIZES:
+        rows.append(("SPMW", S, report("ptpu_mem", S, data["whole"][S]["dir"])))
+    for S in SIZES:
+        rows.append(
+            ("SPMW, stream-fed", S, report("ptpu", S, data["fed_routes"][S][0]["dir"]))
+        )
+    for label, kind, group in (
+        ("VTA", "vta", routes["vta"]),
+        ("Gemmini, matmul only", "gem", routes["gem"]["matmul"]),
+    ):
+        for S in SIZES:
+            rows.append((label, S, report(kind, S, group[str(S)]["best"])))
+        for S in SIZES:
+            name = scope_run(group[str(S)])["dir"]
+            rows.append((label + ", execute scope", S, report(kind, S, name, True)))
+
+    def named(end):
+        if end.startswith(("a ", "its ")):
+            return end
+        name, sep, kind = end.partition(" (")
+        return f"`{name}`" + (f" ({kind}" if sep else "")
+
+    print("| engine | array | from | to | logic levels | path delay |")
+    print("|---|---|---|---|---:|---:|")
+    last = None
+    for label, S, where in rows:
+        src, dst, levels, delay = worst(root, where)
+        print(
+            f"| {label if label != last else ''} | {S}x{S} | {named(src)} "
+            f"| {named(dst)} | {levels} | {delay:.2f} ns |"
+        )
+        last = label
 
 
 def gemmini(data, config, workload, S, bus=""):
@@ -530,6 +628,7 @@ def main():
         ("Time, end to end", times),
         ("SPMW on a stalling memory", stalls),
         ("Time, execute scope", scope_times),
+        ("What limits each clock", paths),
         ("Gemmini's memory bus", bus),
         ("Detail", detail),
     ):

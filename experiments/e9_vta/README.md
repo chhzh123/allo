@@ -114,6 +114,14 @@ reports and its runs at 8 to 32 tiles are
   used as it arrives, and keeps one activation chunk and the partial sums.
   See [SPMW with a memory system](#spmw-with-a-memory-system) and
   [Whole engines, run by their own instructions](#whole-engines-run-by-their-own-instructions).
+- **It is faster because every one of its paths is short, not because it
+  does less.** Its worst path is one cell's multiply-add between two
+  registers, 9 to 12 logic levels. VTA's is its accumulator scratchpad's
+  read-modify-write or its load or store unit's address arithmetic, and
+  Gemmini's its controllers' arithmetic, 25 to 31 levels. It is smaller than Gemmini
+  partly because it does less and partly because it takes its operands in
+  the order they arrive. Against VTA it trades RAM for registers. See
+  [Why SPMW is faster, and where it is smaller](#why-spmw-is-faster-and-where-it-is-smaller).
 - **Coverage:** Gemmini and SPMW all of it, VTA 46% of the scale path.
 - **Clock on this FPGA:** SPMW and VTA's datapath both near 300 MHz. The
   transformer block's Gemmini is at 34.8 MHz, which is a porting artifact of
@@ -1323,6 +1331,106 @@ is the stream-fed engine:
 - **The lead survives the memory system.** Whole engine against whole
   engine the ratios are 1.55-1.73 and 2.37-2.61, where the execute scope's
   are 1.54-1.62 and 2.31-2.47.
+
+### Why SPMW is faster, and where it is smaller
+
+It is faster because its clock is shorter, not because it takes fewer
+cycles. On the layers the three are within 18% of each other in cycles, and
+SPMW's clock is 1.5-1.7 times VTA's and 2.2-2.5 times Gemmini's. Nor
+does it use less of everything. It is smaller than Gemmini at every size.
+Against VTA it has 0.48, 0.71 and 1.05 of the lookup tables, 1.6, 2.5 and 4.5 times the
+registers, and 11, 12 and 14 block RAMs where VTA has 14, 22 and 70 with 2,
+6 and 12 URAMs.
+
+**The clock.** The worst path of each engine on the route it is reported
+at, from that route's `timing.rpt`, and of each baseline's execute scope,
+from its `scope_timing.rpt`:
+
+| engine | array | from | to | logic levels | path delay |
+|---|---|---|---|---:|---:|
+| SPMW | 4x4 | a cell | its partial-sum link | 12 | 2.73 ns |
+|  | 8x8 | a cell | its partial-sum link | 11 | 2.62 ns |
+|  | 16x16 | a cell | its partial-sum link | 9 | 2.87 ns |
+| SPMW, stream-fed | 4x4 | a cell | its partial-sum link | 11 | 2.52 ns |
+|  | 8x8 | a cell | its partial-sum link | 12 | 2.78 ns |
+|  | 16x16 | a cell | its partial-sum link | 12 | 2.84 ns |
+| VTA | 4x4 | `load/inst_q` | `load/tensorLoad_0/tensorLoad/vmeCmd/cmdGen` | 17 | 4.58 ns |
+|  | 8x8 | `store/inst_q` | `store/tensorStore/tensorStore/cmdGen` | 19 | 4.49 ns |
+|  | 16x16 | `compute/tensorAcc/tensorLoad` (URAM) | `compute/tensorAcc/tensorLoad` (URAM) | 6 | 3.90 ns |
+| VTA, execute scope | 4x4 | `compute/tensorAcc/tensorLoad` (URAM) | `compute/tensorAcc/tensorLoad` (URAM) | 5 | 3.68 ns |
+|  | 8x8 | `compute/tensorGemm/mvc_0/dot_0_7/a_0_0` | `compute/tensorAcc/tensorLoad` (URAM) | 12 | 4.04 ns |
+|  | 16x16 | `compute/tensorAcc/tensorLoad` (URAM) | `compute/tensorAcc/tensorLoad` (URAM) | 6 | 3.90 ns |
+| Gemmini, matmul only | 4x4 | `store_controller` | `spad/write_dispatch_q_q/ram_ext` (LUT RAM) | 25 | 6.49 ns |
+|  | 8x8 | `store_controller` | `spad/write_dispatch_q_q/ram_ext` (LUT RAM) | 25 | 6.69 ns |
+|  | 16x16 | `spad/writer` | `spad/writer` | 31 | 6.45 ns |
+| Gemmini, matmul only, execute scope | 4x4 | `ex_controller/cmd_q` | `spad/spad_mems_3/mem_ext` (block RAM) | 13 | 5.97 ns |
+|  | 8x8 | `ex_controller/cmd_q` | `spad/spad_mems_0/mem_ext` (block RAM) | 14 | 6.06 ns |
+|  | 16x16 | `ex_controller/cmd_q` | `spad/spad_mems_2/mem_ext` (URAM) | 14 | 5.64 ns |
+
+- **SPMW's longest path is one cell's multiply-add, from a register to the
+  register of its partial-sum link**: 9 to 12 logic levels at every size, on
+  both routes and in both engines.
+- **VTA's is a memory and arithmetic in one cycle, or a queue, a decode and
+  address arithmetic.** In its execute scope the accumulator scratchpad is
+  read, added to and written back in a cycle, or the dot product is written
+  into it; 2.0 ns of the read-modify-write is the URAM's clock-to-output
+  alone. The whole engine is limited by that same read-modify-write at
+  16x16, and at 4x4 and 8x8 by the load or the store unit: its instruction
+  queue, the decode, and the address arithmetic of the memory command, 17
+  and 19 levels.
+- **Gemmini's are its controllers' arithmetic, 25 to 31 levels**: the store
+  controller's counters through a multiplier into the scratchpad's write
+  queue, or the DMA writer's byte counting. In the execute scope it is the
+  execute controller's command queue into the scratchpad's address and
+  enable pins, 13 or 14 levels.
+
+Three things keep SPMW's paths short:
+
+- **Storage is off the compute path.** Its weights and partial sums are
+  registers in the cells. Its one accumulation into a RAM, in the lanes, is
+  pipelined, and the K-block order is what allows that: a sum is not visited
+  again for at least four rows. VTA accumulates into its scratchpad in the
+  cycle it reads it.
+- **Control is off the path.** The head decides a row from registered flags,
+  and the decision travels with the row as a token. Nothing is decoded where
+  it is used. Both baselines read a command from a queue, decode it and
+  compute an address in the cycle they use it.
+- **No signal crosses the array in a cycle.** Every link is a register, and
+  a pause is a bubble put in at the array's edge, not a stall wire to every
+  cell.
+
+Gemmini's RTL is also written for an ASIC flow, with its pipelines left to
+retiming, so its clock here is this FPGA's.
+
+The lead is not what SPMW leaves out. In the execute scope, where neither
+the memory systems nor the command paths are counted, the ratios are
+1.54-1.62 and 2.31-2.47, against 1.55-1.73 and 2.37-2.61 whole.
+
+**The cycles** are a small part of it on the layers. SPMW's epilogue is in
+its lanes and its loads hide behind the arithmetic. VTA runs its epilogue as
+ALU passes over the accumulator. Gemmini's execute controller pays for every
+change of weights, 1.5-2.3% of the floor at 4x4 and 13-18% at 16x16.
+
+**The area.** The arrays are not where the difference is: Gemmini's mesh is
+2,114, 7,863 and 29,028 lookup tables, and SPMW's cells with the links between them
+1,447, 6,009 and 27,161. It is in what is outside the execute scope, none of which
+grows with the array: about 25,000 lookup tables in Gemmini, 5,000 in VTA
+and 1,400 in SPMW. There are two causes.
+
+- **SPMW does less.** It has no reservation station, command queues or TLB.
+  With its counters those are 12,788, 12,516 and 11,452 lookup tables of Gemmini.
+- **Its access pattern is simpler.** It takes its operands in the order they
+  arrive and uses each weight once, so it needs queues and sequential
+  bursts where Gemmini has addressable scratchpads and a general DMA: the
+  DMA alone is 7,761, 8,704 and 9,963 lookup tables. Counting only the Gemmini blocks
+  SPMW has a counterpart for -- the execute controller and mesh, the
+  storage, the DMA, the load and store controllers, and the loop unroller,
+  whose work SPMW's requester and head do -- Gemmini is 19,665, 27,428 and 54,876
+  lookup tables, 4.0, 2.5 and 1.5 times SPMW. Without the loop unroller it
+  is 3.4, 2.2 and 1.5 times.
+
+Against VTA there is no saving to explain: SPMW keeps in registers what VTA
+keeps in RAM.
 
 ### What this changes above
 
