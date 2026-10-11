@@ -201,6 +201,17 @@ it checks the emitted code has S x S cell functions that each read their
 weight once, outside the loop. C simulation runs three seeds; the
 cosimulation that is timed runs one launch.
 
+Vitis HLS gives each cell's weight a channel of its own: at 16x16 the tile
+holds 256 `gemm_fifo_w8_d*_S` FIFOs for the weights beside the 272 that carry
+A and the 272 that carry the partial sums.
+
+**At 32x32 the design did not get through `csynth_design` in four hours**
+(`allo/S32/report/build_4h.log`, `hls rc=124`). It stopped in the tool's "Loop,
+function and other optimizations" phase, which takes 134 seconds at 16x16
+here and took 870 for E1's 32x32 output-stationary array. It passes the LLVM
+check and C simulation at that size. A second run with a 24-hour limit was
+started when this was written; its cells are blank until it finishes.
+
 ## The element is identical in all three
 
 The loop that has to pipeline is the same loop, and the tool pipelines it the

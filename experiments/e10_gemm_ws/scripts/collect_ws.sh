@@ -88,6 +88,7 @@ for S in 4 8 16 32; do
     grep -hE "WS TB" $L/hls/csim.log 2>/dev/null > $D/report/csim_verdict.txt
     grep -hE "WS TB|co-simulation finished|^ERROR" $L/hls/build.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
     c $E/logs/allo_S$S.log $D/report/build.log
+    c $E/logs/allo_S${S}_4h.log $D/report/build_4h.log
   fi
 done
 mkdir -p $STAGE/scripts

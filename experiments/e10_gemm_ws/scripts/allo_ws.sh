@@ -9,6 +9,7 @@
 #   3. vitis_hls: csynth and RTL cosimulation of one launch
 #   4. xsim again with a waveform: first memory beat to last (beats.py)
 #   5. vivado: out-of-context place and route at 3.333 ns
+# HLS_LIMIT (seconds, default four hours) bounds step 3; 32x32 needs more.
 set -u
 export PATH=/scratch/hc676/allo-agent/bin:$PATH LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
@@ -60,7 +61,7 @@ cosim_design -rtl verilog -trace_level none -disable_deadlock_detection
 exit
 TCL
 T0=$(date +%s)
-timeout 14400 vitis_hls -f run.tcl > build.log 2>&1
+timeout ${HLS_LIMIT:-14400} vitis_hls -f run.tcl > build.log 2>&1
 echo "hls rc=$? wall_s=$(( $(date +%s) - T0 ))" >> $LOG
 grep -E "WS TB (seed|ALL|FAILED)|co-simulation finished" build.log | head -4 | cut -c1-160 >> $LOG
 grep -E "^\| *Verilog\|" prj/sol/sim/report/gemm_cosim.rpt 2>/dev/null | cut -c1-130 >> $LOG
