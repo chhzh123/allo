@@ -1,0 +1,6 @@
+INFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.07 seconds. CPU system time: 0.02 seconds. Elapsed time: 0.09 seconds; current allocated memory: 260.219 MB.
+INFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 45.27 seconds. CPU system time: 2.16 seconds. Elapsed time: 47.62 seconds; current allocated memory: 384.270 MB.
+INFO: [HLS 200-111] Finished Compiling Optimization and Transform: CPU user time: 191.11 seconds. CPU system time: 9.25 seconds. Elapsed time: 180.05 seconds; current allocated memory: 412.512 MB.
+INFO: [HLS 200-111] Finished Checking Pragmas: CPU user time: 0 seconds. CPU system time: 0 seconds. Elapsed time: 0.01 seconds; current allocated memory: 412.512 MB.
+INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 34.08 seconds. CPU system time: 0.11 seconds. Elapsed time: 34.28 seconds; current allocated memory: 519.879 MB.
+INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 113.09 seconds. CPU system time: 0.12 seconds. Elapsed time: 113.51 seconds; current allocated memory: 626.680 MB.

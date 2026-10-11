@@ -10,6 +10,8 @@ T=/scratch/hc676/allo
 STAGE=$E/stage
 rm -rf $STAGE
 c() { cp "$@" 2>/dev/null; }   # a missing file is a missing result, not an error
+# csynth_design's own phases, with the time each took
+PHASES='HLS 200-111\] Finished (File checks|Source Code|Compiling Optimization|Checking Pragmas|Standard Transforms|Checking Synthesizability|Loop, function|Architecture Synthesis|Command )'
 width() {  # <rtl file>: the data width of each memory master, as synthesised
   grep -hoE "C_M_AXI_[A-Z0-9_]+_DATA_WIDTH *= *[0-9]+" "$1" 2>/dev/null | tr -s ' ' | sort -u
 }
@@ -89,9 +91,17 @@ for S in 4 8 16 32; do
     grep -hE "WS TB|co-simulation finished|^ERROR" $L/hls/build.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
     c $E/logs/allo_S$S.log $D/report/build.log
     c $E/logs/allo_S${S}_4h.log $D/report/build_4h.log
+    grep -hE "$PHASES" $L/hls/build.log > $D/report/hls_phases.txt 2>/dev/null
+    # the variant with a FIFO a weight (ws_probe2.py): synthesised, nothing else
+    P=$E/probe/S$S
+    if [ -f $P/csynth.log ]; then
+      c $P/csynth.tcl $D/source/variant_fifo_csynth.tcl
+      grep -hE "$PHASES" $P/csynth.log > $D/report/variant_fifo_phases.txt
+      cat $P.gen.log $P.done 2>/dev/null | grep -v "LICENSE file" > $D/report/variant_fifo.txt
+    fi
   fi
 done
 mkdir -p $STAGE/scripts
-c $E/autosa_ws.sh $E/autosa_ws_tail.sh $E/allo_ws.sh $E/ws_allo_gen.py $E/spmw_ws.sh $E/spmw_ws_kernel.sh $E/spmw_ws_resim.sh $E/beats.py $E/collect_ws.sh $E/collect_e1_full.sh $STAGE/scripts/
+c $E/autosa_ws.sh $E/autosa_ws_tail.sh $E/allo_ws.sh $E/ws_allo_gen.py $E/ws_probe2.py $E/probe32.sh $E/spmw_ws.sh $E/spmw_ws_kernel.sh $E/spmw_ws_resim.sh $E/beats.py $E/collect_ws.sh $E/collect_e1_full.sh $STAGE/scripts/
 find $STAGE -type f -empty -delete
 du -sh $STAGE; find $STAGE -type f | wc -l

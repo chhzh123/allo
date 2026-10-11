@@ -1,0 +1,10 @@
+INFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.14 seconds. CPU system time: 0.02 seconds. Elapsed time: 0.17 seconds; current allocated memory: 260.238 MB.
+INFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 48.85 seconds. CPU system time: 2.59 seconds. Elapsed time: 57.39 seconds; current allocated memory: 300.707 MB.
+INFO: [HLS 200-111] Finished Compiling Optimization and Transform: CPU user time: 26.9 seconds. CPU system time: 4.41 seconds. Elapsed time: 31.74 seconds; current allocated memory: 305.340 MB.
+INFO: [HLS 200-111] Finished Checking Pragmas: CPU user time: 0 seconds. CPU system time: 0 seconds. Elapsed time: 0 seconds; current allocated memory: 305.340 MB.
+INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 2.23 seconds. CPU system time: 0.02 seconds. Elapsed time: 2.26 seconds; current allocated memory: 328.801 MB.
+INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 5.17 seconds. CPU system time: 0.04 seconds. Elapsed time: 5.24 seconds; current allocated memory: 351.902 MB.
+INFO: [HLS 200-111] Finished Loop, function and other optimizations: CPU user time: 133.51 seconds. CPU system time: 0.1 seconds. Elapsed time: 134.31 seconds; current allocated memory: 413.730 MB.
+INFO: [HLS 200-111] Finished Architecture Synthesis: CPU user time: 16.55 seconds. CPU system time: 1.5 seconds. Elapsed time: 18.14 seconds; current allocated memory: 5.348 GB.
+INFO: [HLS 200-111] Finished Command csynth_design CPU user time: 1446.11 seconds. CPU system time: 51.19 seconds. Elapsed time: 1534.18 seconds; current allocated memory: 6.163 GB.
+INFO: [HLS 200-111] Finished Command cosim_design CPU user time: 610.84 seconds. CPU system time: 20.78 seconds. Elapsed time: 282.62 seconds; current allocated memory: 0.000 MB.

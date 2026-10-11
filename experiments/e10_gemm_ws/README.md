@@ -212,10 +212,21 @@ A and the 272 that carry the partial sums.
 
 **At 32x32 the design did not get through `csynth_design` in four hours**
 (`allo/S32/report/build_4h.log`, `hls rc=124`). It stopped in the tool's "Loop,
-function and other optimizations" phase, which takes 134 seconds at 16x16
-here and took 870 for E1's 32x32 output-stationary array. It passes the LLVM
-check and C simulation at that size. A second run with a 24-hour limit was
-started when this was written; its cells are blank until it finishes.
+function and other optimizations" phase, which takes 0.9, 6.4 and 134 seconds
+at the three smaller sizes (`allo/S*/report/hls_phases.txt`) and took 870 for
+E1's 32x32 output-stationary array. It passes the LLVM check and C simulation
+at that size. A second run with a 24-hour limit was started when this was
+written and was still in that phase nine hours in; its cells are blank until
+it ends.
+
+How a cell gets its weight is not what holds the tool there.
+`scripts/ws_probe2.py` is the same array with the tile copying B into a grid
+of FIFOs and each cell reading its own, in place of every cell being handed B
+and its indices. That phase takes 114 seconds in it at 16x16
+(`allo/S16/report/variant_fifo_phases.txt`), and at 32x32 it was stopped
+after three and a half hours without leaving it
+(`allo/S32/report/variant_fifo.txt`, `rc=124`). The variant was synthesised
+and nothing else; no row of the table is from it.
 
 ## The element is identical in all three
 
@@ -388,7 +399,9 @@ Everything was built on brg-zhang-xcel with Vitis HLS and Vivado 2023.2.
     scripts/spmw_ws_kernel.sh <S>   # SPMW kernel: package, simulate, route
     scripts/spmw_ws_kernel.sh <S> 4 autosa e1kernel   # E1's kernel, routed whole
     scripts/autosa_ws.sh <S> narrow|wide
+    scripts/autosa_ws_tail.sh 32 narrow|wide <pid>   # 32x32 only: routes beside the cosimulation
     scripts/allo_ws.sh <S>          # runs ws_allo_gen.py first
+    scripts/probe32.sh              # the FIFO-weight variant of Allo's array, csynth at 32x32
     scripts/collect_ws.sh           # stages this folder's shape from the builds
     python3 scripts/make_results.py # results.csv and the table above
     python3 scripts/breakdown.py    # the area split
