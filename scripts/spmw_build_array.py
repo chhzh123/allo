@@ -203,6 +203,13 @@ def design(name, size, lanes=1):
         from test_spmw_autosa_match import autosa_match_of
 
         return autosa_match_of(size)
+    if name == "gemmws":
+        # The weight-stationary mesh: a weight held in every cell, activations
+        # along the rows, partial sums down the columns. Its edge is three
+        # bindings, so the same design packages as a kernel with three movers.
+        from test_spmw_gemm_ws import gemm_ws_of
+
+        return gemm_ws_of(size)
     if name == "tpuvpu":
         # The TPU with a programmable vector unit: MXU, a VPU chain with a
         # register file, and a program streamed in as data.
@@ -1262,6 +1269,7 @@ def main():
             "daisy8",
             "autosa",
             "autosa-spec",
+            "gemmws",
             "split",
             "split-spec",
             "tpu",

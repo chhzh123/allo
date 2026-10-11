@@ -141,6 +141,56 @@ Every identifier in ``pe`` is a local or a ``MacIO`` member; every identifier in
 ``gemm`` is an argument, a placement bundle, or a declared port.  A misspelling
 such as ``io.wets`` is an ``AttributeError`` where it is written.
 
+Holding the weight instead of the result changes the unit and the links, and
+nothing else.  Cell ``(k, n)`` keeps ``B[k, n]``, activations go east and the
+partial sum goes south, so a row of ``C`` leaves the bottom of the array every
+step (``tests/dataflow/spmw/test_spmw_gemm_ws.py``):
+
+.. code-block:: python
+
+   class WsIO(spmw.Interface):
+       a_in  = spmw.In(int8)
+       a_out = spmw.Out(int8)
+       w_in  = spmw.In(int8)
+       w_out = spmw.Out(int8)
+       p_in  = spmw.In(int32)
+       p_out = spmw.Out(int32)
+
+   mesh = spmw.Topology(WsIO, grid=(K, N), link=lambda k, n: {
+       WsIO.a_out: spmw.to((k, n + 1), WsIO.a_in),
+       WsIO.w_out: spmw.to((k + 1, n), WsIO.w_in),
+       WsIO.p_out: spmw.to((k + 1, n), WsIO.p_in),
+   })
+
+   @spmw.unit
+   def mac(io: WsIO, site: spmw.Site):
+       row, _col = site.rank
+       below: uint8 = K - 1 - row       # sized: a bare `row` counts in 32 bits
+       w: int8 = io.w_in.get()          # the first weight down my column is mine
+       for _r in range(below):          # the rest are for the rows below me
+           io.w_out.put(io.w_in.get())
+       for m in range(M):
+           a = io.a_in.get()
+           p = io.p_in.get()
+           io.p_out.put(p + a * w)
+           io.a_out.put(a)
+
+   @spmw.fabric
+   def gemm_ws(A: int8[M, K], B: int8[K, N], C: int32[M, N]):
+       P = spmw.place(mac, on=mesh)
+       spmw.stream_in(B, into=P.w_in, index=(..., P.cols))   # column n: B[:, n]
+       spmw.stream_in(A, into=P.a_in, index=(..., P.rows))   # row k: A[:, k]
+       spmw.stream_in(0, into=P.p_in)                        # sums start at 0
+       spmw.gather(C, from_=P.p_out, index=(..., P.cols))    # column n: C[:, n]
+
+Such an array's wavefront is a diagonal: row ``k`` wants its activations ``k``
+cells later than row 0, and column ``n``'s results leave ``n`` cells after
+column 0's.  A stream bound to a tensor holds a launch, so the skew waits at
+the array's edge and a feeder that hands over a whole row a step stalls nothing.
+A ``spmw.link`` from another placement is not sized that way -- it is as deep
+as its reader's port says, two by default -- and at that depth a chain of
+feeder units in front of this array held it to one row every ``K`` cycles or so.
+
 
 Ports
 =====
