@@ -1,0 +1,1 @@
+python3 scripts/spmw_build_array.py --design fftlanes --size 1024 --lanes 2 --frequency 300 --jobs 6 --cosim --pnr --out <dir>

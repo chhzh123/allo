@@ -1,0 +1,78 @@
+B_START fftlanes N=1024 W=8 --jobs 6 Sun Oct 11 03:32:11 EDT 2026
+fftlanes: {"roles": 28, "instances": 76, "fifos": 160, "streams": 16}
+staged 28 role project(s) in 4.5s (frontend + per-role HLS codegen)
+synthesising and exporting 28 unit(s) concurrently:
+  perm1_r0: rc=0 49.5s
+  perm0_r0: rc=0 49.8s
+  perm4_r0: rc=0 50.2s
+  perm2_r0: rc=0 50.8s
+  perm3_r0: rc=0 51.3s
+  perm5_r0: rc=0 51.7s
+  perm6_r0: rc=0 49.9s
+  perm7_r0: rc=0 50.4s
+  bfly0_r0: rc=0 51.9s
+  bfly1_r0: rc=0 52.0s
+  bfly3_r0: rc=0 51.4s
+  bfly2_r0: rc=0 52.2s
+  bfly4_r0: rc=0 51.5s
+  tail_general_r0: rc=0 48.3s
+  tail_general_r2: rc=0 47.7s
+  tail_general_r1: rc=0 48.1s
+  bfly5_r0: rc=0 52.3s
+  bfly6_r0: rc=0 51.2s
+  tail_general_r4: rc=0 44.9s
+  tail_general_r3: rc=0 45.1s
+  tail_general_r5: rc=0 44.9s
+  tail_general_r6: rc=0 45.3s
+  tail_general_r7: rc=0 44.9s
+  tail_general_r8: rc=0 45.2s
+  tail_general_r9: rc=0 42.8s
+  tail_general_r10: rc=0 42.9s
+  tail_general_r11: rc=0 43.2s
+  reorder_r0: rc=0 46.7s
+HLS: 243.3s wall for 28 roles and 0 movers (1356.1s of CPU work, 76 instances)
+assembling the array in Vivado:
+  stage synth 830.884
+  stage opt 125.371
+  stage place 1365.874
+  stage physopt 50.576
+  stage route 842.405
+  unrouted 0
+Vivado implemented 76 instances in 3470.4s
+  array clock: 3.084 ns achieved against a 3.333 ns target (WNS +0.249 ns)
+simulating the assembled array:
+  SPMW XFORM 1 done_cycle=713 first_in=68
+  SPMW XFORM 2 done_cycle=841 first_in=68
+  SPMW XFORM 3 done_cycle=969 first_in=68
+  SPMW XFORM 4 done_cycle=1097 first_in=68
+  SPMW XFORM 5 done_cycle=1225 first_in=68
+  SPMW XFORM 6 done_cycle=1353 first_in=68
+  SPMW XFORM 7 done_cycle=1481 first_in=68
+  SPMW XFORM 8 done_cycle=1609 first_in=68
+  SPMW XFORM 9 done_cycle=1737 first_in=68
+  SPMW XFORM 10 done_cycle=1865 first_in=68
+  SPMW XFORM 11 done_cycle=1993 first_in=68
+  SPMW XFORM 12 done_cycle=2121 first_in=68
+  SPMW XFORM 13 done_cycle=2249 first_in=68
+  SPMW XFORM 14 done_cycle=2377 first_in=68
+  SPMW XFORM 15 done_cycle=2505 first_in=68
+  SPMW XFORM 16 done_cycle=2633 first_in=68
+  SPMW XFORM 17 done_cycle=2761 first_in=68
+  SPMW XFORM 18 done_cycle=2889 first_in=68
+  SPMW XFORM 19 done_cycle=3017 first_in=68
+  SPMW XFORM 20 done_cycle=3145 first_in=68
+  SPMW XFORM 21 done_cycle=3273 first_in=68
+  SPMW XFORM 22 done_cycle=3401 first_in=68
+  SPMW XFORM 23 done_cycle=3529 first_in=68
+  SPMW XFORM 24 done_cycle=3657 first_in=68
+  SPMW XFORM 25 done_cycle=3785 first_in=68
+  SPMW XFORM 26 done_cycle=3913 first_in=68
+  SPMW XFORM 27 done_cycle=4041 first_in=68
+  SPMW XFORM 28 done_cycle=4169 first_in=68
+  SPMW XFORM 29 done_cycle=4297 first_in=68
+  SPMW XFORM 30 done_cycle=4425 first_in=68
+  SPMW XFORM 31 done_cycle=4553 first_in=68
+  SPMW XFORM 32 done_cycle=4685 first_in=68
+  SPMW COSIM PASS (32768/32768 tokens, 0 errors)
+  SPMW CYCLES total=4685 first_out=586 first_in=68
+B_RC=0 wall_s=4462

@@ -1,0 +1,33 @@
+{
+ "cost": {
+  "roles": 21,
+  "instances": 21,
+  "fifos": 40,
+  "streams": 4
+ },
+ "hls_seconds": {
+  "perm3_r0": 50.2,
+  "perm1_r0": 50.3,
+  "perm5_r0": 50.5,
+  "perm4_r0": 50.8,
+  "perm2_r0": 50.8,
+  "perm0_r0": 52.2,
+  "perm8_r0": 49.2,
+  "perm7_r0": 50.1,
+  "perm9_r0": 50.3,
+  "bfly0_r0": 51.7,
+  "perm6_r0": 53.5,
+  "bfly1_r0": 54.7,
+  "bfly3_r0": 50.8,
+  "bfly2_r0": 52.5,
+  "bfly4_r0": 52.2,
+  "bfly6_r0": 52.2,
+  "bfly7_r0": 50.1,
+  "bfly5_r0": 55.0,
+  "bfly8_r0": 49.0,
+  "bfly9_r0": 48.7,
+  "reorder_r0": 48.8
+ },
+ "hls_wall_seconds": 202.1,
+ "vivado_seconds": 1045.0
+}

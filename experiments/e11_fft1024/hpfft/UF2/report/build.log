@@ -1,0 +1,11 @@
+HP_START n1024 UF2_base Sun Oct 11 03:34:47 EDT 2026
+rc=0 hls_wall_s=70 start=1791704087 end=1791704157
+stimulus /scratch/hc676/e14_fft/hpfft/n1024/UF2_base/e2_stimulus N 1024 NT 33 per seed {0: 11, 1: 11, 2: 11}
+rc=0 cosim_wall_s=49 kind=stream N=1024 UF=2 NT=33 method=setup+bounded_xsim_vcd stimulus=numpy_seeds_0_1_2
+xelab_rc=0 xelab_wall_s=34
+xsim_rc=0 xsim_wall_s=586 E2_SIM_STOP t_ns=72357 done_cnt=32 out_writes=0 bound_ns=143947
+rc=0 total_wall_s=1771
+PNR_PHASES setup=12 synth=463 impl=1228
+PNR ROUTED WNS 0.14991696178913116
+PNR IMPLEMENTATION OK
+HP_DONE Sun Oct 11 04:16:38 EDT 2026

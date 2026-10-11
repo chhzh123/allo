@@ -1,0 +1,111 @@
+
+
+================================================================
+== Synthesis Summary Report of 'tail_general_r10_0'
+================================================================
++ General Information: 
+    * Date:           Sun Oct 11 03:35:47 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        prj
+    * Solution:       sol (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +----------------------+------+------+---------+-----------+----------+---------+------+----------+------+----+------------+------------+-----+
+    |        Modules       | Issue|      | Latency |  Latency  | Iteration|         | Trip |          |      |    |            |            |     |
+    |        & Loops       | Type | Slack| (cycles)|    (ns)   |  Latency | Interval| Count| Pipelined| BRAM | DSP|     FF     |     LUT    | URAM|
+    +----------------------+------+------+---------+-----------+----------+---------+------+----------+------+----+------------+------------+-----+
+    |+ tail_general_r10_0  |     -|  0.07|     4294|  1.430e+04|         -|     4295|     -|        no|     -|   -|  1260 (~0%)|  1536 (~0%)|    -|
+    | o l_S__t_0__t        |     -|  2.43|     4292|  1.429e+04|         7|        1|  4287|  yes(flp)|     -|   -|           -|           -|    -|
+    +----------------------+------+------+---------+-----------+----------+---------+------+----------+------+----+------------+------------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* AP_FIFO
++-----------+-----------+------------+
+| Interface | Direction | Data Width |
++-----------+-----------+------------+
+| v0        | out       | 64         |
+| v1        | out       | 64         |
+| v2        | out       | 64         |
+| v3        | out       | 64         |
++-----------+-----------+------------+
+
+* TOP LEVEL CONTROL
++-----------+--------------+--------+
+| Interface | Type         | Ports  |
++-----------+--------------+--------+
+| ap_clk    | clock        | ap_clk |
+| ap_rst    | reset        | ap_rst |
+| ap_ctrl   | ap_ctrl_none |        |
++-----------+--------------+--------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+-----------------------------------+
+| Argument | Direction | Datatype                          |
++----------+-----------+-----------------------------------+
+| v0       | in        | stream<hls::vector<float, 2>, 0>& |
+| v1       | out       | stream<hls::vector<float, 2>, 0>& |
+| v2       | in        | stream<hls::vector<float, 2>, 0>& |
+| v3       | out       | stream<hls::vector<float, 2>, 0>& |
++----------+-----------+-----------------------------------+
+
+* SW-to-HW Mapping
++----------+--------------+-----------+
+| Argument | HW Interface | HW Type   |
++----------+--------------+-----------+
+| v0       | v0           | interface |
+| v1       | v1           | interface |
+| v2       | v2           | interface |
+| v3       | v3           | interface |
++----------+--------------+-----------+
+
+
+================================================================
+== Bind Op Report
+================================================================
++-----------------------------------+-----+--------+----------+------+--------+---------+
+| Name                              | DSP | Pragma | Variable | Op   | Impl   | Latency |
++-----------------------------------+-----+--------+----------+------+--------+---------+
+| + tail_general_r10_0              | 0   |        |          |      |        |         |
+|   p_t_2_fu_138_p2                 |     |        | p_t_2    | add  | fabric | 0       |
+|   fsub_32ns_32ns_32_5_no_dsp_1_U1 |     | yes    | v13      | fsub | fabric | 4       |
+|   fsub_32ns_32ns_32_5_no_dsp_1_U2 |     | yes    | v17      | fsub | fabric | 4       |
+|   fadd_32ns_32ns_32_5_no_dsp_1_U3 |     | yes    | v43      | fadd | fabric | 4       |
+|   fadd_32ns_32ns_32_5_no_dsp_1_U4 |     | yes    | v46      | fadd | fabric | 4       |
++-----------------------------------+-----+--------+----------+------+--------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
+  No bind storage info in design
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+----------------------------------+-------------------------------------------+
+| Type      | Options                          | Location                                  |
++-----------+----------------------------------+-------------------------------------------+
+| bind_op   | variable=v13 op=fsub impl=fabric | kernel.cpp:44 in tail_general_r10_0, v13  |
+| bind_op   | variable=v17 op=fsub impl=fabric | kernel.cpp:50 in tail_general_r10_0, v17  |
+| bind_op   | variable=v43 op=fadd impl=fabric | kernel.cpp:85 in tail_general_r10_0, v43  |
+| bind_op   | variable=v46 op=fadd impl=fabric | kernel.cpp:90 in tail_general_r10_0, v46  |
+| bind_op   | variable=v53 op=fsub impl=fabric | kernel.cpp:99 in tail_general_r10_0, v53  |
+| bind_op   | variable=v60 op=fadd impl=fabric | kernel.cpp:108 in tail_general_r10_0, v60 |
+| bind_op   | variable=v69 op=fsub impl=fabric | kernel.cpp:125 in tail_general_r10_0, v69 |
+| interface | ap_ctrl_none port=return         | run.tcl:15 in tail_general_r10_0, return  |
++-----------+----------------------------------+-------------------------------------------+
+
+

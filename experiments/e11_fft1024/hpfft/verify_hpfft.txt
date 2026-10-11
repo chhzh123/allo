@@ -1,0 +1,13 @@
+UF4_a8/FFT.cpp identical to mkvariant.py's
+UF4_a8/FFT.h identical to mkvariant.py's
+UF4_a8/project.tcl identical to mkvariant.py's
+UF8_b4/FFT.cpp identical to mkvariant.py's
+UF8_b4/FFT.h identical to mkvariant.py's
+UF8_b4/project.tcl identical to mkvariant.py's
+run_hls.sh identical but for the build root
+run_cosim.sh identical but for the build root
+common.tcl identical but for the build root
+cosim_events.py identical but for the build root
+gen_stimulus.py identical but for the build root
+testbench_e2s.cpp identical but for the build root
+mkvariant.py identical but for the build root

@@ -1,0 +1,40 @@
+{
+ "cost": {
+  "roles": 28,
+  "instances": 76,
+  "fifos": 160,
+  "streams": 16
+ },
+ "hls_seconds": {
+  "perm1_r0": 49.5,
+  "perm0_r0": 49.8,
+  "perm4_r0": 50.2,
+  "perm2_r0": 50.8,
+  "perm3_r0": 51.3,
+  "perm5_r0": 51.7,
+  "perm6_r0": 49.9,
+  "perm7_r0": 50.4,
+  "bfly0_r0": 51.9,
+  "bfly1_r0": 52.0,
+  "bfly3_r0": 51.4,
+  "bfly2_r0": 52.2,
+  "bfly4_r0": 51.5,
+  "tail_general_r0": 48.3,
+  "tail_general_r2": 47.7,
+  "tail_general_r1": 48.1,
+  "bfly5_r0": 52.3,
+  "bfly6_r0": 51.2,
+  "tail_general_r4": 44.9,
+  "tail_general_r3": 45.1,
+  "tail_general_r5": 44.9,
+  "tail_general_r6": 45.3,
+  "tail_general_r7": 44.9,
+  "tail_general_r8": 45.2,
+  "tail_general_r9": 42.8,
+  "tail_general_r10": 42.9,
+  "tail_general_r11": 43.2,
+  "reorder_r0": 46.7
+ },
+ "hls_wall_seconds": 243.3,
+ "vivado_seconds": 3470.4
+}

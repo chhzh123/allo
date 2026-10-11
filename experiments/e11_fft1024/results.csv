@@ -1,0 +1,11 @@
+n,framework,config,samples_per_cycle,transforms,full_transform_latency,steady_interval_cycles,interval_min,interval_max,ideal_interval_cycles,pct_of_ideal,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz,transforms_per_s,source
+1024,hpfft,UF1,2,33,6809,525.5,,,512,97.4,29316,28835,96,104,0.261,3.072,326,619450,e2_fft/results.csv
+1024,spmw,lanes W=2,2,32,2566,512,512,516,512,100.0,30139,36338,96,29,0.303,3.030,330,644596,spmw/W2/report
+1024,hpfft,UF2,4,32,3234,266,266,266,256,96.2,60287,46729,180,164,0.150,3.183,314,1181087,hpfft/UF2/report
+1024,spmw,lanes W=4,4,32,1286,256,256,260,256,100.0,59879,69633,192,40,0.214,3.119,321,1252405,spmw/W4/report
+1024,hpfft,"UF4, static + function pipeline",8,32,1560,138,138,138,128,92.8,148561,177781,342,277,-2.049,5.382,186,1346410,hpfft/UF4_a8/report
+1024,spmw,lanes W=8,8,32,645,128,128,132,128,100.0,115007,133537,354,56,0.249,3.084,324,2533236,spmw/W8/report
+1024,hpfft,"UF8, data_2 repartitioned",16,32,937,74,74,74,64,86.5,263862,177909,666,404,-0.849,4.182,239,3231352,hpfft/UF8_b4/report
+1024,spmw,lanes W=16,16,32,410,64,64,68,64,100.0,220111,257729,678,96,0.065,3.268,306,4781212,spmw/W16/report
+1024,hpfft,"UF4, static only",8,32,1960,391,391,391,128,32.7,117955,88365,342,245,0.131,3.202,312,798734,hpfft/UF4_a1/report
+1024,allo,"strided, one transform a call",,6,130299,130258,,,,,4320,7561,16,12,0.438,2.895,345,2652,e2_fft/results.csv
