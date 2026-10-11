@@ -105,7 +105,10 @@ tile's FIFOs.
 ### SPMW
 
 `spmw_mesh/S*/source/test_spmw_gemm_ws.py`; the suite runs it against numpy on
-the reference and the simulator. A cell, and the array:
+the reference and the simulator, and both RTL simulations here are fed
+operands that span int8, with a row and a column of each extreme
+(`spmw_operands`; the `RESIM` lines in the build logs are the reruns that
+switched to them, on unchanged hardware). A cell, and the array:
 
 ```python
 @spmw.unit

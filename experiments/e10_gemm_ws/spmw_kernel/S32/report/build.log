@@ -12,3 +12,11 @@ pnr rc=0 wall_s=3546
 PNR_UNROUTED 0
 pnr LUT 87050 FF 192131 DSP 1024 BRAM 23 WNS 0.276
 SPMW_WS_KERNEL_DONE Sun Oct 11 05:56:48 EDT 2026
+RESIM int8-spanning operands Sun Oct 11 06:34:50 EDT 2026
+operands rc=0
+sim rc=0
+SPMW TB: starting at 134000
+SPMW TB: done after 256 poll(s) at 2190000
+SPMW TB DATA first_beat 39 last_beat 533 cycles 495
+SPMW TB RESULT 0 of 4096 byte(s) wrong
+xsim: rc=0 in 8s

@@ -74,7 +74,21 @@ def gemm_ws_of(size):
         spmw.stream_in(0, into=P.p_in)  # every column's sum starts at 0
         spmw.gather(C, from_=P.p_out, index=(..., P.cols))  # column c: C[:, c]
 
+    # An RTL simulation of a registry design draws its operands from 0..2
+    # unless the design says otherwise. These span int8, extremes included, so
+    # the signs and the carries into the 32-bit sum are in what is checked.
+    g.spmw_operands = dict(zip("AB", _span_int8(n)))
     return g
+
+
+def _span_int8(n):
+    """A and B over the whole int8 range, with a run of each extreme."""
+    rng = np.random.default_rng(n)
+    a = rng.integers(-128, 128, size=(n, n)).astype(np.int8)
+    b = rng.integers(-128, 128, size=(n, n)).astype(np.int8)
+    a[0, :], a[-1, :] = -128, 127
+    b[:, 0], b[:, -1] = -128, 127
+    return a, b
 
 
 gemm_ws = gemm_ws_of(SIZE)
@@ -92,6 +106,19 @@ def test_matches_numpy(target):
     a, b, c = _operands()
     spmw.build(gemm_ws, target=target)(a, b, c)
     np.testing.assert_array_equal(c, a.astype(np.int32) @ b.astype(np.int32))
+
+
+@pytest.mark.parametrize("size", [4, 32])
+def test_the_rtl_operands_span_int8(size):
+    """What the array and kernel simulations are fed, against numpy."""
+    fabric = gemm_ws_of(size)
+    a, b = fabric.spmw_operands["A"], fabric.spmw_operands["B"]
+    assert a.min() == b.min() == -128 and a.max() == b.max() == 127
+    c = np.zeros((size, size), dtype=np.int32)
+    spmw.build(fabric, target="ref")(a, b, c)
+    want = a.astype(np.int64) @ b.astype(np.int64)
+    assert np.abs(want).max() >= size * 127 * 127  # a column of extremes
+    np.testing.assert_array_equal(c, want)
 
 
 def test_the_cell_carries_nothing():

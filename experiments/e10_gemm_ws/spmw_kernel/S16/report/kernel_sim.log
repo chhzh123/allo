@@ -1,7 +1,7 @@
 counts: {'feed_mac_w_in_bind': 16, 'feed_mac_a_in_bind': 16, 'drain_mac_p_out_bind': 16}
 expected drain bytes: 1024
 75 source file(s)
-compiled + elaborated in 14s; simulating
+compiled + elaborated in 13s; simulating
 SPMW TB: starting at 134000
 SPMW TB: done after 122 poll(s) at 1118000
 SPMW TB DATA first_beat 39 last_beat 265 cycles 227

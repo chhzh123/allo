@@ -3,13 +3,13 @@
 # SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
 # IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
 # SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
-# Start of session at: Sun Oct 11 04:57:13 2026
-# Process ID: 141899
+# Start of session at: Sun Oct 11 06:35:04 2026
+# Process ID: 1424454
 # Current directory: /scratch/hc676/e15_ws/spmw/kernel_S4_sim
 # Command line: xsim -mode tcl -source {xsim.dir/sim/xsim_script.tcl}
 # Log file: /scratch/hc676/e15_ws/spmw/kernel_S4_sim/xsim.log
 # Journal file: /scratch/hc676/e15_ws/spmw/kernel_S4_sim/xsim.jou
-# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 2699.999 MHz, CPU Physical cores: 23, Host memory: 235732 MB
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 3200.000 MHz, CPU Physical cores: 22, Host memory: 235732 MB
 #-----------------------------------------------------------
 source xsim.dir/sim/xsim_script.tcl
 # xsim {sim} -autoloadwcfg -runall
@@ -21,4 +21,4 @@ SPMW TB DATA first_beat 39 last_beat 100 cycles 62
 SPMW TB RESULT 0 of 64 byte(s) wrong
 $finish called at time : 454 ns : File "/scratch/hc676/e15_ws/spmw/kernel_S4_sim/tb.sv" Line 468
 exit
-INFO: [Common 17-206] Exiting xsim at Sun Oct 11 04:57:17 2026...
+INFO: [Common 17-206] Exiting xsim at Sun Oct 11 06:35:08 2026...

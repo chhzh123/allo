@@ -1,10 +1,10 @@
 counts: {'feed_mac_w_in_bind': 4, 'feed_mac_a_in_bind': 4, 'drain_mac_p_out_bind': 4}
 expected drain bytes: 64
 75 source file(s)
-compiled + elaborated in 11s; simulating
+compiled + elaborated in 10s; simulating
 SPMW TB: starting at 134000
 SPMW TB: done after 39 poll(s) at 454000
 SPMW TB DATA first_beat 39 last_beat 100 cycles 62
 SPMW TB RESULT 0 of 64 byte(s) wrong
-xsim: rc=0 in 6s
+xsim: rc=0 in 5s
 KERNEL_SIM_DONE

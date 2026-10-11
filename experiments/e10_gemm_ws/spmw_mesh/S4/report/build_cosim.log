@@ -1,18 +1,18 @@
 gemmws: {"roles": 9, "instances": 16, "fifos": 48, "streams": 12}
-staged 9 role project(s) in 2.0s (frontend + per-role HLS codegen)
+staged 9 role project(s) in 1.4s (frontend + per-role HLS codegen)
 synthesising and exporting 9 unit(s) concurrently:
-  mac_r2: rc=0 66.8s
-  mac_r1: rc=0 66.8s
-  mac_r0: rc=0 66.8s
-  mac_r3: rc=0 67.2s
-  mac_r5: rc=0 63.9s
-  mac_r4: rc=0 64.7s
-  mac_r7: rc=0 65.9s
-  mac_r6: rc=0 66.3s
-  mac_r8: rc=0 45.1s
-HLS: 175.8s wall for 9 roles and 0 movers (573.5s of CPU work, 16 instances)
+  mac_r3: rc=0 44.5s
+  mac_r0: rc=0 44.5s
+  mac_r1: rc=0 44.5s
+  mac_r2: rc=0 44.6s
+  mac_r5: rc=0 44.2s
+  mac_r6: rc=0 44.9s
+  mac_r7: rc=0 44.8s
+  mac_r4: rc=0 45.2s
+  mac_r8: rc=0 41.5s
+HLS: 130.2s wall for 9 roles and 0 movers (398.7s of CPU work, 16 instances)
 assembling the array in Vivado:
-Vivado elaborated 16 instances in 71.8s
+Vivado elaborated 16 instances in 65.3s
 simulating the assembled array:
   SPMW COSIM PASS (16/16 tokens, 0 errors)
   SPMW CYCLES total=39 first_out=24 first_in=1
