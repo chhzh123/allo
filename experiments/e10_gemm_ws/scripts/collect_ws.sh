@@ -71,6 +71,16 @@ for S in 4 8 16 32; do
     c $A/gen.log $D/report/autosa_gen.log
     width $R/syn/verilog/kernel0.v > $D/report/port_widths.txt
     grep -hE "^Passed!|^Failed|co-simulation finished|^ERROR" $A/hls/cosim.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
+    # what the simulation's deadlock monitor printed, if it printed: its first
+    # report, how many it made, and how far the run then got
+    if grep -q "DEADLOCK DETECTED" $A/hls/cosim.log 2>/dev/null; then
+      { grep -h -m1 -B1 -A4 "DEADLOCK DETECTED" $A/hls/cosim.log
+        echo "reports: $(grep -c "Dependence cycle" $A/hls/cosim.log)"
+        grep "^// (1): Process:" $A/hls/cosim.log | sort | uniq -c
+        grep -h "RTL Simulation :.*%" $A/hls/cosim.log | tail -n 1
+        grep -h -m1 "finish called at time" $A/hls/cosim.log | cut -d: -f1-2
+      } > $D/report/deadlock_monitor.txt
+    fi
     c $E/logs/autosa_${V}_S$S.log $D/report/build.log
   done
   # ---- Allo ----------------------------------------------------------------

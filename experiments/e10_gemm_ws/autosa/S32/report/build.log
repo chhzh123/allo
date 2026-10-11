@@ -4,3 +4,15 @@ gen ports: A_t1 *A, B_t1 *B, C_t1 *C | PE instances 1024
 hls A_t1 B_t1 C_t1 -> depth A=1024 B=1024 C=1024
 tail: driver replaced by autosa_ws_tail.sh Sun Oct 11 13:46:55 EDT 2026
 csynth wall_s=34513
+hls wall_s=52813
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A: 1024 beats  first 95     last 1755  
+  B: 1024 beats  first 95     last 1755  
+  C: 1024 beats  first 1944   last 4837  
+BEATS first 95 last 4837 cycles 4743
+pnr rc=0 wall_s=4765
+PNR_UNROUTED 0
+pnr LUT 181372 FF 219076 DSP 1024 BRAM 74.5 WNS 0.031
+AUTOSA_WS_DONE Sun Oct 11 19:22:14 EDT 2026

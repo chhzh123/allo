@@ -1,0 +1,4 @@
+Passed!
+Passed!
+ERROR: [HLS 200-742] Deadlock detected in co-simulation, please check co-simulation log or dataflow viewer for details
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***

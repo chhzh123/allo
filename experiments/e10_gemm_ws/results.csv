@@ -16,6 +16,6 @@ array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_be
 16x16,allo,Allo,16^3,narrow,32,32,1021,1070,36022,30633,256,3,0.158,3.175,315,0,kernel
 32x32,spmw_mesh,SPMW mesh,32^3,streams,,,423,,79305,179557,1024,0,0.500,2.833,353,,array
 32x32,spmw_kernel,SPMW kernel,32^3,512b,512,512,495,514,87050,192131,1024,46,0.276,3.057,327,0,kernel
-32x32,autosa,AutoSA,32^3,narrow,32,32,,,181372,219076,1024,149,0.031,3.302,303,0,kernel
-32x32,autosa_wide,"AutoSA, wide",32^3,512b,512,512,,,183237,222028,1024,193,0.168,3.165,316,0,kernel
+32x32,autosa,AutoSA,32^3,narrow,32,32,4743,4819,181372,219076,1024,149,0.031,3.302,303,0,kernel
+32x32,autosa_wide,"AutoSA, wide",32^3,512b,512,512,2371,2443,183237,222028,1024,193,0.168,3.165,316,0,kernel
 32x32,allo,Allo,32^3,narrow,,,,,,,,,,,,,kernel

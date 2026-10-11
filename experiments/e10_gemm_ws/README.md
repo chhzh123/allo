@@ -58,26 +58,34 @@ from the first input token to the last output token.
 |  | Allo | 32/32 | 1,021 | 1,070 | 36,022 | 30,633 | 256 | 3 | +0.158 ns | 315 MHz |
 | 32x32 | SPMW mesh | streams | 423 |  | 79,305 | 179,557 | 1,024 | 0 | +0.500 ns | 353 MHz |
 |  | SPMW kernel | 512/512 | 495 | 514 | 87,050 | 192,131 | 1,024 | 46 | +0.276 ns | 327 MHz |
-|  | AutoSA | 32/32 |  |  | 181,372 | 219,076 | 1,024 | 149 | +0.031 ns | 303 MHz |
-|  | AutoSA, wide | 512/512 |  |  | 183,237 | 222,028 | 1,024 | 193 | +0.168 ns | 316 MHz |
+|  | AutoSA | 32/32 | 4,743 | 4,819 | 181,372 | 219,076 | 1,024 | 149 | +0.031 ns | 303 MHz |
+|  | AutoSA, wide | 512/512 | 2,371 | 2,443 | 183,237 | 222,028 | 1,024 | 193 | +0.168 ns | 316 MHz |
 |  | Allo |  |  |  |  |  |  |  |  |  |
 
 Every row is routed out of context at 3.333 ns on `xcu280-fsvh2892-2L-e` with
 nothing unrouted; slack is against that target and the clock is the period it
 implies. Port width is read off each design's synthesised RTL
-(`report/port_widths.txt`). BRAM18 is twice the block RAM tiles. Blank cells
-are builds that had not finished when this was written; none is an estimate.
-AutoSA's two 32x32 designs are routed but their cosimulation was still
-running, after 9.6 hours of synthesis, so those rows have no cycles yet and
-their RTL is not yet checked at that size.
+(`report/port_widths.txt`). BRAM18 is twice the block RAM tiles. The blank
+row is Allo's 32x32 array, which did not get through synthesis (below);
+nothing in the table is an estimate.
+
+AutoSA's two 32x32 arrays took 9.6 hours to synthesise and about five more to
+cosimulate. In both, the simulation's deadlock monitor reports one of the 32
+modules that collect C part-way through the run, at 9.4 of 16.2 microseconds
+as generated and 7.4 of 8.3 with wide ports. The run is not stopped: every
+result is written, the testbench's check of them passes, and the tool's
+verdict is a pass with `HLS 200-742` logged beside it
+(`autosa*/S32/report/deadlock_monitor.txt`, `cosim_verdict.txt`). The monitor
+reports nothing at the smaller sizes.
 
 Three things to take from it.
 
 **SPMW's kernel finishes first at every size, and the gap widens.** 62 cycles
 at 4x4 against 90 to 139; 123 at 8x8 against AutoSA's 216 with matched 512-bit
 ports, 336 as generated, and Allo's 333; 227 at 16x16 against 691, 1,239 and
-1,021. At the clocks each routed to, the 16x16 launch takes 0.64 microseconds
-in SPMW and 1.9, 3.4 and 3.2 in the other three.
+1,021; 495 at 32x32 against 2,371 and 4,743. At the clocks each routed to,
+the 16x16 launch takes 0.64 microseconds in SPMW and 1.9, 3.4 and 3.2 in the
+other three, and the 32x32 launch 1.5 against AutoSA's 7.5 and 15.7.
 
 **In area it depends on the size and on the column.** Three 512-bit memory
 masters and the control interface are a fixed 3,300 lookup tables, 5,400
@@ -255,7 +263,7 @@ Beats moved for A, B and C, counted off each cosimulation:
 | 4x4 | 1 + 1 + 1 = 3 | 16 + 16 + 16 = 48 | 1 + 1 + 1 = 3 | 4 + 4 + 16 = 24 |
 | 8x8 | 1 + 1 + 4 = 6 | 64 + 64 + 64 = 192 | 1 + 1 + 4 = 6 | 16 + 16 + 64 = 96 |
 | 16x16 | 4 + 4 + 16 = 24 | 256 + 256 + 256 = 768 | 4 + 4 + 16 = 24 | 64 + 64 + 256 = 384 |
-| 32x32 | 16 + 16 + 64 = 96 |  |  |  |
+| 32x32 | 16 + 16 + 64 = 96 | 1024 + 1024 + 1024 = 3,072 | 16 + 16 + 64 = 96 |  |
 
 SPMW's counts are its port's arithmetic, rows of bytes or of 32-bit sums at
 512 bits a beat. AutoSA as generated moves one element a beat on every port,
@@ -269,13 +277,13 @@ cycles 79 to 142 and B's at 349 to 412.
 With the ports matched, wide AutoSA and SPMW move the same six beats at 8x8
 and differ by 93 cycles. AutoSA's two operand beats arrive at cycle 93 and its
 first result beat leaves at 305; SPMW's whole launch, first operand beat to
-last result beat, is 123. At 16x16 the same 24 beats take 691 cycles and 227.
-The array is the same grid of cells with the same loop,
-so the difference is the network: AutoSA's operands cross a reader, a chain of
-distributors and, for B, a chain of weight holders, each of which keeps its own
-share of the tile in a buffer before sending it on, and its results cross a
-chain of collectors that do the same. SPMW's movers write straight into the
-array's edge streams.
+last result beat, is 123. At 16x16 the same 24 beats take 691 cycles and 227,
+and at 32x32 the same 96 take 2,371 and 495. The array is the same grid of
+cells with the same loop, so the difference is the network: AutoSA's operands
+cross a reader, a chain of distributors and, for B, a chain of weight holders,
+each of which keeps its own share of the tile in a buffer before sending it
+on, and its results cross a chain of collectors that do the same. SPMW's
+movers write straight into the array's edge streams.
 
 ### Where the area is
 
@@ -333,7 +341,7 @@ The same systems on the same workload in E1, cycles first beat to last:
 | 4x4 | 16 -> 39 | 47 -> 62 | 78 -> 108 | -- -> 90 | 118 -> 139 |
 | 8x8 | 28 -> 90 | 82 -> 123 | 222 -> 336 | 130 -> 216 | 288 -> 333 |
 | 16x16 | 52 -> 195 | 133 -> 227 | 782 -> 1,239 | 374 -> 691 | 928 -> 1,021 |
-| 32x32 | 100 -> 423 | 280 -> 495 | 2,990 -> -- | 1,222 -> -- | 3,408 -> -- |
+| 32x32 | 100 -> 423 | 280 -> 495 | 2,990 -> 4,743 | 1,222 -> 2,371 | 3,408 -> -- |
 
 Every system is slower here, and SPMW's array the most: 39 cycles against 16
 at 4x4, 423 against 100 at 32x32. That is the dataflow and the tool together.
