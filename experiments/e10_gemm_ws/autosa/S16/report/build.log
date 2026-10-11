@@ -1,0 +1,16 @@
+AUTOSA_WS_START S=16 narrow Sun Oct 11 04:21:40 EDT 2026
+gen rc=0
+gen ports: A_t1 *A, B_t1 *B, C_t1 *C | PE instances 256
+hls A_t1 B_t1 C_t1 -> depth A=256 B=256 C=256
+hls rc=0 wall_s=3678
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A:  256 beats  first 95     last 507   
+  B:  256 beats  first 95     last 507   
+  C:  256 beats  first 616    last 1333  
+BEATS first 95 last 1333 cycles 1239
+pnr rc=0 wall_s=1229
+PNR_UNROUTED 0
+pnr LUT 50462 FF 59327 DSP 256 BRAM 30 WNS 0.617
+AUTOSA_WS_DONE Sun Oct 11 05:47:39 EDT 2026

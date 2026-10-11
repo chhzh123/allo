@@ -1,0 +1,4 @@
+SPMW TB: starting at 134000
+SPMW TB: done after 39 poll(s) at 454000
+SPMW TB DATA first_beat 39 last_beat 100 cycles 62
+SPMW TB RESULT 0 of 64 byte(s) wrong

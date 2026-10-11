@@ -1,0 +1,4 @@
+AUTOSA_WS_START S=32 wide Sun Oct 11 04:21:40 EDT 2026
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 1024
+hls A_t64 B_t64 C_t16 -> depth A=16 B=16 C=64

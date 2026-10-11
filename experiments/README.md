@@ -45,6 +45,8 @@ rather than one registry design, so its `generated/` is empty and says why.
 | `e5_compile/` | the compilation-time harness: one project per role against one per site, with the worker cap and child CPU time |
 | `e6_attention/` | grouped against conventional attention on the same hardware budget |
 | `e7_loc/` | the language-aware source counter |
+| `e10_gemm_ws/` | E1 with the other dataflow, a weight held in every cell: the SPMW mesh and kernel, AutoSA's `space_time[5]` array as generated and with 512-bit ports, and a weight-stationary array written in the style of Allo's library one |
+| `e11_fft1024/` | E2's lane FFT against HP-FFT at N = 1,024, 2 to 16 samples a cycle |
 | `agentstudy/` | the agentic-design study: task, testbench, vectors, three documentation packs, three build-and-grade arms, the agent loop, and the pre-registration |
 | `results/` | every package's `results.csv`, `results.json` and `README.md`, the bundle's `coverage.md`, `manifest.json` and `REPORT.md`, and the collectors that produced them |
 

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "feed_mac_w_in_bind_ptr",
+    "bits": 64,
+    "offset": 16,
+    "pointer": true,
+    "family": "mac_w_in_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": true,
+    "width": 8,
+    "tensor": "B"
+  },
+  {
+    "name": "feed_mac_a_in_bind_ptr",
+    "bits": 64,
+    "offset": 24,
+    "pointer": true,
+    "family": "mac_a_in_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": true,
+    "width": 8,
+    "tensor": "A"
+  },
+  {
+    "name": "drain_mac_p_out_bind_ptr",
+    "bits": 64,
+    "offset": 32,
+    "pointer": true,
+    "family": "mac_p_out_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": false,
+    "width": 32,
+    "tensor": "C"
+  },
+  {
+    "name": "feed_mac_w_in_bind_steps",
+    "bits": 32,
+    "offset": 40,
+    "pointer": false,
+    "family": "mac_w_in_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": true,
+    "width": 8,
+    "tensor": "B"
+  },
+  {
+    "name": "feed_mac_a_in_bind_steps",
+    "bits": 32,
+    "offset": 48,
+    "pointer": false,
+    "family": "mac_a_in_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": true,
+    "width": 8,
+    "tensor": "A"
+  },
+  {
+    "name": "drain_mac_p_out_bind_steps",
+    "bits": 32,
+    "offset": 56,
+    "pointer": false,
+    "family": "mac_p_out_bind",
+    "channels": 32,
+    "steps": 32,
+    "reads": false,
+    "width": 32,
+    "tensor": "C"
+  }
+]

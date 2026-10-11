@@ -1,0 +1,4 @@
+  A:   16 beats  first 95     last 117   
+  B:   16 beats  first 95     last 117   
+  C:   16 beats  first 165    last 202   
+BEATS first 95 last 202 cycles 108

@@ -1,0 +1,224 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Oct 11 04:33:29 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 1 -file util_hier.rpt
+| Design       : kernel0
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------------------------+-----------------------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+|                     Instance                    |                        Module                       | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------------------------+-----------------------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+| kernel0                                         |                                               (top) |       6349 |       6026 |       0 |  323 | 8112 |      0 |      7 |    0 |         16 |
+|   (kernel0)                                     |                                               (top) |          2 |          0 |       0 |    2 |    7 |      0 |      0 |    0 |          0 |
+|   A_IO_L2_in_1_U0                               |                                kernel0_A_IO_L2_in_1 |         66 |         66 |       0 |    0 |   79 |      0 |      0 |    0 |          0 |
+|   A_IO_L2_in_2_U0                               |                                kernel0_A_IO_L2_in_2 |         65 |         65 |       0 |    0 |   79 |      0 |      0 |    0 |          0 |
+|   A_IO_L2_in_U0                                 |                                  kernel0_A_IO_L2_in |         63 |         63 |       0 |    0 |   79 |      0 |      0 |    0 |          0 |
+|   A_IO_L2_in_boundary_U0                        |                         kernel0_A_IO_L2_in_boundary |         42 |         42 |       0 |    0 |   63 |      0 |      0 |    0 |          0 |
+|   A_IO_L3_in_U0                                 |                                  kernel0_A_IO_L3_in |         29 |         29 |       0 |    0 |  164 |      0 |      0 |    0 |          0 |
+|   A_PE_dummy_in_37_U0                           |                            kernel0_A_PE_dummy_in_37 |         11 |         11 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   A_PE_dummy_in_38_U0                           |                            kernel0_A_PE_dummy_in_38 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   A_PE_dummy_in_39_U0                           |                            kernel0_A_PE_dummy_in_39 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   A_PE_dummy_in_U0                              |                               kernel0_A_PE_dummy_in |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_boundary_wrapper_12_U0             |              kernel0_B_IO_L1_in_boundary_wrapper_12 |         17 |         17 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_boundary_wrapper_16_U0             |              kernel0_B_IO_L1_in_boundary_wrapper_16 |         17 |         17 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_boundary_wrapper_8_U0              |               kernel0_B_IO_L1_in_boundary_wrapper_8 |         15 |         15 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_boundary_wrapper_U0                |                 kernel0_B_IO_L1_in_boundary_wrapper |         17 |         17 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_10_U0                      |                       kernel0_B_IO_L1_in_wrapper_10 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_11_U0                      |                       kernel0_B_IO_L1_in_wrapper_11 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_13_U0                      |                       kernel0_B_IO_L1_in_wrapper_13 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_14_U0                      |                       kernel0_B_IO_L1_in_wrapper_14 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_15_U0                      |                       kernel0_B_IO_L1_in_wrapper_15 |         37 |         37 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_17_U0                      |                       kernel0_B_IO_L1_in_wrapper_17 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_18_U0                      |                       kernel0_B_IO_L1_in_wrapper_18 |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_5_U0                       |                        kernel0_B_IO_L1_in_wrapper_5 |         37 |         37 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_6_U0                       |                        kernel0_B_IO_L1_in_wrapper_6 |         37 |         37 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_7_U0                       |                        kernel0_B_IO_L1_in_wrapper_7 |         37 |         37 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_9_U0                       |                        kernel0_B_IO_L1_in_wrapper_9 |         36 |         36 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L1_in_wrapper_U0                         |                          kernel0_B_IO_L1_in_wrapper |         35 |         35 |       0 |    0 |   34 |      0 |      0 |    0 |          0 |
+|   B_IO_L2_in_3_U0                               |                                kernel0_B_IO_L2_in_3 |         35 |         35 |       0 |    0 |   25 |      0 |      0 |    0 |          0 |
+|   B_IO_L2_in_4_U0                               |                                kernel0_B_IO_L2_in_4 |         36 |         36 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L2_in_U0                                 |                                  kernel0_B_IO_L2_in |         33 |         33 |       0 |    0 |   22 |      0 |      0 |    0 |          0 |
+|   B_IO_L2_in_boundary_U0                        |                         kernel0_B_IO_L2_in_boundary |         10 |         10 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   B_IO_L3_in_U0                                 |                                  kernel0_B_IO_L3_in |         28 |         28 |       0 |    0 |  164 |      0 |      0 |    0 |          0 |
+|   C_1_IO_L2_out_40_U0                           |                            kernel0_C_1_IO_L2_out_40 |        292 |        292 |       0 |    0 |  203 |      0 |      0 |    0 |          0 |
+|   C_1_IO_L2_out_41_U0                           |                            kernel0_C_1_IO_L2_out_41 |        292 |        292 |       0 |    0 |  203 |      0 |      0 |    0 |          0 |
+|   C_1_IO_L2_out_U0                              |                               kernel0_C_1_IO_L2_out |        291 |        291 |       0 |    0 |  203 |      0 |      0 |    0 |          0 |
+|   C_1_IO_L2_out_boundary_U0                     |                      kernel0_C_1_IO_L2_out_boundary |        245 |        245 |       0 |    0 |  191 |      0 |      0 |    0 |          0 |
+|   C_1_IO_L3_out_U0                              |                               kernel0_C_1_IO_L3_out |         35 |         34 |       0 |    1 |  188 |      0 |      0 |    0 |          0 |
+|   C_1_PE_dummy_out_19_U0                        |                         kernel0_C_1_PE_dummy_out_19 |         11 |         11 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   C_1_PE_dummy_out_20_U0                        |                         kernel0_C_1_PE_dummy_out_20 |         15 |         15 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   C_1_PE_dummy_out_21_U0                        |                         kernel0_C_1_PE_dummy_out_21 |         13 |         13 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   C_1_PE_dummy_out_U0                           |                            kernel0_C_1_PE_dummy_out |         11 |         11 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   C_c_U                                         |                              kernel0_fifo_w64_d16_S |         43 |         11 |       0 |   32 |    7 |      0 |      0 |    0 |          0 |
+|   PE_wrapper_22_U0                              |                               kernel0_PE_wrapper_22 |         58 |         47 |       0 |   11 |   20 |      0 |      1 |    0 |          1 |
+|   PE_wrapper_23_U0                              |                               kernel0_PE_wrapper_23 |         40 |         31 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_24_U0                              |                               kernel0_PE_wrapper_24 |         41 |         32 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_25_U0                              |                               kernel0_PE_wrapper_25 |         37 |         28 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_26_U0                              |                               kernel0_PE_wrapper_26 |         58 |         47 |       0 |   11 |   20 |      0 |      1 |    0 |          1 |
+|   PE_wrapper_27_U0                              |                               kernel0_PE_wrapper_27 |         41 |         32 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_28_U0                              |                               kernel0_PE_wrapper_28 |         40 |         31 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_29_U0                              |                               kernel0_PE_wrapper_29 |         37 |         28 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_30_U0                              |                               kernel0_PE_wrapper_30 |         60 |         49 |       0 |   11 |   20 |      0 |      1 |    0 |          1 |
+|   PE_wrapper_31_U0                              |                               kernel0_PE_wrapper_31 |         40 |         31 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_32_U0                              |                               kernel0_PE_wrapper_32 |         40 |         31 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_33_U0                              |                               kernel0_PE_wrapper_33 |         37 |         28 |       0 |    9 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_34_U0                              |                               kernel0_PE_wrapper_34 |         48 |         45 |       0 |    3 |   20 |      0 |      1 |    0 |          1 |
+|   PE_wrapper_35_U0                              |                               kernel0_PE_wrapper_35 |         32 |         31 |       0 |    1 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_36_U0                              |                               kernel0_PE_wrapper_36 |         32 |         31 |       0 |    1 |   16 |      0 |      0 |    0 |          1 |
+|   PE_wrapper_U0                                 |                                  kernel0_PE_wrapper |         29 |         28 |       0 |    1 |   16 |      0 |      0 |    0 |          1 |
+|   control_s_axi_U                               |                               kernel0_control_s_axi |        201 |        201 |       0 |    0 |  247 |      0 |      0 |    0 |          0 |
+|   entry_proc_U0                                 |                                  kernel0_entry_proc |          3 |          3 |       0 |    0 |    1 |      0 |      0 |    0 |          0 |
+|   fifo_A_A_IO_L2_in_0_U                         |                                kernel0_fifo_w8_d2_S |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_A_IO_L2_in_1_U                         |                              kernel0_fifo_w8_d2_S_0 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_A_IO_L2_in_2_U                         |                              kernel0_fifo_w8_d2_S_1 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_A_IO_L2_in_3_U                         |                              kernel0_fifo_w8_d2_S_2 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_0_0_U                               |                              kernel0_fifo_w8_d2_S_3 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_0_1_U                               |                              kernel0_fifo_w8_d2_S_4 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_0_2_U                               |                              kernel0_fifo_w8_d2_S_5 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_0_3_U                               |                              kernel0_fifo_w8_d2_S_6 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_1_0_U                               |                              kernel0_fifo_w8_d2_S_7 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_1_1_U                               |                              kernel0_fifo_w8_d2_S_8 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_1_2_U                               |                              kernel0_fifo_w8_d2_S_9 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_1_3_U                               |                             kernel0_fifo_w8_d2_S_10 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_2_0_U                               |                             kernel0_fifo_w8_d2_S_11 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_2_1_U                               |                             kernel0_fifo_w8_d2_S_12 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_2_2_U                               |                             kernel0_fifo_w8_d2_S_13 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_2_3_U                               |                             kernel0_fifo_w8_d2_S_14 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_3_0_U                               |                             kernel0_fifo_w8_d2_S_15 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_3_1_U                               |                             kernel0_fifo_w8_d2_S_16 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_3_2_U                               |                             kernel0_fifo_w8_d2_S_17 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_3_3_U                               |                             kernel0_fifo_w8_d2_S_18 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_4_0_U                               |                             kernel0_fifo_w8_d2_S_19 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_4_1_U                               |                             kernel0_fifo_w8_d2_S_20 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_4_2_U                               |                             kernel0_fifo_w8_d2_S_21 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   fifo_A_PE_4_3_U                               |                             kernel0_fifo_w8_d2_S_22 |          4 |          4 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_0_0_U                       |                             kernel0_fifo_w8_d2_S_23 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_0_1_U                       |                             kernel0_fifo_w8_d2_S_24 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_0_2_U                       |                             kernel0_fifo_w8_d2_S_25 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_0_3_U                       |                             kernel0_fifo_w8_d2_S_26 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_1_0_U                       |                             kernel0_fifo_w8_d2_S_27 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_1_1_U                       |                             kernel0_fifo_w8_d2_S_28 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_1_2_U                       |                             kernel0_fifo_w8_d2_S_29 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_1_3_U                       |                             kernel0_fifo_w8_d2_S_30 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_2_0_U                       |                             kernel0_fifo_w8_d2_S_31 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_2_1_U                       |                             kernel0_fifo_w8_d2_S_32 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_2_2_U                       |                             kernel0_fifo_w8_d2_S_33 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_2_3_U                       |                             kernel0_fifo_w8_d2_S_34 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_3_0_U                       |                             kernel0_fifo_w8_d2_S_35 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_3_1_U                       |                             kernel0_fifo_w8_d2_S_36 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_3_2_U                       |                             kernel0_fifo_w8_d2_S_37 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L1_in_3_3_U                       |                             kernel0_fifo_w8_d2_S_38 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L2_in_0_U                         |                             kernel0_fifo_w8_d2_S_39 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L2_in_1_U                         |                             kernel0_fifo_w8_d2_S_40 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L2_in_2_U                         |                             kernel0_fifo_w8_d2_S_41 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_B_IO_L2_in_3_U                         |                             kernel0_fifo_w8_d2_S_42 |         12 |         12 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_0_0_U                               |                             kernel0_fifo_w8_d2_S_43 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_0_1_U                               |                             kernel0_fifo_w8_d2_S_44 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_0_2_U                               |                             kernel0_fifo_w8_d2_S_45 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_0_3_U                               |                             kernel0_fifo_w8_d2_S_46 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_1_0_U                               |                             kernel0_fifo_w8_d2_S_47 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_1_1_U                               |                             kernel0_fifo_w8_d2_S_48 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_1_2_U                               |                             kernel0_fifo_w8_d2_S_49 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_1_3_U                               |                             kernel0_fifo_w8_d2_S_50 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_2_0_U                               |                             kernel0_fifo_w8_d2_S_51 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_2_1_U                               |                             kernel0_fifo_w8_d2_S_52 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_2_2_U                               |                             kernel0_fifo_w8_d2_S_53 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_2_3_U                               |                             kernel0_fifo_w8_d2_S_54 |         14 |         14 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_3_0_U                               |                             kernel0_fifo_w8_d2_S_55 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_3_1_U                               |                             kernel0_fifo_w8_d2_S_56 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_3_2_U                               |                             kernel0_fifo_w8_d2_S_57 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_B_PE_3_3_U                               |                             kernel0_fifo_w8_d2_S_58 |         13 |         13 |       0 |    0 |   21 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_C_1_IO_L2_out_0_U                    |                               kernel0_fifo_w32_d2_S |         38 |         38 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_C_1_IO_L2_out_1_U                    |                            kernel0_fifo_w32_d2_S_59 |          6 |          6 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_C_1_IO_L2_out_2_U                    |                            kernel0_fifo_w32_d2_S_60 |          6 |          6 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_C_1_IO_L2_out_3_U                    |                            kernel0_fifo_w32_d2_S_61 |          6 |          6 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_0_0_U                             |                            kernel0_fifo_w32_d2_S_62 |          3 |          3 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_0_1_U                             |                            kernel0_fifo_w32_d2_S_63 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_0_2_U                             |                            kernel0_fifo_w32_d2_S_64 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_0_3_U                             |                            kernel0_fifo_w32_d2_S_65 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_0_4_U                             |                            kernel0_fifo_w32_d2_S_66 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_1_0_U                             |                            kernel0_fifo_w32_d2_S_67 |          3 |          3 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_1_1_U                             |                            kernel0_fifo_w32_d2_S_68 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_1_2_U                             |                            kernel0_fifo_w32_d2_S_69 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_1_3_U                             |                            kernel0_fifo_w32_d2_S_70 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_1_4_U                             |                            kernel0_fifo_w32_d2_S_71 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_2_0_U                             |                            kernel0_fifo_w32_d2_S_72 |          3 |          3 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_2_1_U                             |                            kernel0_fifo_w32_d2_S_73 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_2_2_U                             |                            kernel0_fifo_w32_d2_S_74 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_2_3_U                             |                            kernel0_fifo_w32_d2_S_75 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_2_4_U                             |                            kernel0_fifo_w32_d2_S_76 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_3_0_U                             |                            kernel0_fifo_w32_d2_S_77 |          3 |          3 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_3_1_U                             |                            kernel0_fifo_w32_d2_S_78 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_3_2_U                             |                            kernel0_fifo_w32_d2_S_79 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_3_3_U                             |                            kernel0_fifo_w32_d2_S_80 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   fifo_C_1_PE_3_4_U                             |                            kernel0_fifo_w32_d2_S_81 |         37 |         37 |       0 |    0 |   69 |      0 |      0 |    0 |          0 |
+|   gmem_A_m_axi_U                                |                                kernel0_gmem_A_m_axi |        540 |        503 |       0 |   37 |  787 |      0 |      1 |    0 |          0 |
+|   gmem_B_m_axi_U                                |                                kernel0_gmem_B_m_axi |        539 |        502 |       0 |   37 |  787 |      0 |      1 |    0 |          0 |
+|   gmem_C_m_axi_U                                |                                kernel0_gmem_C_m_axi |        615 |        521 |       0 |   94 |  966 |      0 |      1 |    0 |          0 |
+|   start_for_A_IO_L2_in_1_U0_U                   |                   kernel0_start_for_A_IO_L2_in_1_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_IO_L2_in_2_U0_U                   |                   kernel0_start_for_A_IO_L2_in_2_U0 |          4 |          4 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_IO_L2_in_U0_U                     |                     kernel0_start_for_A_IO_L2_in_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_IO_L2_in_boundary_U0_U            |            kernel0_start_for_A_IO_L2_in_boundary_U0 |          4 |          4 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_PE_dummy_in_37_U0_U               |               kernel0_start_for_A_PE_dummy_in_37_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_PE_dummy_in_38_U0_U               |               kernel0_start_for_A_PE_dummy_in_38_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_PE_dummy_in_39_U0_U               |               kernel0_start_for_A_PE_dummy_in_39_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_A_PE_dummy_in_U0_U                  |                  kernel0_start_for_A_PE_dummy_in_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_boundary_wrapper_12_U0_U | kernel0_start_for_B_IO_L1_in_boundary_wrapper_12_U0 |          7 |          7 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_boundary_wrapper_16_U0_U | kernel0_start_for_B_IO_L1_in_boundary_wrapper_16_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_boundary_wrapper_8_U0_U  |  kernel0_start_for_B_IO_L1_in_boundary_wrapper_8_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_boundary_wrapper_U0_U    |    kernel0_start_for_B_IO_L1_in_boundary_wrapper_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_10_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_10_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_11_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_11_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_13_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_13_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_14_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_14_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_15_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_15_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_17_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_17_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_18_U0_U          |          kernel0_start_for_B_IO_L1_in_wrapper_18_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_5_U0_U           |           kernel0_start_for_B_IO_L1_in_wrapper_5_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_6_U0_U           |           kernel0_start_for_B_IO_L1_in_wrapper_6_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_7_U0_U           |           kernel0_start_for_B_IO_L1_in_wrapper_7_U0 |          7 |          7 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_9_U0_U           |           kernel0_start_for_B_IO_L1_in_wrapper_9_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L1_in_wrapper_U0_U             |             kernel0_start_for_B_IO_L1_in_wrapper_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L2_in_3_U0_U                   |                   kernel0_start_for_B_IO_L2_in_3_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L2_in_4_U0_U                   |                   kernel0_start_for_B_IO_L2_in_4_U0 |          7 |          7 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L2_in_U0_U                     |                     kernel0_start_for_B_IO_L2_in_U0 |          7 |          7 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_B_IO_L2_in_boundary_U0_U            |            kernel0_start_for_B_IO_L2_in_boundary_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_C_1_IO_L2_out_40_U0_U               |               kernel0_start_for_C_1_IO_L2_out_40_U0 |          7 |          7 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_C_1_IO_L2_out_41_U0_U               |               kernel0_start_for_C_1_IO_L2_out_41_U0 |          7 |          7 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_C_1_IO_L2_out_U0_U                  |                  kernel0_start_for_C_1_IO_L2_out_U0 |          7 |          7 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_C_1_IO_L2_out_boundary_U0_U         |         kernel0_start_for_C_1_IO_L2_out_boundary_U0 |          4 |          4 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_C_1_IO_L3_out_U0_U                  |                  kernel0_start_for_C_1_IO_L3_out_U0 |          6 |          6 |       0 |    0 |    7 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_22_U0_U                  |                  kernel0_start_for_PE_wrapper_22_U0 |          7 |          7 |       0 |    0 |    5 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_23_U0_U                  |                  kernel0_start_for_PE_wrapper_23_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_24_U0_U                  |                  kernel0_start_for_PE_wrapper_24_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_25_U0_U                  |                  kernel0_start_for_PE_wrapper_25_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_26_U0_U                  |                  kernel0_start_for_PE_wrapper_26_U0 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_27_U0_U                  |                  kernel0_start_for_PE_wrapper_27_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_28_U0_U                  |                  kernel0_start_for_PE_wrapper_28_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_29_U0_U                  |                  kernel0_start_for_PE_wrapper_29_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_30_U0_U                  |                  kernel0_start_for_PE_wrapper_30_U0 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_31_U0_U                  |                  kernel0_start_for_PE_wrapper_31_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_32_U0_U                  |                  kernel0_start_for_PE_wrapper_32_U0 |          6 |          6 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_33_U0_U                  |                  kernel0_start_for_PE_wrapper_33_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_34_U0_U                  |                  kernel0_start_for_PE_wrapper_34_U0 |          9 |          9 |       0 |    0 |    6 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_35_U0_U                  |                  kernel0_start_for_PE_wrapper_35_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_36_U0_U                  |                  kernel0_start_for_PE_wrapper_36_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
+|   start_for_PE_wrapper_U0_U                     |                     kernel0_start_for_PE_wrapper_U0 |          5 |          5 |       0 |    0 |    4 |      0 |      0 |    0 |          0 |
++-------------------------------------------------+-----------------------------------------------------+------------+------------+---------+------+------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

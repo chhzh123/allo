@@ -1,0 +1,26 @@
+{
+ "S": 8,
+ "top": "gemm",
+ "weight_stationary": true,
+ "pe": {
+  "pe_count": 64,
+  "pe_function": "PE_kernel_ws_gemm_0_0",
+  "step_loop_trip": 8,
+  "pipeline_pragma": true
+ },
+ "dataflow_pragmas": 1,
+ "m_axi_ports": [
+  [
+   "v1901",
+   "gmem0"
+  ],
+  [
+   "v1902",
+   "gmem1"
+  ],
+  [
+   "v1903",
+   "gmem2"
+  ]
+ ]
+}

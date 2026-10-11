@@ -1,0 +1,91 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Oct 11 04:26:02 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : gemm
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++-------------------------------------------------------+------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|                        Instance                       |                     Module                     | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++-------------------------------------------------------+------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| gemm                                                  |                                          (top) |       9182 |       6100 |     352 | 2730 | 10003 |      0 |      3 |    0 |         64 |
+|   (gemm)                                              |                                          (top) |         59 |         57 |       0 |    2 |   373 |      0 |      0 |    0 |          0 |
+|   buf0_1_U                                            |                        gemm_buf0_RAM_AUTO_1R1W |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_2_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_0 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_3_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_1 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_4_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_2 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_5_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_3 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_6_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_4 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_7_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_5 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf0_U                                              |                      gemm_buf0_RAM_AUTO_1R1W_6 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_1_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_7 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_2_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_8 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_3_U                                            |                      gemm_buf0_RAM_AUTO_1R1W_9 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_4_U                                            |                     gemm_buf0_RAM_AUTO_1R1W_10 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_5_U                                            |                     gemm_buf0_RAM_AUTO_1R1W_11 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_6_U                                            |                     gemm_buf0_RAM_AUTO_1R1W_12 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_7_U                                            |                     gemm_buf0_RAM_AUTO_1R1W_13 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf1_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_14 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|   buf2_1_U                                            |                        gemm_buf2_RAM_AUTO_1R1W |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_2_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_15 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_3_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_16 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_4_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_17 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_5_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_18 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_6_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_19 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_7_U                                            |                     gemm_buf2_RAM_AUTO_1R1W_20 |         20 |          4 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   buf2_U                                              |                     gemm_buf2_RAM_AUTO_1R1W_21 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   control_s_axi_U                                     |                             gemm_control_s_axi |        202 |        202 |       0 |    0 |   235 |      0 |      0 |    0 |          0 |
+|   gmem0_m_axi_U                                       |                               gemm_gmem0_m_axi |        564 |        527 |       0 |   37 |   793 |      0 |      1 |    0 |          0 |
+|     bus_read                                          |                          gemm_gmem0_m_axi_read |        366 |        366 |       0 |    0 |   559 |      0 |      0 |    0 |          0 |
+|     bus_write                                         |                         gemm_gmem0_m_axi_write |          2 |          2 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     load_unit                                         |                          gemm_gmem0_m_axi_load |        196 |        159 |       0 |   37 |   231 |      0 |      1 |    0 |          0 |
+|   gmem1_m_axi_U                                       |                               gemm_gmem1_m_axi |        568 |        531 |       0 |   37 |   793 |      0 |      1 |    0 |          0 |
+|     bus_read                                          |                          gemm_gmem1_m_axi_read |        366 |        366 |       0 |    0 |   559 |      0 |      0 |    0 |          0 |
+|     bus_write                                         |                         gemm_gmem1_m_axi_write |          2 |          2 |       0 |    0 |     3 |      0 |      0 |    0 |          0 |
+|     load_unit                                         |                          gemm_gmem1_m_axi_load |        200 |        163 |       0 |   37 |   231 |      0 |      1 |    0 |          0 |
+|   gmem2_m_axi_U                                       |                               gemm_gmem2_m_axi |        625 |        531 |       0 |   94 |   966 |      0 |      1 |    0 |          0 |
+|     bus_read                                          |                          gemm_gmem2_m_axi_read |          4 |          4 |       0 |    0 |     5 |      0 |      0 |    0 |          0 |
+|     bus_write                                         |                         gemm_gmem2_m_axi_write |        509 |        449 |       0 |   60 |   774 |      0 |      0 |    0 |          0 |
+|     load_unit                                         |                          gemm_gmem2_m_axi_load |         17 |         17 |       0 |    0 |    12 |      0 |      0 |    0 |          0 |
+|     store_unit                                        |                         gemm_gmem2_m_axi_store |         95 |         61 |       0 |   34 |   175 |      0 |      1 |    0 |          0 |
+|   grp_systolic_ws_gemm_fu_737                         |                          gemm_systolic_ws_gemm |       6906 |       4186 |     160 | 2560 |  6459 |      0 |      0 |    0 |         64 |
+|     (grp_systolic_ws_gemm_fu_737)                     |                          gemm_systolic_ws_gemm |          3 |          3 |       0 |    0 |    12 |      0 |      0 |    0 |          0 |
+|     grp_systolic_tile_ws_gemm_fu_498                  |                     gemm_systolic_tile_ws_gemm |       6690 |       4130 |       0 | 2560 |  5585 |      0 |      0 |    0 |         64 |
+|     grp_systolic_ws_gemm_Pipeline_l_load_A_am_fu_378  |     gemm_systolic_ws_gemm_Pipeline_l_load_A_am |         12 |         12 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     grp_systolic_ws_gemm_Pipeline_l_load_B_bk_fu_414  |     gemm_systolic_ws_gemm_Pipeline_l_load_B_bk |         16 |         16 |       0 |    0 |   522 |      0 |      0 |    0 |          0 |
+|     grp_systolic_ws_gemm_Pipeline_l_store_C_sm_fu_582 |    gemm_systolic_ws_gemm_Pipeline_l_store_C_sm |         25 |         25 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     local_A_1_U                                       |    gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_2_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_22 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_3_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_23 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_4_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_24 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_5_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_25 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_6_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_26 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_7_U                                       | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_27 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_A_U                                         | gemm_systolic_ws_gemm_local_A_RAM_AUTO_1R1W_28 |          4 |          0 |       4 |    0 |     8 |      0 |      0 |    0 |          0 |
+|     local_C_1_U                                       |    gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_2_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_29 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_3_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_30 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_4_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_31 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_5_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_32 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_6_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_33 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_7_U                                       | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_34 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|     local_C_U                                         | gemm_systolic_ws_gemm_local_C_RAM_AUTO_1R1W_35 |         16 |          0 |      16 |    0 |    32 |      0 |      0 |    0 |          0 |
+|   sparsemux_17_3_32_1_1_U1365                         |                     gemm_sparsemux_17_3_32_1_1 |         64 |         64 |       0 |    0 |     0 |      0 |      0 |    0 |          0 |
++-------------------------------------------------------+------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

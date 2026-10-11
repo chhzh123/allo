@@ -1,0 +1,4 @@
+python3 scripts/spmw_package_kernel.py --design gemmws --size 8 --frequency 300 --jobs 4 --sim --out <kernel>
+python3 scripts/spmw_array_operands.py --design gemmws --size 8 --out <operands>
+python3 scripts/spmw_kernel_sim.py <kernel> <operands> --design gemmws --size 8
+vivado -mode batch -source pnr.tcl      # report/pnr.tcl

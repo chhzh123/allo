@@ -1,0 +1,20 @@
+ALLO_WS_START S=4 Sun Oct 11 04:10:59 EDT 2026
+gen rc=0
+WS GEN llvm matches numpy for seeds [0, 1, 2]
+WS GEN OK /scratch/hc676/e15_ws/allo/S4/gen
+csim rc=0
+WS TB ALL PASS seeds=3
+hls rc=0 wall_s=164
+WS TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+WS TB seed=0 PASS max_abs_err=0 mismatches=0 of 16
+WS TB ALL PASS seeds=1
+WS TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+|   Verilog|      Pass|            188|            188|            188|             NA|             NA|             NA|           
+  A:    4 beats  first 79     last 82    
+  B:    4 beats  first 109    last 112   
+  C:   16 beats  first 202    last 217   
+BEATS first 79 last 217 cycles 139
+pnr rc=0 wall_s=448
+PNR_UNROUTED 0
+pnr LUT 3764 FF 4925 DSP 16 BRAM 1.5 WNS 0.719
+ALLO_WS_DONE Sun Oct 11 04:22:00 EDT 2026

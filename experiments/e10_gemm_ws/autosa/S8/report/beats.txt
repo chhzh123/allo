@@ -1,0 +1,4 @@
+  A:   64 beats  first 95     last 195   
+  B:   64 beats  first 95     last 195   
+  C:   64 beats  first 257    last 430   
+BEATS first 95 last 430 cycles 336

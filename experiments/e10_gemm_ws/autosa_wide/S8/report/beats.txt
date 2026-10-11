@@ -1,0 +1,4 @@
+  A:    1 beats  first 93     last 93    
+  B:    1 beats  first 93     last 93    
+  C:    4 beats  first 305    last 308   
+BEATS first 93 last 308 cycles 216

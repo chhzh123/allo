@@ -1,0 +1,2 @@
+  SPMW COSIM PASS (256/256 tokens, 0 errors)
+  SPMW CYCLES total=195 first_out=108 first_in=1

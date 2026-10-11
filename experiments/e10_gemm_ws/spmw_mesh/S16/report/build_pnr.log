@@ -1,0 +1,22 @@
+gemmws: {"roles": 9, "instances": 256, "fifos": 768, "streams": 48}
+staged 9 role project(s) in 2.9s (frontend + per-role HLS codegen)
+synthesising and exporting 9 unit(s) concurrently:
+  mac_r3: rc=0 52.4s
+  mac_r1: rc=0 53.1s
+  mac_r0: rc=0 54.1s
+  mac_r2: rc=0 54.6s
+  mac_r5: rc=0 53.1s
+  mac_r4: rc=0 54.2s
+  mac_r7: rc=0 54.1s
+  mac_r6: rc=0 58.3s
+  mac_r8: rc=0 49.2s
+HLS: 155.4s wall for 9 roles and 0 movers (483.1s of CPU work, 256 instances)
+assembling the array in Vivado:
+  stage synth 416.99
+  stage opt 28.599
+  stage place 401.545
+  stage physopt 12.378
+  stage route 303.509
+  unrouted 0
+Vivado implemented 256 instances in 1240.3s
+  array clock: 2.763 ns achieved against a 3.333 ns target (WNS +0.570 ns)

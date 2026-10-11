@@ -1,0 +1,3 @@
+drain_mac_p_out_bind C_M_AXI_GMEM_DATA_WIDTH = 512
+feed_mac_a_in_bind C_M_AXI_GMEM_DATA_WIDTH = 512
+feed_mac_w_in_bind C_M_AXI_GMEM_DATA_WIDTH = 512

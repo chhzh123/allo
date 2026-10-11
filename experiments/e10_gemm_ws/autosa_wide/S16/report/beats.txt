@@ -1,0 +1,4 @@
+  A:    4 beats  first 94     last 97    
+  B:    4 beats  first 94     last 97    
+  C:   16 beats  first 769    last 784   
+BEATS first 94 last 784 cycles 691

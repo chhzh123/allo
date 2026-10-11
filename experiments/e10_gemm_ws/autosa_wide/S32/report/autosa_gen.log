@@ -1,0 +1,81 @@
+[AutoSA] Extract RAR dep for the array access: { [S_1[i, j, k] -> __pet_ref_4[]] -> B[o0, o1] }
+[AutoSA] Candidate 0: [1,0,0]
+[AutoSA] Extract RAR dep for the array access: { [S_1[i, j, k] -> __pet_ref_3[]] -> A[o0, o1] }
+[AutoSA] Candidate 0: [0,1,0]
+[AutoSA] 6 systolic arrays generated.
+[AutoSA] Apply compute management.
+[AutoSA] Apply array partitioning.
+[AutoSA] Apply latency hiding.
+[AutoSA] The innermost time loop is parallel. Latency hiding is optional.
+[AutoSA] Apply SIMD vectorization.
+[AutoSA] -----------------------------------------------
+[AutoSA] Current band member position: 2
+[AutoSA] -----------------------------------------------
+[AutoSA] Array reference (R): { S_1[i, j, k] -> A[i, k] }
+[AutoSA] Layout transform: Permute dim (0) to the innermost
+[AutoSA] Array reference (W): { S_0[i, j] -> C[i, j] }
+[AutoSA] Layout transform: Permute dim (0) to the innermost
+[AutoSA] Array reference (W): { S_1[i, j, k] -> C[i, j] }
+[AutoSA] Layout transform: Permute dim (0) to the innermost
+[AutoSA] Array reference (R): { S_1[i, j, k] -> C[i, j] }
+[AutoSA] Layout transform: Permute dim (0) to the innermost
+[AutoSA] -----------------------------------------------
+[AutoSA] The loop is legal to be vectorized with score: 4.250000
+[AutoSA] Layout transformation is required to proceed.
+[AutoSA] -----------------------------------------------
+[AutoSA] No legal SIMD loop is fonud. SIMD vectorization is skipped.
+[AutoSA] Apply communication management.
+[AutoSA] Warning: Local reduction is enabled. The legality should be guaranteed by users.
+[AutoSA] Warning: Two-level buffering is disabled because host data serialization is enabled.
+================= IO Grouping Information =================
+===================================================
+Array: A
+===================================================
+local: 0
+n_io_groups: 1
+n_drain_groups: 0
+------------------------------
+IO Group: 0
+------------------------------
+copy_in: 1
+copy_out: 0
+io_type: AUTOSA_EXT_IO
+io_dir: [1,0]
+===================================================
+Array: B
+===================================================
+local: 0
+n_io_groups: 1
+n_drain_groups: 0
+------------------------------
+IO Group: 0
+------------------------------
+copy_in: 1
+copy_out: 0
+io_type: AUTOSA_INT_IO
+io_dir: [1,0]
+===================================================
+Array: C
+===================================================
+local: 0
+n_io_groups: 2
+n_drain_groups: 0
+------------------------------
+IO Group: 0
+------------------------------
+copy_in: 0
+copy_out: 0
+io_type: AUTOSA_INT_IO
+io_dir: [1,0]
+------------------------------
+IO Group: 1
+------------------------------
+copy_in: 0
+copy_out: 1
+io_type: AUTOSA_EXT_IO
+io_dir: [0,1]
+================= IO Grouping Information =================
+/scratch/hc676/autosa/AutoSA/./autosa_scripts/codegen.py:36: SyntaxWarning: invalid escape sequence '\)'
+  line = re.sub(r'( )(' + re.escape(arg) + r')(\))',
+Please find the generated file: /scratch/hc676/e15_ws/autosa/wide/S32/out/src/kernel_kernel.cpp
+[AutoSA] Post-processing the generated code...

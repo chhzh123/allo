@@ -1,0 +1,19 @@
+staging roles and feeders:
+  staged 9 role(s) and 3 feeder(s) in 1.9s
+synthesising 12 unit(s):
+  mac_r3: rc=0 64.9s
+  mac_r2: rc=0 65.6s
+  mac_r0: rc=0 66.1s
+  mac_r1: rc=0 67.4s
+  mac_r4: rc=0 59.8s
+  mac_r5: rc=0 64.7s
+  mac_r6: rc=0 66.1s
+  mac_r7: rc=0 65.9s
+  mac_r8: rc=0 45.3s
+  drain_mac_p_out_bind: rc=0 49.9s
+  feed_mac_a_in_bind: rc=0 51.3s
+  feed_mac_w_in_bind: rc=0 51.4s
+  HLS: 221.5s
+  AXI widths: drain_mac_p_out_bind=512b, feed_mac_a_in_bind=512b, feed_mac_w_in_bind=512b
+  kernel: 6 argument(s), 3 AXI master(s)
+stopping before v++ (--sim)

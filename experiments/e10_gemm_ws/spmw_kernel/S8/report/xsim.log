@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# xsim v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Sun Oct 11 04:57:09 2026
+# Process ID: 141680
+# Current directory: /scratch/hc676/e15_ws/spmw/kernel_S8_sim
+# Command line: xsim -mode tcl -source {xsim.dir/sim/xsim_script.tcl}
+# Log file: /scratch/hc676/e15_ws/spmw/kernel_S8_sim/xsim.log
+# Journal file: /scratch/hc676/e15_ws/spmw/kernel_S8_sim/xsim.jou
+# Running On: brg-zhang-xcel.ece.cornell.edu, OS: Linux, CPU Frequency: 2700.000 MHz, CPU Physical cores: 19, Host memory: 235732 MB
+#-----------------------------------------------------------
+source xsim.dir/sim/xsim_script.tcl
+# xsim {sim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+SPMW TB: starting at 134000
+SPMW TB: done after 70 poll(s) at 702000
+SPMW TB DATA first_beat 39 last_beat 161 cycles 123
+SPMW TB RESULT 0 of 256 byte(s) wrong
+$finish called at time : 702 ns : File "/scratch/hc676/e15_ws/spmw/kernel_S8_sim/tb.sv" Line 468
+exit
+INFO: [Common 17-206] Exiting xsim at Sun Oct 11 04:57:13 2026...

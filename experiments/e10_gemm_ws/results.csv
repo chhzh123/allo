@@ -1,0 +1,21 @@
+array,folder,system,workload,interface,port_bits_in,port_bits_out,cycles_data_beats,cycles_flow_reported,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz,unrouted,scope
+4x4,spmw_mesh,SPMW mesh,4^3,streams,,,39,,1004,2157,16,0,1.191,2.142,467,,array
+4x4,spmw_kernel,SPMW kernel,4^3,512b,512,512,62,80,5583,10929,16,46,0.415,2.918,343,0,kernel
+4x4,autosa,AutoSA,4^3,narrow,32,32,108,184,6349,8112,16,7,0.703,2.630,380,0,kernel
+4x4,autosa_wide,"AutoSA, wide",4^3,narrow,128,512,90,166,6812,9292,16,28,0.402,2.931,341,0,kernel
+4x4,allo,Allo,4^3,narrow,32,32,139,188,3764,4925,16,3,0.719,2.614,383,0,kernel
+8x8,spmw_mesh,SPMW mesh,8^3,streams,,,90,,4564,10037,64,0,0.971,2.362,423,,array
+8x8,spmw_kernel,SPMW kernel,8^3,512b,512,512,123,142,9217,19602,64,46,0.397,2.936,341,0,kernel
+8x8,autosa,AutoSA,8^3,narrow,32,32,336,409,17992,20730,64,11,0.684,2.649,378,0,kernel
+8x8,autosa_wide,"AutoSA, wide",8^3,512b,512,512,216,292,19759,23491,64,54,0.566,2.767,361,0,kernel
+8x8,allo,Allo,8^3,narrow,32,32,333,382,9182,10003,64,3,0.435,2.898,345,0,kernel
+16x16,spmw_mesh,SPMW mesh,16^3,streams,,,195,,18794,43205,256,0,0.570,2.763,362,,array
+16x16,spmw_kernel,SPMW kernel,16^3,512b,512,512,227,246,24346,53156,256,46,0.494,2.839,352,0,kernel
+16x16,autosa,AutoSA,16^3,narrow,32,32,1239,1318,50462,59327,256,60,0.617,2.716,368,0,kernel
+16x16,autosa_wide,"AutoSA, wide",16^3,512b,512,512,691,769,52179,62190,256,103,0.518,2.815,355,0,kernel
+16x16,allo,Allo,16^3,narrow,32,32,1021,1070,36022,30633,256,3,0.158,3.175,315,0,kernel
+32x32,spmw_mesh,SPMW mesh,32^3,streams,,,423,,79305,179557,1024,0,0.500,2.833,353,,array
+32x32,spmw_kernel,SPMW kernel,32^3,512b,512,512,495,514,87050,192131,1024,46,0.276,3.057,327,0,kernel
+32x32,autosa,AutoSA,32^3,narrow,,,,,,,,,,,,,kernel
+32x32,autosa_wide,"AutoSA, wide",32^3,narrow,,,,,,,,,,,,,kernel
+32x32,allo,Allo,32^3,narrow,,,,,,,,,,,,,kernel
