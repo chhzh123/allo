@@ -92,6 +92,6 @@ for S in 4 8 16 32; do
   fi
 done
 mkdir -p $STAGE/scripts
-c $E/autosa_ws.sh $E/allo_ws.sh $E/ws_allo_gen.py $E/spmw_ws.sh $E/spmw_ws_kernel.sh $E/spmw_ws_resim.sh $E/beats.py $E/collect_ws.sh $E/collect_e1_full.sh $STAGE/scripts/
+c $E/autosa_ws.sh $E/autosa_ws_tail.sh $E/allo_ws.sh $E/ws_allo_gen.py $E/spmw_ws.sh $E/spmw_ws_kernel.sh $E/spmw_ws_resim.sh $E/beats.py $E/collect_ws.sh $E/collect_e1_full.sh $STAGE/scripts/
 find $STAGE -type f -empty -delete
 du -sh $STAGE; find $STAGE -type f | wc -l
