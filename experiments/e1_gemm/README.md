@@ -66,6 +66,10 @@ count from first input token to last output token, which is the same idea one
 level in. Blank cells are builds still running or, for Allo, a cosimulation
 that does not complete in this tool version; none is an estimate.
 
+**Scope of the SPMW kernel row.** Its cycles are the packaged kernel's; its area,
+block RAM and clock were routed without the kernel's movers and control. The
+section at the end of this file gives the kernel routed whole.
+
 **Allo, re-measured.** Its rows now carry the same definition, from the same
 waveform method. An earlier note here said its cosimulation does not complete
 at 16x16 and 32x32 in this tool version; that was wrong. Both complete on a
@@ -372,3 +376,55 @@ stream ports, which is enough for Vivado to place a 1,024-cell array a little
 differently: 0.2 per cent fewer lookup tables, 8 more registers, and 49 ps
 less slack, within the run-to-run movement a design of that size shows. Every
 array routed with nothing unrouted.
+
+## Scope correction, 2026-10-11: what the SPMW kernel row was routed with
+
+The `SPMW kernel` row's lookup tables, registers, block RAM and clock in the
+table above were routed without the kernel's memory side. They come from
+`spmw_build_array.py --pnr` of the array and its distribution chains
+(`spmw_harness`; `spmw_kernel/S*/report/cost.json` lists 15 roles and no
+mover), while the AutoSA and Allo rows are routed with their AXI masters and
+control interface. **The cycle counts are unaffected**: they come from the
+packaged kernel's simulation, which has the movers in it.
+
+Routed as a kernel -- the same roles, the three 512-bit movers and the control
+register file, by the recipe `pnr_matched.sh` uses for AutoSA
+(`experiments/e10_gemm_ws/scripts/spmw_ws_kernel.sh <S> 4 autosa e1kernel`;
+reports in `spmw_kernel/S*/report/full_kernel/`):
+
+| Array | LUT, as tabled | FF | BRAM18 | Clock | LUT, as a kernel | FF | BRAM18 | Slack | Clock |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | 1,867 | 2,516 | 0 | 492 MHz | 6,548 | 11,104 | 46 | +0.313 ns | 331 MHz |
+| 8x8 | 8,015 | 10,220 | 0 | 476 MHz | 12,833 | 19,944 | 46 | +0.475 ns | 350 MHz |
+| 16x16 | 32,756 | 40,732 | 0 | 358 MHz | 38,507 | 53,682 | 46 | +0.500 ns | 353 MHz |
+| 32x32 | 137,741 | 163,708 | 0 | 357 MHz | 147,551 | 193,953 | 46 | +0.302 ns | 330 MHz |
+
+The memory side -- the movers, the launch-deep buffers they write into and
+the control interface -- adds 4,681, 4,818, 5,751, 9,810 lookup tables and
+8,588, 9,724, 12,950, 30,245 registers from the smallest array to the largest,
+and 46 block RAMs at every size, so the correction is proportionally largest
+where the array is smallest. What it changes below:
+
+- **Block RAM.** "Block RAM where SPMW needs none" and the 0 in the "Both at
+  512 bits" table are the movers missing from the route. With them the SPMW
+  kernel has 46 at every size, the same 46 to 48 as wide AutoSA: they are the
+  512-bit AXI masters in both, not staging one system needs and the other
+  does not.
+- **Clock.** 476 MHz against AutoSA's 378 at 8x8 was the array's clock against
+  a kernel's. The SPMW kernel closes at 331, 350, 353, 330 MHz.
+- **Area against wide AutoSA.** Same 512-bit ports on both sides:
+
+| Array | AutoSA wide, LUT | FF | AutoSA / SPMW as tabled (LUT, FF) | as a kernel | Clock |
+|---|---:|---:|---:|---:|---:|
+| 8x8 | 15,343 | 25,536 | 1.9x, 2.5x | 1.2x, 1.3x | 385 against 350 MHz |
+| 16x16 | 48,957 | 84,062 | 1.5x, 2.1x | 1.3x, 1.6x | 339 against 353 MHz |
+| 32x32 | 186,369 | 320,772 | 1.4x, 2.0x | 1.3x, 1.7x | 309 against 330 MHz |
+
+- **Area against AutoSA as generated, 8x8.** "1.7 times the lookup tables and
+  2.2 times the registers" becomes 1.04 and 1.15.
+- **Area against Allo, 16x16** (`ALLO_PNR.md`). Allo's kernel is 16% smaller
+  in lookup tables and 46% smaller in registers than the SPMW kernel, not
+  0.8% and 29%.
+
+The mesh rows, the cycle comparisons, the port-width analysis and the Gemmini
+section do not involve the kernel's route and stand as written.

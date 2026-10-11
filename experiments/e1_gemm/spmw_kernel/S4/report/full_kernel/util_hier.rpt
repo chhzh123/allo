@@ -1,0 +1,136 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Sun Oct 11 05:18:26 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : spmw_kernel
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------------------------------------------------+------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+|                          Instance                          |                              Module                              | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++------------------------------------------------------------+------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+| spmw_kernel                                                |                                                            (top) |       6548 |       5942 |     120 |  486 | 11104 |     22 |      2 |    0 |         16 |
+|   (spmw_kernel)                                            |                                                            (top) |          5 |          3 |       0 |    2 |   119 |      0 |      0 |    0 |          0 |
+|   dut                                                      |                                                         spmw_top |       1886 |       1870 |       0 |   16 |  2420 |      0 |      0 |    0 |         16 |
+|     g_feed_2_down_up[1].u                                  |                                     spmw_fifo__parameterized0_19 |         12 |         12 |       0 |    0 |    50 |      0 |      0 |    0 |          0 |
+|     g_feed_2_down_up[2].u                                  |                                     spmw_fifo__parameterized0_20 |          8 |          8 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     g_feed_2_down_up[3].u                                  |                                     spmw_fifo__parameterized0_21 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_feed_down_up[1].u                                    |                                     spmw_fifo__parameterized0_22 |         12 |         12 |       0 |    0 |    50 |      0 |      0 |    0 |          0 |
+|     g_feed_down_up[2].u                                    |                                     spmw_fifo__parameterized0_23 |          8 |          8 |       0 |    0 |    34 |      0 |      0 |    0 |          0 |
+|     g_feed_down_up[3].u                                    |                                     spmw_fifo__parameterized0_24 |          4 |          4 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[10].u                                  |                                     spmw_fifo__parameterized0_25 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[11].u                                  |                                     spmw_fifo__parameterized0_26 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[12].u                                  |                                     spmw_fifo__parameterized0_27 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[13].u                                  |                                     spmw_fifo__parameterized0_28 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[14].u                                  |                                     spmw_fifo__parameterized0_29 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[15].u                                  |                                     spmw_fifo__parameterized0_30 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[4].u                                   |                                     spmw_fifo__parameterized0_31 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[5].u                                   |                                     spmw_fifo__parameterized0_32 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[6].u                                   |                                     spmw_fifo__parameterized0_33 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[7].u                                   |                                     spmw_fifo__parameterized0_34 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[8].u                                   |                                     spmw_fifo__parameterized0_35 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_c_out_c_in[9].u                                   |                                     spmw_fifo__parameterized0_36 |         19 |         19 |       0 |    0 |    38 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[10].u                                   |                                        spmw_fifo__parameterized1 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[11].u                                   |                                     spmw_fifo__parameterized1_37 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[13].u                                   |                                     spmw_fifo__parameterized1_38 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[14].u                                   |                                     spmw_fifo__parameterized1_39 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[15].u                                   |                                     spmw_fifo__parameterized1_40 |          8 |          8 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[1].u                                    |                                     spmw_fifo__parameterized1_41 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[2].u                                    |                                     spmw_fifo__parameterized1_42 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[3].u                                    |                                     spmw_fifo__parameterized1_43 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[5].u                                    |                                     spmw_fifo__parameterized1_44 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[6].u                                    |                                     spmw_fifo__parameterized1_45 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[7].u                                    |                                     spmw_fifo__parameterized1_46 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_east_west[9].u                                    |                                     spmw_fifo__parameterized1_47 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_north_bind[0].u                                   |                                     spmw_fifo__parameterized1_48 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_north_bind[1].u                                   |                                     spmw_fifo__parameterized1_49 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_north_bind[2].u                                   |                                     spmw_fifo__parameterized1_50 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_north_bind[3].u                                   |                                     spmw_fifo__parameterized1_51 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[10].u                                 |                                     spmw_fifo__parameterized1_52 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[11].u                                 |                                     spmw_fifo__parameterized1_53 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[12].u                                 |                                     spmw_fifo__parameterized1_54 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[13].u                                 |                                     spmw_fifo__parameterized1_55 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[14].u                                 |                                     spmw_fifo__parameterized1_56 |          7 |          7 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[15].u                                 |                                     spmw_fifo__parameterized1_57 |          8 |          8 |       0 |    0 |    10 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[4].u                                  |                                     spmw_fifo__parameterized1_58 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[5].u                                  |                                     spmw_fifo__parameterized1_59 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[6].u                                  |                                     spmw_fifo__parameterized1_60 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[7].u                                  |                                     spmw_fifo__parameterized1_61 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[8].u                                  |                                     spmw_fifo__parameterized1_62 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_south_north[9].u                                  |                                     spmw_fifo__parameterized1_63 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_west_bind[0].u                                    |                                     spmw_fifo__parameterized1_64 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_west_bind[1].u                                    |                                     spmw_fifo__parameterized1_65 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_west_bind[2].u                                    |                                     spmw_fifo__parameterized1_66 |          8 |          8 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     g_pe_west_bind[3].u                                    |                                     spmw_fifo__parameterized1_67 |          7 |          7 |       0 |    0 |    18 |      0 |      0 |    0 |          0 |
+|     u_feed_2_r0_1                                          |                                                        feed_2_r0 |         20 |         20 |       0 |    0 |    36 |      0 |      0 |    0 |          0 |
+|     u_feed_2_r0_2                                          |                                                     feed_2_r0_68 |         20 |         20 |       0 |    0 |    28 |      0 |      0 |    0 |          0 |
+|     u_feed_2_r1_0                                          |                                                        feed_2_r1 |         20 |         20 |       0 |    0 |    44 |      0 |      0 |    0 |          0 |
+|     u_feed_2_r2_3                                          |                                                        feed_2_r2 |         16 |         16 |       0 |    0 |    20 |      0 |      0 |    0 |          0 |
+|     u_feed_r0_1                                            |                                                          feed_r0 |         20 |         20 |       0 |    0 |    36 |      0 |      0 |    0 |          0 |
+|     u_feed_r0_2                                            |                                                       feed_r0_69 |         20 |         20 |       0 |    0 |    28 |      0 |      0 |    0 |          0 |
+|     u_feed_r1_0                                            |                                                          feed_r1 |         20 |         20 |       0 |    0 |    44 |      0 |      0 |    0 |          0 |
+|     u_feed_r2_3                                            |                                                          feed_r2 |         16 |         16 |       0 |    0 |    20 |      0 |      0 |    0 |          0 |
+|     u_pe_r0_1_1                                            |                                                            pe_r0 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r0_1_2                                            |                                                         pe_r0_70 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r0_2_1                                            |                                                         pe_r0_71 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r0_2_2                                            |                                                         pe_r0_72 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r1_1_0                                            |                                                            pe_r1 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r1_2_0                                            |                                                         pe_r1_73 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r2_1_3                                            |                                                            pe_r2 |         96 |         95 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r2_2_3                                            |                                                         pe_r2_74 |         97 |         96 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r3_3_1                                            |                                                            pe_r3 |         93 |         92 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r3_3_2                                            |                                                         pe_r3_75 |         94 |         93 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r4_0_1                                            |                                                            pe_r4 |         25 |         24 |       0 |    1 |    38 |      0 |      0 |    0 |          1 |
+|     u_pe_r4_0_2                                            |                                                         pe_r4_76 |         25 |         24 |       0 |    1 |    38 |      0 |      0 |    0 |          1 |
+|     u_pe_r5_3_0                                            |                                                            pe_r5 |         93 |         92 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r6_3_3                                            |                                                            pe_r6 |         91 |         90 |       0 |    1 |    70 |      0 |      0 |    0 |          1 |
+|     u_pe_r7_0_0                                            |                                                            pe_r7 |         25 |         24 |       0 |    1 |    38 |      0 |      0 |    0 |          1 |
+|     u_pe_r8_0_3                                            |                                                            pe_r8 |         24 |         23 |       0 |    1 |    38 |      0 |      0 |    0 |          1 |
+|   g_edge_feed_2_up_bind[0].u                               |                                                        spmw_fifo |         45 |         25 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                     spmw_fifo__parameterized0_17 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                              spmw_fifo_lutram_18 |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   g_edge_feed_up_bind[0].u                                 |                                                      spmw_fifo_0 |         45 |         25 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                     spmw_fifo__parameterized0_15 |         18 |         18 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                              spmw_fifo_lutram_16 |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   g_edge_pe_c_out_bind[0].u                                |                                                      spmw_fifo_1 |         47 |         27 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                     spmw_fifo__parameterized0_13 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                              spmw_fifo_lutram_14 |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   g_edge_pe_c_out_bind[1].u                                |                                                      spmw_fifo_2 |         47 |         27 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                     spmw_fifo__parameterized0_11 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                              spmw_fifo_lutram_12 |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   g_edge_pe_c_out_bind[2].u                                |                                                      spmw_fifo_3 |         47 |         27 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                      spmw_fifo__parameterized0_9 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                              spmw_fifo_lutram_10 |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   g_edge_pe_c_out_bind[3].u                                |                                                      spmw_fifo_4 |         47 |         27 |      20 |    0 |    73 |      0 |      0 |    0 |          0 |
+|     deep.out                                               |                                        spmw_fifo__parameterized0 |         20 |         20 |       0 |    0 |    66 |      0 |      0 |    0 |          0 |
+|     deep.ram                                               |                                                 spmw_fifo_lutram |         27 |          7 |      20 |    0 |     7 |      0 |      0 |    0 |          0 |
+|   u_control                                                |                                               spmw_control_s_axi |        286 |        286 |       0 |    0 |   330 |      0 |      0 |    0 |          0 |
+|   u_drain_pe_c_out_bind                                    |                                              drain_pe_c_out_bind |       1495 |       1133 |       0 |  362 |  2848 |      8 |      0 |    0 |          0 |
+|     (u_drain_pe_c_out_bind)                                |                                              drain_pe_c_out_bind |          2 |          2 |       0 |    0 |    92 |      0 |      0 |    0 |          0 |
+|     gmem_m_axi_U                                           |                                   drain_pe_c_out_bind_gmem_m_axi |        860 |        500 |       0 |  360 |  1456 |      8 |      0 |    0 |          0 |
+|     grp_drain_pe_c_out_bind_Pipeline_VITIS_LOOP_16_1_fu_84 | drain_pe_c_out_bind_drain_pe_c_out_bind_Pipeline_VITIS_LOOP_16_1 |        633 |        631 |       0 |    2 |  1300 |      0 |      0 |    0 |          0 |
+|   u_feed_feed_2_up_bind                                    |                                              feed_feed_2_up_bind |       1305 |       1252 |       0 |   53 |  2475 |      7 |      1 |    0 |          0 |
+|     (u_feed_feed_2_up_bind)                                |                                              feed_feed_2_up_bind |         71 |         71 |       0 |    0 |   111 |      0 |      0 |    0 |          0 |
+|     gmem_m_axi_U                                           |                                   feed_feed_2_up_bind_gmem_m_axi |       1019 |        971 |       0 |   48 |  1768 |      7 |      1 |    0 |          0 |
+|     grp_feed_feed_2_up_bind_Pipeline_VITIS_LOOP_16_1_fu_86 | feed_feed_2_up_bind_feed_feed_2_up_bind_Pipeline_VITIS_LOOP_16_1 |        216 |        211 |       0 |    5 |   596 |      0 |      0 |    0 |          0 |
+|   u_feed_feed_up_bind                                      |                                                feed_feed_up_bind |       1298 |       1245 |       0 |   53 |  2474 |      7 |      1 |    0 |          0 |
+|     (u_feed_feed_up_bind)                                  |                                                feed_feed_up_bind |         77 |         77 |       0 |    0 |   111 |      0 |      0 |    0 |          0 |
+|     gmem_m_axi_U                                           |                                     feed_feed_up_bind_gmem_m_axi |       1007 |        959 |       0 |   48 |  1767 |      7 |      1 |    0 |          0 |
+|     grp_feed_feed_up_bind_Pipeline_VITIS_LOOP_16_1_fu_86   |     feed_feed_up_bind_feed_feed_up_bind_Pipeline_VITIS_LOOP_16_1 |        215 |        210 |       0 |    5 |   596 |      0 |      0 |    0 |          0 |
++------------------------------------------------------------+------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

@@ -1,0 +1,14 @@
+SPMW_WS_KERNEL_START autosa S=8 Sun Oct 11 05:04:57 EDT 2026
+package rc=0 wall_s=298
+  kernel: 6 argument(s), 3 AXI master(s)
+operands rc=0
+sim rc=0 wall_s=22
+SPMW TB: starting at 134000
+SPMW TB: done after 49 poll(s) at 534000
+SPMW TB DATA first_beat 39 last_beat 120 cycles 82
+SPMW TB RESULT 0 of 256 byte(s) wrong
+xsim: rc=0 in 6s
+pnr rc=0 wall_s=655
+PNR_UNROUTED 0
+pnr LUT 12833 FF 19944 DSP 64 BRAM 23 WNS 0.475
+SPMW_WS_KERNEL_DONE Sun Oct 11 05:21:14 EDT 2026
