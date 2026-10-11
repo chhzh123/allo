@@ -1,0 +1,7 @@
+rc=0 total_wall_s=2281
+# puts "PNR_PHASES setup=[expr $t1-$t0] synth=[expr $t2-$t1] impl=[expr $t3-$t2]"
+PNR_PHASES setup=10 synth=746 impl=1398
+# puts "PNR ROUTED WNS $wns"
+PNR ROUTED WNS 0.375
+# puts "PNR IMPLEMENTATION OK"
+PNR IMPLEMENTATION OK

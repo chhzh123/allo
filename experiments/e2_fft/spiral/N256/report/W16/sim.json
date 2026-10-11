@@ -1,0 +1,1 @@
+{"n": 256, "w": 16, "transforms": 8, "out_words": 4096, "max_abs_error": 1.6442995413809335e-05, "max_ref": 35.58077992391954, "validation_pass": true, "first_output": 292, "latency": 307, "interval_median": 16.0, "interval_mean": 16, "interval_min": 16, "interval_max": 16}

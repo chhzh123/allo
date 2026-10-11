@@ -1,4 +1,4 @@
-# E2: a radix-2 complex FP32 FFT, in three systems
+# E2: a radix-2 complex FP32 FFT, in four systems
 
 N = 256 unless a row says otherwise. Everything below is routed out of context
 at 3.333 ns on `xcu280-fsvh2892-2L-e` with nothing unrouted, and every cycle
@@ -7,35 +7,50 @@ variants this page does not show.
 
 ## The result
 
-SPMW's `lanes` design against HP-FFT's best configuration at each datapath
-width. HP-FFT's boundary carries `2*UF` complex samples a beat and SPMW's
-carries `W`, so `W = 2*UF` is the matched pairing and both share the ideal
-interval `N / (samples per cycle)`.
+SPMW's `lanes` design against HP-FFT's best configuration and a core of the
+Spiral DFT generator at each datapath width. HP-FFT's boundary carries `2*UF`
+complex samples a beat, SPMW's and Spiral's carry `W`, so `W = 2*UF` is the
+matched pairing and all three share the ideal interval `N / (samples per
+cycle)`. The best figure of the three in each column is bold, and so is the
+one slack that is negative.
 
 | samples/cyc | system | latency | interval | of ideal | LUT | FF | DSP | BRAM18 | slack | MHz |
 |---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 2 | HP-FFT UF1 | 1,527 | 140.5 | 91.1% | 22,403 | 22,244 | 72 | 82 | +0.283 | 328 |
-| | **SPMW lanes W=2** | **645** | **128.0** | **100%** | 24,012 | 28,614 | 72 | **10** | **+0.443** | **346** |
-| 4 | HP-FFT UF2 | 766 | 74.5 | 85.9% | 45,482 | 37,809 | 132 | 104 | +0.317 | 332 |
-| | **SPMW lanes W=4** | **376** | **64.0** | **100%** | 45,711 | 54,192 | 144 | **20** | +0.241 | 323 |
-| 8 | HP-FFT UF4 | 408 | 42.0 | 76.2% | 91,524 | 90,201 | 246 | 166 | +0.119 | 311 |
-| | **SPMW lanes W=8** | **260** | **32.0** | **100%** | **87,021** | 102,464 | 258 | **40** | **+0.292** | **329** |
-| 16 | HP-FFT UF8 | 269 | 26.0 | 61.5% | 179,275 | 148,768 | 474 | 288 | **-0.093** | 292 |
-| | **SPMW lanes W=16** | **200** | **16.0** | **100%** | **167,847** | 195,716 | 486 | **64** | **+0.079** | **307** |
+| 2 | HP-FFT UF1 | 1,527 | 140.5 | 91.1% | 22,403 | **22,244** | 72 | 82 | +0.283 | 328 |
+|  | Spiral W=2 | 722 | **128.0** | **100%** | **18,735** | 27,419 | **56** | 48 | **+1.263** | **483** |
+|  | SPMW lanes W=2 | **645** | **128.0** | **100%** | 24,012 | 28,614 | 72 | **10** | +0.443 | 346 |
+| 4 | HP-FFT UF2 | 766 | 74.5 | 85.9% | 45,482 | **37,809** | 132 | 104 | +0.317 | 332 |
+|  | Spiral W=4 | 481 | **64.0** | **100%** | **35,212** | 51,742 | **96** | 84 | **+0.868** | **406** |
+|  | SPMW lanes W=4 | **376** | **64.0** | **100%** | 45,711 | 54,192 | 144 | **20** | +0.241 | 323 |
+| 8 | HP-FFT UF4 | 408 | 42.0 | 76.2% | 91,524 | **90,201** | 246 | 166 | +0.119 | 311 |
+|  | Spiral W=8 | 367 | **32.0** | **100%** | **67,969** | 100,075 | **168** | 144 | **+0.427** | **344** |
+|  | SPMW lanes W=8 | **260** | **32.0** | **100%** | 87,021 | 102,464 | 258 | **40** | +0.292 | 329 |
+| 16 | HP-FFT UF8 | 269 | 26.0 | 61.5% | 179,275 | **148,768** | 474 | 288 | **-0.093** | 292 |
+|  | Spiral W=16 | 307 | **16.0** | **100%** | **133,242** | 196,566 | **312** | 240 | **+0.375** | **338** |
+|  | SPMW lanes W=16 | **200** | **16.0** | **100%** | 167,847 | 195,716 | 486 | **64** | +0.079 | 307 |
 
-Three things to take from it.
+Four things to take from it.
 
-**SPMW holds exactly 100% of ideal interval at every width. HP-FFT does not,
-and gets worse as it widens** -- 91.1%, 85.9%, 76.2%, 61.5%.
+**SPMW and Spiral hold exactly 100% of ideal interval at every width. HP-FFT
+does not, and gets worse as it widens** -- 91.1%, 85.9%, 76.2%, 61.5%.
 
-**The two land on nearly the same silicon.** At 8 and 16 samples a cycle the
-lookup tables and multipliers agree within 5%, and SPMW uses a quarter of the
-block RAM. It pays 14% to 32% more registers. So the performance gap is not
-bought with area.
+**SPMW and HP-FFT land on nearly the same silicon.** At 8 and 16 samples a
+cycle the lookup tables and multipliers agree within 5%, and SPMW uses a
+quarter of the block RAM. It pays 14% to 32% more registers. So the
+performance gap between those two is not bought with area.
 
 **HP-FFT's widest configuration does not close timing** (-0.093 ns). Its
 interval of 26.0 is real and cosimulated, but there is no implementation
-behind it at 300 MHz. SPMW closes at every width.
+behind it at 300 MHz. SPMW and Spiral close at every width.
+
+**Spiral is smaller than both and clocks higher; SPMW answers sooner and uses
+about a quarter of its block RAM.** Spiral has 21% to 23% fewer lookup
+tables than SPMW, about two thirds to three quarters of its DSP blocks and
+registers within 5%, and closes at 483, 406, 344 and 338 MHz against 346, 323,
+329 and 307. SPMW's first transform is out in 645, 376, 260 and 200 cycles
+against 722, 481, 367 and 307, and it holds 10, 20, 40 and 64 block RAMs
+against 48, 84, 144 and 240. Spiral's arithmetic is not the other two's; the
+section on it below says how.
 
 Both HP-FFT rows at 8 and 16 samples a cycle are the **fixed** builds; the
 shipped sources reach 8.0% and 28.1% of ideal on this target, for reasons in
@@ -203,6 +218,47 @@ SPMW's interval is exactly N at every size, 100% of ideal for a one-sample
 boundary; HP-FFT's is near N/2 because its boundary carries two samples. On the
 matched-width comparison at the top, that difference is removed.
 
+## Spiral
+
+The cores come from the Spiral DFT/FFT IP generator
+(https://www.spiral.net/hardware/dftgen.html), which SwizzleFFT's notes
+identify as the streaming baseline of the HP-FFT paper's Table II: forward
+transform, single-precision floating point, fully streaming, radix 2, W
+complex words a cycle, natural input and output order, the generator's default
+block RAM budget. They were not built here. The SwizzleFFT project generated,
+simulated and routed them on this part, at this clock, with the out-of-context
+script the HP-FFT rerun uses (its `baselines/spiral_dft/` and
+`experiments/spiral_point.sh`, repository version `6d1a2af`), and
+`spiral/N256/report/W*/` holds copies of those runs' reports: `sim.json` (the
+numpy check and the timing), the testbench, and the routed utilisation, timing
+and route status. The rows above and in `results.csv` are read from those
+files and reproduce SwizzleFFT's `results/spiral_u280.csv` to the digit. The
+generated Verilog is "for internal, non-commercial research use only and is
+not for redistribution" and is not in this folder. E11 has the same cores at N
+= 1,024.
+
+Three things differ from the other two rows and should be read with the
+table.
+
+- **The arithmetic is Spiral's own.** Its floating-point adders are in logic
+  and its multipliers are built on one inferred 24x24 product, two DSP blocks
+  each, and both round toward zero. SPMW and HP-FFT use Vitis HLS's IEEE
+  units, three DSP blocks a multiplier. So the DSP column is two blocks a
+  multiplier against three (Spiral's four cores have 28, 48, 84 and 156
+  multipliers), and the lookup tables and the clock are not of the same
+  adders. Its largest error against numpy is 4.6e-7 of the largest output,
+  HP-FFT's 1.8e-7, on different stimuli. How much of Spiral's lead the
+  arithmetic accounts for is not measured here: SPMW was not rebuilt with
+  truncating adders or a two-DSP multiplier.
+- **It is generated RTL, not HLS.** The other two rows are C++ through Vitis
+  HLS, with the handshakes and the float cores that brings.
+- **Eight transforms, not 32.** Its simulation streams eight; every
+  completion interval in it is the same, so the median is not in doubt.
+
+The generator reports latency to the first output beat: 595, 418, 336 and
+292 cycles, which the same notes match to the HP-FFT paper's figures for
+Spiral. The table's runs to the last, as for the other rows.
+
 ## Allo, the third system
 
 Allo's strided in-place FFT computes one transform per call, so its interval is
@@ -248,6 +304,7 @@ holds one, the files sit directly in them.
     spmw/N512/generated/                       one design, so no variant level
     hpfft/N256/source/fix_UF4_a8/FFT.cpp       one fixed HP-FFT variant
     hpfft/N256/report/fix_UF4_a8/csynth.rpt    its interval
+    spiral/N256/report/W8/                     SwizzleFFT's run of one Spiral core
 
 HP-FFT's investigation is `hpfft/README.md`; the scripts that drive all three
 frameworks are in `scripts/`.

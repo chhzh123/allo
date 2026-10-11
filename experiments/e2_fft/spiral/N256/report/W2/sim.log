@@ -1,0 +1,23 @@
+
+****** xsim v2023.2 (64-bit)
+  **** SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+  **** IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+  **** SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/spiral_sim/xsim_script.tcl
+# xsim {spiral_sim} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+STAT 0 first_in 5 first_out 600 last_out 727
+STAT 1 first_in 133 first_out 728 last_out 855
+STAT 2 first_in 261 first_out 856 last_out 983
+STAT 3 first_in 389 first_out 984 last_out 1111
+STAT 4 first_in 517 first_out 1112 last_out 1239
+STAT 5 first_in 645 first_out 1240 last_out 1367
+STAT 6 first_in 773 first_out 1368 last_out 1495
+STAT 7 first_in 901 first_out 1496 last_out 1623
+$finish called at time : 5412749 ps : File "/scratch/hc676/spiral_runs/n256_w2/tb_spiral.v" Line 49
+exit
+INFO: [Common 17-206] Exiting xsim at Sun Oct  4 04:27:12 2026...

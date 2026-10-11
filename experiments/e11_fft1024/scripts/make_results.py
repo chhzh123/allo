@@ -9,7 +9,9 @@ Definitions are E2's (`experiments/e2_fft/README.md`): latency is a transform's
 last output beat minus the launch's first input beat; interval is the median of
 the last three quarters of the differences between consecutive completions;
 BRAM18 is twice the block RAM tiles.  Two rows were measured in E2 and are read
-from its `results.csv` rather than built again: HP-FFT UF1 and Allo.
+from its `results.csv` rather than built again: HP-FFT UF1 and Allo.  The
+Spiral rows are read from the reports of the SwizzleFFT project's runs, copied
+under `spiral/`.
 """
 import csv
 import json
@@ -132,6 +134,31 @@ def hpfft(config, unroll, label):
     return finish(row)
 
 
+def spiral(lanes):
+    """A core of the Spiral DFT generator, from SwizzleFFT's run of it."""
+    base = ("spiral", f"W{lanes}", "report")
+    row = dict.fromkeys(COLUMNS, "")
+    row.update(
+        n=N,
+        framework="spiral",
+        config=f"streaming, radix 2, W={lanes}",
+        samples_per_cycle=lanes,
+        source=f"spiral/W{lanes}/report",
+    )
+    sim = read(*base, "sim.json")
+    if sim and json.loads(sim).get("validation_pass"):
+        d = json.loads(sim)
+        row.update(
+            transforms=d["transforms"],
+            full_transform_latency=d["latency"],
+            steady_interval_cycles="%g" % d["interval_median"],
+            interval_min=d["interval_min"],
+            interval_max=d["interval_max"],
+        )
+    row.update(routed(read(*base, "pnr_util.rpt"), read(*base, "pnr_timing.rpt")))
+    return finish(row)
+
+
 def from_e2(framework, label, samples):
     """A row E2 already holds, on E2's definitions."""
     with open(E2, newline="") as handle:
@@ -212,10 +239,15 @@ def main():
         for w in (2, 4, 8, 16)
         if os.path.isdir(os.path.join(HERE, "spmw", f"W{w}"))
     }
+    sr = {
+        w: spiral(w)
+        for w in (2, 4, 8, 16)
+        if os.path.isdir(os.path.join(HERE, "spiral", f"W{w}"))
+    }
     allo = from_e2("allo", "strided, one transform a call", None)
     # E2's fallback for a UF4 that would not close: `static` alone.
     fallback = hpfft("UF4_a1", 4, "UF4, static only")
-    rows = [r for w in (2, 4, 8, 16) for r in (hp.get(w), sp.get(w)) if r]
+    rows = [r for w in (2, 4, 8, 16) for r in (hp.get(w), sr.get(w), sp.get(w)) if r]
     rows += [r for r in (fallback, allo) if r and r["full_transform_latency"]]
     with open(os.path.join(HERE, "results.csv"), "w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS, lineterminator="\n")
@@ -229,6 +261,7 @@ def main():
                     w,
                     [
                         (f"HP-FFT {names[w]}", hp.get(w)),
+                        (f"Spiral W={w}", sr.get(w)),
                         (f"SPMW lanes W={w}", sp.get(w)),
                     ],
                 )
