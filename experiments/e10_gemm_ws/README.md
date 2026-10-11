@@ -58,8 +58,8 @@ from the first input token to the last output token.
 |  | Allo | 32/32 | 1,021 | 1,070 | 36,022 | 30,633 | 256 | 3 | +0.158 ns | 315 MHz |
 | 32x32 | SPMW mesh | streams | 423 |  | 79,305 | 179,557 | 1,024 | 0 | +0.500 ns | 353 MHz |
 |  | SPMW kernel | 512/512 | 495 | 514 | 87,050 | 192,131 | 1,024 | 46 | +0.276 ns | 327 MHz |
-|  | AutoSA |  |  |  |  |  |  |  |  |  |
-|  | AutoSA, wide |  |  |  |  |  |  |  |  |  |
+|  | AutoSA | 32/32 |  |  | 181,372 | 219,076 | 1,024 | 149 | +0.031 ns | 303 MHz |
+|  | AutoSA, wide | 512/512 |  |  | 183,237 | 222,028 | 1,024 | 193 | +0.168 ns | 316 MHz |
 |  | Allo |  |  |  |  |  |  |  |  |  |
 
 Every row is routed out of context at 3.333 ns on `xcu280-fsvh2892-2L-e` with
@@ -67,6 +67,9 @@ nothing unrouted; slack is against that target and the clock is the period it
 implies. Port width is read off each design's synthesised RTL
 (`report/port_widths.txt`). BRAM18 is twice the block RAM tiles. Blank cells
 are builds that had not finished when this was written; none is an estimate.
+AutoSA's two 32x32 designs are routed but their cosimulation was still
+running, after 9.6 hours of synthesis, so those rows have no cycles yet and
+their RTL is not yet checked at that size.
 
 Three things to take from it.
 
@@ -82,23 +85,25 @@ registers and 46 block RAMs whatever the array, which at 4x4 is more than the
 array they serve; Allo's kernel is the smallest there. By 8x8 the SPMW kernel
 has Allo's lookup tables (9,217 against 9,182) and half of AutoSA's; at 16x16
 it has two thirds of Allo's (24,346 against 36,022) and under half of AutoSA's
-(50,462, or 52,179 wide). In registers it is close to AutoSA from 8x8 up
-(19,602 against 20,730, 53,156 against 59,327) and 1.7 to 2.2 times Allo,
-because it keeps every link between two cells in a register slice where Allo
-keeps a shift-register FIFO (`gemm_fifo_w8_d24_S_ShiftReg` and its like). Its
-46 block RAMs are the masters and do not grow. AutoSA's do -- 7, 11 and 60 as
-generated -- and at 16x16 they are 16 in its cells, each of which declares
-one, and 41 in the modules that distribute A and collect C.
+(50,462, or 52,179 wide); at 32x32 it again has under half of AutoSA's (87,050
+against 181,372). In registers it is close to AutoSA from 8x8 up (19,602
+against 20,730, 53,156 against 59,327, 192,131 against 219,076) and 1.7 to 2.2
+times Allo, because it keeps every link between two cells in a register slice
+where Allo keeps a shift-register FIFO (`gemm_fifo_w8_d24_S_ShiftReg` and its
+like). Its 46 block RAMs are the masters and do not grow. AutoSA's do -- 7,
+11, 60 and 149 as generated -- and at 16x16 they are 16 in its cells, each of
+which declares one, and 41 in the modules that distribute A and collect C.
 
-**It does not have the fastest clock.** SPMW's mesh alone closes at 467, 423,
-362 and 353 MHz, on a link into a cell's multiplier at the first three sizes
-and in the harness's own stimulus generator at the last. But every kernel's
-worst path is control, and SPMW's -- in its control wrapper or a mover, and at
-32x32 in a feeder's check that all 32 edge buffers have room -- holds it to
-343, 341, 352 and 327 MHz. That is below AutoSA as generated at every size (380, 378, 368)
-and below Allo at the two smaller ones (383, 345, 315). AutoSA's worst path is
-the collection of its modules' done signals, Allo's the handshakes of its
-tile's FIFOs.
+**It does not have the fastest clock until the array is large.** SPMW's mesh
+alone closes at 467, 423, 362 and 353 MHz, on a link into a cell's multiplier
+at the first three sizes and in the harness's own stimulus generator at the
+last. But every kernel's worst path is control, and SPMW's -- in its control
+wrapper or a mover, and at 32x32 in a feeder's check that all 32 edge buffers
+have room -- holds it to 343, 341, 352 and 327 MHz. That is below AutoSA as
+generated up to 16x16 (380, 378, 368) and above it at 32x32 (303, or 316
+wide), and below Allo at the two smaller sizes (383, 345, 315). AutoSA's worst
+path is the collection of its modules' done signals, Allo's the handshakes of
+its tile's FIFOs.
 
 ## The three designs
 
