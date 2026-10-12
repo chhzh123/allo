@@ -31,8 +31,8 @@ SYSTEMS = (
     ("spmw_mesh", "SPMW mesh", "array", True),
     ("spmw_kernel", "SPMW kernel", "kernel", True),
     ("dato", "Dato's design", "kernel", False),
-    ("autosa_wide", "AutoSA, wide", "kernel", False),
-    ("autosa", "AutoSA", "kernel", False),
+    ("autosa_wide", "AutoSA", "kernel", False),
+    ("autosa", "AutoSA, K whole", "kernel", False),
     ("allo", "Allo", "kernel", False),
 )
 COLUMNS = (

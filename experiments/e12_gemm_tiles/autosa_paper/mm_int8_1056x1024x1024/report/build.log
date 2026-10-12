@@ -1,0 +1,5 @@
+AUTOSA_PAPER_START mm_int8 1056 x 1024 x 1024 Mon Oct 12 00:20:10 EDT 2026
+#define I 1056 #define J 1024  #define K 1024  
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t64 *C | PE instances 192
+hls A_t64 B_t64 C_t64, host elements A=4325376 B=4194304 C=1081344 -> depth A=67584 B=65536 C=16896

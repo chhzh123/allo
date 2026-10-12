@@ -1,2 +1,10 @@
-tile loops the tool chose to pipeline: 0, for example
-loops unrolled completely by a factor of 64: 0, for example
+tile loops the tool chose to pipeline: 272, for example
+INFO: [HLS 214-376] automatically set the pipeline for Loop< l_nt306> at kernel.cpp:23497:14 
+INFO: [HLS 214-376] automatically set the pipeline for Loop< l_nt305> at kernel.cpp:23477:14 
+loops unrolled completely by a factor of 64: 256, for example
+INFO: [HLS 214-186] Unrolling loop 'l_S_k_0_k290' (kernel.cpp:23124:21) in function 'gemm_16_16' completely with a factor of 64 (kernel.cpp:23119:0)
+INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 28.78 seconds. CPU system time: 0.4 seconds. Elapsed time: 29.32 seconds; current allocated memory: 573.211 MB.
+INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 954.92 seconds. CPU system time: 0.44 seconds. Elapsed time: 959.47 seconds; current allocated memory: 806.578 MB.
+INFO: [XFORM 203-712] Applying dataflow to function 'top' (kernel.cpp:23540:16), detected/extracted 310 process function(s): 
+INFO: [HLS 200-111] Finished Loop, function and other optimizations: CPU user time: 155.34 seconds. CPU system time: 0.57 seconds. Elapsed time: 156.53 seconds; current allocated memory: 1.074 GB.
+csynth rc=124 after 1800 s (limit 1800)

@@ -90,18 +90,30 @@ for S in 16 32; do
     c ${K}_W64_sim/tb.sv $D/report/W64_tb.sv
   fi
   for W in $SIDES; do
-    # ---- AutoSA, as generated and with --host-serialize -----------------------
-    for V in narrow wide; do
-      A=$E/autosa/$V/S${S}_W$W
+    # ---- AutoSA ---------------------------------------------------------------
+    # autosa_wide/        --host-serialize with K tiled, the way AutoSA's own
+    #                     examples are run; the tile depth each workload's row
+    #                     uses is in autosa_ktile.txt ("S W KT"), and the other
+    #                     depths tried are kept as S<n>_W<side>_k<depth>
+    # autosa/             no --host-serialize, K whole: the first runs
+    # autosa_wide_whole/  --host-serialize with K whole, which fails
+    for A in $E/autosa/narrow/S${S}_W$W $E/autosa/wide/S${S}_W$W $E/autosa/wide_k*/S${S}_W$W; do
       [ -d $A ] || continue
-      if [ $V = narrow ]; then D=$STAGE/autosa/S${S}_W$W; else D=$STAGE/autosa_wide/S${S}_W$W; fi
+      V=$(basename $(dirname $A))
+      case $V in
+        narrow) D=$STAGE/autosa/S${S}_W$W;;
+        wide)   D=$STAGE/autosa_wide_whole/S${S}_W$W;;
+        *)      KT=${V#wide_k}
+                D=$STAGE/autosa_wide/S${S}_W${W}_k$KT
+                grep -qx "$S $W $KT" $E/autosa_ktile.txt 2>/dev/null && D=$STAGE/autosa_wide/S${S}_W$W;;
+      esac
       mkdir -p $D/source $D/generated $D/report
       c $A/kernel.c $A/kernel.h $A/simd_info.json $A/hls/cosim.tcl $D/source/
       grep -h . $A/out/src/cmd > $D/source/autosa_command.txt 2>/dev/null
       if [ $W = 64 ]; then
         c $A/out/src/kernel_kernel.cpp $A/out/src/kernel_kernel.h $A/out/src/kernel_host.cpp $D/generated/
       else
-        echo "As ../../S${S}_W64/generated, with this workload's loop bounds; source/autosa_command.txt regenerates it." > $D/generated/README.txt
+        echo "As the 64-cubed build's generated/, with this workload's loop bounds; source/autosa_command.txt regenerates it." > $D/generated/README.txt
       fi
       R=$A/hls/cosim_prj/sol
       c $R/syn/report/kernel0_csynth.rpt $R/syn/report/PE_csynth.rpt $R/sim/report/kernel0_cosim.rpt $D/report/
@@ -109,9 +121,20 @@ for S in 16 32; do
       c $A/beats.txt $D/report/
       c $A/gen.log $D/report/autosa_gen.log
       width $R/syn/verilog/kernel0.v > $D/report/port_widths.txt
-      grep -hE "^Passed!|^Failed|co-simulation finished|^ERROR" $A/hls/cosim.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
+      for L in $A/hls/cosim_first.log $A/hls/cosim.log; do
+        grep -hE "^Passed!|^Failed|co-simulation finished|^ERROR|leftover data" $L 2>/dev/null | head -12
+      done > $D/report/cosim_verdict.txt
       monitor $A/hls/cosim.log $D/report/deadlock_monitor.txt
       c $E/logs/autosa_${V}_S${S}_W$W.log $D/report/build.log
+    done
+    # AutoSA's own C testbench alone, on the serialized 64-cubed designs.
+    for C in $E/keep/autosa_csim_S${S}_W${W}_k*; do
+      [ -f $C/csim.log ] || continue
+      KT=${C##*_k}
+      for D in $STAGE/autosa_wide/S${S}_W${W}_k$KT $STAGE/autosa_wide/S${S}_W$W; do
+        [ -d $D ] && grep -q "array_part\[$S,$S,$KT\]" $D/source/autosa_command.txt 2>/dev/null \
+          && grep -hE "^Passed!|^Failed|CSIM (finish|start)|leftover" $C/csim.log > $D/report/csim_verdict.txt
+      done
     done
     # ---- the Dato paper's array, at its appendix's depths and at the test's ----
     for KIND in paper test; do
@@ -176,6 +199,17 @@ for S in 16 32; do
     fi
   done
 done
+# ---- AutoSA's published int8 design, synthesised and simulated here ----------
+for P in $E/autosa_paper/*; do
+  [ -d $P ] || continue
+  D=$STAGE/autosa_paper/$(basename $P); mkdir -p $D/source $D/report
+  c $P/kernel.c $P/kernel.h $P/simd_info.json $P/hls/cosim.tcl $D/source/
+  grep -h . $P/out/src/cmd > $D/source/autosa_command.txt 2>/dev/null
+  R=$P/hls/cosim_prj/sol
+  c $R/syn/report/kernel0_csynth.rpt $R/syn/report/PE_csynth.rpt $R/sim/report/kernel0_cosim.rpt $D/report/
+  grep -hE "^Passed!|^Failed|co-simulation finished|^ERROR|leftover data" $P/hls/cosim.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
+  c $E/logs/autosa_paper_$(basename $P).log $D/report/build.log
+done
 # ---- the array's three forms at 4x4 and 8x8, 16 tiles each --------------------
 D=$STAGE/spmw_forms; mkdir -p $D
 for F in gemmtiles gemmtilesp gemmtiles2; do
@@ -191,10 +225,7 @@ done > $D/forms.txt
   echo "Depth counts the loop's entry state: 2 is a one-state body."; } > $D/README.txt
 mkdir -p $STAGE/scripts
 c $E/spmw_tiles.sh $E/spmw_tiles_kernel.sh $E/spmw_all.sh $E/probe.sh $E/autosa_tiles.sh $E/autosa_tiles_tail.sh \
-  $E/autosa_recosim.sh $E/dato_gen.py $E/dato_tb.cpp $E/allo_tiles.sh $E/lane.sh $E/beats.py \
-  $E/collect_tiles.sh $STAGE/scripts/
-# The Dato driver was given its pipeline-threshold option while five builds
-# were running from it, so the newer file has another name until they end.
-if [ -f $E/dato_tiles_v2.sh ]; then c $E/dato_tiles_v2.sh $STAGE/scripts/dato_tiles.sh; else c $E/dato_tiles.sh $STAGE/scripts/; fi
+  $E/autosa_recosim.sh $E/autosa_paper.sh $E/autosa_ktile.txt $E/dato_tiles.sh $E/dato_gen.py $E/dato_tb.cpp \
+  $E/allo_tiles.sh $E/lane.sh $E/when_free.sh $E/beats.py $E/collect_tiles.sh $STAGE/scripts/
 find $STAGE -type f -empty -delete
 du -sh $STAGE; find $STAGE -type f | wc -l

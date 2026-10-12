@@ -1,49 +1,42 @@
 array,side,folder,system,scope,port_bits_in,port_bits_out,ideal_cycles,cycles_data_beats,cycles_flow_reported,cycles,cycles_from,pct_of_peak,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz,gops,unrouted
 16x16,64,spmw_mesh,SPMW mesh,array,,,1024,1079,,1079,beats,94.9,31430,34573,256,0,0.099,3.234,309,150.2,
 16x16,64,spmw_kernel,SPMW kernel,kernel,512,512,1024,1116,1134,1116,beats,91.8,38196,44626,256,110,0.177,3.156,317,148.9,0
-16x16,64,dato,Dato's design,kernel,,,1024,,,,,,,,,,,,,,
-16x16,64,autosa_wide,"AutoSA, wide",kernel,512,512,1024,,,,,,,,,,,,,,
-16x16,64,autosa,AutoSA,kernel,512,32,1024,11714,11785,11714,beats,8.7,92827,223299,256,31,0.124,3.209,312,13.9,0
+16x16,64,dato,Dato's design,kernel,128,128,1024,,,,,,,,,,,,,,
+16x16,64,autosa,"AutoSA, K whole",kernel,512,32,1024,11714,11785,11714,beats,8.7,92827,223299,256,31,0.124,3.209,312,13.9,0
 16x16,64,allo,Allo,kernel,32,32,1024,15803,15852,15803,beats,6.5,34821,30426,256,35,0.253,3.080,325,10.8,0
 16x16,128,spmw_mesh,SPMW mesh,array,,,8192,8247,,8247,beats,99.3,31430,34573,256,0,0.099,3.234,309,157.3,
 16x16,128,spmw_kernel,SPMW kernel,kernel,512,512,8192,8284,8302,8284,beats,98.9,38196,44626,256,110,0.177,3.156,317,160.4,0
-16x16,128,dato,Dato's design,kernel,,,8192,,,,,,,,,,,,,,
-16x16,128,autosa_wide,"AutoSA, wide",kernel,512,512,8192,,,,,,,,,,,,,,
-16x16,128,autosa,AutoSA,kernel,512,32,8192,46641,46714,46641,beats,17.6,85389,113229,256,991,0.326,3.007,333,29.9,0
+16x16,128,dato,Dato's design,kernel,128,128,8192,,,,,,,,,,,,,,
+16x16,128,autosa,"AutoSA, K whole",kernel,512,32,8192,46641,46714,46641,beats,17.6,85389,113229,256,991,0.326,3.007,333,29.9,0
 16x16,128,allo,Allo,kernel,32,32,8192,71275,71324,71275,beats,11.5,36208,31568,256,43,0.170,3.163,316,18.6,0
 16x16,256,spmw_mesh,SPMW mesh,array,,,65536,65591,,65591,beats,99.9,31430,34573,256,0,0.099,3.234,309,158.2,
 16x16,256,spmw_kernel,SPMW kernel,kernel,512,512,65536,65628,65646,65628,beats,99.9,38196,44626,256,110,0.177,3.156,317,162.0,0
 16x16,256,dato,Dato's design,kernel,,,65536,,,,,,,,,,,,,,
-16x16,256,autosa_wide,"AutoSA, wide",kernel,512,512,65536,,,,,,,,,,,,,,
-16x16,256,autosa,AutoSA,kernel,512,32,65536,,186142,186142,flow,35.2,88160,117248,256,991,0.296,3.037,329,59.4,0
+16x16,256,autosa,"AutoSA, K whole",kernel,512,32,65536,186065,186142,186065,beats,35.2,88160,117248,256,991,0.296,3.037,329,59.4,0
 16x16,256,allo,Allo,kernel,32,32,65536,350507,350556,350507,beats,18.7,40002,32630,256,155,0.186,3.147,318,30.4,0
 16x16,512,spmw_mesh,SPMW mesh,array,,,524288,524343,,524343,beats,99.99,31430,34573,256,0,0.099,3.234,309,158.3,
 16x16,512,spmw_kernel,SPMW kernel,kernel,512,512,524288,524380,524398,524380,beats,99.98,38196,44626,256,110,0.177,3.156,317,162.2,0
 16x16,512,dato,Dato's design,kernel,,,524288,,,,,,,,,,,,,,
-16x16,512,autosa_wide,"AutoSA, wide",kernel,512,512,524288,,,,,,,,,,,,,,
-16x16,512,autosa,AutoSA,kernel,512,32,524288,,,,,,92558,121364,256,991,0.337,2.996,334,,0
+16x16,512,autosa,"AutoSA, K whole",kernel,512,32,524288,,,,,,92558,121364,256,991,0.337,2.996,334,,0
 16x16,512,allo,Allo,kernel,32,32,524288,,1926236,1926236,flow,27.2,39736,33451,256,659,-1.142,4.475,223,31.1,0
 16x16,1024,spmw_mesh,SPMW mesh,array,,,4194304,,,,,,31430,34573,256,0,0.099,3.234,309,,
 16x16,1024,spmw_kernel,SPMW kernel,kernel,512,512,4194304,,,,,,38196,44626,256,110,0.177,3.156,317,,0
 16x16,1024,dato,Dato's design,kernel,,,4194304,,,,,,,,,,,,,,
-16x16,1024,autosa_wide,"AutoSA, wide",kernel,512,512,4194304,,,,,,,,,,,,,,
-16x16,1024,autosa,AutoSA,kernel,512,32,4194304,,,,,,91714,125352,256,991,0.338,2.995,334,,0
+16x16,1024,autosa,"AutoSA, K whole",kernel,512,32,4194304,,,,,,91714,125352,256,991,0.338,2.995,334,,0
 16x16,1024,allo,Allo,kernel,32,32,4194304,,,,,,43842,35640,256,2595,-2.411,5.744,174,,0
 32x32,64,spmw_mesh,SPMW mesh,array,,,256,359,,359,beats,71.3,,,,,,,,,
-32x32,64,spmw_kernel,SPMW kernel,kernel,512,512,256,469,488,469,beats,54.6,,,,,,,,,
-32x32,64,autosa,AutoSA,kernel,,,256,,,,,,,,,,,,,,
-32x32,64,allo,Allo,kernel,,,256,,,,,,,,,,,,,,
+32x32,64,spmw_kernel,SPMW kernel,kernel,512,512,256,469,488,469,beats,54.6,134783,148015,1024,174,0.015,3.318,301,336.9,0
+32x32,64,allo,Allo,kernel,32,32,256,,,,,,,,,,,,,,
 32x32,128,spmw_mesh,SPMW mesh,array,,,2048,2151,,2151,beats,95.2,,,,,,,,,
-32x32,128,spmw_kernel,SPMW kernel,kernel,512,512,2048,2225,2244,2225,beats,92.0,,,,,,,,,
+32x32,128,spmw_kernel,SPMW kernel,kernel,512,512,2048,2225,2244,2225,beats,92.0,134783,148015,1024,174,0.015,3.318,301,568.1,0
 32x32,128,allo,Allo,kernel,,,2048,,,,,,,,,,,,,,
 32x32,256,spmw_mesh,SPMW mesh,array,,,16384,16487,,16487,beats,99.4,,,,,,,,,
-32x32,256,spmw_kernel,SPMW kernel,kernel,512,512,16384,16561,16580,16561,beats,98.9,,,,,,,,,
-32x32,256,autosa,AutoSA,kernel,,,16384,,,,,,,,,,,,,,
+32x32,256,spmw_kernel,SPMW kernel,kernel,512,512,16384,16561,16580,16561,beats,98.9,134783,148015,1024,174,0.015,3.318,301,610.6,0
+32x32,256,autosa,"AutoSA, K whole",kernel,,,16384,,,,,,,,,,,,,,
 32x32,256,allo,Allo,kernel,,,16384,,,,,,,,,,,,,,
 32x32,512,spmw_mesh,SPMW mesh,array,,,131072,131175,,131175,beats,99.9,,,,,,,,,
-32x32,512,spmw_kernel,SPMW kernel,kernel,512,512,131072,131249,131268,131249,beats,99.9,,,,,,,,,
+32x32,512,spmw_kernel,SPMW kernel,kernel,512,512,131072,131249,131268,131249,beats,99.9,134783,148015,1024,174,0.015,3.318,301,616.4,0
 32x32,512,allo,Allo,kernel,,,131072,,,,,,,,,,,,,,
 32x32,1024,spmw_mesh,SPMW mesh,array,,,1048576,,,,,,,,,,,,,,
-32x32,1024,spmw_kernel,SPMW kernel,kernel,512,512,1048576,,,,,,,,,,,,,,
-32x32,1024,autosa,AutoSA,kernel,,,1048576,,,,,,,,,,,,,,
+32x32,1024,spmw_kernel,SPMW kernel,kernel,512,512,1048576,,,,,,134783,148015,1024,174,0.015,3.318,301,,0
 32x32,1024,allo,Allo,kernel,,,1048576,,,,,,,,,,,,,,

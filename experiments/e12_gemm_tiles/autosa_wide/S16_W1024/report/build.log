@@ -1,7 +1,0 @@
-AUTOSA_TILES_START S=16 W=1024 wide Sun Oct 11 20:34:15 EDT 2026
-operand lines rewritten: 2
-gen rc=0
-gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 256
-hls A_t64 B_t64 C_t16, host elements A=67108864 B=67108864 C=1048576 -> depth A=1048576 B=1048576 C=65536
-depth pragmas: 1129
-csynth wall_s=2940

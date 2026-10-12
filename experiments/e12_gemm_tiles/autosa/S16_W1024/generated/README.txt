@@ -1,1 +1,1 @@
-As ../../S16_W64/generated, with this workload's loop bounds; source/autosa_command.txt regenerates it.
+As the 64-cubed build's generated/, with this workload's loop bounds; source/autosa_command.txt regenerates it.

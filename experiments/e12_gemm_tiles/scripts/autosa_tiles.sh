@@ -3,10 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # autosa_tiles.sh <S> <W> <narrow|wide>: AutoSA's output-stationary S x S array
 # on a W x W x W matmul, end to end, on E1's recipe: space_time[3], one cell a
-# multiplier, with the array partitioned [S, S, W] so that a tile is S rows by
-# S columns and the whole of K. `wide` adds --host-serialize, E1's 512-bit
-# variant, in which the host lays the operands out in the order the array
-# reads them.
+# multiplier. `wide` adds --host-serialize, E1's 512-bit variant, in which the
+# host lays the operands out in the order the array reads them.
+#
+# KTILE (default W) is the array partition's third factor, the steps of K a
+# tile holds: array_part[S, S, KTILE]. AutoSA's own examples always tile K
+# (16 of 64 in docs/examples/mm.rst; 32, 64 and 512 of 1,024 in its large
+# designs), and --host-serialize needs it: with K left whole the array keeps
+# a row tile's A across the column tiles, the generated reader takes one copy
+# a row tile and the generated serializer hands over one a tile, and the
+# design fails its own C testbench. A build with KTILE set goes to
+# autosa/<variant>_k<KTILE>/.
 #   1. autosa: generate kernel_kernel.cpp
 #   2. vitis_hls: csynth and RTL cosimulation with AutoSA's own host testbench
 #   3. xsim again with a waveform: first memory beat to last (beats.py); only
@@ -14,18 +21,20 @@
 #      simulation being a second day
 #   4. vivado: out-of-context place and route at 3.333 ns, beside step 2's
 #      cosimulation
+main() {
 set -u
 export PATH=/scratch/hc676/allo-agent/bin:/scratch/hc676/autosa/llvm9/bin:$PATH
 export LD_LIBRARY_PATH=/scratch/hc676/autosa/llvm9/lib:${LD_LIBRARY_PATH:-}
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 S=$1; W=$2; V=${3:-wide}
+KT=${KTILE:-$W}; TAG=""; [ $KT = $W ] || TAG=_k$KT
 A=/scratch/hc676/autosa/AutoSA
 REF=/scratch/hc676/e1_autosa_2026-09-06/gen/mm8i8z
 E=/scratch/hc676/e16_tiles
-D=$E/autosa/$V/S${S}_W$W
-LOG=$E/logs/autosa_${V}_S${S}_W$W.log
+D=$E/autosa/$V$TAG/S${S}_W$W
+LOG=$E/logs/autosa_${V}${TAG}_S${S}_W$W.log
 mkdir -p $E/logs; rm -rf $D; mkdir -p $D/out/src $D/out/latency_est $D/out/resource_est $D/out/tuning
-echo "AUTOSA_TILES_START S=$S W=$W $V $(date)" > $LOG
+echo "AUTOSA_TILES_START S=$S W=$W $V K tile $KT $(date)" > $LOG
 # ---- 1. generate -----------------------------------------------------------
 sed -E "s/#define I [0-9]+/#define I $W/; s/#define J [0-9]+/#define J $W/; s/#define K [0-9]+/#define K $W/" \
     $REF/kernel.h > $D/kernel.h
@@ -37,7 +46,7 @@ EXTRA=""; [ "$V" = wide ] && EXTRA="--host-serialize"
 cd $A
 ./autosa $D/kernel.c --config=./autosa_config/autosa_config.json \
   --target=autosa_hls_c --output-dir=$D/out $EXTRA \
-  --sa-sizes="{kernel[]->space_time[3];kernel[]->array_part[$S,$S,$W];kernel[]->latency[1,1];kernel[]->simd[1]}" \
+  --sa-sizes="{kernel[]->space_time[3];kernel[]->array_part[$S,$S,$KT];kernel[]->latency[1,1];kernel[]->simd[1]}" \
   --simd-info=$D/simd_info.json --hls > $D/gen.log 2>&1
 echo "gen rc=$?" >> $LOG
 G=$D/out/src
@@ -156,3 +165,5 @@ fi
 wait $ROUTE
 if [ -f $D/pnr_lines.txt ]; then cat $D/pnr_lines.txt >> $LOG; else echo "pnr: no RTL" >> $LOG; fi
 echo "AUTOSA_TILES_DONE $(date)" >> $LOG
+}
+main "$@"

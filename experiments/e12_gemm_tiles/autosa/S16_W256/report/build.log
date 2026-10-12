@@ -10,3 +10,11 @@ hls rc=0 wall_s=8046
 Passed!
 Passed!
 INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A: 1024 beats  first 94     last 113891
+  B: 16384 beats  first 94     last 179171
+  C: 65536 beats  first 478    last 186158
+BEATS first 94 last 186158 cycles 186065
+pnr rc=0 wall_s=4327
+PNR_UNROUTED 0
+pnr LUT 88160 FF 117248 DSP 256 BRAM 495.5 WNS 0.296
+AUTOSA_TILES_DONE Mon Oct 12 00:28:49 EDT 2026
