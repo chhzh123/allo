@@ -207,43 +207,38 @@ nothing and one build runs every ``M``, ``K`` and ``N``:
        above: uint8 = row
        acc: int32 = 0
        rem: uint8 = 0                   # sums of the last tile still to pass on
-       fin: uint1 = 0                   # this step is a tile's last
        ...
        while go != 0:
            ...
-           t: int16 = io.west.get()     # int8, and PRE on a tile's next-to-last
+           t: int16 = io.west.get()     # int8, and LAST on a tile's final step
            b: int8 = io.north.get()
            io.east.put(t)
            io.south.put(b)
            s: int32 = acc + a * b
-           if fin != 0:                 # hand the sum down, start the next at 0
+           if ((t >> 8) & 1) != 0:      # hand the sum down, start the next at 0
                io.c_out.put(s)
                acc = 0
                rem = above
-               fin = 0
            else:
                acc = s
                if rem != 0:             # beside this step's multiply-add
                    io.c_out.put(io.c_in.get())
                    rem = rem - 1
-           if ((t >> 8) & 1) != 0:
-               fin = 1
 
    P = spmw.place(pe, on=mesh)
    spmw.pipeline(P, ii=1, combinational=True)
 
-Three things in it are there for the tile boundary.  The sums of a tile leave
-down their column *during* the next tile's steps, one a step.  The cell is one
-state: a row runs a cycle behind the row above, so a sum that took a pipeline's
-depth to pass a row would hold every row below it at every tile -- about a
-cycle a row a tile, measured.  And each stream access is decided by what the
-cell holds, never by the token it is reading, which Vitis HLS would schedule a
-state later; that is why the mark comes a step early.  The links that carry
-the sums are declared four deep (``spmw.In(int32, depth=4)``): the row above
-is two steps into handing its sums down when a cell takes the first, and a
-two-entry slice says it is full a cycle after it is.  On an 8x8 array, 16
-tiles of 32 steps take 543 cycles: the 512 steps, and 31 to fill and drain.
+Two things in it are there for the tile boundary.  The sums of a tile leave
+down their column *during* the next tile's steps, one a step, so the cell
+never stops to drain.  And the cell is one state: a row runs a cycle behind
+the row above, so a sum should pass a row in a cycle too.  The links that
+carry the sums are declared four deep (``spmw.In(int32, depth=4)``): the row
+above is two steps into handing its sums down when a cell takes the first, and
+a two-entry slice says it is full a cycle after it is.
 
+On an 8x8 array, 16 tiles of 32 steps take 543 cycles in RTL: the 512 steps,
+and 31 to fill and drain.  Left to pipeline, the same cell is five stages deep
+and the launch takes 554; with the sum links two deep it takes 618.
 
 Ports
 =====
