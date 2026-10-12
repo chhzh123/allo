@@ -60,14 +60,14 @@ from the first input token to the last output token.
 |  | SPMW kernel | 512/512 | 495 | 514 | 87,050 | 192,131 | 1,024 | 46 | +0.276 ns | 327 MHz |
 |  | AutoSA | 32/32 | 4,743 | 4,819 | 181,372 | 219,076 | 1,024 | 149 | +0.031 ns | 303 MHz |
 |  | AutoSA, wide | 512/512 | 2,371 | 2,443 | 183,237 | 222,028 | 1,024 | 193 | +0.168 ns | 316 MHz |
-|  | Allo |  |  |  |  |  |  |  |  |  |
+|  | Allo | 32/32 | 3,629 | 3,678 | 158,196 | 167,248 | 1,024 | 3 | -1.418 ns | 210 MHz |
 
 Every row is routed out of context at 3.333 ns on `xcu280-fsvh2892-2L-e` with
 nothing unrouted; slack is against that target and the clock is the period it
 implies. Port width is read off each design's synthesised RTL
-(`report/port_widths.txt`). BRAM18 is twice the block RAM tiles. The blank
-row is Allo's 32x32 array, which did not get through synthesis (below);
-nothing in the table is an estimate.
+(`report/port_widths.txt`). BRAM18 is twice the block RAM tiles. Allo's 32x32
+array is the one row that misses the target, by 1.418 ns; its synthesis took
+17 hours (below). Nothing in the table is an estimate.
 
 AutoSA's two 32x32 arrays took 9.6 hours to synthesise and about five more to
 cosimulate. In both, the simulation's deadlock monitor reports one of the 32
@@ -83,9 +83,9 @@ Three things to take from it.
 **SPMW's kernel finishes first at every size, and the gap widens.** 62 cycles
 at 4x4 against 90 to 139; 123 at 8x8 against AutoSA's 216 with matched 512-bit
 ports, 336 as generated, and Allo's 333; 227 at 16x16 against 691, 1,239 and
-1,021; 495 at 32x32 against 2,371 and 4,743. At the clocks each routed to,
-the 16x16 launch takes 0.64 microseconds in SPMW and 1.9, 3.4 and 3.2 in the
-other three, and the 32x32 launch 1.5 against AutoSA's 7.5 and 15.7.
+1,021; 495 at 32x32 against 2,371, 4,743 and 3,629. At the clocks each routed
+to, the 16x16 launch takes 0.64 microseconds in SPMW and 1.9, 3.4 and 3.2 in
+the other three, and the 32x32 launch 1.5 against 7.5, 15.7 and 17.2.
 
 **In area it depends on the size and on the column.** Three 512-bit memory
 masters and the control interface are a fixed 3,300 lookup tables, 5,400
@@ -94,10 +94,11 @@ array they serve; Allo's kernel is the smallest there. By 8x8 the SPMW kernel
 has Allo's lookup tables (9,217 against 9,182) and half of AutoSA's; at 16x16
 it has two thirds of Allo's (24,346 against 36,022) and under half of AutoSA's
 (50,462, or 52,179 wide); at 32x32 it again has under half of AutoSA's (87,050
-against 181,372). In registers it is close to AutoSA from 8x8 up (19,602
-against 20,730, 53,156 against 59,327, 192,131 against 219,076) and 1.7 to 2.2
-times Allo, because it keeps every link between two cells in a register slice
-where Allo keeps a shift-register FIFO (`gemm_fifo_w8_d24_S_ShiftReg` and its
+against 181,372) and 55% of Allo's 158,196. In registers it is close to AutoSA
+from 8x8 up (19,602 against 20,730, 53,156 against 59,327, 192,131 against
+219,076) and 1.7 to 2.2 times Allo up to 16x16 (1.15 times at 32x32, where
+Allo has 167,248), because it keeps every link between two cells in a
+register slice where Allo keeps a shift-register FIFO (`gemm_fifo_w8_d24_S_ShiftReg` and its
 like). Its 46 block RAMs are the masters and do not grow. AutoSA's do -- 7,
 11, 60 and 149 as generated -- and at 16x16 they are 16 in its cells, each of
 which declares one, and 41 in the modules that distribute A and collect C.
@@ -109,7 +110,8 @@ last. But every kernel's worst path is control, and SPMW's -- in its control
 wrapper or a mover, and at 32x32 in a feeder's check that all 32 edge buffers
 have room -- holds it to 343, 341, 352 and 327 MHz. That is below AutoSA as
 generated up to 16x16 (380, 378, 368) and above it at 32x32 (303, or 316
-wide), and below Allo at the two smaller sizes (383, 345, 315). AutoSA's worst
+wide), and below Allo at the two smaller sizes only (383 and 345, then 315 and
+210). AutoSA's worst
 path is the collection of its modules' done signals, Allo's the handshakes of
 its tile's FIFOs.
 
@@ -218,16 +220,17 @@ Vitis HLS gives each cell's weight a channel of its own: at 16x16 the tile
 holds 256 `gemm_fifo_w8_d*_S` FIFOs for the weights beside the 272 that carry
 A and the 272 that carry the partial sums.
 
-**At 32x32 the design did not get through `csynth_design` in four hours**
-(`allo/S32/report/build_4h.log`, `hls rc=124`). It stopped in the tool's "Loop,
-function and other optimizations" phase, which takes 0.9, 6.4 and 134 seconds
-at the three smaller sizes (`allo/S*/report/hls_phases.txt`) and took 870 for
-E1's 32x32 output-stationary array. It passes the LLVM check and C simulation
-at that size. A second run, given a day, got through that phase in 42,884
-seconds -- 11.9 hours, 320 times what 16x16 takes -- and had scheduled 952 of
-its modules when it was stopped in error 25 minutes later
-(`allo/S32/report/hls_phases_stopped.txt`). A third was started at once; the
-row's cells are blank until it ends.
+**At 32x32 the design takes 17 hours to synthesise.** A first run, given four
+hours, did not get through `csynth_design` (`allo/S32/report/build_4h.log`,
+`hls rc=124`): it was in the tool's "Loop, function and other optimizations"
+phase, which takes 0.9, 6.4 and 134 seconds at the three smaller sizes
+(`allo/S*/report/hls_phases.txt`) and took 870 for E1's 32x32
+output-stationary array. A second, given a day, got through that phase in
+42,884 seconds and had scheduled 952 of its modules when it was stopped in
+error 25 minutes later (`allo/S32/report/hls_phases_stopped.txt`). The third
+ran to the end: 48,563 seconds in that phase -- 13.5 hours, 360 times what
+16x16 takes -- and 61,261 for `csynth_design` in all. The row is from it. It
+passes cosimulation and routes every net, at 4.751 ns.
 
 How a cell gets its weight is not what holds the tool there.
 `scripts/ws_probe2.py` is the same array with the tile copying B into a grid
@@ -265,7 +268,7 @@ Beats moved for A, B and C, counted off each cosimulation:
 | 4x4 | 1 + 1 + 1 = 3 | 16 + 16 + 16 = 48 | 1 + 1 + 1 = 3 | 4 + 4 + 16 = 24 |
 | 8x8 | 1 + 1 + 4 = 6 | 64 + 64 + 64 = 192 | 1 + 1 + 4 = 6 | 16 + 16 + 64 = 96 |
 | 16x16 | 4 + 4 + 16 = 24 | 256 + 256 + 256 = 768 | 4 + 4 + 16 = 24 | 64 + 64 + 256 = 384 |
-| 32x32 | 16 + 16 + 64 = 96 | 1024 + 1024 + 1024 = 3,072 | 16 + 16 + 64 = 96 |  |
+| 32x32 | 16 + 16 + 64 = 96 | 1024 + 1024 + 1024 = 3,072 | 16 + 16 + 64 = 96 | 256 + 256 + 1024 = 1,536 |
 
 SPMW's counts are its port's arithmetic, rows of bytes or of 32-bit sums at
 512 bits a beat. AutoSA as generated moves one element a beat on every port,
@@ -343,7 +346,7 @@ The same systems on the same workload in E1, cycles first beat to last:
 | 4x4 | 16 -> 39 | 47 -> 62 | 78 -> 108 | -- -> 90 | 118 -> 139 |
 | 8x8 | 28 -> 90 | 82 -> 123 | 222 -> 336 | 130 -> 216 | 288 -> 333 |
 | 16x16 | 52 -> 195 | 133 -> 227 | 782 -> 1,239 | 374 -> 691 | 928 -> 1,021 |
-| 32x32 | 100 -> 423 | 280 -> 495 | 2,990 -> 4,743 | 1,222 -> 2,371 | 3,408 -> -- |
+| 32x32 | 100 -> 423 | 280 -> 495 | 2,990 -> 4,743 | 1,222 -> 2,371 | 3,408 -> 3,629 |
 
 Every system is slower here, and SPMW's array the most: 39 cycles against 16
 at 4x4, 423 against 100 at 32x32. That is the dataflow and the tool together.
@@ -411,6 +414,7 @@ Everything was built on brg-zhang-xcel with Vitis HLS and Vivado 2023.2.
     scripts/autosa_ws.sh <S> narrow|wide
     scripts/autosa_ws_tail.sh 32 narrow|wide <pid>   # 32x32 only: routes beside the cosimulation
     scripts/allo_ws.sh <S>          # runs ws_allo_gen.py first
+    HLS_LIMIT=129600 scripts/allo_ws.sh 32   # 32x32: 17 hours of synthesis
     scripts/probe32.sh              # the FIFO-weight variant of Allo's array, csynth at 32x32
     scripts/collect_ws.sh           # stages this folder's shape from the builds
     python3 scripts/make_results.py # results.csv and the table above

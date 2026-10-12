@@ -1,0 +1,182 @@
+
+
+================================================================
+== Vitis HLS Report for 'PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33'
+================================================================
+* Date:           Mon Oct 12 12:02:54 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        prj
+* Solution:       sol (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  2.213 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+    |   min   |   max   |    min   |    max   | min | max |   Type  |
+    +---------+---------+----------+----------+-----+-----+---------+
+    |       37|       37|  0.123 us|  0.123 us|   37|   37|       no|
+    +---------+---------+----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        N/A
+
+        * Loop: 
+        +--------------+---------+---------+----------+-----------+-----------+------+----------+
+        |              |  Latency (cycles) | Iteration|  Initiation Interval  | Trip |          |
+        |   Loop Name  |   min   |   max   |  Latency |  achieved |   target  | Count| Pipelined|
+        +--------------+---------+---------+----------+-----------+-----------+------+----------+
+        |- l_step_m33  |       35|       35|         5|          1|          1|    32|       yes|
+        +--------------+---------+---------+----------+-----------+-----------+------+----------+
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     1|        -|        -|    -|
+|Expression           |        -|     -|        0|       35|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|        -|        -|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       72|    -|
+|Register             |        -|     -|      167|       32|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        0|     1|      167|      139|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |        0|    ~0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |        0|    ~0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    N/A
+
+    * DSP: 
+    +-----------------------------------+-----------------------------+--------------+
+    |              Instance             |            Module           |  Expression  |
+    +-----------------------------------+-----------------------------+--------------+
+    |mac_muladd_8s_8s_32s_32_4_1_U3629  |mac_muladd_8s_8s_32s_32_4_1  |  i0 + i1 * i2|
+    +-----------------------------------+-----------------------------+--------------+
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    +----------------------------------+----------+----+---+----+------------+------------+
+    |           Variable Name          | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +----------------------------------+----------+----+---+----+------------+------------+
+    |m33_2_fu_102_p2                   |         +|   0|  0|  13|           6|           1|
+    |icmp_ln1458_fu_96_p2              |      icmp|   0|  0|  14|           6|           7|
+    |ap_block_pp0_stage0_01001         |        or|   0|  0|   2|           1|           1|
+    |ap_block_state2_pp0_stage0_iter1  |        or|   0|  0|   2|           1|           1|
+    |ap_block_state5_pp0_stage0_iter4  |        or|   0|  0|   2|           1|           1|
+    |ap_enable_pp0                     |       xor|   0|  0|   2|           1|           2|
+    +----------------------------------+----------+----+---+----+------------+------------+
+    |Total                             |          |   0|  0|  35|          16|          13|
+    +----------------------------------+----------+----+---+----+------------+------------+
+
+    * Multiplexer: 
+    +-------------------------+----+-----------+-----+-----------+
+    |           Name          | LUT| Input Size| Bits| Total Bits|
+    +-------------------------+----+-----------+-----+-----------+
+    |A_fifo_1_1_blk_n         |   9|          2|    1|          2|
+    |A_fifo_1_2_blk_n         |   9|          2|    1|          2|
+    |P_fifo_1_1_blk_n         |   9|          2|    1|          2|
+    |P_fifo_1_2_blk_n         |   9|          2|    1|          2|
+    |ap_done_int              |   9|          2|    1|          2|
+    |ap_enable_reg_pp0_iter1  |   9|          2|    1|          2|
+    |ap_sig_allocacmp_m33_1   |   9|          2|    6|         12|
+    |m33_fu_48                |   9|          2|    6|         12|
+    +-------------------------+----+-----------+-----+-----------+
+    |Total                    |  72|         16|   18|         36|
+    +-------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +----------------------------------+----+----+-----+-----------+
+    |               Name               | FF | LUT| Bits| Const Bits|
+    +----------------------------------+----+----+-----+-----------+
+    |ap_CS_fsm                         |   1|   0|    1|          0|
+    |ap_done_reg                       |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter1           |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter2           |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter3           |   1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter4           |   1|   0|    1|          0|
+    |ap_loop_exit_ready_pp0_iter1_reg  |   1|   0|    1|          0|
+    |ap_loop_exit_ready_pp0_iter2_reg  |   1|   0|    1|          0|
+    |ap_loop_exit_ready_pp0_iter3_reg  |   1|   0|    1|          0|
+    |m33_fu_48                         |   6|   0|    6|          0|
+    |v835_reg_140                      |   8|   0|    8|          0|
+    |v837_reg_145                      |  32|   0|   32|          0|
+    |v837_reg_145_pp0_iter2_reg        |  32|   0|   32|          0|
+    |v843_cast_reg_131                 |  16|   0|   16|          0|
+    |v835_reg_140                      |  64|  32|    8|          0|
+    +----------------------------------+----+----+-----+-----------+
+    |Total                             | 167|  32|  111|          0|
+    +----------------------------------+----+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+-------------------------------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |               Source Object               |    C Type    |
++---------------------------+-----+-----+------------+-------------------------------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|ap_rst                     |   in|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|  PE_kernel_ws_gemm_1_1_Pipeline_l_step_m33|  return value|
+|A_fifo_1_1_dout            |   in|    8|     ap_fifo|                                 A_fifo_1_1|       pointer|
+|A_fifo_1_1_num_data_valid  |   in|    7|     ap_fifo|                                 A_fifo_1_1|       pointer|
+|A_fifo_1_1_fifo_cap        |   in|    7|     ap_fifo|                                 A_fifo_1_1|       pointer|
+|A_fifo_1_1_empty_n         |   in|    1|     ap_fifo|                                 A_fifo_1_1|       pointer|
+|A_fifo_1_1_read            |  out|    1|     ap_fifo|                                 A_fifo_1_1|       pointer|
+|P_fifo_1_1_dout            |   in|   32|     ap_fifo|                                 P_fifo_1_1|       pointer|
+|P_fifo_1_1_num_data_valid  |   in|    7|     ap_fifo|                                 P_fifo_1_1|       pointer|
+|P_fifo_1_1_fifo_cap        |   in|    7|     ap_fifo|                                 P_fifo_1_1|       pointer|
+|P_fifo_1_1_empty_n         |   in|    1|     ap_fifo|                                 P_fifo_1_1|       pointer|
+|P_fifo_1_1_read            |  out|    1|     ap_fifo|                                 P_fifo_1_1|       pointer|
+|P_fifo_1_2_din             |  out|   32|     ap_fifo|                                 P_fifo_1_2|       pointer|
+|P_fifo_1_2_num_data_valid  |   in|    7|     ap_fifo|                                 P_fifo_1_2|       pointer|
+|P_fifo_1_2_fifo_cap        |   in|    7|     ap_fifo|                                 P_fifo_1_2|       pointer|
+|P_fifo_1_2_full_n          |   in|    1|     ap_fifo|                                 P_fifo_1_2|       pointer|
+|P_fifo_1_2_write           |  out|    1|     ap_fifo|                                 P_fifo_1_2|       pointer|
+|A_fifo_1_2_din             |  out|    8|     ap_fifo|                                 A_fifo_1_2|       pointer|
+|A_fifo_1_2_num_data_valid  |   in|    7|     ap_fifo|                                 A_fifo_1_2|       pointer|
+|A_fifo_1_2_fifo_cap        |   in|    7|     ap_fifo|                                 A_fifo_1_2|       pointer|
+|A_fifo_1_2_full_n          |   in|    1|     ap_fifo|                                 A_fifo_1_2|       pointer|
+|A_fifo_1_2_write           |  out|    1|     ap_fifo|                                 A_fifo_1_2|       pointer|
+|v843                       |   in|    8|     ap_none|                                       v843|        scalar|
++---------------------------+-----+-----+------------+-------------------------------------------+--------------+
+
