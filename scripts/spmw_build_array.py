@@ -64,6 +64,10 @@ from allo.spmw.role_ip import (  # pylint: disable=wrong-import-position
 
 PART = "xcu280-fsvh2892-2L-e"
 
+#: The GEMM sides `gemmtiles-<side>` is registered for; 16 and 32 are for
+#: trying the array out, the rest are what E12 measures.
+TILE_SIDES = (16, 32, 64, 128, 256, 512, 1024)
+
 #: What Vitis HLS charges an `ap_fifo` read or a write on this part at the
 #: relaxed clocks a credited role is scheduled against -- the `Delay = 1.42` of
 #: its schedule report at 4.75 and 6.17 ns (it is 1.21 at 3.33 ns). An SPMW link
@@ -210,6 +214,13 @@ def design(name, size, lanes=1):
         from test_spmw_gemm_ws import gemm_ws_of
 
         return gemm_ws_of(size)
+    if name.startswith("gemmtiles-"):
+        # One output-stationary array on a GEMM `W` on a side: (W / size)^2
+        # tiles back to back. The hardware is the same for every `W`
+        # (`test_spmw_gemm_tiles`); only the streams change.
+        from test_spmw_gemm_tiles import tiles_workload
+
+        return tiles_workload(size, int(name.split("-")[1]))
     if name == "tpuvpu":
         # The TPU with a programmable vector unit: MXU, a VPU chain with a
         # register file, and a program streamed in as data.
@@ -1270,6 +1281,7 @@ def main():
             "autosa",
             "autosa-spec",
             "gemmws",
+            *(f"gemmtiles-{w}" for w in TILE_SIDES),
             "split",
             "split-spec",
             "tpu",
