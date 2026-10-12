@@ -1,0 +1,6 @@
+gemmtiles S=4 W=16 |  SPMW COSIM PASS (256/256 tokens, 0 errors)| SPMW CYCLES total=275 first_out=29 first_in=1| cell: Final II = 1, Depth = 2
+gemmtiles S=8 W=32 |  SPMW COSIM PASS (1024/1024 tokens, 0 errors)| SPMW CYCLES total=543 first_out=49 first_in=1| cell: Final II = 1, Depth = 2
+gemmtilesp S=4 W=16 |  SPMW COSIM PASS (256/256 tokens, 0 errors)| SPMW CYCLES total=282 first_out=33 first_in=1| cell: Final II = 1, Depth = 5
+gemmtilesp S=8 W=32 |  SPMW COSIM PASS (1024/1024 tokens, 0 errors)| SPMW CYCLES total=554 first_out=53 first_in=1| cell: Final II = 1, Depth = 5
+gemmtiles2 S=4 W=16 |  SPMW COSIM PASS (256/256 tokens, 0 errors)| SPMW CYCLES total=290 first_out=29 first_in=1| cell: Final II = 1, Depth = 2
+gemmtiles2 S=8 W=32 |  SPMW COSIM PASS (1024/1024 tokens, 0 errors)| SPMW CYCLES total=618 first_out=49 first_in=1| cell: Final II = 1, Depth = 2

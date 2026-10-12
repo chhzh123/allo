@@ -1,0 +1,8 @@
+DATO_TILES_START S=16 W=64 test Sun Oct 11 20:19:06 EDT 2026
+gen rc=0
+DATO GEN simulator at 32^3 on 16x16: matches numpy
+DATO GEN OK /scratch/hc676/e16_tiles/dato/test/S16_W64/gen
+depth pragmas: 3, kernels: 0
+csim rc=0
+DATO TB PASS mismatches=0 of 4096
+deep-FIFO probe stopped Sun Oct 11 22:45:46 EDT 2026

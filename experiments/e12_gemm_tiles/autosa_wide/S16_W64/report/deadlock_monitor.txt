@@ -1,0 +1,10 @@
+//////////////////////////////////////////////////////////////////////////////
+// ERROR!!! DEADLOCK DETECTED at 8056000 ns! SIMULATION WILL BE STOPPED! //
+//////////////////////////////////////////////////////////////////////////////
+/////////////////////////
+// Dependence cycle 1:
+// (1): Process: kernel0.A_IO_L3_in_U0
+reports: 1
+      1 // (1): Process: kernel0.A_IO_L3_in_U0
+// RTL Simulation : 0 / 1 [0.00%] @ "109000"
+$finish called at time : 8072780 ps 

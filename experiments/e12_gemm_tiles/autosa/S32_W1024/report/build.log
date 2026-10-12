@@ -1,0 +1,7 @@
+AUTOSA_TILES_START S=32 W=1024 narrow Sun Oct 11 21:41:12 EDT 2026
+operand lines rewritten: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t1 *C | PE instances 1024
+hls A_t64 B_t64 C_t1, host elements A=1048576 B=1048576 C=1048576 -> depth A=16384 B=16384 C=1048576
+depth pragmas: 4294
+tail: driver replaced by autosa_tiles_tail.sh Sun Oct 11 22:50:06 EDT 2026

@@ -1,0 +1,12 @@
+AUTOSA_TILES_START S=16 W=128 narrow Sun Oct 11 21:24:57 EDT 2026
+operand lines rewritten: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t1 *C | PE instances 256
+hls A_t64 B_t64 C_t1, host elements A=16384 B=16384 C=16384 -> depth A=256 B=256 C=16384
+depth pragmas: 1126
+csynth wall_s=2461
+tail: driver replaced by autosa_tiles_tail.sh Sun Oct 11 22:50:06 EDT 2026
+hls rc=0 wall_s=5436
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***

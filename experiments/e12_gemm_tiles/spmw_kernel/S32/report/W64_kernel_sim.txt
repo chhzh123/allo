@@ -1,0 +1,9 @@
+counts: {'feed_pe_north_bind': 256, 'drain_pe_c_out_bind': 128, 'feed_frame_raw_bind': 261}
+expected drain bytes: 16384
+SPMW TB: starting at 134000
+SPMW TB: done after 243 poll(s) at 2086000
+SPMW TB DATA first_beat 39 last_beat 507 cycles 469
+SPMW TB RESULT 0 of 16384 byte(s) wrong
+xsim: rc=0 in 27s
+memory .BEAT(1)
+clock period 4 ns

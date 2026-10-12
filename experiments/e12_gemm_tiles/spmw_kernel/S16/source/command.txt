@@ -1,0 +1,4 @@
+python3 scripts/spmw_package_kernel.py --design gemmtiles-256 --size 16 --frequency 300 --jobs 4 --sim --out <kernel>
+python3 scripts/spmw_array_operands.py --design gemmtiles-<side> --size 16 --out <operands>
+python3 scripts/spmw_kernel_sim.py <kernel> <operands> --design gemmtiles-<side> --size 16 --polls 4000000
+vivado -mode batch -source pnr.tcl      # report/pnr.tcl

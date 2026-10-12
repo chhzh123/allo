@@ -1,0 +1,213 @@
+
+
+================================================================
+== Synthesis Summary Report of 'feed_frame_raw_bind'
+================================================================
++ General Information: 
+    * Date:           Sun Oct 11 22:32:02 2026
+    * Version:        2023.2 (Build 4023990 on Oct 11 2023)
+    * Project:        prj
+    * Solution:       sol (Vivado IP Flow Target)
+    * Product family: virtexuplusHBM
+    * Target device:  xcu280-fsvh2892-2L-e
+    
+
++ Performance & Resource Estimates: 
+    
+    PS: '+' for module; 'o' for loop; '*' for dataflow
+    +-------------------------------------------------+--------+-------+-----------+-----------+----------+-----------+-----------+----------+----------+----+------------+------------+-----+
+    |                     Modules                     |  Issue |       |  Latency  |  Latency  | Iteration|           |    Trip   |          |          |    |            |            |     |
+    |                     & Loops                     |  Type  | Slack |  (cycles) |    (ns)   |  Latency |  Interval |   Count   | Pipelined|   BRAM   | DSP|     FF     |     LUT    | URAM|
+    +-------------------------------------------------+--------+-------+-----------+-----------+----------+-----------+-----------+----------+----------+----+------------+------------+-----+
+    |+ feed_frame_raw_bind                            |  Timing|  -0.00|  134217744|  4.473e+08|         -|  134217745|          -|        no|  30 (~0%)|   -|  5127 (~0%)|  73637 (5%)|    -|
+    | + feed_frame_raw_bind_Pipeline_VITIS_LOOP_16_1  |  Timing|  -0.00|  134217733|  4.473e+08|         -|  134217733|          -|        no|         -|   -|  1422 (~0%)|  70264 (5%)|    -|
+    |  o VITIS_LOOP_16_1                              |       -|   2.43|  134217731|  4.473e+08|         5|          1|  134217728|       yes|         -|   -|           -|           -|    -|
+    +-------------------------------------------------+--------+-------+-----------+-----------+----------+-----------+-----------+----------+----------+----+------------+------------+-----+
+
+
+================================================================
+== HW Interfaces
+================================================================
+* M_AXI
++------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+| Interface  | Data Width | Address Width | Latency | Offset | Register | Max Widen | Max Read     | Max Write    | Num Read    | Num Write   | Resource Estimate |
+|            | (SW->HW)   |               |         |        |          | Bitwidth  | Burst Length | Burst Length | Outstanding | Outstanding |                   |
++------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+| m_axi_gmem | 512 -> 512 | 64            | 0       | direct | 0        | 512       | 16           | 16           | 16          | 16          | BRAM=30           |
++------------+------------+---------------+---------+--------+----------+-----------+--------------+--------------+-------------+-------------+-------------------+
+
+* AP_FIFO
++-----------+-----------+------------+
+| Interface | Direction | Data Width |
++-----------+-----------+------------+
+| out_0     | out       | 8          |
+| out_1     | out       | 8          |
+| out_10    | out       | 8          |
+| out_11    | out       | 8          |
+| out_12    | out       | 8          |
+| out_13    | out       | 8          |
+| out_14    | out       | 8          |
+| out_15    | out       | 8          |
+| out_16    | out       | 8          |
+| out_17    | out       | 8          |
+| out_18    | out       | 8          |
+| out_19    | out       | 8          |
+| out_2     | out       | 8          |
+| out_20    | out       | 8          |
+| out_21    | out       | 8          |
+| out_22    | out       | 8          |
+| out_23    | out       | 8          |
+| out_24    | out       | 8          |
+| out_25    | out       | 8          |
+| out_26    | out       | 8          |
+| out_27    | out       | 8          |
+| out_28    | out       | 8          |
+| out_29    | out       | 8          |
+| out_3     | out       | 8          |
+| out_30    | out       | 8          |
+| out_31    | out       | 8          |
+| out_4     | out       | 8          |
+| out_5     | out       | 8          |
+| out_6     | out       | 8          |
+| out_7     | out       | 8          |
+| out_8     | out       | 8          |
+| out_9     | out       | 8          |
++-----------+-----------+------------+
+
+* Other Ports
++-------+---------+-----------+----------+
+| Port  | Mode    | Direction | Bitwidth |
++-------+---------+-----------+----------+
+| src   | ap_none | in        | 64       |
+| steps | ap_none | in        | 32       |
++-------+---------+-----------+----------+
+
+* TOP LEVEL CONTROL
++-----------+------------+-----------------------------------+
+| Interface | Type       | Ports                             |
++-----------+------------+-----------------------------------+
+| ap_clk    | clock      | ap_clk                            |
+| ap_rst_n  | reset      | ap_rst_n                          |
+| ap_ctrl   | ap_ctrl_hs | ap_done ap_idle ap_ready ap_start |
++-----------+------------+-----------------------------------+
+
+
+================================================================
+== SW I/O Information
+================================================================
+* Top Function Arguments
++----------+-----------+------------------------+
+| Argument | Direction | Datatype               |
++----------+-----------+------------------------+
+| src      | in        | ap_uint<512> const *   |
+| steps    | in        | int                    |
+| out      | out       | stream<ap_uint<8>, 0>* |
++----------+-----------+------------------------+
+
+* SW-to-HW Mapping
++----------+--------------+-----------+----------+
+| Argument | HW Interface | HW Type   | HW Usage |
++----------+--------------+-----------+----------+
+| src      | m_axi_gmem   | interface |          |
+| src      | src          | port      | offset   |
+| steps    | steps        | port      |          |
+| out      | out_0        | interface |          |
+| out      | out_1        | interface |          |
+| out      | out_2        | interface |          |
+| out      | out_3        | interface |          |
+| out      | out_4        | interface |          |
+| out      | out_5        | interface |          |
+| out      | out_6        | interface |          |
+| out      | out_7        | interface |          |
+| out      | out_8        | interface |          |
+| out      | out_9        | interface |          |
+| out      | out_10       | interface |          |
+| out      | out_11       | interface |          |
+| out      | out_12       | interface |          |
+| out      | out_13       | interface |          |
+| out      | out_14       | interface |          |
+| out      | out_15       | interface |          |
+| out      | out_16       | interface |          |
+| out      | out_17       | interface |          |
+| out      | out_18       | interface |          |
+| out      | out_19       | interface |          |
+| out      | out_20       | interface |          |
+| out      | out_21       | interface |          |
+| out      | out_22       | interface |          |
+| out      | out_23       | interface |          |
+| out      | out_24       | interface |          |
+| out      | out_25       | interface |          |
+| out      | out_26       | interface |          |
+| out      | out_27       | interface |          |
+| out      | out_28       | interface |          |
+| out      | out_29       | interface |          |
+| out      | out_30       | interface |          |
+| out      | out_31       | interface |          |
++----------+--------------+-----------+----------+
+
+
+================================================================
+== M_AXI Burst Information
+================================================================
+ Note: All burst requests might be further partitioned into multiple requests during RTL generation based on max_read_burst_length or max_write_burst_length settings.
+
+* Inferred Burst Summary
++--------------+-----------+----------+-------+
+| HW Interface | Direction | Length   | Width |
++--------------+-----------+----------+-------+
+| m_axi_gmem   | read      | variable | 512   |
++--------------+-----------+----------+-------+
+
+* All M_AXI Variable Accesses
++--------------+----------+------------------+-----------+--------------+----------+-----------------+------------------+
+| HW Interface | Variable | Access Location  | Direction | Burst Status | Length   | Loop            | Loop Location    |
++--------------+----------+------------------+-----------+--------------+----------+-----------------+------------------+
+| m_axi_gmem   | src      | kernel.cpp:19:12 | read      | Inferred     | variable | VITIS_LOOP_16_1 | kernel.cpp:16:20 |
++--------------+----------+------------------+-----------+--------------+----------+-----------------+------------------+
+
+
+================================================================
+== Bind Op Report
+================================================================
++-------------------------------------------------+-----+--------+------------+-----+--------+---------+
+| Name                                            | DSP | Pragma | Variable   | Op  | Impl   | Latency |
++-------------------------------------------------+-----+--------+------------+-----+--------+---------+
+| + feed_frame_raw_bind                           | 0   |        |            |     |        |         |
+|   add_ln16_fu_242_p2                            |     |        | add_ln16   | add | fabric | 0       |
+|   add_ln16_1_fu_252_p2                          |     |        | add_ln16_1 | add | fabric | 0       |
+|   add_ln16_2_fu_287_p2                          |     |        | add_ln16_2 | add | fabric | 0       |
+|   add_ln16_3_fu_307_p2                          |     |        | add_ln16_3 | add | fabric | 0       |
+|   add_ln16_4_fu_330_p2                          |     |        | add_ln16_4 | add | fabric | 0       |
+|  + feed_frame_raw_bind_Pipeline_VITIS_LOOP_16_1 | 0   |        |            |     |        |         |
+|    add_ln16_fu_475_p2                           |     |        | add_ln16   | add | fabric | 0       |
+|    n_fu_491_p2                                  |     |        | n          | add | fabric | 0       |
++-------------------------------------------------+-----+--------+------------+-----+--------+---------+
+
+
+================================================================
+== Storage Report
+================================================================
++-----------------------+-----------+-------+------+------+--------+----------+------+---------+------------------+
+| Name                  | Usage     | Type  | BRAM | URAM | Pragma | Variable | Impl | Latency | Bitwidth, Depth, |
+|                       |           |       |      |      |        |          |      |         | Banks            |
++-----------------------+-----------+-------+------+------+--------+----------+------+---------+------------------+
+| + feed_frame_raw_bind |           |       | 30   | 0    |        |          |      |         |                  |
+|   gmem_m_axi_U        | interface | m_axi | 30   |      |        |          |      |         |                  |
++-----------------------+-----------+-------+------+------+--------+----------+------+---------+------------------+
+
+
+================================================================
+== Pragma Report
+================================================================
+* Valid Pragma Syntax
++-----------+-----------------------------------------------------+---------------------------------------------+
+| Type      | Options                                             | Location                                    |
++-----------+-----------------------------------------------------+---------------------------------------------+
+| interface | m_axi port=src offset=direct bundle=gmem depth=8195 | kernel.cpp:12 in feed_frame_raw_bind, src   |
+| interface | ap_none port=steps                                  | kernel.cpp:13 in feed_frame_raw_bind, steps |
+| pipeline  | II=1                                                | kernel.cpp:17 in feed_frame_raw_bind        |
+| unroll    |                                                     | kernel.cpp:21 in feed_frame_raw_bind        |
+| interface | m_axi depth=8195 offset=direct port=src             | run.tcl:8 in feed_frame_raw_bind, src       |
++-----------+-----------------------------------------------------+---------------------------------------------+
+
+

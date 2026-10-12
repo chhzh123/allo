@@ -1,0 +1,15 @@
+AUTOSA_TILES_START S=16 W=64 wide Sun Oct 11 20:11:44 EDT 2026
+operand lines rewritten: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 256
+hls A_t64 B_t64 C_t16, host elements A=16384 B=16384 C=4096 -> depth A=256 B=256 C=256
+depth pragmas: 1129
+csynth wall_s=2281
+hls rc=1 wall_s=3875
+Failed with 3072 errors!
+// ERROR!!! DEADLOCK DETECTED at 8056000 ns! SIMULATION WILL BE STOPPED! //
+ERROR: [COSIM 212-4] *** C/RTL co-simulation finished: FAIL ***
+  A:  256 beats  first 94     last 349   
+  B:  256 beats  first 94     last 349   
+  C:  112 beats  first 505    last 2248  
+BEATS first 94 last 2248 cycles 2155

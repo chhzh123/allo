@@ -1,0 +1,76 @@
+{
+ "S": 16,
+ "M": 128,
+ "K": 128,
+ "N": 128,
+ "workload": "128",
+ "top": "gemm",
+ "library_function": "systolic_gemm",
+ "output_stationary": true,
+ "pe": {
+  "pe_function": "PE_kernel_gemm_0_0",
+  "pe_count": 256,
+  "c_stores": [
+   "v4[v5][v6] = v25;\t// L35"
+  ],
+  "c_store_depths": [
+   1
+  ],
+  "k_loop_trip": 128,
+  "pipeline_pragma": true
+ },
+ "pe_count_expected": 256,
+ "tile_loops": {
+  "outer_loop": "l_outer_tile_mi_ni_fused",
+  "outer_trip": 64,
+  "expected": 64,
+  "loops": [
+   [
+    "l_outer_tile_mi_ni_fused",
+    64
+   ],
+   [
+    "l_load_A_tile_ak",
+    128
+   ],
+   [
+    "l_ai",
+    16
+   ],
+   [
+    "l_load_B_tile_bk",
+    128
+   ],
+   [
+    "l_bj",
+    16
+   ],
+   [
+    "l_store_C_tile_sj",
+    16
+   ],
+   [
+    "l_si",
+    16
+   ]
+  ]
+ },
+ "dataflow_pragmas": 1,
+ "stream_decls": 2,
+ "m_axi_ports": [
+  {
+   "port": "v7732",
+   "bundle": "gmem0"
+  },
+  {
+   "port": "v7733",
+   "bundle": "gmem1"
+  },
+  {
+   "port": "v7734",
+   "bundle": "gmem2"
+  }
+ ],
+ "period_ns": "3.333",
+ "part": "xcu280-fsvh2892-2L-e"
+}

@@ -1,0 +1,6 @@
+Failed with 3072 errors!
+ERROR: Bad TV file
+ERROR: Bad TV file
+ERROR: [COSIM 212-361] C TB post check failed, nonzero return value '1'.
+ERROR: [HLS 200-742] Deadlock detected in co-simulation, please check co-simulation log or dataflow viewer for details
+ERROR: [COSIM 212-4] *** C/RTL co-simulation finished: FAIL ***

@@ -1,0 +1,1 @@
+python3 experiments/e1_gemm/allo/S16/source/e1_allo_gen.py 16 1024 <dir>

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "feed_pe_north_bind_ptr",
+    "bits": 64,
+    "offset": 16,
+    "pointer": true,
+    "family": "pe_north_bind",
+    "channels": 16,
+    "steps": 65536,
+    "reads": true,
+    "width": 8,
+    "tensor": "Bt"
+  },
+  {
+    "name": "drain_pe_c_out_bind_ptr",
+    "bits": 64,
+    "offset": 24,
+    "pointer": true,
+    "family": "pe_c_out_bind",
+    "channels": 16,
+    "steps": 4096,
+    "reads": false,
+    "width": 32,
+    "tensor": "Ct"
+  },
+  {
+    "name": "feed_frame_raw_bind_ptr",
+    "bits": 64,
+    "offset": 32,
+    "pointer": true,
+    "family": "frame_raw_bind",
+    "channels": 16,
+    "steps": 65541,
+    "reads": true,
+    "width": 8,
+    "tensor": "At"
+  },
+  {
+    "name": "feed_pe_north_bind_steps",
+    "bits": 32,
+    "offset": 40,
+    "pointer": false,
+    "family": "pe_north_bind",
+    "channels": 16,
+    "steps": 65536,
+    "reads": true,
+    "width": 8,
+    "tensor": "Bt"
+  },
+  {
+    "name": "drain_pe_c_out_bind_steps",
+    "bits": 32,
+    "offset": 48,
+    "pointer": false,
+    "family": "pe_c_out_bind",
+    "channels": 16,
+    "steps": 4096,
+    "reads": false,
+    "width": 32,
+    "tensor": "Ct"
+  },
+  {
+    "name": "feed_frame_raw_bind_steps",
+    "bits": 32,
+    "offset": 56,
+    "pointer": false,
+    "family": "frame_raw_bind",
+    "channels": 16,
+    "steps": 65541,
+    "reads": true,
+    "width": 8,
+    "tensor": "At"
+  }
+]

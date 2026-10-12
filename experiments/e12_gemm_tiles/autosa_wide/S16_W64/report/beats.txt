@@ -1,0 +1,4 @@
+  A:  256 beats  first 94     last 349   
+  B:  256 beats  first 94     last 349   
+  C:  112 beats  first 505    last 2248  
+BEATS first 94 last 2248 cycles 2155

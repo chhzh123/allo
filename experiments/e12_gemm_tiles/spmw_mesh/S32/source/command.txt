@@ -1,0 +1,2 @@
+python3 scripts/spmw_build_array.py --design gemmtiles-<side> --size 32 --frequency 300 --jobs 4 --cosim --out <dir>
+python3 scripts/spmw_build_array.py --design gemmtiles-64 --size 32 --frequency 300 --jobs 4 --pnr --out <dir>

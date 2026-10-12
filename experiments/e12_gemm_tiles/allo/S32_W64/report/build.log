@@ -1,0 +1,5 @@
+ALLO_TILES_START S=32 W=64 Sun Oct 11 21:26:21 EDT 2026
+gen rc=0
+E1 GEN OK /scratch/hc676/e16_tiles/allo/S32_W64/gen
+csim rc=0
+E1 TB ALL PASS seeds=3

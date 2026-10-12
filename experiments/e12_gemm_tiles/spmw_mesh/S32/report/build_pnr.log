@@ -1,0 +1,15 @@
+gemmtiles-64: {"roles": 10, "instances": 1056, "fifos": 3104, "streams": 96}
+staged 10 role project(s) in 4.9s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  pe_r3: rc=0 90.8s
+  pe_r5: rc=0 92.5s
+  pe_r4: rc=0 111.1s
+  pe_r0: rc=0 125.8s
+  pe_r1: rc=0 127.6s
+  pe_r2: rc=0 129.3s
+  pe_r6: rc=0 99.2s
+  pe_r7: rc=0 118.0s
+  pe_r8: rc=0 107.2s
+  frame_r0: rc=0 109.2s
+HLS: 235.0s wall for 10 roles and 0 movers (1110.7s of CPU work, 1056 instances)
+assembling the array in Vivado:

@@ -1,0 +1,4 @@
+gemmtiles-256: {"roles": 10, "instances": 272, "fifos": 784, "streams": 48}
+HLS: 362.5s wall for 10 roles and 0 movers (1004.6s of CPU work, 272 instances)
+  SPMW COSIM PASS (65536/65536 tokens, 0 errors)
+  SPMW CYCLES total=65591 first_out=281 first_in=1

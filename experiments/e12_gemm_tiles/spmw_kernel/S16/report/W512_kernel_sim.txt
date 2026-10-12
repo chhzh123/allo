@@ -1,0 +1,4 @@
+counts: {'feed_pe_north_bind': 524288, 'drain_pe_c_out_bind': 16384, 'feed_frame_raw_bind': 524293}
+expected drain bytes: 1048576
+memory .BEAT(1)
+clock period 4 ns

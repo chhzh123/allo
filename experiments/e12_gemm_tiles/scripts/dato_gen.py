@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""The Dato paper's daisy-chain systolic array, for a chosen array and GEMM.
+
+usage: dato_gen.py S W OUTDIR [paper|test]
+
+The design is the one the paper lists in its appendix A (arXiv:2509.06794) and
+this repository keeps as tests/dataflow/test_multi_cache_gemm.py: two loaders
+that read a tile's packed operands from memory, an (S + 2) x (S + 2) grid of
+kernels whose first row and column pass the operands along and whose last row
+collects each column's packed results, and a store. It is written here as
+text so that the stream depths can be either set:
+
+  paper   the appendix's: 4 on the three memory-side streams, the default
+          (2) on every other
+  test    the test file's: 1024 on every stream
+
+Nothing else is changed: int8 operands, an int8 sum, results a column a token.
+
+What it does, in order:
+  1. runs the design on Allo's dataflow simulator against numpy (wrapped to
+     int8, as the design's sum is) at sizes that take seconds;
+  2. lets Allo emit the Vitis kernel;
+  3. writes the packed operands, the packed reference and a testbench.
+Nothing here runs a tool; dato_tiles.sh does that.
+"""
+import importlib
+import os
+import sys
+
+import numpy as np
+
+SOURCE = '''# The Dato paper's array (tests/dataflow/test_multi_cache_gemm.py), generated
+# by dato_gen.py with stream depths "@KIND@".
+import allo
+from allo.ir.types import int8, int32, Stream, UInt, ConstExpr
+import allo.dataflow as df
+import allo.dsl as dsl
+
+
+@df.region()
+def MXU[
+    Rt, Ct, M, N, K
+](
+    A_Packed: "UInt(Rt * 8)[M * K // Rt]",
+    B_Packed: "UInt(Ct * 8)[K * N // Ct]",
+    C_Packed: "UInt(Rt * 8)[M * N // Rt]",
+):
+    P0: ConstExpr[int32] = Rt + 2
+    P1: ConstExpr[int32] = Ct + 2
+
+    L3_A: Stream[UInt(Rt * 8)@L3@]
+    L3_B: Stream[UInt(Ct * 8)@L3@]
+    L3_C: Stream[UInt(Rt * 8)@L3@]
+
+    L2_A: Stream[UInt(Rt * 8)@IN@][P0 - 1]
+    L2_B: Stream[UInt(Ct * 8)@IN@][P1 - 1]
+
+    L1_C: Stream[UInt(Rt * 8)@IN@][Rt, Ct]
+    L2_C: Stream[UInt(Rt * 8)@IN@][Ct]
+
+    fifo_A: Stream[int8@IN@][Rt, Ct]
+    fifo_B: Stream[int8@IN@][Rt, Ct]
+
+    @df.kernel(mapping=[1], args=[A_Packed])
+    def offchip_loadA(A_Packed_in: "UInt(Rt * 8)[M * K // Rt]"):
+        for mt, nt in dsl.grid(M // Rt, N // Ct):
+            for k in range(K):
+                L3_A.put(A_Packed_in[mt * K + k])
+
+    @df.kernel(mapping=[1], args=[B_Packed])
+    def offchip_loadB(B_Packed_in: "UInt(Ct * 8)[K * N // Ct]"):
+        for mt, nt in dsl.grid(M // Rt, N // Ct):
+            for k in range(K):
+                L3_B.put(B_Packed_in[nt * K + k])
+
+    @df.kernel(mapping=[P0, P1])
+    def gemm():
+        i, j = df.get_pid()
+        # peripheral kernels
+        with allo.meta_if(i == 0 and j == 0):
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                for k in range(K):
+                    L2_A[1].put(L3_A.get())
+                    L2_B[1].put(L3_B.get())
+
+        with allo.meta_elif(i == P0 - 1 and j == P1 - 1):
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                for n in range(Ct):
+                    L3_C.put(L2_C[Ct - 1].get())
+
+        with allo.meta_elif(i in {0, P0 - 1} and j in {0, P1 - 1}):
+            pass
+
+        with allo.meta_elif(j == 0):
+            # i > 0, the first column
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                for k in range(K):
+                    a = L2_A[i].get()
+                    # unpack data
+                    fifo_A[i - 1, 0].put(a[8 * (i - 1) : 8 * i])
+                    with allo.meta_if(i < Rt):
+                        L2_A[i + 1].put(a)
+
+        with allo.meta_elif(i == 0):
+            # j > 0, the first row
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                for k in range(K):
+                    b = L2_B[j].get()
+                    fifo_B[0, j - 1].put(b[8 * (j - 1) : 8 * j])
+                    with allo.meta_if(j < Ct):
+                        L2_B[j + 1].put(b)
+
+        with allo.meta_elif(i == P0 - 1):
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                c_C = L1_C[i - 2, Ct - j].get()
+                L2_C[j - 1].put(c_C)
+                with allo.meta_if(j != 1):
+                    for ind in range(j - 1):
+                        L2_C[j - 1].put(L2_C[j - 2].get())
+
+        with allo.meta_elif(j == P1 - 1):
+            pass
+
+        # main body
+        with allo.meta_else():
+            for mt, nt in dsl.grid(M // Rt, N // Ct):
+                c: int8 = 0
+                for k in range(K):
+                    a: int8 = fifo_A[i - 1, j - 1].get()
+                    b: int8 = fifo_B[i - 1, j - 1].get()
+                    c += a * b
+                    with allo.meta_if(j < Ct):
+                        fifo_A[i - 1, j].put(a)
+                    with allo.meta_if(i < Rt):
+                        fifo_B[i, j - 1].put(b)
+
+                packed_tmp: UInt(Rt * 8)
+                with allo.meta_if(i == 1):
+                    packed_tmp = 0
+                with allo.meta_else():
+                    packed_tmp = L1_C[i - 2, j - 1].get()
+
+                packed_c: UInt(Rt * 8) = 0
+                for m in range(Rt):
+                    if m == i - 1:
+                        packed_c[m * 8 : (m + 1) * 8] = c
+                    else:
+                        packed_c[m * 8 : (m + 1) * 8] = packed_tmp[m * 8 : (m + 1) * 8]
+                L1_C[i - 1, j - 1].put(packed_c)
+
+    @df.kernel(mapping=[1], args=[C_Packed])
+    def offchip_store(C_Packed_out: "UInt(Rt * 8)[M * N // Rt]"):
+        for mt, nt in dsl.grid(M // Rt, N // Ct):
+            for n in range(Ct):
+                C_Packed_out[mt * N + nt * Ct + n] = L3_C.get()
+
+
+Rt, Ct = @S@, @S@
+M, N, K = @W@, @W@, @W@
+
+
+@df.region()
+def top(
+    A: "UInt(Rt * 8)[M * K // Rt]",
+    B: "UInt(Ct * 8)[K * N // Ct]",
+    C: "UInt(Rt * 8)[M * N // Rt]",
+):
+    @df.kernel(mapping=[1], args=[A, B, C])
+    def wrapper(
+        A_Packed: "UInt(Rt * 8)[M * K // Rt]",
+        B_Packed: "UInt(Ct * 8)[K * N // Ct]",
+        C_Packed: "UInt(Rt * 8)[M * N // Rt]",
+    ):
+        MXU[Rt, Ct, M, N, K](A_Packed, B_Packed, C_Packed)
+'''
+
+# The appendix gives no depth for a stream it leaves at the default, and this
+# frontend wants one written: 2 is `allo.ir.types.Stream`'s default.
+DEPTHS = {"paper": (", 4", ", 2"), "test": (", 1024", ", 1024")}
+
+
+def operands(seed, W):
+    """int8 operands that span the type, both extremes present."""
+    rng = np.random.default_rng(seed)
+    A = rng.integers(-128, 128, size=(W, W), dtype=np.int8)
+    B = rng.integers(-128, 128, size=(W, W), dtype=np.int8)
+    A[0, 0], A[-1, -1], B[0, 0], B[-1, -1] = -128, 127, 127, -128
+    return A, B
+
+
+def pack_a(A, S):
+    """A as the design reads it: tile row, then step, then row (the test's)."""
+    W = A.shape[0]
+    return np.ascontiguousarray(A.reshape(W // S, S, W).transpose(0, 2, 1)).reshape(-1)
+
+
+def pack_b(B, S):
+    W = B.shape[0]
+    return np.ascontiguousarray(B.reshape(W, W // S, S).transpose(1, 0, 2)).reshape(-1)
+
+
+def pack_c(C, S):
+    """C as the design stores it: tile row, then column, then row."""
+    W = C.shape[0]
+    return np.ascontiguousarray(C.reshape(W // S, S, W).transpose(0, 2, 1)).reshape(-1)
+
+
+def main():
+    S, W, out = int(sys.argv[1]), int(sys.argv[2]), os.path.abspath(sys.argv[3])
+    kind = sys.argv[4] if len(sys.argv) > 4 else "paper"
+    l3, inner = DEPTHS[kind]
+    os.makedirs(out, exist_ok=True)
+
+    def module(side):
+        text = SOURCE.replace("@L3@", l3).replace("@IN@", inner).replace("@KIND@", kind)
+        text = text.replace("@S@", str(S)).replace("@W@", str(side))
+        name = f"dato_mxu_{S}_{side}"
+        with open(os.path.join(out, name + ".py"), "w") as handle:
+            handle.write(text)
+        sys.path.insert(0, out)
+        return importlib.import_module(name)
+
+    import allo.dataflow as df  # pylint: disable=import-outside-toplevel
+    from allo.utils import get_np_struct_type  # pylint: disable=import-outside-toplevel
+
+    # 1. The dataflow simulator against numpy, at the smallest GEMM this array
+    #    tiles twice each way; a 1024-cubed run of it would take hours.
+    small = 2 * S
+    design = module(small)
+    A, B = operands(0, small)
+    word = get_np_struct_type(S * 8)
+    Cp = np.zeros(small * small // S, dtype=word)
+    df.build(design.top, target="simulator")(
+        pack_a(A, S).view(word), pack_b(B, S).view(word), Cp
+    )
+    want = pack_c((A.astype(np.int32) @ B.astype(np.int32)).astype(np.int8), S)
+    ok = np.array_equal(Cp.view(np.int8), want)
+    print(f"DATO GEN simulator at {small}^3 on {S}x{S}: {'matches' if ok else 'DIFFERS from'} numpy")
+    if not ok:
+        sys.exit(2)
+
+    # 2. The kernel for the workload asked for.
+    design = module(W) if W != small else design
+    df.build(design.top, target="vitis_hls", mode="csyn", project=out, wrap_io=False)
+
+    # 3. Operands and the reference, packed.
+    A, B = operands(0, W)
+    pack_a(A, S).tofile(os.path.join(out, "A0.bin"))
+    pack_b(B, S).tofile(os.path.join(out, "B0.bin"))
+    pack_c((A.astype(np.int32) @ B.astype(np.int32)).astype(np.int8), S).tofile(
+        os.path.join(out, "Cref0.bin")
+    )
+    print("DATO GEN OK", out)
+
+
+if __name__ == "__main__":
+    main()

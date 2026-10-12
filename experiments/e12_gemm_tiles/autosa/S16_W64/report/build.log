@@ -1,0 +1,19 @@
+AUTOSA_TILES_START S=16 W=64 narrow Sun Oct 11 20:11:44 EDT 2026
+operand lines rewritten: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t1 *C | PE instances 256
+hls A_t64 B_t64 C_t1, host elements A=4096 B=4096 C=4096 -> depth A=64 B=64 C=4096
+depth pragmas: 1126
+csynth wall_s=2310
+hls rc=0 wall_s=4124
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A:   64 beats  first 94     last 157   
+  B:  256 beats  first 94     last 4594  
+  C: 4096 beats  first 207    last 11807 
+BEATS first 94 last 11807 cycles 11714
+pnr rc=0 wall_s=3499
+PNR_UNROUTED 0
+pnr LUT 92827 FF 223299 DSP 256 BRAM 15.5 WNS 0.124
+AUTOSA_TILES_DONE Sun Oct 11 21:48:35 EDT 2026

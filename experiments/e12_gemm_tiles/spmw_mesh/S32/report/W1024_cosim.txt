@@ -1,0 +1,2 @@
+gemmtiles-1024: {"roles": 10, "instances": 1056, "fifos": 3104, "streams": 96}
+HLS: 272.3s wall for 10 roles and 0 movers (694.0s of CPU work, 1056 instances)
