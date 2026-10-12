@@ -47,7 +47,7 @@ rather than one registry design, so its `generated/` is empty and says why.
 | `e7_loc/` | the language-aware source counter |
 | `e10_gemm_ws/` | E1 with the other dataflow, a weight held in every cell: the SPMW mesh and kernel, AutoSA's `space_time[5]` array as generated and with 512-bit ports, and a weight-stationary array written in the style of Allo's library one |
 | `e11_fft1024/` | E2's lane FFT against HP-FFT at N = 1,024, 2 to 16 samples a cycle |
-| `e12_gemm_tiles/` | one fixed output-stationary array, 16x16 and 32x32, on GEMMs from 64^3 to 1,024^3: SPMW's array and kernel, the Dato paper's design, AutoSA's and Allo's library array, as cycles against the peak of one multiply-add a cell a cycle |
+| `e12_gemm_tiles/` | one fixed output-stationary array, 16x16 and 32x32, on GEMMs from 64^3 to 512^3: SPMW's array and kernel, AutoSA's and Allo's library array, as cycles against the peak of one multiply-add a cell a cycle (1,024^3 and the Dato paper's design are prepared, not measured) |
 | `agentstudy/` | the agentic-design study: task, testbench, vectors, three documentation packs, three build-and-grade arms, the agent loop, and the pre-registration |
 | `results/` | every package's `results.csv`, `results.json` and `README.md`, the bundle's `coverage.md`, `manifest.json` and `REPORT.md`, and the collectors that produced them |
 
