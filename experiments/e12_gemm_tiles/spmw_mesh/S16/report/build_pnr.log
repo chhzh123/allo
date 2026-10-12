@@ -13,3 +13,11 @@ synthesising and exporting 10 unit(s) concurrently:
   frame_r0: rc=0 119.4s
 HLS: 234.7s wall for 10 roles and 0 movers (1147.0s of CPU work, 272 instances)
 assembling the array in Vivado:
+  stage synth 814.149
+  stage opt 58.098
+  stage place 1068.41
+  stage physopt 32.15
+  stage route 647.92
+  unrouted 0
+Vivado implemented 272 instances in 2753.2s
+  array clock: 3.234 ns achieved against a 3.333 ns target (WNS +0.099 ns)

@@ -1,5 +1,0 @@
-/scratch/hc676/allo/allo/_mlir/exceptions.py:76: RuntimeWarning: 
-[93m[Data Type][0m [94mCoverting data with bitwidth > 64 to numpy array, which may lead to possible incorrect results.[0m
-  warnings.warn(self.message, category=self.category)
-DATO GEN simulator at 32^3 on 16x16: matches numpy
-DATO GEN OK /scratch/hc676/e16_tiles/dato/paper/S16_W512/gen

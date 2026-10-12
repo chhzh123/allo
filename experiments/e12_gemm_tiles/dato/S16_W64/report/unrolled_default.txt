@@ -1,8 +1,0 @@
-tile loops the tool chose to pipeline: 272, for example
-INFO: [HLS 214-376] automatically set the pipeline for Loop< l_nt20> at kernel.cpp:481:13 
-INFO: [HLS 214-376] automatically set the pipeline for Loop< l_nt21> at kernel.cpp:567:13 
-loops unrolled completely by a factor of 64: 256, for example
-INFO: [HLS 214-186] Unrolling loop 'l_S_k_0_k290' (kernel.cpp:23218:21) in function 'MXU_16_16_64_64_64_0' completely with a factor of 64 (kernel.cpp:23662:0)
-INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 54.75 seconds. CPU system time: 0.68 seconds. Elapsed time: 55.64 seconds; current allocated memory: 1.249 GB.
-INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 1270.63 seconds. CPU system time: 0.54 seconds. Elapsed time: 1279.04 seconds; current allocated memory: 1.249 GB.
-stopped after 159 minutes of csynth

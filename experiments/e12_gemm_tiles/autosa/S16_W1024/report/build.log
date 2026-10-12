@@ -10,3 +10,7 @@ ERROR: [COSIM 212-4] *** C/RTL co-simulation finished: FAIL ***
 beats: no cosim snapshot
 recosim: stack unlimited Sun Oct 11 22:47:37 EDT 2026
 tail: driver replaced by autosa_tiles_tail.sh Sun Oct 11 22:50:06 EDT 2026
+pnr rc=0 wall_s=4786
+PNR_UNROUTED 0
+pnr LUT 91714 FF 125352 DSP 256 BRAM 495.5 WNS 0.338
+AUTOSA_TILES_DONE Sun Oct 11 23:26:37 EDT 2026

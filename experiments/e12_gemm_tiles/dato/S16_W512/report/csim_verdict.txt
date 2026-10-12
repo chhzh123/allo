@@ -1,2 +1,0 @@
-DATO TB A[min,max]=[-128,127]
-DATO TB PASS mismatches=0 of 262144

@@ -1,7 +1,1 @@
-DATO_TILES_START S=16 W=256 paper Sun Oct 11 21:59:46 EDT 2026
-gen rc=0
-DATO GEN simulator at 32^3 on 16x16: matches numpy
-DATO GEN OK /scratch/hc676/e16_tiles/dato/paper/S16_W256/gen
-depth pragmas: 3, kernels: 0
-csim rc=0
-DATO TB PASS mismatches=0 of 65536
+DATO_TILES_START S=16 W=256 paper Sun Oct 11 23:42:41 EDT 2026

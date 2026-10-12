@@ -17,10 +17,10 @@ array. Every cycle count is from RTL simulation of the whole GEMM with every
 result checked, and every design is routed out of context at 3.333 ns on
 `xcu280-fsvh2892-2L-e`.
 
-**Status, 2026-10-11 23:30 EDT: this folder is being filled in as builds
+**Status, 2026-10-11 23:45 EDT: this folder is being filled in as builds
 finish.** A blank cell is a run that had not finished when this was written;
 none is an estimate. Still running: SPMW's 512^3 and 1,024^3 simulations and
-its array routes; the Dato design at every size; AutoSA from 256^3 up; Allo at
+its 32x32 routes; the Dato design at every size; AutoSA from 256^3 up; Allo at
 1,024^3; and every 32x32 baseline, which are started one at a time because
 each needs up to 40 GB.
 
@@ -63,33 +63,37 @@ no waveform of that run was kept (see the definitions below).
 | GEMM | peak | SPMW mesh | SPMW kernel | AutoSA | Allo |
 |---|---:|---:|---:|---:|---:|
 | 64^3 | 1,024 | 1,079 (94.9%) | 1,116 (91.8%) | 11,714 (8.7%) | 15,803 (6.5%) |
-| 128^3 | 8,192 | 8,247 (99.3%) | 8,284 (98.9%) | 46,714† (17.5%) | 71,275 (11.5%) |
-| 256^3 | 65,536 | 65,591 (99.9%) | 65,628 (99.9%) |  | 350,507 (18.7%) |
-| 512^3 | 524,288 | 524,343 (99.99%) |  |  | 1,926,236† (27.2%) |
+| 128^3 | 8,192 | 8,247 (99.3%) | 8,284 (98.9%) | 46,641 (17.6%) | 71,275 (11.5%) |
+| 256^3 | 65,536 | 65,591 (99.9%) | 65,628 (99.9%) | 186,142† (35.2%) | 350,507 (18.7%) |
+| 512^3 | 524,288 | 524,343 (99.99%) | 524,380 (99.98%) |  | 1,926,236† (27.2%) |
 | 1024^3 | 4,194,304 |  |  |  |  |
 
 Operations a second, in billions, at the clock each design routed to -- two a
 multiply-add, as the Dato paper counts them; the peak at 300 MHz is 153.6:
 
-| GEMM | SPMW kernel | AutoSA | Allo |
-|---|---:|---:|---:|
-| 64^3 | 148.9 | 13.9 | 10.8 |
-| 128^3 | 160.4 |  | 18.6 |
-| 256^3 | 162.0 |  | 30.4 |
-| 512^3 |  |  | 31.1 |
+| GEMM | SPMW mesh | SPMW kernel | AutoSA | Allo |
+|---|---:|---:|---:|---:|
+| 64^3 | 150.2 | 148.9 | 13.9 | 10.8 |
+| 128^3 | 157.3 | 160.4 | 29.9 | 18.6 |
+| 256^3 | 158.2 | 162.0 | 59.4 | 30.4 |
+| 512^3 | 158.3 | 162.2 |  | 31.1 |
 
 What was routed:
 
 | Design | GEMM | Port in/out | LUT | FF | DSP | BRAM18 | Slack | Clock |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| SPMW mesh | every one | streams | 31,430 | 34,573 | 256 | 0 |  |  |
+| SPMW mesh | every one | streams | 31,430 | 34,573 | 256 | 0 | +0.099 ns | 309 MHz |
 | SPMW kernel | every one | 512/512 | 38,196 | 44,626 | 256 | 110 | +0.177 ns | 317 MHz |
 | AutoSA | 64^3 | 512/32 | 92,827 | 223,299 | 256 | 31 | +0.124 ns | 312 MHz |
-|  | 256^3 | 512/32 | 88,160 | 117,248 | 256 | 991 |  |  |
+|  | 128^3 | 512/32 | 85,389 | 113,229 | 256 | 991 | +0.326 ns | 333 MHz |
+|  | 256^3 | 512/32 | 88,160 | 117,248 | 256 | 991 | +0.296 ns | 329 MHz |
+|  | 512^3 | 512/32 | 92,558 | 121,364 | 256 | 991 | +0.337 ns | 334 MHz |
+|  | 1024^3 | 512/32 | 91,714 | 125,352 | 256 | 991 | +0.338 ns | 334 MHz |
 | Allo | 64^3 | 32/32 | 34,821 | 30,426 | 256 | 35 | +0.253 ns | 325 MHz |
 |  | 128^3 | 32/32 | 36,208 | 31,568 | 256 | 43 | +0.170 ns | 316 MHz |
 |  | 256^3 | 32/32 | 40,002 | 32,630 | 256 | 155 | +0.186 ns | 318 MHz |
 |  | 512^3 | 32/32 | 39,736 | 33,451 | 256 | 659 | -1.142 ns | 223 MHz |
+|  | 1024^3 | 32/32 | 43,842 | 35,640 | 256 | 2595 | -2.411 ns | 174 MHz |
 
 ### 32x32
 
@@ -98,11 +102,11 @@ What was routed:
 | 64^3 | 256 | 359 (71.3%) | 469 (54.6%) |  |  |
 | 128^3 | 2,048 | 2,151 (95.2%) | 2,225 (92.0%) |  |  |
 | 256^3 | 16,384 | 16,487 (99.4%) | 16,561 (98.9%) |  |  |
-| 512^3 | 131,072 |  |  |  |  |
+| 512^3 | 131,072 | 131,175 (99.9%) | 131,249 (99.9%) |  |  |
 | 1024^3 | 1,048,576 |  |  |  |  |
 
-| GEMM | SPMW kernel | AutoSA | Allo |
-|---|---:|---:|---:|
+| GEMM | SPMW mesh | SPMW kernel | AutoSA | Allo |
+|---|---:|---:|---:|---:|
 
 | Design | GEMM | Port in/out | LUT | FF | DSP | BRAM18 | Slack | Clock |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
@@ -276,16 +280,23 @@ Packaged as a kernel the array has three bindings and so three movers on
 `scripts/dato_gen.py` holds the design as text: the listing of the paper's
 appendix A, which this repository has as
 `tests/dataflow/test_multi_cache_gemm.py`, with the array size and the GEMM
-filled in and nothing else changed. Two loaders read a tile's packed operands
-from memory, an (S + 2) x (S + 2) grid of kernels passes them along its first
-row and column and collects each column's packed results along its last row,
-and a store writes them. The stream depths are the appendix's: 4 on the three
-memory-side streams and the default, 2, on the rest (the test file has 1,024
-on all of them). Before emitting, the generator runs the design on Allo's
-dataflow simulator against numpy at twice the array's side.
+filled in. Two loaders read a tile's packed operands from memory, an (S + 2)
+x (S + 2) grid of kernels passes them along its first row and column and
+collects each column's packed results along its last row, and a store writes
+them. The stream depths are the appendix's: 4 on the three memory-side
+streams and the default, 2, on the rest (the test file has 1,024 on all of
+them). Before emitting, the generator runs the design on Allo's dataflow
+simulator against numpy at twice the array's side.
 
-Two things about it should be read with the table.
+Three things about it should be read with the table.
 
+- **It is built as one flat region.** The test file wraps the region in a
+  kernel of a second one. Built that way, Vitis HLS 2023.2 inlines the 309
+  kernels into the inner region and applies no dataflow to it, so they run
+  one after another: its own report gives 2,853,905 cycles for 128^3
+  (`dato/S16_W128/report/nested_form_top_csynth.rpt`), and at these stream
+  depths they would wait on each other for ever. Written flat, the tool makes
+  each kernel a process, 310 of them.
 - **It sums in int8.** Its cell is `c: int8 = 0 ... c += a * b` and its results
   are stored as int8, a column a token. The other three designs sum int8
   products into int32. That changes nothing in the cycle counts -- the loop is
@@ -296,10 +307,9 @@ Two things about it should be read with the table.
   carries no pipeline pragma, and Vitis HLS pipelines a loop itself only above
   64 steps. At 64 on a side the cell's loop is exactly 64, so left alone the
   tool pipelines the tile loop around it and unrolls the 64 steps in each of
-  the 256 cells; that build was stopped after 159 minutes without leaving its
-  optimisation phase (`dato/S16_W64/report/unrolled_default.txt`). With the
-  threshold at 32 the tool treats the 64-step loop as it treats the longer
-  ones at the other four sizes, which are built with no setting at all.
+  the 256 cells (`dato/S16_W64/report/default_threshold.txt`). With the
+  threshold at 32 it treats that loop as it treats the longer ones at the
+  other four sizes, which are built with no setting at all.
 
 ### AutoSA
 

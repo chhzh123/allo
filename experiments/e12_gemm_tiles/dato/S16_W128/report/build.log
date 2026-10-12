@@ -1,4 +1,4 @@
-DATO_TILES_START S=16 W=128 paper Sun Oct 11 21:59:46 EDT 2026
+DATO_TILES_START S=16 W=128 paper Sun Oct 11 23:35:06 EDT 2026
 gen rc=0
 DATO GEN simulator at 32^3 on 16x16: matches numpy
 DATO GEN OK /scratch/hc676/e16_tiles/dato/paper/S16_W128/gen

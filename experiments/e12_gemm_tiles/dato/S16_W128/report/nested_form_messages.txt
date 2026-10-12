@@ -1,0 +1,6 @@
+INFO: [HLS 214-178] Inlining function 'offchip_loadA_0_16_16_128_128_128_0_fixed' into 'MXU_16_16_128_128_128_0' (kernel.cpp:23662:0)
+INFO: [HLS 214-178] Inlining function 'offchip_loadB_0_16_16_128_128_128_0_fixed' into 'MXU_16_16_128_128_128_0' (kernel.cpp:23662:0)
+INFO: [HLS 214-178] Inlining function 'offchip_store_0_16_16_128_128_128_0_fixed' into 'MXU_16_16_128_128_128_0' (kernel.cpp:23662:0)
+INFO: [XFORM 203-712] Applying dataflow to function 'top' (kernel.cpp:25636:1), detected/extracted 1 process function(s): 
+INFO: [HLS 200-111] Finished Command csynth_design CPU user time: 3937.84 seconds. CPU system time: 111.69 seconds. Elapsed time: 4522.53 seconds; current allocated memory: 7.347 GB.
+kernels inlined into the inner region: 309

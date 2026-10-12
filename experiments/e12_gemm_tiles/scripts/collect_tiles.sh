@@ -135,16 +135,22 @@ for S in 16 32; do
       grep -hE "DATO TB|co-simulation finished|^ERROR" $L/hls/build.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
       c $E/logs/dato_${KIND}_S${S}_W$W.log $D/report/build.log
     done
-    # The 64-cubed Dato build the tool unrolled: its log up to where it was stopped.
-    if [ $W = 64 ] && [ -f $E/keep/dato_S${S}_W64_unrolled_build.log ] && [ -d $STAGE/dato/S${S}_W64 ]; then
-      U=$E/keep/dato_S${S}_W64_unrolled_build.log
+    # The 64-cubed Dato design at the tool's default pipelining threshold, and
+    # the test file's nested form at 128 cubed: what the tool made of each.
+    U=$E/keep/dato_default_S${S}_W64/build.log
+    if [ $W = 64 ] && [ -f $U ] && [ -d $STAGE/dato/S${S}_W64 ]; then
       { echo "tile loops the tool chose to pipeline: $(grep -c "HLS 214-376.*Loop< l_nt" $U), for example"
         grep -h -m2 "HLS 214-376.*Loop< l_nt" $U
         echo "loops unrolled completely by a factor of 64: $(grep -c "completely with a factor of 64" $U), for example"
         grep -h -m1 "completely with a factor of 64" $U
-        grep -hE "HLS 200-111\] Finished (Standard Transforms|Checking Synthesizability|Loop, function)" $U
-        tail -n 1 $E/keep/dato_S${S}_W64_unrolled.log
-      } > $STAGE/dato/S${S}_W64/report/unrolled_default.txt
+        grep -hE "XFORM 203-712|HLS 200-111\] Finished (Standard Transforms|Checking Synthesizability|Loop, function|Command)" $U
+        cat $E/keep/dato_default_S${S}_W64/done.txt 2>/dev/null
+      } > $STAGE/dato/S${S}_W64/report/default_threshold.txt
+      c $E/keep/dato_default_S${S}_W64/syn.tcl $STAGE/dato/S${S}_W64/source/default_threshold.tcl
+    fi
+    if [ $W = 128 ] && [ -f $E/keep/dato_nested_S${S}_W128_messages.txt ] && [ -d $STAGE/dato/S${S}_W128 ]; then
+      c $E/keep/dato_nested_S${S}_W128_messages.txt $STAGE/dato/S${S}_W128/report/nested_form_messages.txt
+      c $E/keep/dato_nested_S${S}_W128_top_csynth.rpt $STAGE/dato/S${S}_W128/report/nested_form_top_csynth.rpt
     fi
     # ---- Allo's library array ----------------------------------------------------
     L=$E/allo/S${S}_W$W
