@@ -807,14 +807,15 @@ def kernel_testbench(
         "  always @(posedge ap_clk) if (ap_rst_n) begin",
         "    data_cyc = data_cyc + 1;",
     ]
-    for _i, _fam in enumerate(fams):
-        _sig = (
-            "RVALID && u_ram%d.RREADY" % _i
-            if _fam["reads"]
-            else "WVALID && u_ram%d.WREADY" % _i
+    for index, fam in enumerate(fams):
+        ram = f"u_ram{index}"
+        moved = (
+            f"{ram}.RVALID && {ram}.RREADY"
+            if fam["reads"]
+            else f"{ram}.WVALID && {ram}.WREADY"
         )
         lines += [
-            "    if (u_ram%d.%s) begin" % (_i, _sig),
+            f"    if ({moved}) begin",
             "      if (first_beat < 0) first_beat = data_cyc;",
             "      last_beat = data_cyc;",
             "    end",
