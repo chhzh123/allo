@@ -1,0 +1,15 @@
+AUTOSA_PUB_START mm_int8 528 x 512 x 256 Mon Oct 12 00:55:35 EDT 2026
+array 24 x 8 cells of 64, 16 tiles of 352 cycles: 5632 cycles at one multiply-add a multiplier a cycle
+kernel.c lines changed from the published one: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t64 *C | PE instances 192
+hls A_t64 B_t64 C_t64, host elements A=270336 B=262144 C=270336 -> depth A=4224 B=4096 C=4224
+depth pragmas: 3
+hls rc=0 wall_s=5424
+INFO: [HLS 200-111] Finished Command csynth_design elapsed 1651.77 seconds; current allocated memory: 6.081 GB.
+INFO: [HLS 200-111] Finished Command cosim_design elapsed 3765.74 seconds; current allocated memory: 60.020 MB.
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+|   Verilog|      Pass|          12874|          12874|          12874|             NA|             NA|             NA|                 1287
+AUTOSA_PUB_DONE Mon Oct 12 02:26:03 EDT 2026

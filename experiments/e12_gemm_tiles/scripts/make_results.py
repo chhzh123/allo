@@ -32,7 +32,6 @@ SYSTEMS = (
     ("spmw_kernel", "SPMW kernel", "kernel", True),
     ("dato", "Dato's design", "kernel", False),
     ("autosa_wide", "AutoSA", "kernel", False),
-    ("autosa", "AutoSA, K whole", "kernel", False),
     ("allo", "Allo", "kernel", False),
 )
 COLUMNS = (
@@ -78,7 +77,8 @@ def routed(*where):
         row["achieved_ns"] = "%.3f" % (TARGET_NS - wns)
         row["fmax_mhz"] = "%d" % round(1000.0 / (TARGET_NS - wns))
     found = re.search(
-        r"# of nets with routing errors\.*\s*:\s*(\d+)", read(*where, "route_status.rpt")
+        r"# of nets with routing errors\.*\s*:\s*(\d+)",
+        read(*where, "route_status.rpt"),
     )
     if found:
         row["unrouted"] = found.group(1)
@@ -232,7 +232,9 @@ def cycle_table(data, size):
 
 def gops_table(data, size):
     """Operations a second at each design's own routed clock, in billions."""
-    names = [s[1] for s in SYSTEMS if any(r["system"] == s[1] and r["gops"] for r in data)]
+    names = [
+        s[1] for s in SYSTEMS if any(r["system"] == s[1] and r["gops"] for r in data)
+    ]
     lines = [
         "| GEMM | " + " | ".join(names) + " |",
         "|---|" + "---:|" * len(names),
@@ -289,6 +291,52 @@ def area_table(data, size):
     return "\n".join(lines)
 
 
+def autosa_builds(size):
+    """Every AutoSA build of the array: what it was generated with, what it took.
+
+    `autosa_wide/S<n>_W<side>` is the configuration of the tables; the folders
+    beside it with a suffix, and `autosa/`, are the others that were built.
+    """
+    found = []
+    for folder in ("autosa", "autosa_wide"):
+        base = os.path.join(HERE, folder)
+        for name in sorted(os.listdir(base)) if os.path.isdir(base) else ():
+            match = re.fullmatch(rf"S{size}_W(\d+)(_k\w+)?", name)
+            command = read(folder, name, "source", "autosa_command.txt")
+            part = re.search(r"array_part\[([\d,]+)\]", command)
+            hide = re.search(r"latency\[([\d,]+)\]", command)
+            if not (match and part and hide):
+                continue
+            row = dict.fromkeys(COLUMNS, "")
+            row.update(baseline_cycles(folder, name, "report"))
+            row = finish(row, size, int(match.group(1)))
+            if row["cycles"]:
+                found.append(
+                    (
+                        int(match.group(1)),
+                        -int(row["cycles"]),
+                        "yes" if "--host-serialize" in command else "no",
+                        part.group(1),
+                        hide.group(1),
+                        row,
+                        f"{folder}/{name}",
+                    )
+                )
+    lines = [
+        "| GEMM | `--host-serialize` | `array_part` | `latency` | Cycles | Of the peak | Folder |",
+        "|---|---|---|---|---:|---:|---|",
+    ]
+    for side, _order, flag, part, hide, row, where in sorted(
+        found, key=lambda f: f[:2]
+    ):
+        mark = "" if row["cycles_from"] == "beats" else "†"
+        lines.append(
+            f"| {side}^3 | {flag} | {part} | {hide} | {num(row['cycles'])}{mark} "
+            f"| {row['pct_of_peak']}% | `{where}` |"
+        )
+    return "\n".join(lines) if found else ""
+
+
 def main():
     data = rows()
     with open(os.path.join(HERE, "results.csv"), "w", newline="") as handle:
@@ -304,6 +352,11 @@ def main():
         print(gops_table(data, size))
         print()
         print(area_table(data, size))
+        print()
+    builds = autosa_builds(16)
+    if builds:
+        print("### AutoSA builds\n")
+        print(builds)
         print()
     bad = [r for r in data if r["unrouted"] not in ("", "0")]
     if bad:

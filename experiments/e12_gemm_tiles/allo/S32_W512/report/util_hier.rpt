@@ -1,0 +1,163 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date         : Mon Oct 12 10:41:39 2026
+| Host         : brg-zhang-xcel.ece.cornell.edu running 64-bit Red Hat Enterprise Linux 9.8 (Plow)
+| Command      : report_utilization -hierarchical -hierarchical_depth 2 -file util_hier.rpt
+| Design       : gemm
+| Device       : xcu280-fsvh2892-2L-e
+| Speed File   : -2L
+| Design State : Routed
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++----------------------------------------------------------+-----------------------------------------------+------------+------------+---------+-------+--------+--------+--------+------+------------+
+|                         Instance                         |                     Module                    | Total LUTs | Logic LUTs | LUTRAMs |  SRLs |   FFs  | RAMB36 | RAMB18 | URAM | DSP Blocks |
++----------------------------------------------------------+-----------------------------------------------+------------+------------+---------+-------+--------+--------+--------+------+------------+
+| gemm                                                     |                                         (top) |     170404 |     134394 |       0 | 36010 | 124546 |    304 |     83 |    0 |       1024 |
+|   (gemm)                                                 |                                         (top) |        175 |        173 |       0 |     2 |    550 |      0 |      0 |    0 |          0 |
+|   buf0_10_U                                              |                       gemm_buf0_RAM_AUTO_1R1W |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_11_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_0 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_12_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_1 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_13_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_2 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_14_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_3 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_15_U                                              |                     gemm_buf0_RAM_AUTO_1R1W_4 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_1_U                                               |                     gemm_buf0_RAM_AUTO_1R1W_5 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_2_U                                               |                     gemm_buf0_RAM_AUTO_1R1W_6 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_3_U                                               |                     gemm_buf0_RAM_AUTO_1R1W_7 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_4_U                                               |                     gemm_buf0_RAM_AUTO_1R1W_8 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_5_U                                               |                     gemm_buf0_RAM_AUTO_1R1W_9 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_6_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_10 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_7_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_11 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_8_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_12 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_9_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_13 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf0_U                                                 |                    gemm_buf0_RAM_AUTO_1R1W_14 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_10_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_15 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_11_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_16 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_12_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_17 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_13_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_18 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_14_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_19 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_15_U                                              |                    gemm_buf0_RAM_AUTO_1R1W_20 |          1 |          1 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_1_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_21 |          1 |          1 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_2_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_22 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_3_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_23 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_4_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_24 |          1 |          1 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_5_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_25 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_6_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_26 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_7_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_27 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_8_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_28 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_9_U                                               |                    gemm_buf0_RAM_AUTO_1R1W_29 |          0 |          0 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf1_U                                                 |                    gemm_buf0_RAM_AUTO_1R1W_30 |          4 |          4 |       0 |     0 |      0 |      4 |      0 |    0 |          0 |
+|   buf2_10_U                                              |                       gemm_buf2_RAM_AUTO_1R1W |         11 |         11 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_11_U                                              |                    gemm_buf2_RAM_AUTO_1R1W_31 |         13 |         13 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_12_U                                              |                    gemm_buf2_RAM_AUTO_1R1W_32 |         11 |         11 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_13_U                                              |                    gemm_buf2_RAM_AUTO_1R1W_33 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_14_U                                              |                    gemm_buf2_RAM_AUTO_1R1W_34 |         11 |         11 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_15_U                                              |                    gemm_buf2_RAM_AUTO_1R1W_35 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_1_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_36 |         13 |         13 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_2_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_37 |         11 |         11 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_3_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_38 |         13 |         13 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_4_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_39 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_5_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_40 |         13 |         13 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_6_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_41 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_7_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_42 |         14 |         14 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_8_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_43 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_9_U                                               |                    gemm_buf2_RAM_AUTO_1R1W_44 |         13 |         13 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   buf2_U                                                 |                    gemm_buf2_RAM_AUTO_1R1W_45 |         12 |         12 |       0 |     0 |      0 |     11 |      1 |    0 |          0 |
+|   control_s_axi_U                                        |                            gemm_control_s_axi |        202 |        202 |       0 |     0 |    235 |      0 |      0 |    0 |          0 |
+|   gmem0_m_axi_U                                          |                              gemm_gmem0_m_axi |        587 |        550 |       0 |    37 |    790 |      0 |      1 |    0 |          0 |
+|     bus_read                                             |                         gemm_gmem0_m_axi_read |        366 |        366 |       0 |     0 |    556 |      0 |      0 |    0 |          0 |
+|     bus_write                                            |                        gemm_gmem0_m_axi_write |          2 |          2 |       0 |     0 |      3 |      0 |      0 |    0 |          0 |
+|     load_unit                                            |                         gemm_gmem0_m_axi_load |        219 |        182 |       0 |    37 |    231 |      0 |      1 |    0 |          0 |
+|   gmem1_m_axi_U                                          |                              gemm_gmem1_m_axi |        582 |        545 |       0 |    37 |    790 |      0 |      1 |    0 |          0 |
+|     bus_read                                             |                         gemm_gmem1_m_axi_read |        365 |        365 |       0 |     0 |    556 |      0 |      0 |    0 |          0 |
+|     bus_write                                            |                        gemm_gmem1_m_axi_write |          2 |          2 |       0 |     0 |      3 |      0 |      0 |    0 |          0 |
+|     load_unit                                            |                         gemm_gmem1_m_axi_load |        215 |        178 |       0 |    37 |    231 |      0 |      1 |    0 |          0 |
+|   gmem2_m_axi_U                                          |                              gemm_gmem2_m_axi |        634 |        540 |       0 |    94 |    965 |      0 |      1 |    0 |          0 |
+|     bus_read                                             |                         gemm_gmem2_m_axi_read |          4 |          4 |       0 |     0 |      5 |      0 |      0 |    0 |          0 |
+|     bus_write                                            |                        gemm_gmem2_m_axi_write |        509 |        449 |       0 |    60 |    773 |      0 |      0 |    0 |          0 |
+|     load_unit                                            |                         gemm_gmem2_m_axi_load |         17 |         17 |       0 |     0 |     12 |      0 |      0 |    0 |          0 |
+|     store_unit                                           |                        gemm_gmem2_m_axi_store |        104 |         70 |       0 |    34 |    175 |      0 |      1 |    0 |          0 |
+|   grp_systolic_gemm_fu_1114                              |                            gemm_systolic_gemm |     167965 |     132125 |       0 | 35840 | 121216 |      0 |     64 |    0 |       1024 |
+|     (grp_systolic_gemm_fu_1114)                          |                            gemm_systolic_gemm |         54 |         54 |       0 |     0 |  25692 |      0 |      0 |    0 |          0 |
+|     grp_systolic_gemm_Pipeline_l_load_A_tile_ak_fu_4500  |  gemm_systolic_gemm_Pipeline_l_load_A_tile_ak |        134 |        134 |       0 |     0 |     22 |      0 |      0 |    0 |          0 |
+|     grp_systolic_gemm_Pipeline_l_load_B_tile_bk_fu_4571  |  gemm_systolic_gemm_Pipeline_l_load_B_tile_bk |         98 |         98 |       0 |     0 |     22 |      0 |      0 |    0 |          0 |
+|     grp_systolic_gemm_Pipeline_l_store_C_tile_sj_fu_5733 | gemm_systolic_gemm_Pipeline_l_store_C_tile_sj |       7439 |       7439 |       0 |     0 |    428 |      0 |      0 |    0 |          0 |
+|     grp_systolic_tile_gemm_fu_4641                       |                       gemm_systolic_tile_gemm |     160243 |     124403 |       0 | 35840 |  95052 |      0 |      0 |    0 |       1024 |
+|     local_A_10_U                                         |      gemm_systolic_gemm_local_A_RAM_AUTO_1R1W |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_11_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_46 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_12_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_47 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_13_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_48 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_14_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_49 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_15_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_50 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_16_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_51 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_17_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_52 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_18_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_53 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_19_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_54 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_1_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_55 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_20_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_56 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_21_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_57 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_22_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_58 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_23_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_59 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_24_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_60 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_25_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_61 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_26_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_62 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_27_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_63 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_28_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_64 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_29_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_65 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_2_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_66 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_30_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_67 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_31_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_68 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_3_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_69 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_4_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_70 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_5_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_71 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_6_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_72 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_7_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_73 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_8_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_74 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_9_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_75 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_A_U                                            |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_76 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_10_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_77 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_11_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_78 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_12_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_79 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_13_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_80 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_14_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_81 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_15_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_82 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_16_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_83 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_17_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_84 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_18_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_85 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_19_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_86 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_1_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_87 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_20_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_88 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_21_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_89 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_22_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_90 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_23_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_91 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_24_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_92 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_25_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_93 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_26_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_94 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_27_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_95 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_28_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_96 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_29_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_97 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_2_U                                          |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_98 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_30_U                                         |   gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_99 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_31_U                                         |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_100 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_3_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_101 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_4_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_102 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_5_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_103 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_6_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_104 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_7_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_105 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_8_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_106 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_9_U                                          |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_107 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|     local_B_U                                            |  gemm_systolic_gemm_local_A_RAM_AUTO_1R1W_108 |          0 |          0 |       0 |     0 |      0 |      0 |      1 |    0 |          0 |
+|   sparsemux_33_4_25_1_1_U11789                           |                    gemm_sparsemux_33_4_25_1_1 |        100 |        100 |       0 |     0 |      0 |      0 |      0 |    0 |          0 |
++----------------------------------------------------------+-----------------------------------------------+------------+------------+---------+-------+--------+--------+--------+------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+

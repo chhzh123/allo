@@ -1,0 +1,3 @@
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***

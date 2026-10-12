@@ -4,3 +4,16 @@ gen rc=0
 gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 256
 hls A_t64 B_t64 C_t16, host elements A=1048576 B=1048576 C=65536 -> depth A=16384 B=16384 C=4096
 depth pragmas: 1129
+csynth wall_s=2370
+stopped Mon Oct 12 01:03:23 EDT 2026: place and route of a probe whose tile depth is not the one kept; memory on the shared machine
+hls rc=0 wall_s=4991
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A: 16384 beats  first 94     last 71896 
+  B: 16384 beats  first 94     last 71896 
+  C: 4096 beats  first 750    last 74203 
+BEATS first 94 last 74203 cycles 74110
+pnr rc=143 wall_s=373
+pnr LUT - FF - DSP - BRAM - WNS -
+AUTOSA_TILES_DONE Mon Oct 12 02:03:50 EDT 2026

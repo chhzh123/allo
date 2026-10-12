@@ -1,5 +1,20 @@
-ALLO_TILES_START S=32 W=256 Sun Oct 11 21:26:21 EDT 2026
+ALLO_TILES_START S=32 W=256 Mon Oct 12 03:14:52 EDT 2026
 gen rc=0
 E1 GEN OK /scratch/hc676/e16_tiles/allo/S32_W256/gen
 csim rc=0
 E1 TB ALL PASS seeds=3
+csynth wall_s=6571
+hls rc=0 wall_s=9585
+E1 TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+E1 TB seed=0 PASS max_abs_err=0 mismatches=0 of 65536
+E1 TB ALL PASS seeds=1
+E1 TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+|   Verilog|      Pass|         244380|         244380|         244380|             NA|             NA|             NA|           
+  A: 16384 beats  first 79     last 64613 
+  B: 16384 beats  first 65629  last 130163
+  C: 65536 beats  first 170684 last 244409
+BEATS first 79 last 244409 cycles 244331
+pnr rc=0 wall_s=4821
+PNR_UNROUTED 0
+pnr LUT 173031 FF 120816 DSP 1024 BRAM 81.5 WNS -1.174
+ALLO_TILES_DONE Mon Oct 12 06:34:07 EDT 2026

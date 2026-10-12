@@ -4,3 +4,16 @@ gen rc=0
 gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 256
 hls A_t64 B_t64 C_t16, host elements A=16384 B=16384 C=4096 -> depth A=256 B=256 C=256
 depth pragmas: 1129
+csynth wall_s=2370
+hls rc=0 wall_s=3731
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A:  256 beats  first 94     last 349   
+  B:  256 beats  first 94     last 349   
+  C:  256 beats  first 511    last 4844  
+BEATS first 94 last 4844 cycles 4751
+pnr rc=0 wall_s=2398
+PNR_UNROUTED 0
+pnr LUT 84134 FF 169944 DSP 256 BRAM 23 WNS 0.204
+AUTOSA_TILES_DONE Mon Oct 12 01:37:01 EDT 2026

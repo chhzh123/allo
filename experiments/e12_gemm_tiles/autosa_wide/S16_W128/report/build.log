@@ -1,0 +1,22 @@
+AUTOSA_TILES_START S=16 W=128 wide K tile 64 latency hiding 4 pack default Mon Oct 12 02:39:38 EDT 2026
+tiles 4 of 2048 cycles, in 2 parts each: 8192 cycles at one multiply-add a cell a cycle
+operand lines rewritten: 2
+gen rc=0
+gen ports: A_t64 *A, B_t64 *B, C_t16 *C | PE instances 256
+gen links: A A_t64 a beat between rows, C C_t4 a beat down the drain
+hls A_t64 B_t64 C_t16, host elements A=32768 B=32768 C=16384 -> depth A=512 B=512 C=1024
+depth pragmas: 1129
+csim: Passed!
+csynth wall_s=2161
+hls rc=0 wall_s=3796
+Passed!
+Passed!
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+  A:  512 beats  first 94     last 2367  
+  B:  512 beats  first 94     last 2367  
+  C: 1024 beats  first 2373   last 9973  
+BEATS first 94 last 9973 cycles 9880
+pnr rc=0 wall_s=3958
+PNR_UNROUTED 0
+pnr LUT 164423 FF 233269 DSP 256 BRAM 1143 WNS -0.583
+AUTOSA_TILES_DONE Mon Oct 12 04:22:23 EDT 2026

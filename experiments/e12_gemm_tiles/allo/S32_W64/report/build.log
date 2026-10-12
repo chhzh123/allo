@@ -4,3 +4,17 @@ E1 GEN OK /scratch/hc676/e16_tiles/allo/S32_W64/gen
 csim rc=0
 E1 TB ALL PASS seeds=3
 csynth wall_s=9814
+hls rc=0 wall_s=11392
+E1 TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+E1 TB seed=0 PASS max_abs_err=0 mismatches=0 of 4096
+E1 TB ALL PASS seeds=1
+E1 TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
+|   Verilog|      Pass|          13819|          13819|          13819|             NA|             NA|             NA|           
+  A: 1024 beats  first 79     last 3173  
+  B: 1024 beats  first 4189   last 7283  
+  C: 4096 beats  first 9243   last 13848 
+BEATS first 79 last 13848 cycles 13770
+pnr rc=0 wall_s=6289
+PNR_UNROUTED 0
+pnr LUT 157792 FF 114631 DSP 1024 BRAM 1.5 WNS -0.188
+ALLO_TILES_DONE Mon Oct 12 01:57:06 EDT 2026

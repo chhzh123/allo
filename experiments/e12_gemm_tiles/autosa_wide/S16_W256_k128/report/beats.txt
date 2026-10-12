@@ -1,0 +1,4 @@
+  A: 16384 beats  first 94     last 71896 
+  B: 16384 beats  first 94     last 71896 
+  C: 4096 beats  first 750    last 74203 
+BEATS first 94 last 74203 cycles 74110

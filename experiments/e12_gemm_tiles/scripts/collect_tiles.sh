@@ -92,9 +92,10 @@ for S in 16 32; do
   for W in $SIDES; do
     # ---- AutoSA ---------------------------------------------------------------
     # autosa_wide/        --host-serialize with K tiled, the way AutoSA's own
-    #                     examples are run; the tile depth each workload's row
-    #                     uses is in autosa_ktile.txt ("S W KT"), and the other
-    #                     depths tried are kept as S<n>_W<side>_k<depth>
+    #                     examples are run; the build each workload's row uses
+    #                     is in autosa_ktile.txt ("S W <depth>[_l<hiding>]"),
+    #                     and the others tried are kept as
+    #                     S<n>_W<side>_k<depth>[_l<hiding>]
     # autosa/             no --host-serialize, K whole: the first runs
     # autosa_wide_whole/  --host-serialize with K whole, which fails
     for A in $E/autosa/narrow/S${S}_W$W $E/autosa/wide/S${S}_W$W $E/autosa/wide_k*/S${S}_W$W; do
@@ -110,10 +111,12 @@ for S in 16 32; do
       mkdir -p $D/source $D/generated $D/report
       c $A/kernel.c $A/kernel.h $A/simd_info.json $A/hls/cosim.tcl $D/source/
       grep -h . $A/out/src/cmd > $D/source/autosa_command.txt 2>/dev/null
-      if [ $W = 64 ]; then
+      # 390 KB a design: kept for the 64-cubed build of each row and of the
+      # two tile depths without latency hiding, not for every variant tried.
+      if [ $W = 64 ] && ! echo "$D" | grep -q "_l[0-9x]*$"; then
         c $A/out/src/kernel_kernel.cpp $A/out/src/kernel_kernel.h $A/out/src/kernel_host.cpp $D/generated/
       else
-        echo "As the 64-cubed build's generated/, with this workload's loop bounds; source/autosa_command.txt regenerates it." > $D/generated/README.txt
+        echo "source/autosa_command.txt regenerates it; the 64-cubed build of the row's configuration is kept in ../S${S}_W64/generated." > $D/generated/README.txt
       fi
       R=$A/hls/cosim_prj/sol
       c $R/syn/report/kernel0_csynth.rpt $R/syn/report/PE_csynth.rpt $R/sim/report/kernel0_cosim.rpt $D/report/
@@ -225,6 +228,8 @@ done > $D/forms.txt
   echo "Depth counts the loop's entry state: 2 is a one-state body."; } > $D/README.txt
 mkdir -p $STAGE/scripts
 c $E/spmw_tiles.sh $E/spmw_tiles_kernel.sh $E/spmw_all.sh $E/probe.sh $E/autosa_tiles.sh $E/autosa_tiles_tail.sh \
+  $E/autosa_tiles2.sh $E/autosa_tiles3.sh $E/autosa_gen.sh $E/autosa_gen2.sh $E/autosa_pnr.sh $E/autosa_pub.sh \
+  $E/stagger.sh \
   $E/autosa_recosim.sh $E/autosa_paper.sh $E/autosa_ktile.txt $E/dato_tiles.sh $E/dato_gen.py $E/dato_tb.cpp \
   $E/allo_tiles.sh $E/lane.sh $E/when_free.sh $E/beats.py $E/collect_tiles.sh $STAGE/scripts/
 find $STAGE -type f -empty -delete
