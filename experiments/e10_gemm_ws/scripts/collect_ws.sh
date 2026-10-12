@@ -101,6 +101,13 @@ for S in 4 8 16 32; do
     grep -hE "WS TB|co-simulation finished|^ERROR" $L/hls/build.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
     c $E/logs/allo_S$S.log $D/report/build.log
     c $E/logs/allo_S${S}_4h.log $D/report/build_4h.log
+    # a run that was stopped: its driver's log and how far its synthesis had got
+    c $E/logs/allo_S${S}_stopped.log $D/report/build_stopped.log
+    if [ -f $E/logs/allo_S${S}_stopped_build.log ]; then
+      { grep -hE "$PHASES" $E/logs/allo_S${S}_stopped_build.log
+        echo "modules scheduled when stopped: $(grep -c "Finished Scheduling" $E/logs/allo_S${S}_stopped_build.log)"
+      } > $D/report/hls_phases_stopped.txt
+    fi
     grep -hE "$PHASES" $L/hls/build.log > $D/report/hls_phases.txt 2>/dev/null
     # the variant with a FIFO a weight (ws_probe2.py): synthesised, nothing else
     P=$E/probe/S$S

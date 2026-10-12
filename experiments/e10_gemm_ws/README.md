@@ -223,9 +223,11 @@ A and the 272 that carry the partial sums.
 function and other optimizations" phase, which takes 0.9, 6.4 and 134 seconds
 at the three smaller sizes (`allo/S*/report/hls_phases.txt`) and took 870 for
 E1's 32x32 output-stationary array. It passes the LLVM check and C simulation
-at that size. A second run with a 24-hour limit was started when this was
-written and was still in that phase nine hours in; its cells are blank until
-it ends.
+at that size. A second run, given a day, got through that phase in 42,884
+seconds -- 11.9 hours, 320 times what 16x16 takes -- and had scheduled 952 of
+its modules when it was stopped in error 25 minutes later
+(`allo/S32/report/hls_phases_stopped.txt`). A third was started at once; the
+row's cells are blank until it ends.
 
 How a cell gets its weight is not what holds the tool there.
 `scripts/ws_probe2.py` is the same array with the tile copying B into a grid

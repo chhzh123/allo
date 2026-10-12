@@ -1,4 +1,4 @@
-ALLO_WS_START S=32 Sun Oct 11 08:15:38 EDT 2026
+ALLO_WS_START S=32 Sun Oct 11 20:47:02 EDT 2026
 gen rc=0
 WS GEN llvm matches numpy for seeds [0, 1, 2]
 WS GEN OK /scratch/hc676/e15_ws/allo/S32/gen
