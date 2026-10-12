@@ -13,6 +13,7 @@ has work; a mismatch says the kernel and the reference simulator disagree.
 """
 
 import argparse
+import gc
 import glob
 import json
 import os
@@ -64,6 +65,14 @@ def main():
     parser.add_argument("--size", type=int, default=16)
     parser.add_argument("--top", default="spmw_kernel")
     parser.add_argument("--polls", type=int, default=200000)
+    parser.add_argument(
+        "--beat",
+        type=int,
+        default=2,
+        choices=(1, 2),
+        help="cycles the memory takes for each read beat of a burst: 2 as the "
+        "model has always been, 1 to time a long launch",
+    )
     args = parser.parse_args()
 
     graph = spmw.elaborate(design(args.design, args.size))
@@ -115,6 +124,7 @@ def main():
             top=args.top,
             preload="hex",
             polls=args.polls,
+            beat=args.beat,
         ),
     )
     _write(os.path.join(sim, "spmw_axi_ram.sv"), ram_module())
@@ -148,6 +158,11 @@ def main():
         raise SystemExit(f"missing sources: {missing[:3]}")
     sources = xpm_sources() + sources
     print(f"{len(sources)} source file(s)")
+    # A long launch's transfer plan is tens of millions of index tuples -- 15 GB
+    # for a million-step launch -- and the simulation that follows runs for
+    # hours without reading one of them.
+    del graph, fams, fam, kargs, operands, expected, raw, by_name, entry, meta
+    gc.collect()
 
     def run(cmd, log):
         with open(os.path.join(sim, log), "w", encoding="utf-8") as h:

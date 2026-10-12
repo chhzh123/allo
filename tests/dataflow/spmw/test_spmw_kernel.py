@@ -11,7 +11,15 @@ one cost a build to find and is cheap to keep.
 import re
 
 import allo.spmw as spmw
-from allo.spmw.kernel import ARG_BASE, arguments, control_sv, kernel_sv, kernel_xml
+from allo.spmw.dram import ram_module
+from allo.spmw.kernel import (
+    ARG_BASE,
+    arguments,
+    control_sv,
+    kernel_sv,
+    kernel_testbench,
+    kernel_xml,
+)
 from allo.spmw.shell import _dma_name, families
 
 from test_spmw_transformer import BIG
@@ -168,3 +176,23 @@ def test_the_drain_is_the_only_family_the_array_writes():
     inbound = [f for f in plans if f["reads"]]
     assert len(outbound) == 1, "the engine drains through one family"
     assert len(inbound) >= 4, "and is fed by several"
+
+
+def test_the_bench_memory_can_return_a_beat_a_cycle():
+    """A read beat every other cycle is the default and a ceiling on a long launch.
+
+    A 512-bit port at that rate carries 256 bits a cycle, all a 32-lane int8
+    edge takes: a 32x32 array run for a thousand steps finished 3% late on it.
+    The model keeps its old timing unless a bench asks for a beat a cycle.
+    """
+    graph, args, widths, _sv = _kernel()
+    operands = {_dma_name(f): bytes(64) for f in families(graph)}
+    slow = kernel_testbench(graph, args, widths, operands, bytes(64))
+    fast = kernel_testbench(graph, args, widths, operands, bytes(64), beat=1)
+    rams = slow.count("spmw_axi_ram #(")
+    assert rams == len(families(graph))
+    assert slow.count(".BEAT(2)") == rams and fast.count(".BEAT(1)") == rams
+    module = ram_module()
+    assert "parameter integer BEAT = 2" in module
+    # one beat a cycle keeps RVALID up and names the burst's last beat itself
+    assert "RLAST <= (rbeats == 2);" in module

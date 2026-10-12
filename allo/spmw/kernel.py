@@ -657,6 +657,7 @@ def kernel_testbench(
     top="spmw_kernel",
     preload="inline",
     polls=200000,
+    beat=2,
 ):
     """The kernel against behavioural DRAM, so a stall can be seen.
 
@@ -677,6 +678,10 @@ def kernel_testbench(
     ``polls`` bounds the wait for ``ap_done``; a launch that needs more control
     reads than that is reported as a timeout with the time it reached, which
     is not the same thing as a hang and is printed so the two can be told apart.
+
+    ``beat`` is how many cycles a read beat takes the memories within a burst
+    (`allo.spmw.dram.ram_module`): 2 as they have always been, 1 for a bench
+    that measures a long launch's rate and not only its result.
 
     ``preload`` is how the memories get their bytes. ``"inline"`` writes one
     assignment per byte, which reads well for a 16-step pass and is a
@@ -711,7 +716,7 @@ def kernel_testbench(
             lines.append(f"  wire {span}{sig};")
         lines += [
             f"  spmw_axi_ram #(.DW({width}), .AW({AXI_ADDR}), "
-            f".BYTES({max(nbytes, 64)})) u_ram{index} (",
+            f".BYTES({max(nbytes, 64)}), .BEAT({beat})) u_ram{index} (",
             "    .ap_clk(ap_clk), .ap_rst_n(ap_rst_n),",
             *[
                 f"    .{short}(m_axi_gmem{index}_{short}),"
@@ -803,7 +808,11 @@ def kernel_testbench(
         "    data_cyc = data_cyc + 1;",
     ]
     for _i, _fam in enumerate(fams):
-        _sig = "RVALID && u_ram%d.RREADY" % _i if _fam["reads"] else "WVALID && u_ram%d.WREADY" % _i
+        _sig = (
+            "RVALID && u_ram%d.RREADY" % _i
+            if _fam["reads"]
+            else "WVALID && u_ram%d.WREADY" % _i
+        )
         lines += [
             "    if (u_ram%d.%s) begin" % (_i, _sig),
             "      if (first_beat < 0) first_beat = data_cyc;",

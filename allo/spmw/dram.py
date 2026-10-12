@@ -46,9 +46,15 @@ def ram_module():
     """A behavioural AXI4 slave over a byte array.
 
     Deliberately simple: one outstanding transaction, a fixed pre-burst latency,
-    then a beat a cycle.  It answers the question the fabric asks -- do the
-    movers issue the right addresses and does the array get the right data -- and
-    keeps the timing assumptions in one readable place.
+    then a read beat every ``BEAT`` cycles.  It answers the question the fabric
+    asks -- do the movers issue the right addresses and does the array get the
+    right data -- and keeps the timing assumptions in one readable place.
+
+    ``BEAT`` is 2 unless the bench says otherwise: the model has always dropped
+    ``RVALID`` between the beats of a burst.  That is invisible on a launch of a
+    few beats and a ceiling on a long one -- a 512-bit port that returns a beat
+    every other cycle carries 256 bits a cycle, which is exactly what a 32-lane
+    int8 edge consumes -- so a bench measuring throughput asks for 1.
     """
     return """`timescale 1ns/1ps
 
@@ -56,7 +62,8 @@ module spmw_axi_ram #(
   parameter integer DW = 32,
   parameter integer AW = 64,
   parameter integer BYTES = 65536,
-  parameter integer LATENCY = 0
+  parameter integer LATENCY = 0,
+  parameter integer BEAT = 2
 ) (
   input  wire          ap_clk,
   input  wire          ap_rst_n,
@@ -113,12 +120,19 @@ module spmw_axi_ram #(
           RLAST  <= (rbeats == 1);
         end
       end else if (RVALID && RREADY) begin
-        RVALID <= 1'b0;
         raddr  <= raddr + STEP;
         rbeats <= rbeats - 1;
         if (rbeats == 1) begin
+          RVALID  <= 1'b0;
           RLAST   <= 1'b0;
           ARREADY <= 1'b1;
+        end else if (BEAT == 1) begin
+          // The burst's next beat on the next edge: RVALID stays up.
+          for (b = 0; b < STEP; b = b + 1)
+            RDATA[b*8 +: 8] <= mem[raddr + STEP + b];
+          RLAST <= (rbeats == 2);
+        end else begin
+          RVALID <= 1'b0;
         end
       end
     end
