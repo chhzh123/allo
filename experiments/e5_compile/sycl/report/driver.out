@@ -1,0 +1,2 @@
+./after_rep1.sh: line 12: /proc/593905/cmdline: No such file or directory
+2026-10-16T23:54:28-04:00 after_rep1: first campaign stopped after repetition 1; repetitions 2-3 of 4 8 16

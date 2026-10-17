@@ -1,0 +1,4 @@
+4,device_fe=2.4,host=4.4,link=2.1,spirv=1.8,aoc_start=10.7
+8,device_fe=2.8,host=9.8,link=2.3,spirv=1.8,aoc_start=16.7
+16,device_fe=4.9,host=31.1,link=3.3,spirv=2.3,aoc_start=41.6
+32,device_fe=13.4,host=112.3,link=7.9,spirv=5.0,aoc_start=138.6

@@ -1,0 +1,6 @@
+EMU_START S=32 2026-10-16T17:38:09-04:00
+build rc=0 wall_s=365
+run rc=124 wall_s=600
+EMU_DONE 2026-10-16T17:54:14-04:00
+rerun 2026-10-16T17:54:34-04:00: 1,043 kernels that spin on their pipes did not finish in 600 s on 8 cores; 24 cores, 1,200 s
+run rc=124 wall_s=1200

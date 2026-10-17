@@ -1,0 +1,5 @@
+EMU_START S=4 2026-10-17T00:35:02-04:00
+build rc=0 wall_s=22
+E1 SYCL S=4 PASS: 0 of 16 results wrong
+run rc=0 wall_s=1
+EMU_DONE 2026-10-17T00:35:25-04:00

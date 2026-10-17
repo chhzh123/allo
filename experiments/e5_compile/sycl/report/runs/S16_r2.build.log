@@ -1,0 +1,16 @@
+     44.2 Dependency files for SYCL source and SYCL-source library: /tmp/icpx-5135c8d73e/e1_sycl-e5f918.d
+     44.2 SYCL HLS: part name:   AGFB014R24A2E2V
+     44.2 SYCL HLS: family name: Agilex7
+     44.2 SYCL HLS: speed grade: -2
+     44.3 aoc: Environment checks completed successfully.
+     44.4 aoc: Processing SPIR-V....
+     49.1 aoc: SPIR-V processing completed
+     49.1 aoc: Linking Object files....
+     54.0 aoc: Optimizing and doing static analysis of code...
+    261.0 aoc: Linking with IP library ...
+    616.3 aoc: Checking if memory usage is larger than 100%...
+    616.3 aoc: Memory usage is not above 100.
+    620.4 aoc: First stage compilation completed successfully.
+    621.4 aoc: Target Model set here: agilex7
+    621.4 aoc: Target Model related checks completed successfully.
+    621.4 aoc: Archiving the work directory

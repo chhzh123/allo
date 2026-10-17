@@ -42,7 +42,7 @@ rather than one registry design, so its `generated/` is empty and says why.
 | `e2_fft/` | the folded radix-2 FFT, a single-path delay-feedback pipeline |
 | `e3_tpu/` | the mini-TPU stage engine, and the host orchestrator that chains a whole GPT-2 medium or LLaMA-7B decoder layer on one bitstream |
 | `e4_feather/` | the FEATHER port, and the bench and runner that drive FEATHER's own RTL for comparison |
-| `e5_compile/` | the compilation-time harness: one project per role against one per site, with the worker cap and child CPU time |
+| `e5_compile/` | the compilation-time harness: one project per role against one per site, with the worker cap and child CPU time; and E1's array through Intel's SYCL compiler (`sycl/`) |
 | `e6_attention/` | grouped against conventional attention on the same hardware budget |
 | `e7_loc/` | the language-aware source counter |
 | `e10_gemm_ws/` | E1 with the other dataflow, a weight held in every cell: the SPMW mesh and kernel, AutoSA's `space_time[5]` array as generated and with 512-bit ports, and a weight-stationary array written in the style of Allo's library one |
