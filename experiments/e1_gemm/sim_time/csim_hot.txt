@@ -1,0 +1,19 @@
+# Vitis HLS csim, hot: each csim run's compiled csim.exe run again, twice, in
+# its build directory with the LD_LIBRARY_PATH that run_sim.tcl sets; wall
+# time from the shell, process start included. 2026-10-22, load 4.6.
+S=4 r=1 exec=1 rc=0 .00546s E1 CSIM PASS 0 of 16
+S=4 r=1 exec=2 rc=0 .00515s E1 CSIM PASS 0 of 16
+S=4 r=2 exec=1 rc=0 .00490s E1 CSIM PASS 0 of 16
+S=4 r=2 exec=2 rc=0 .00503s E1 CSIM PASS 0 of 16
+S=8 r=1 exec=1 rc=0 .00632s E1 CSIM PASS 0 of 64
+S=8 r=1 exec=2 rc=0 .00556s E1 CSIM PASS 0 of 64
+S=8 r=2 exec=1 rc=0 .00551s E1 CSIM PASS 0 of 64
+S=8 r=2 exec=2 rc=0 .00545s E1 CSIM PASS 0 of 64
+S=16 r=1 exec=1 rc=0 .01122s E1 CSIM PASS 0 of 256
+S=16 r=1 exec=2 rc=0 .01178s E1 CSIM PASS 0 of 256
+S=16 r=2 exec=1 rc=0 .01213s E1 CSIM PASS 0 of 256
+S=16 r=2 exec=2 rc=0 .01222s E1 CSIM PASS 0 of 256
+S=32 r=1 exec=1 rc=0 .05281s E1 CSIM PASS 0 of 1024
+S=32 r=1 exec=2 rc=0 .05427s E1 CSIM PASS 0 of 1024
+S=32 r=2 exec=1 rc=0 .05263s E1 CSIM PASS 0 of 1024
+S=32 r=2 exec=2 rc=0 .05208s E1 CSIM PASS 0 of 1024
