@@ -63,6 +63,51 @@ and passes every token through a blocking queue; Vitis's C simulation runs
 the same processes one after another in one thread. Both grow with the array,
 the simulator's build most of all: from 1 second to 63-68.
 
+## Why the simulator slows down, and when it is the faster
+
+Probed on 2026-10-22 with `scripts/e1_simprobe.py`, one run each
+(`sim_time/probe.ndjson`).
+
+**Most of the 32x32 cold time is not the simulation.** Of a 69.6 s build,
+52.5 s is one Python pass in Allo's simulator, `_process_function_streams`
+(`allo/backend/simulator.py`), which for every call in each of the 1,089
+functions scans the whole module for its callee -- quadratic in the cells.
+SPMW's own lowering is 1.7 s. The first run's 20 s beyond the second are user
+time (28 s against 11 s), which looks like LLVM generating the module's
+machine code on the first call; that is inferred, not traced.
+
+**The simulation itself is synchronisation.** Every cell is an OS thread, and
+a put on a full queue or a get on an empty one loops on `omp flush`,
+`taskyield` and `usleep(1)`. The second 32x32 run takes 1.33 s and 52.5 s of
+CPU, 41.7 of it in the kernel, for 32,768 multiply-adds; at 16x16, 0.24 s and
+10.5 s of CPU with 5.5 million context switches, for 4,096.
+
+**A longer workload turns it around.** The same 16x16 array on E12's tiled
+GEMMs (`gemmtiles`), 1,024 and 8,192 steps a cell instead of E1's 16:
+
+| Steps a cell | Simulator, hot | Vitis csim, hot | Simulator, cold | Vitis csim, cold |
+|---|---:|---:|---:|---:|
+| 16 (E1, 16^3) | 0.09-0.24 s | 0.011-0.012 s | 9.0-9.4 s | 9.6-9.7 s |
+| 1,024 (E12, 64^3) | 0.147 s | 0.48-0.49 s | 16.4 s | 11.2 s |
+| 8,192 (E12, 128^3) | 1.09 s | 3.63-3.71 s | 17.2 s | 14.8 s |
+
+A short launch is mostly filling and draining the array, when the threads poll
+empty queues and every hand-over waits on the scheduler. In a long one the
+queues stay full, a thread rarely waits, and the 48 cores share the work;
+Vitis's C simulation is one thread and grows with the work. Hot, the simulator
+goes from 8 to 20 times slower than Vitis's binary to 3.3 times faster. Cold,
+its fixed cost -- a 12 s build for this design -- still leaves it behind at
+these lengths. More cells are the other way: the build's quadratic pass, the
+first-run compile and the threads beyond the cores all grow with the array.
+
+**Vitis's C simulation needs a sequential order; the simulator does not.**
+`csim_design` runs a dataflow region's processes one after another in the
+order they are called, and SPMW emits the tiled design's 16 `frame` units
+after the 256 cells they feed, so it stops at "an hls::stream is read while
+empty". The Vitis figures above are from the same generated code with the
+frame calls moved ahead of the cells (`REORDER=1`), which changes nothing in
+hardware. The simulator runs the processes concurrently and needs no order.
+
 ## RTL cosimulation
 
 "End to end" is the wall time of E1's one command,
