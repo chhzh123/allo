@@ -1160,8 +1160,16 @@ def cosim(
     """Simulate the assembled array and compare against the reference.
 
     Elaborating is not computing, so this is the check that the mixed path is
-    right rather than merely well-formed. ``cycles`` bounds the run.
+    right rather than merely well-formed. ``cycles`` bounds the run. Returns
+    the wall seconds of each step, the simulation itself last.
     """
+    steps, mark = {}, [time.time()]
+
+    def lap(step):
+        now = time.time()
+        steps[step] = round(now - mark[0], 1)
+        mark[0] = now
+
     files = {}  # the long channels' `$readmemh` data, written beside the bench
     _write(
         os.path.join(out, "tb.sv"),
@@ -1175,6 +1183,7 @@ def cosim(
             files=files,
         ),
     )
+    lap("testbench")
 
     # The exported IPs instantiate Xilinx FP cores; xsim needs their generated
     # simulation models, which only Vivado can produce from the .xci files.
@@ -1186,6 +1195,7 @@ def cosim(
         ["vivado", "-mode", "batch", "-source", "genip.tcl", "-nojournal", "-nolog"],
         out,
     )
+    lap("ip")
 
     sim = os.path.join(out, "sim")
     os.makedirs(sim, exist_ok=True)
@@ -1218,6 +1228,7 @@ def cosim(
 
     _run(["xvlog", "-sv"] + sources, sim)
     _run(["xvlog"] + [f for f in os.listdir(sim) if f.endswith(".v")], sim)
+    lap("xvlog")
     _run(
         [
             "xelab",
@@ -1242,7 +1253,9 @@ def cosim(
         ],
         sim,
     )
+    lap("xelab")
     done = _run(["xsim", "tbsim", "-runall"], sim, check=False)
+    lap("xsim")
     for line in done.stdout.splitlines():
         if (
             "SPMW COSIM" in line
@@ -1253,6 +1266,7 @@ def cosim(
             print("  " + line.strip())
     if "SPMW COSIM PASS" not in done.stdout:
         raise SystemExit(f"cosim did not pass; see {sim}/xsim.log")
+    return steps
 
 
 def _run(command, cwd, check=True):
@@ -1610,9 +1624,10 @@ def main():
             f"{period:.3f} ns target (WNS {wns:+.3f} ns)"
         )
 
+    simulated = {}
     if args.cosim:
         print("simulating the assembled array:")
-        cosim(
+        simulated = cosim(
             graph,
             args.out,
             args.part,
@@ -1622,6 +1637,11 @@ def main():
             per_transform=getattr(fabric, "spmw_tokens_per_transform", None),
             cycles=getattr(fabric, "spmw_cosim_cycles", 200000),
         )
+        print(
+            "cosim: "
+            + ", ".join(f"{step} {seconds}s" for step, seconds in simulated.items())
+            + f" ({round(sum(simulated.values()), 1)}s)"
+        )
     _write(
         os.path.join(args.out, "cost.json"),
         json.dumps(
@@ -1630,6 +1650,7 @@ def main():
                 "hls_seconds": times,
                 "hls_wall_seconds": wall,
                 "vivado_seconds": elapsed,
+                **({"cosim_seconds": simulated} if simulated else {}),
             },
             indent=1,
         ),

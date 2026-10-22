@@ -428,3 +428,13 @@ where the array is smallest. What it changes below:
 
 The mesh rows, the cycle comparisons, the port-width analysis and the Gemmini
 section do not involve the kernel's route and stand as written.
+
+## Simulation time, 2026-10-22
+
+`SIM_TIME.md` times the mesh's design three ways, on the same machine in one
+session: SPMW's parallel OpenMP simulator takes 1.1 to 92 seconds from 4x4 to
+32x32 for a build and a run, Vitis HLS's own C simulation of the HLS code SPMW
+emits 11.5 to 18.8 seconds, and the RTL cosimulation through Vivado 38 to 50
+seconds (103 to 154 with the array's elaboration in Vivado, 188 to 243 end to
+end with HLS). The simulator is the fastest of the three up to 16x16 and not
+at 32x32.

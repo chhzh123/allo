@@ -1,0 +1,8 @@
+{"size": 4, "codegen_s": 0.769, "vitis_wall_s": 10.772, "csim_design_s": 7.11, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.84, 12.97, 10.82], "load_after": [6.73, 12.65, 10.75]}
+{"size": 4, "codegen_s": 0.982, "vitis_wall_s": 10.858, "csim_design_s": 7.17, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.73, 12.65, 10.75], "load_after": [6.46, 12.39, 10.68]}
+{"size": 8, "codegen_s": 1.089, "vitis_wall_s": 10.907, "csim_design_s": 7.23, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.59, 12.32, 10.67], "load_after": [6.42, 12.1, 10.61]}
+{"size": 8, "codegen_s": 1.238, "vitis_wall_s": 10.955, "csim_design_s": 7.28, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.42, 12.1, 10.61], "load_after": [6.17, 11.76, 10.53]}
+{"size": 16, "codegen_s": 2.279, "vitis_wall_s": 11.178, "csim_design_s": 7.47, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.17, 11.76, 10.53], "load_after": [6.06, 11.47, 10.45]}
+{"size": 16, "codegen_s": 2.219, "vitis_wall_s": 11.052, "csim_design_s": 7.37, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [6.06, 11.47, 10.45], "load_after": [6.04, 11.29, 10.4]}
+{"size": 32, "codegen_s": 6.853, "vitis_wall_s": 11.66, "csim_design_s": 8.0, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [5.88, 11.16, 10.37], "load_after": [5.54, 10.83, 10.27]}
+{"size": 32, "codegen_s": 7.063, "vitis_wall_s": 11.723, "csim_design_s": 8.09, "rc": 0, "pass": true, "allo": "/scratch/hc676/simtime/allo/allo", "load_before": [5.42, 10.72, 10.23], "load_after": [5.1, 10.39, 10.13]}

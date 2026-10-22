@@ -1,0 +1,35 @@
+E1_SIMTIME_START reps=3 sizes=4 8 16 32 Thu Oct 22 01:16:54 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+simulator S=4 r=1 rc=0 01:16:59
+simulator S=4 r=2 rc=0 01:17:01
+simulator S=4 r=3 rc=0 01:17:04
+simulator S=8 r=1 rc=0 01:17:08
+simulator S=8 r=2 rc=0 01:17:11
+simulator S=8 r=3 rc=0 01:17:14
+simulator S=16 r=1 rc=0 01:17:25
+simulator S=16 r=2 rc=0 01:17:36
+simulator S=16 r=3 rc=0 01:17:47
+simulator S=32 r=1 rc=0 01:19:17
+simulator S=32 r=2 rc=0 01:20:52
+simulator S=32 r=3 rc=0 01:22:22
+cosim S=4 r=1 rc=0 01:25:33
+stopped Thu Oct 22 01:26:13 EDT 2026: restarting cosim and csim at two runs a setting
+E1_SIMTIME_START reps=2 sizes=4 8 16 32 phases=csim cosim Thu Oct 22 01:26:48 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+csim S=4 r=1 rc=0 01:27:01
+csim S=4 r=2 rc=0 01:27:15
+csim S=8 r=1 rc=0 01:27:28
+csim S=8 r=2 rc=0 01:27:41
+csim S=16 r=1 rc=0 01:27:56
+csim S=16 r=2 rc=0 01:28:11
+csim S=32 r=1 rc=0 01:28:30
+csim S=32 r=2 rc=0 01:28:51
+cosim S=4 r=1 rc=0 01:31:59
+cosim S=4 r=2 rc=0 01:35:07
+cosim S=8 r=1 rc=0 01:38:22
+cosim S=8 r=2 rc=0 01:41:37
+cosim S=16 r=1 rc=0 01:44:55
+cosim S=16 r=2 rc=0 01:48:14
+cosim S=32 r=1 rc=0 01:52:11
+cosim S=32 r=2 rc=0 01:56:14
+E1_SIMTIME_DONE Thu Oct 22 01:56:14 EDT 2026
