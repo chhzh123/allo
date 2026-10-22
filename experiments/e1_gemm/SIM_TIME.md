@@ -108,6 +108,17 @@ empty". The Vitis figures above are from the same generated code with the
 frame calls moved ahead of the cells (`REORDER=1`), which changes nothing in
 hardware. The simulator runs the processes concurrently and needs no order.
 
+**Three fixes, recorded and not made.**
+- `_process_function_streams` finds each callee by scanning every operation
+  of the module; a name-to-function table built once makes it linear, which
+  should remove most of the 52 s at 32x32.
+- A waiting thread polls with `usleep(1)`; blocking on the queue (a futex or
+  a condition variable) would stop idle threads from taking cores, and fewer
+  threads than cells, each running several cells in turn, would keep the
+  count near the cores.
+- SPMW could call a region's processes producer first, so that Vitis's C
+  simulation runs the generated code as it is.
+
 ## RTL cosimulation
 
 "End to end" is the wall time of E1's one command,
