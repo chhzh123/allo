@@ -19,14 +19,20 @@ output-stationary array, one S x S x S tile a launch (`gemm8`,
   `cosim_seconds`); before 2026-10-22 it timed the HLS and the elaboration but
   not the simulation, which is why E1 had no SPMW cosimulation time.
 
-Measured on brg-zhang-xcel (48 cores, shared, load average 5 to 15) on
-2026-10-22, from a private copy of this branch: `scripts/e1_simtime.sh` drives
-`scripts/e1_simtime.py` and the build script, a fresh process and a fresh
-directory a run. Three runs a size for the simulator, two for the others;
-every run passes, and every cosimulation counts E1's cycles (16, 28, 52, 100).
-The cells give the range over the runs. The raw records are in `sim_time/`
-(the first line of `cosim.ndjson` is a 4x4 run finished before the run count
-was lowered to two, and is not in the tables).
+Measured on brg-zhang-xcel (48 cores, shared) from a private copy of this
+branch: `scripts/e1_simtime.sh` drives `scripts/e1_simtime.py` and the build
+script, a fresh process and a fresh directory a run. Every run passes, and
+every cosimulation counts E1's cycles (16, 28, 52, 100). The cells give the
+range over the runs.
+
+**Twice, before and after the simulator was fixed.** The first measurement
+(2026-10-22, `sim_time/before/`, load average 5 to 15, three runs a size for
+the simulator and two for the others) found where the simulator's time went;
+the three fixes it motivated are in commit 32d1db81, and the second
+measurement (2026-10-23, `sim_time/after/`, load average 8 to 10, two runs
+each) is of the fixed one. The tables carry both. (`before/cosim.ndjson`
+opens with a 4x4 run finished before the run count was lowered to two, which
+is not in the tables.)
 
 ## Functional simulation
 
@@ -34,12 +40,20 @@ Two states, the same for both. **Cold**: nothing compiled -- a fresh process
 goes from the design to checked results, compiling on the way. **Hot**: the
 simulation is already compiled and is run again on the same inputs.
 
-| Array | Cold, simulator: build + first run | Cold, Vitis: SPMW writes the project + `csim_design` | the same with `vitis_hls` starting | Hot, simulator: second run | Hot, Vitis: `csim.exe` again |
-|---|---:|---:|---:|---:|---:|
-| 4x4 | **1.1-1.5 s** | **7.9-8.2 s** | 11.5-11.8 s | **0.002 s** | **0.005 s** |
-| 8x8 | **2.0-2.6 s** | **8.3-8.5 s** | 12.0-12.2 s | **0.008-0.048 s** | **0.006 s** |
-| 16x16 | **9.0-9.4 s** | **9.6-9.7 s** | 13.3-13.5 s | **0.09-0.18 s** | **0.011-0.012 s** |
-| 32x32 | **86-92 s** | **14.9-15.2 s** | 18.5-18.8 s | **1.39-1.52 s** | **0.052-0.054 s** |
+| Array | Cold, simulator: build + first run | Cold, Vitis: SPMW writes the project + `csim_design` | Hot, simulator: second run | Hot, Vitis: `csim.exe` again |
+|---|---:|---:|---:|---:|
+| 4x4 | 1.1-1.5 -> **1.2-1.3 s** | 7.9-8.2 -> **8.5-8.6 s** | 0.002 -> **0.004-0.006 s** | **0.005 s** |
+| 8x8 | 2.0-2.6 -> **1.9-2.0 s** | 8.3-8.5 -> **8.6-9.0 s** | 0.008-0.048 -> **0.002-0.017 s** | **0.006 s** |
+| 16x16 | 9.0-9.4 -> **5.9 s** | 9.6-9.8 -> **10.5 s** | 0.09-0.18 -> **0.19 s** | **0.011-0.012 s** |
+| 32x32 | 86-92 -> **35.6-36.0 s** | 14.9-15.2 -> **15.4-16.0 s** | 1.39-1.52 -> **0.79-1.04 s** | **0.052-0.054 s** |
+
+The simulator's build alone went from 1.0-1.4, 1.6-2.2, 6.6-6.9 and 63-68 s
+to 1.05-1.11, 1.43-1.48, 3.3 and 13.4-14.0: **4.7x at 32x32**, which is the
+name-table fix. Its run did not move (21.8-23.9 -> 21.6-22.7 s at 32x32), and
+nor did Vitis's `csim_design` (7.1-8.1 -> 7.6-8.7 s; the fixes do not touch
+that path, and the small rise is the day's load). The hot Vitis column is the
+2026-10-22 measurement, which the fixes cannot change: it runs a compiled
+binary.
 
 - The simulator's build is elaboration, lowering and compiling; its first run
   adds the runtime's first-use costs, and its second run, in the same
@@ -47,77 +61,75 @@ simulation is already compiled and is run again on the same inputs.
   0.14 s at 4x4, 1.6-2.2 and 0.35-0.44 at 8x8, 6.6-6.9 and 2.4-2.7 at 16x16,
   63-68 and 21.8-23.9 at 32x32.
 - Vitis's `csim_design` compiles the testbench and the design (in debug mode,
-  its default) and runs them; SPMW writing the project takes 0.8 to 7.1 s of
+  its default) and runs them; SPMW writing the project takes 0.9 to 7.3 s of
   the cold figure, and `vitis_hls` starting and setting up the project 3.6 to
-  3.7 s more, which the third column adds. The hot figure runs the `csim.exe` each
-  cold run left, in a new process, with the libraries `run_sim.tcl` sets
-  (`sim_time/csim_hot.txt`).
+  4.5 s more, which the cold column leaves out and the raw records keep. The
+  hot figure runs the `csim.exe` each cold run left, in a new process, with
+  the libraries `run_sim.tcl` sets (`sim_time/before/csim_hot.txt`).
 
-**Cold, the simulator is the faster up to 16x16 and the slower at 32x32**:
-about 6 times faster at 4x4, 3 to 4 times at 8x8, level at 16x16, 6 times
-slower at 32x32. **Hot, Vitis's binary is the faster from 8x8 up**: 1.3 to 9
-times at 8x8, 7 to 16 times at 16x16 and 26 to 29 times at 32x32; only at 4x4
-does the simulator's in-process call (2 ms) beat a process start (5 ms). The simulator
-runs one thread for each of the 1,024 sites and their edge units on 48 cores
-and passes every token through a blocking queue; Vitis's C simulation runs
-the same processes one after another in one thread. Both grow with the array,
-the simulator's build most of all: from 1 second to 63-68.
+**Cold, the simulator is now the faster up to 16x16 and still the slower at
+32x32**: about 7 times faster at 4x4, 4 times at 8x8, 1.8 times at 16x16 (it
+was level), and 2.3 times slower at 32x32 (it was 6 times). **Hot, Vitis's
+binary is the faster from 8x8 up**: about 3 times at 8x8, 16 times at 16x16
+and 15 to 20 times at 32x32; only at 4x4 does the simulator's in-process call
+beat a process start. The simulator runs one thread for each of the 1,024
+sites and their edge units on 48 cores -- 21 times oversubscribed -- and
+passes every token through a FIFO; Vitis's C simulation runs the same
+processes one after another in one thread. This launch is 16 to 100 cycles,
+most of it the array filling and draining, which is the worst case for the
+simulator and the reason E9's long programs come out the other way
+(`../e9_vta/SIM_TIME.md`).
 
-## Why the simulator slows down, and when it is the faster
+## Why the simulator slowed down, and what the fixes changed
 
 Probed on 2026-10-22 with `scripts/e1_simprobe.py`, one run each
-(`sim_time/probe.ndjson`).
+(`sim_time/before/probe.ndjson`), on the simulator as it was.
 
-**Most of the 32x32 cold time is not the simulation.** Of a 69.6 s build,
-52.5 s is one Python pass in Allo's simulator, `_process_function_streams`
-(`allo/backend/simulator.py`), which for every call in each of the 1,089
-functions scans the whole module for its callee -- quadratic in the cells.
-SPMW's own lowering is 1.7 s. The first run's 20 s beyond the second are user
-time (28 s against 11 s), which looks like LLVM generating the module's
-machine code on the first call; that is inferred, not traced.
+**Most of the 32x32 cold time was not the simulation.** Of a 69.6 s build,
+52.5 s was one Python pass in Allo's simulator,
+`_process_function_streams` (`allo/backend/simulator.py`), which for every
+call in each of the 1,089 functions scanned the whole module for its callee
+-- quadratic in the cells. SPMW's own lowering was 1.7 s. The first run's 20 s
+beyond the second are user time (28 s against 11 s), which looks like LLVM
+generating the module's machine code on the first call; that is inferred, not
+traced.
 
 **The simulation itself is synchronisation.** Every cell is an OS thread, and
-a put on a full queue or a get on an empty one loops on `omp flush`,
-`taskyield` and `usleep(1)`. The second 32x32 run takes 1.33 s and 52.5 s of
-CPU, 41.7 of it in the kernel, for 32,768 multiply-adds; at 16x16, 0.24 s and
-10.5 s of CPU with 5.5 million context switches, for 4,096.
+a put on a full FIFO or a get from an empty one looped on `omp flush`,
+`taskyield` and `usleep(1)`, so each hand-over cost a timer slice. The second
+32x32 run took 1.33 s and 52.5 s of CPU, 41.7 of it in the kernel, for 32,768
+multiply-adds; at 16x16, 0.24 s and 10.5 s of CPU with 5.5 million context
+switches, for 4,096.
 
-**A longer workload turns it around.** The same 16x16 array on E12's tiled
-GEMMs (`gemmtiles`), 1,024 and 8,192 steps a cell instead of E1's 16:
+**Three fixes, in 32d1db81.**
+- `_process_function_streams` now looks a callee up in a name table, maps
+  values to streams through a dict, and skips a callee whose accesses an
+  earlier call site already rewrote. The 32x32 build is 4.7 times shorter.
+- A waiting PE now spins briefly and then sleeps on the FIFO's head or tail
+  word (a futex, in a small C runtime compiled once a machine); the side that
+  moves the word wakes it, and only when someone is asleep. **This changed
+  nothing measurable here** -- E1's array is 1,024 threads on 48 cores, where
+  the limit is the oversubscription and not the latency of a hand-over -- and
+  it is worth 35 times on E9's mini-TPU, 42 threads with a million-cycle
+  program (`../e9_vta/SIM_TIME.md`).
+- A region's processes are emitted producer first
+  (`allo/spmw/lower_mlir.py`). Nothing in the hardware or in this simulator
+  depends on the order; Vitis's C simulation runs the processes in call order,
+  and E12's tiled design placed its cells before the `frame` units feeding
+  them, so `csim_design` stopped at "an hls::stream is read while empty". It
+  now runs the generated code unedited at every size measured here and in E9.
 
-| Steps a cell | Simulator, hot | Vitis csim, hot | Simulator, cold | Vitis csim, cold |
-|---|---:|---:|---:|---:|
-| 16 (E1, 16^3) | 0.09-0.24 s | 0.011-0.012 s | 9.0-9.4 s | 9.6-9.7 s |
-| 1,024 (E12, 64^3) | 0.147 s | 0.48-0.49 s | 16.4 s | 11.2 s |
-| 8,192 (E12, 128^3) | 1.09 s | 3.63-3.71 s | 17.2 s | 14.8 s |
+**What the fixes did not address.** The second one has a half still undone:
+with more cells than cores, a thread holding a core is often spinning on a
+FIFO whose producer is not scheduled. Running several cells per thread, so
+the thread count stays near the core count, is what would fix that; E9's
+16x16 engine measures the gap at about 10 times a thread.
 
-A short launch is mostly filling and draining the array, when the threads poll
-empty queues and every hand-over waits on the scheduler. In a long one the
-queues stay full, a thread rarely waits, and the 48 cores share the work;
-Vitis's C simulation is one thread and grows with the work. Hot, the simulator
-goes from 8 to 20 times slower than Vitis's binary to 3.3 times faster. Cold,
-its fixed cost -- a 12 s build for this design -- still leaves it behind at
-these lengths. More cells are the other way: the build's quadratic pass, the
-first-run compile and the threads beyond the cores all grow with the array.
-
-**Vitis's C simulation needs a sequential order; the simulator does not.**
-`csim_design` runs a dataflow region's processes one after another in the
-order they are called, and SPMW emits the tiled design's 16 `frame` units
-after the 256 cells they feed, so it stops at "an hls::stream is read while
-empty". The Vitis figures above are from the same generated code with the
-frame calls moved ahead of the cells (`REORDER=1`), which changes nothing in
-hardware. The simulator runs the processes concurrently and needs no order.
-
-**Three fixes, recorded and not made.**
-- `_process_function_streams` finds each callee by scanning every operation
-  of the module; a name-to-function table built once makes it linear, which
-  should remove most of the 52 s at 32x32.
-- A waiting thread polls with `usleep(1)`; blocking on the queue (a futex or
-  a condition variable) would stop idle threads from taking cores, and fewer
-  threads than cells, each running several cells in turn, would keep the
-  count near the cores.
-- SPMW could call a region's processes producer first, so that Vitis's C
-  simulation runs the generated code as it is.
+**A longer workload turns the comparison around**, measured before the fixes
+on the same 16x16 array with E12's tiled GEMMs (`gemmtiles`), 1,024 and 8,192
+steps a cell instead of E1's 16: hot, 0.147 s and 1.09 s against Vitis's 0.48
+and 3.63-3.71. E9's two programs measure the same effect on a design whose
+launch is a million cycles.
 
 ## RTL cosimulation
 
@@ -153,6 +165,10 @@ it runs:
 | 8x8 | 195 s | 0.8-0.9 s | 85-86 s | 67.3-68.1 s | 23.2-23.9 s | 3.5-3.7 s | 6.3-6.8 s | **5.2-5.6 s** | **38.2-40.0 s** | 106-107 s |
 | 16x16 | 198-199 s | 0.9 s | 83 s | 72.0-73.0 s | 23.2-23.3 s | 3.5 s | 8.5 s | **5.1-5.2 s** | **40.3-40.5 s** | 113 s |
 | 32x32 | 237-243 s | 1.6-1.8 s | 83-85 s | 101-104 s | 23.7-24.0 s | 3.9 s | 15.6-15.9 s | **6.0-6.3 s** | **49.2-50.1 s** | 151-154 s |
+
+Rerun after the fixes (`sim_time/after/cosim.ndjson`), which do not touch this
+path: end to end 193-204, 196-197, 205-210 and 238-242 s, and xsim 5.3-5.5,
+5.2, 5.3 and 6.0-6.1 s -- the same within the day's load.
 
 The testbench takes under 0.1 s and is not shown. The simulation itself is 5
 to 6 seconds at every size: a launch is 16 to 100 cycles. What grows is

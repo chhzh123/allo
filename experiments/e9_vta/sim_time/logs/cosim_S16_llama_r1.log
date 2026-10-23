@@ -1,0 +1,24 @@
+ptpu-llama: {"roles": 14, "instances": 289, "fifos": 817, "streams": 65}
+staged 14 role project(s) in 5.0s (frontend + per-role HLS codegen)
+synthesising and exporting 14 unit(s) concurrently:
+  pe_r3: rc=0 42.4s
+  pe_r5: rc=0 42.5s
+  pe_r2: rc=0 42.7s
+  pe_r0: rc=0 43.1s
+  pe_r1: rc=0 43.4s
+  pe_r4: rc=0 43.4s
+  tap_r0: rc=0 38.6s
+  tap_r1: rc=0 38.9s
+  pe_r6: rc=0 42.0s
+  pe_r7: rc=0 42.1s
+  pe_r8: rc=0 41.9s
+  seq_r0: rc=0 42.1s
+  tap_r2: rc=0 37.9s
+  plane16_r0: rc=0 40.8s
+HLS: 123.2s wall for 14 roles and 0 movers (581.8s of CPU work, 289 instances)
+assembling the array in Vivado:
+Vivado elaborated 289 instances in 74.1s
+simulating the assembled array:
+  SPMW COSIM PASS (8192/8192 tokens, 0 errors)
+  SPMW CYCLES total=65586 first_out=2068 first_in=1
+cosim: testbench 5.1s, ip 23.7s, xvlog 3.6s, xelab 8.6s, xsim 92.5s (133.5s)

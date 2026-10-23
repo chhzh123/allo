@@ -1,0 +1,19 @@
+gemm8: {"roles": 9, "instances": 256, "fifos": 512, "streams": 288}
+staged 9 role project(s) in 1.2s (frontend + per-role HLS codegen)
+synthesising and exporting 9 unit(s) concurrently:
+  pe_r7: rc=0 44.3s
+  pe_r4: rc=0 44.3s
+  pe_r2: rc=0 44.8s
+  pe_r0: rc=0 45.0s
+  pe_r3: rc=0 45.3s
+  pe_r1: rc=0 45.4s
+  pe_r6: rc=0 45.5s
+  pe_r5: rc=0 45.6s
+  pe_r8: rc=0 41.3s
+HLS: 85.6s wall for 9 roles and 0 movers (401.5s of CPU work, 256 instances)
+assembling the array in Vivado:
+Vivado elaborated 256 instances in 74.9s
+simulating the assembled array:
+  SPMW COSIM PASS (256/256 tokens, 0 errors)
+  SPMW CYCLES total=52 first_out=22 first_in=3
+cosim: testbench 0.0s, ip 29.6s, xvlog 3.6s, xelab 8.6s, xsim 5.3s (47.1s)

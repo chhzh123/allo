@@ -21,7 +21,7 @@ set -u
 export PATH=/scratch/hc676/allo-agent/bin:$PATH LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 local T=/scratch/hc676/simtime/allo
-local E=/scratch/hc676/e17_simtime/e9
+local E=${SIMTIME_OUT:-/scratch/hc676/e17_simtime}/e9
 local SIZE=${SIZE:-4}
 # The generated top copies each operand into a local array: megabytes for
 # these programs, so Vitis's C simulation needs the stack unbounded.

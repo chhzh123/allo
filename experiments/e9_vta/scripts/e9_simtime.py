@@ -14,11 +14,12 @@ The simulator: `spmw.build(..., target="simulator")`, the build and two runs
 timed apart. Vitis's C simulation: `spmw.build(..., target="vitis_hls")`
 writes the HLS project; `csim_design` runs it with its defaults and a
 testbench that reads the operands from a file. Vitis runs a dataflow region's
-processes one after another in the order they are called, so the calls are
-first put producer before consumer, from which streams each function reads
-and writes -- the order means nothing to the hardware -- and a cycle among
-them is reported instead, since no sequential order can run one. The
-compiled `csim.exe` is then run twice more for the hot figure.
+processes one after another in the order they are called, so the generated
+code is checked against the order its streams imply, and `order` reports
+whether it already holds (SPMW emits producer first since 32d1db81) -- with
+REORDER=1 the calls are moved into that order first, which is how the code
+before that commit could be simulated at all. The compiled `csim.exe` is then
+run twice more for the hot figure.
 """
 
 import json
@@ -197,13 +198,15 @@ def csim(program, size, out):
     res["codegen_s"] = round(time.time() - t0, 3)
     path = os.path.join(out, "kernel.cpp")
     code, info = order_top(open(path, encoding="utf-8").read())
+    info["reordered"] = bool(os.environ.get("REORDER"))
     res["order"] = info
     if code is None:
         res["pass"] = False
         res["error"] = "the processes form a cycle: no sequential order runs them"
         print(json.dumps(res), flush=True)
         return
-    open(path, "w", encoding="utf-8").write(code)
+    if info["reordered"]:
+        open(path, "w", encoding="utf-8").write(code)
     operands = os.path.abspath(os.path.join(out, "operands.bin"))
     with open(operands, "wb") as handle:
         for k in ARRAYS:

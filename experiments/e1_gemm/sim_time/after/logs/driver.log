@@ -1,0 +1,27 @@
+E1_SIMTIME_START reps=2 sizes=4 8 16 32 phases=simulator cosim csim Fri Oct 23 00:14:10 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+simulator S=4 r=1 rc=0 00:14:14
+simulator S=4 r=2 rc=0 00:14:17
+simulator S=8 r=1 rc=0 00:14:20
+simulator S=8 r=2 rc=0 00:14:24
+simulator S=16 r=1 rc=0 00:14:31
+simulator S=16 r=2 rc=0 00:14:39
+simulator S=32 r=1 rc=0 00:15:17
+simulator S=32 r=2 rc=0 00:15:56
+csim S=4 r=1 rc=0 00:16:12
+csim S=4 r=2 rc=0 00:16:26
+csim S=8 r=1 rc=0 00:16:40
+csim S=8 r=2 rc=0 00:16:54
+csim S=16 r=1 rc=0 00:17:10
+csim S=16 r=2 rc=0 00:17:26
+csim S=32 r=1 rc=0 00:17:47
+csim S=32 r=2 rc=0 00:18:08
+cosim S=4 r=1 rc=0 00:21:32
+cosim S=4 r=2 rc=0 00:24:45
+cosim S=8 r=1 rc=0 00:28:01
+cosim S=8 r=2 rc=0 00:31:18
+cosim S=16 r=1 rc=0 00:34:43
+cosim S=16 r=2 rc=0 00:38:14
+cosim S=32 r=1 rc=0 00:42:16
+cosim S=32 r=2 rc=0 00:46:14
+E1_SIMTIME_DONE Fri Oct 23 00:46:14 EDT 2026

@@ -1,0 +1,8 @@
+{"program": "llama", "size": 16, "build_s": 7.306, "run_s": 13.892, "run_cpu_s": 339.55, "run_pass": true, "rerun_s": 9.115, "rerun_cpu_s": 329.47, "rerun_pass": true, "load": [25.9, 11.02, 9.32]}
+{"program": "llama", "size": 16, "build_s": 7.298, "run_s": 13.901, "run_cpu_s": 334.15, "run_pass": true, "rerun_s": 9.301, "rerun_cpu_s": 333.33, "rerun_pass": true, "load": [43.22, 16.65, 11.24]}
+{"program": "dsv4", "size": 16, "build_s": 13.248, "run_s": 35.939, "run_cpu_s": 1119.07, "run_pass": true, "rerun_s": 30.969, "rerun_cpu_s": 1103.92, "rerun_pass": true, "load": [67.52, 29.02, 15.92]}
+{"program": "dsv4", "size": 16, "build_s": 13.204, "run_s": 36.502, "run_cpu_s": 1130.48, "run_pass": true, "rerun_s": 31.223, "rerun_cpu_s": 1114.74, "rerun_pass": true, "load": [67.87, 37.4, 19.94]}
+{"program": "llama", "size": 4, "build_s": 10.849, "run_s": 1.91, "run_cpu_s": 53.65, "run_pass": true, "rerun_s": 1.831, "rerun_cpu_s": 58.26, "rerun_pass": true, "load": [7.93, 6.09, 6.7]}
+{"program": "llama", "size": 4, "build_s": 11.271, "run_s": 1.843, "run_cpu_s": 51.7, "run_pass": true, "rerun_s": 1.745, "rerun_cpu_s": 58.04, "rerun_pass": true, "load": [7.28, 6.04, 6.67]}
+{"program": "dsv4", "size": 4, "build_s": 35.71, "run_s": 5.968, "run_cpu_s": 183.97, "run_pass": true, "rerun_s": 6.34, "rerun_cpu_s": 205.98, "rerun_pass": true, "load": [13.1, 7.46, 7.1]}
+{"program": "dsv4", "size": 4, "build_s": 34.581, "run_s": 5.79, "run_cpu_s": 179.57, "run_pass": true, "rerun_s": 6.346, "rerun_cpu_s": 204.69, "rerun_pass": true, "load": [16.04, 8.76, 7.54]}

@@ -1965,3 +1965,14 @@ is Intel.
   testbench and the simulation, and its route reports are the ones in
   `llama/gemmini/`. The stimulus is
   `test_spmw_llama_ffn.py --k 7168 --out dsv4_slice.txt`.
+
+## Simulation time, 2026-10-23
+
+`SIM_TIME.md` times this experiment's two longest launches -- the LLaMA layer
+and the DeepSeek expert, 65 thousand to 3.7 million cycles -- on SPMW's
+parallel OpenMP simulator, on Vitis HLS's own C simulation and in xsim. The
+simulator wins on all four: 1.8 to 31 s against Vitis's 36 to 150 and xsim's
+72 to 333. It is 23 times faster than Vitis's C simulation on the 4x4 engine
+and 3.9 times on the 16x16 one, and the write-up measures why the larger
+engine gains less: 354 threads on 48 cores spend their cores waiting.
+

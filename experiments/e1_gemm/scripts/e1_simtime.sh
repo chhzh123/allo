@@ -21,7 +21,7 @@ set -u
 export PATH=/scratch/hc676/allo-agent/bin:$PATH LLVM_BUILD_DIR=/work/shared/common/llvm-project-main/build
 source /work/shared/common/allo/vitis_2023.2_u280.sh >/dev/null 2>&1
 local T=/scratch/hc676/simtime/allo
-local E=/scratch/hc676/e17_simtime
+local E=${SIMTIME_OUT:-/scratch/hc676/e17_simtime}
 local REPS=${1:-2}
 shift
 local SIZES=${*:-4 8 16 32}

@@ -1,0 +1,9 @@
+# The OpenMP simulator before the fixes of 32d1db81, for the "before" column of
+# SIM_TIME.md. These runs are from the measurement that was stopped part-way
+# (the 16x16 pair complete, one 4x4 llama run), so they are kept as text here
+# rather than as a driver's output.
+{"program": "llama", "size": 16, "build_s": 14.877, "run_s": 16.229, "run_cpu_s": 197.38, "rerun_s": 11.298, "rerun_cpu_s": 192.93, "pass": true}
+{"program": "llama", "size": 16, "build_s": 14.235, "run_s": 15.61, "run_cpu_s": 195.15, "rerun_s": 11.038, "rerun_cpu_s": 187.32, "pass": true}
+{"program": "dsv4", "size": 16, "build_s": 20.572, "run_s": 42.984, "run_cpu_s": 622.51, "rerun_s": 36.59, "rerun_cpu_s": 588.49, "pass": true}
+{"program": "dsv4", "size": 16, "build_s": 19.94, "run_s": 39.005, "run_cpu_s": 573.35, "rerun_s": 35.934, "rerun_cpu_s": 594.18, "pass": true}
+{"program": "llama", "size": 4, "build_s": 11.425, "run_s": 61.877, "run_cpu_s": 88.06, "rerun_s": 61.718, "rerun_cpu_s": 86.66, "pass": true}
