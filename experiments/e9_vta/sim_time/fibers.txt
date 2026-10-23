@@ -1,0 +1,28 @@
+# Threads a unit against fibers over a pool, 2026-10-23, after the depth floor
+# and the fixes of 32d1db81. Hot runs, seconds, one run a cell; `cpu` is the
+# run's CPU seconds, so cpu/hot is the cores it kept busy. The default worker
+# count was `cores` (48 here) when these were taken; it is now cores/4.
+#
+# E1's int8 array (gemm8), depth floor 64, hot:
+#   S     threads   fibers
+#   4x4     0.002    0.001
+#   8x8     0.013    0.009
+#   16x16   0.163    0.005      <- 33x
+#   32x32   0.591    0.014      <- 42x
+# and cold at 32x32: 33.84 s with threads, 17.92 s with fibers (the first run
+# falls from 21.0 s to 4.3 s).
+#
+# The mini-TPU (ptpu), hot:
+#   case                 threads           fibers, 48 workers   fibers, 16
+#   llama 16x16 depth 0    9.71 (cpu 345)    45.48 (cpu 1744)        -
+#   llama 16x16 depth 64   2.07 (cpu  78)     2.44 (cpu  103)     1.03 (cpu 16)
+#   dsv4  16x16 depth 64   5.76-8.12          -                   4.72 (cpu 73)
+#   llama 8x8   depth 0   10.83 (cpu 304)    84.70 (cpu 3139)        -
+#   llama 8x8   depth 64   0.86 (cpu  33)     9.05 (cpu  352)     1.70 (cpu 26)
+#   dsv4  8x8   depth 64   2.86-2.94          -                   5.61 (cpu 86)
+#
+# Workers against time, fibers, llama 8x8 at depth floor 64:
+#   4 workers  1.82 s (cpu   7.3)
+#   8 workers  2.05 s (cpu  15.8)
+#  16 workers  1.70 s (cpu  25.8)
+#  48 workers  9.16 s (cpu 358.3)   <- the ready queue, contended

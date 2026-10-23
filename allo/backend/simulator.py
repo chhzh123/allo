@@ -51,6 +51,7 @@ from .._mlir.passmanager import PassManager
 from .._mlir.execution_engine import ExecutionEngine
 from ..ir.transform import find_func_in_module
 from ..passes import decompose_library_function
+from . import simulator_fibers
 from ..utils import get_func_inputs_outputs
 
 
@@ -89,6 +90,7 @@ def recursive_collect_ops_by_name(
 _FIFO_RUNTIME = r"""
 #include <limits.h>
 #include <stdint.h>
+#include <stdlib.h>
 #ifdef __linux__
 #include <linux/futex.h>
 #include <sys/syscall.h>
@@ -99,6 +101,17 @@ _FIFO_RUNTIME = r"""
 
 #define SLOTS 4096
 static int32_t sleepers[SLOTS];
+
+/* How long a waiter spins before it sleeps. Spinning pays when a producer is
+   running on another core and the wait is short; it wastes the core when
+   there are more units than cores, since the core could run the producer. */
+static int spins = 256;
+
+__attribute__((constructor)) static void allo_fifo_init(void) {
+  const char *s = getenv("ALLO_SIM_SPIN");
+  if (s)
+    spins = atoi(s);
+}
 
 static inline int32_t *slot(intptr_t addr) {
   return &sleepers[(addr >> 2) & (SLOTS - 1)];
@@ -113,11 +126,13 @@ static inline void relax(void) {
 /* Returns once the word differs from `blocked`, or may have. */
 void allo_fifo_wait(intptr_t addr, int32_t blocked) {
   int32_t *word = (int32_t *)addr;
-  for (int i = 0; i < 256; i++) {
+  for (int i = 0; i < spins; i++) {
     if (__atomic_load_n(word, __ATOMIC_ACQUIRE) != blocked)
       return;
     relax();
   }
+  if (__atomic_load_n(word, __ATOMIC_ACQUIRE) != blocked)
+    return;
 #ifdef __linux__
   int32_t *s = slot(addr);
   __atomic_add_fetch(s, 1, __ATOMIC_SEQ_CST);
@@ -139,14 +154,34 @@ void allo_fifo_notify(intptr_t addr) {
 """
 
 
-def _fifo_runtime():
-    """`_FIFO_RUNTIME` as a shared library, compiled once a machine and user."""
-    digest = hashlib.sha1(_FIFO_RUNTIME.encode()).hexdigest()[:12]
+def _depth_floor(given):
+    """A floor on every FIFO's depth, for speed.
+
+    What a functional run computes does not depend on the depth -- the design
+    is deterministic dataflow, and cycle counts come from RTL simulation --
+    but a deeper FIFO blocks far less often, and each block costs an OS
+    transition, which is most of the simulation's cost once there are more
+    units than cores. Raising it to 64 on E9's 16x16 engine cut a run from
+    9.9 s to 2.1 s and its CPU from 340 s to 77.
+
+    Off unless asked for, by `spmw.build(..., fifo_depth_floor=n)` or
+    `ALLO_SIM_DEPTH`, so that a design which only runs at its declared depths
+    is still simulated at them, and a deadlock that needs them still shows.
+    """
+    if given is not None:
+        return int(given)
+    return int(os.environ.get("ALLO_SIM_DEPTH", "0"))
+
+
+def _fifo_runtime(source=None):
+    """The waiting half as a shared library, compiled once a machine and user."""
+    source = _FIFO_RUNTIME if source is None else source
+    digest = hashlib.sha1(source.encode()).hexdigest()[:12]
     path = os.path.join(tempfile.gettempdir(), f"allo_fifo_{os.getuid()}_{digest}.so")
     if not os.path.isfile(path):
         base = f"{path}.{os.getpid()}"
         with open(base + ".c", "w", encoding="utf-8") as handle:
-            handle.write(_FIFO_RUNTIME)
+            handle.write(source)
         compiler = os.environ.get("CC", "cc")
         subprocess.run(
             [compiler, "-O2", "-shared", "-fPIC", "-o", base + ".so", base + ".c"],
@@ -197,6 +232,8 @@ def _process_function_streams(
     all_pe_calls_by_func: dict,
     funcs: dict = None,
     rewritten: set = None,
+    depth_floor: int = 0,
+    parts: dict = None,
 ):
     """
     Process streams and PE calls within a single function.
@@ -240,6 +277,8 @@ def _process_function_streams(
                         all_pe_calls_by_func,
                         funcs,
                         rewritten,
+                        depth_floor,
+                        parts,
                     )
         elif isinstance(op, allo_d.StreamConstructOp):
             stream_name = str(op.attributes["name"]).strip('"')
@@ -265,6 +304,7 @@ def _process_function_streams(
         stream_depth = stream_type.depth
         assert isinstance(stream_item_type, (MemRefType, IntegerType, FloatType))
         assert isinstance(stream_depth, int)
+        stream_depth = max(stream_depth, depth_floor)
         ip = InsertionPoint(beforeOperation=stream_access_op)
         if isinstance(stream_item_type, MemRefType):
             item_element_type = stream_item_type.element_type
@@ -278,7 +318,8 @@ def _process_function_streams(
             memref_stream_type = MemRefType.get(
                 shape=[stream_depth + 1], element_type=stream_item_type
             )
-        stream_memref_op = memref_d.AllocOp(memref_stream_type, [], [], ip=ip)
+        buffer_op = memref_d.AllocOp(memref_stream_type, [], [], ip=ip)
+        stream_memref_op = buffer_op
         stream_head_op = memref_d.AllocOp(memref_scalar_int_type, [], [], ip=ip)
         stream_tail_op = memref_d.AllocOp(memref_scalar_int_type, [], [], ip=ip)
         if not const_0_defined:
@@ -315,6 +356,14 @@ def _process_function_streams(
         stream_memref_op.attributes["name"] = stream_name
         stream_struct_table[stream_name_str] = stream_memref_op.result
         stream_type_table[stream_name_str] = memref_stream_type
+        if parts is not None:
+            # What the fiber scheduler needs to rebuild this FIFO's struct in
+            # a thunk: the three allocs its members live in.
+            parts[stream_memref_op.result] = (
+                buffer_op,
+                stream_head_op,
+                stream_tail_op,
+            )
 
     # Which stream each value is, built once rather than searched for every
     # operand of every call. Keys and lookups are both `Value`s: an operand
@@ -925,7 +974,9 @@ def _functions_by_name(module: Module):
     }
 
 
-def build_dataflow_simulator(module: Module, top_func_name: str):
+def build_dataflow_simulator(
+    module: Module, top_func_name: str, depth_floor=None, fibers=None
+):
     with module.context, Location.unknown():
         # The FIFO runtime's two entry points (`_FIFO_RUNTIME`)
         declared = _functions_by_name(module)
@@ -951,10 +1002,18 @@ def build_dataflow_simulator(module: Module, top_func_name: str):
         func = find_func_in_module(module, top_func_name)
         assert isinstance(func.body, Region)
         funcs = _functions_by_name(module)
+        on_fibers = simulator_fibers.enabled(fibers)
+        parts = {} if on_fibers else None
 
         # Recursively process the top function and all its callees
         _, _, pe_call_define_ops, _ = _process_function_streams(
-            module, func, processed_funcs, all_pe_calls_by_func, funcs
+            module,
+            func,
+            processed_funcs,
+            all_pe_calls_by_func,
+            funcs,
+            depth_floor=_depth_floor(depth_floor),
+            parts=parts,
         )
 
         # If no PE calls were found in top function, collect them again from the processed functions
@@ -968,6 +1027,16 @@ def build_dataflow_simulator(module: Module, top_func_name: str):
                             pe_call_define_ops[op] = funcs[callee_name]
             all_pe_calls_by_func[top_func_name] = pe_call_define_ops
 
+        if on_fibers:
+            # One fiber a unit over a pool of threads, rather than a thread a
+            # unit: `simulator_fibers` says what that costs the IR.
+            empty_map = AffineMapAttr.get(AffineMap.get(0, 0, []))
+            for func_pe_calls in all_pe_calls_by_func.values():
+                if func_pe_calls:
+                    simulator_fibers.rewrite(
+                        module, func, func_pe_calls, parts, empty_map
+                    )
+            return
         # Inject omp.parallel/sections into every function that has PE calls
         for func_pe_calls in all_pe_calls_by_func.values():
             if func_pe_calls:
@@ -1007,7 +1076,14 @@ def convert_critical_write_to_atomic_write(module: Module):
 
 
 class LLVMOMPModule(LLVMModule):
-    def __init__(self, mod: Module, top_func_name: str, ext_libs=None):
+    def __init__(
+        self,
+        mod: Module,
+        top_func_name: str,
+        ext_libs=None,
+        depth_floor=None,
+        fibers=None,
+    ):
         with Context() as ctx:
             allo_d.register_dialect(ctx)
             self.module = Module.parse(str(mod), ctx)
@@ -1018,7 +1094,10 @@ class LLVMOMPModule(LLVMModule):
             self.in_types, self.out_types = get_func_inputs_outputs(func)
             self.module = decompose_library_function(self.module)
 
-            build_dataflow_simulator(self.module, self.top_func_name)
+            self.on_fibers = simulator_fibers.enabled(fibers)
+            build_dataflow_simulator(
+                self.module, self.top_func_name, depth_floor, self.on_fibers
+            )
             # Attach necessary attributes
             func = find_func_in_module(self.module, top_func_name)
             if func is None:
@@ -1068,7 +1147,7 @@ class LLVMOMPModule(LLVMModule):
                     os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_c_runner_utils.so"
                 ),
                 os.path.join(os.getenv("LLVM_BUILD_DIR"), "lib", "libomp.so"),
-                _fifo_runtime(),
+                _fifo_runtime(simulator_fibers.RUNTIME if self.on_fibers else None),
             ]
             shared_libs += [lib.compile_shared_lib() for lib in ext_libs]
             self.execution_engine = ExecutionEngine(

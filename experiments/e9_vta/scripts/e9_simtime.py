@@ -11,7 +11,9 @@ and 3.67 million cycles at 4x4. One JSON line on stdout; every result is
 checked against the workload's golden.
 
 The simulator: `spmw.build(..., target="simulator")`, the build and two runs
-timed apart. Vitis's C simulation: `spmw.build(..., target="vitis_hls")`
+timed apart; `ALLO_SIM_DEPTH` raises every channel's depth, which a functional
+run's results do not depend on and which saves most of its synchronisation,
+and the record carries the floor it ran at. Vitis's C simulation: `spmw.build(..., target="vitis_hls")`
 writes the HLS project; `csim_design` runs it with its defaults and a
 testbench that reads the operands from a file. Vitis runs a dataflow region's
 processes one after another in the order they are called, so the generated
@@ -59,9 +61,16 @@ def simulator(program, size):
     engine = ptpu_workload(size, program)
     want = engine.spmw_ptpu["expected"]
     ops = [engine.spmw_operands[k] for k in ARRAYS]
+    floor = int(os.environ.get("ALLO_SIM_DEPTH", "0"))
     t0 = time.time()
-    module = spmw.build(engine, target="simulator")
-    out = {"program": program, "size": size, "build_s": round(time.time() - t0, 3)}
+    module = spmw.build(engine, target="simulator", fifo_depth_floor=floor or None)
+    out = {
+        "program": program,
+        "size": size,
+        "depth_floor": floor,
+        "fibers": os.environ.get("ALLO_SIM_FIBERS", "") not in ("", "0"),
+        "build_s": round(time.time() - t0, 3),
+    }
     for key in ("run_s", "rerun_s"):
         Y = np.zeros(want.shape, dtype=np.int32)
         c0, t0 = cpu(), time.time()

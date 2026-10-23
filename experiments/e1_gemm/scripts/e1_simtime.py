@@ -12,7 +12,9 @@ The simulator: `spmw.build(..., target="simulator")` lowers the design to
 Allo's OpenMP simulator -- one thread a site, the channels as queues --
 compiled for the host by LLVM. The build (elaboration, lowering, compiling)
 and the run are timed apart, the run twice, and the result is checked against
-numpy.
+numpy. `ALLO_SIM_DEPTH` raises every channel's depth, which a functional run's
+results do not depend on and which saves most of its synchronisation; the
+record carries the floor it ran at.
 
 Vitis's C simulation: `spmw.build(..., target="vitis_hls")` writes the HLS
 project, and `vitis_hls` runs `csim_design`, with its defaults, on that code
@@ -127,10 +129,11 @@ def main():
     b = rng.integers(-128, 128, size=(size, size)).astype(np.int8)
     want = a.astype(np.int32) @ b.astype(np.int32)
     load = os.getloadavg()
+    floor = int(os.environ.get("ALLO_SIM_DEPTH", "0"))
     t0 = time.time()
     fabric = gemm_int8_of(size)
     t1 = time.time()
-    module = spmw.build(fabric, target="simulator")
+    module = spmw.build(fabric, target="simulator", fifo_depth_floor=floor or None)
     t2 = time.time()
     c = np.zeros((size, size), dtype=np.int32)
     module(a, b, c)
@@ -144,6 +147,8 @@ def main():
             {
                 "size": size,
                 "sites": size * size,
+                "depth_floor": floor,
+                "fibers": os.environ.get("ALLO_SIM_FIBERS", "") not in ("", "0"),
                 "import_s": round(IMPORTED, 3),
                 "define_s": round(t1 - t0, 3),
                 "build_s": round(t2 - t1, 3),

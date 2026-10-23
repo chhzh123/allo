@@ -70,6 +70,8 @@ def build(
     tensor_specs=None,
     verbose=False,
     partition=True,
+    fifo_depth_floor=None,
+    fibers=None,
     **kwargs,
 ):
     """Elaborate, lower, and compile a fabric for ``target``.
@@ -89,6 +91,16 @@ def build(
 
     Pass ``partition=False`` to emit the unpartitioned program -- worth doing to
     see that error, and for a design whose arrays are too large to scalarise.
+
+    ``fifo_depth_floor`` raises every channel's depth on ``target="simulator"``
+    only, which costs nothing in what the run computes and makes a large
+    design far faster to simulate (see `_depth_floor` in
+    ``allo/backend/simulator.py``). It is off by default, so a design is
+    simulated at the depths it declares.
+
+    ``fibers`` runs the units as fibers over a pool of threads rather than one
+    thread each (``allo/backend/simulator_fibers.py``), which is what a design
+    with far more units than the machine has cores wants.
     """
     graph = elaborate(fabric_fn, tensor_specs=tensor_specs)
     _check_realised(graph)
@@ -104,7 +116,9 @@ def build(
         # pylint: disable=import-outside-toplevel
         from allo.backend.simulator import LLVMOMPModule
 
-        module = LLVMOMPModule(built.module, TOP)
+        module = LLVMOMPModule(
+            built.module, TOP, depth_floor=fifo_depth_floor, fibers=fibers
+        )
     else:
         schedule = _schedule(built)
         if partition:

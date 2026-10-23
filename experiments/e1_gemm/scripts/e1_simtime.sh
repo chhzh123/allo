@@ -5,7 +5,8 @@
 # functionally and in RTL, REPS times a size (default 2; sizes 4 8 16 32).
 # PHASES (default "simulator cosim csim") picks which of the three run:
 #   simulator  SPMW's parallel OpenMP simulator: e1_simtime.py, a fresh process
-#              a run -> simulator.ndjson
+#              a run, once for each depth floor in DEPTHS (default "0 64")
+#              -> simulator.ndjson
 #   cosim      RTL cosimulation with Vivado: spmw_build_array.py --design gemm8
 #              --cosim, E1's command, a fresh directory a run. Its log gives the
 #              HLS wall time, the array's elaboration and each step of the
@@ -34,8 +35,10 @@ local S r D t0 t1 rc
 case " $PHASES " in *" simulator "*)
 for S in $SIZES; do
   for r in $(seq 1 $REPS); do
-    python3 $T/experiments/e1_gemm/scripts/e1_simtime.py $S >> $E/simulator.ndjson 2> $E/logs/sim_S${S}_r$r.err
-    echo "simulator S=$S r=$r rc=$? $(date +%T)" >> $E/logs/driver.log
+    for depth in ${DEPTHS:-0 64}; do
+      ALLO_SIM_DEPTH=$depth python3 $T/experiments/e1_gemm/scripts/e1_simtime.py $S >> $E/simulator.ndjson 2> $E/logs/sim_S${S}_r${r}_d${depth}.err
+      echo "simulator S=$S r=$r depth=$depth rc=$? $(date +%T)" >> $E/logs/driver.log
+    done
   done
 done;; esac
 case " $PHASES " in *" csim "*)

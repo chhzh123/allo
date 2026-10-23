@@ -6,7 +6,8 @@
 # REPS times each (default 2; programs llama dsv4). PHASES (default
 # "simulator csim cosim") picks which of the three run:
 #   simulator  SPMW's parallel OpenMP simulator: e9_simtime.py, a fresh process
-#              a run -> simulator.ndjson
+#              a run, once for each depth floor in DEPTHS (default "0 64")
+#              -> simulator.ndjson
 #   csim       Vitis HLS's own C simulation of the HLS code SPMW emits, its
 #              calls put producer first: e9_simtime.py <program> <size> csim
 #              -> csim.ndjson
@@ -38,8 +39,10 @@ local P r D t0 t1 rc
 case " $PHASES " in *" simulator "*)
 for P in $PROGRAMS; do
   for r in $(seq 1 $REPS); do
-    python3 $T/experiments/e9_vta/scripts/e9_simtime.py $P $SIZE >> $E/simulator.ndjson 2> $E/logs/sim_S${SIZE}_${P}_r$r.err
-    echo "simulator S=$SIZE $P r=$r rc=$? $(date +%T)" >> $E/logs/driver.log
+    for depth in ${DEPTHS:-0 64}; do
+      ALLO_SIM_DEPTH=$depth python3 $T/experiments/e9_vta/scripts/e9_simtime.py $P $SIZE >> $E/simulator.ndjson 2> $E/logs/sim_S${SIZE}_${P}_r${r}_d${depth}.err
+      echo "simulator S=$SIZE $P r=$r depth=$depth rc=$? $(date +%T)" >> $E/logs/driver.log
+    done
   done
 done;; esac
 case " $PHASES " in *" csim "*)
