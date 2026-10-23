@@ -314,6 +314,21 @@ def test_the_layout_repeats_the_operands_and_marks_nothing():
     np.testing.assert_array_equal(bt[4 * 3 :][:3], b[:, 2:4])
 
 
+def test_the_frames_are_called_before_the_cells():
+    """A region's processes are emitted producer first.
+
+    Their order means nothing to the hardware or to SPMW's own simulator,
+    which runs them at once. Vitis HLS's C simulation runs them one after
+    another in the order they are called, and a cell called before the
+    `frame` that feeds it reads an empty stream.
+    """
+    # pylint: disable=import-outside-toplevel
+    from allo.spmw.lower_mlir import Program
+
+    names = [plan.name for plan in Program(spmw.elaborate(tiles_workload(4, 8))).maps]
+    assert names.index("frame") < names.index("pe"), names
+
+
 def test_one_array_for_every_workload():
     """Two GEMMs of different shapes compile to the same roles and fabric."""
     from test_spmw_ptpu import hardware  # pylint: disable=import-outside-toplevel

@@ -532,12 +532,47 @@ class Built:
         self.arg_order = arg_order
 
 
+def _producer_first(placements, graph):
+    """The placements with each one ahead of the placements its links feed.
+
+    A dataflow region runs its processes at once, so their order means nothing
+    to the hardware or to the simulator. Vitis HLS's C simulation runs them one
+    after another in the order they are called, and a process called before
+    its producer reads an empty stream: `test_spmw_gemm_tiles` placed its cells
+    before the `frame` units that feed them, and `csim_design` stopped there.
+    Ties keep the order the fabric placed them in, and so does a cycle, which
+    no order can run one process at a time.
+    """
+    rank = {p: k for k, p in enumerate(placements)}
+    feeds = {p: set() for p in placements}
+    for binding in graph.bindings:
+        if binding.kind != "link":
+            continue
+        src, dst = binding.source.placement, binding.target.placement
+        if src is not dst and src in rank and dst in rank:
+            feeds[src].add(dst)
+    waiting = {p: 0 for p in placements}
+    for nxt in feeds.values():
+        for p in nxt:
+            waiting[p] += 1
+    order, left = [], list(placements)
+    while left:
+        ready = [p for p in left if waiting[p] <= 0] or left[:1]
+        p = min(ready, key=rank.get)
+        left.remove(p)
+        order.append(p)
+        for q in feeds[p]:
+            waiting[q] -= 1
+    return order
+
+
 class Program:
     """The rolled program of one elaborated fabric.
 
     One function per role and per mover, and a ``top`` holding one
     ``spmw.map`` per placement and per mover -- loaders first, then the
-    arrays, then drains, which is the order a dataflow region wants them in.
+    arrays, producer before consumer, then drains, which is the order a
+    dataflow region wants them in.
     """
 
     def __init__(self, graph):
@@ -549,7 +584,7 @@ class Program:
         for index, mover in enumerate(self.low.movers):
             if mover.role == "load":
                 self.maps.append(self._mover_plan(index))
-        for placement in self.rolled.placements():
+        for placement in _producer_first(self.rolled.placements(), self.graph):
             self.maps.append(self._placement_plan(placement))
         for index, mover in enumerate(self.low.movers):
             if mover.role != "load":

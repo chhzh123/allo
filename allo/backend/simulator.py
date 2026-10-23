@@ -3,7 +3,10 @@
 # pylint: disable=no-name-in-module, super-init-not-called, too-many-nested-blocks, too-many-branches
 # pylint: disable=consider-using-enumerate, no-value-for-parameter, too-many-function-args, redefined-variable-type
 
+import hashlib
 import os
+import subprocess
+import tempfile
 from ..backend.llvm import LLVMModule
 from .._mlir.ir import (
     Location,
@@ -75,11 +78,125 @@ def recursive_collect_ops_by_name(
                 recursive_collect_ops_by_name(op, target_op_name, res_list)
 
 
+#: The waiting half of every FIFO. Each PE runs on a thread of its own, and a
+#: put to a full FIFO or a get from an empty one waits for the other side to
+#: move the FIFO's head or tail, a 32-bit word. A waiter spins briefly, then
+#: sleeps on that word (a futex) until it changes, so an idle PE takes no core;
+#: the side that moves the word wakes it, and only when a waiter is asleep,
+#: which a small table of sleeper counts records. Polling with `usleep(1)`
+#: instead cost every hand-over a timer slice, tens of microseconds, however
+#: little the PEs had to do.
+_FIFO_RUNTIME = r"""
+#include <limits.h>
+#include <stdint.h>
+#ifdef __linux__
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#else
+#include <sched.h>
+#endif
+
+#define SLOTS 4096
+static int32_t sleepers[SLOTS];
+
+static inline int32_t *slot(intptr_t addr) {
+  return &sleepers[(addr >> 2) & (SLOTS - 1)];
+}
+
+static inline void relax(void) {
+#if defined(__x86_64__) || defined(__i386__)
+  __builtin_ia32_pause();
+#endif
+}
+
+/* Returns once the word differs from `blocked`, or may have. */
+void allo_fifo_wait(intptr_t addr, int32_t blocked) {
+  int32_t *word = (int32_t *)addr;
+  for (int i = 0; i < 256; i++) {
+    if (__atomic_load_n(word, __ATOMIC_ACQUIRE) != blocked)
+      return;
+    relax();
+  }
+#ifdef __linux__
+  int32_t *s = slot(addr);
+  __atomic_add_fetch(s, 1, __ATOMIC_SEQ_CST);
+  if (__atomic_load_n(word, __ATOMIC_SEQ_CST) == blocked)
+    syscall(SYS_futex, word, FUTEX_WAIT_PRIVATE, blocked, NULL, NULL, 0);
+  __atomic_sub_fetch(s, 1, __ATOMIC_SEQ_CST);
+#else
+  sched_yield();
+#endif
+}
+
+void allo_fifo_notify(intptr_t addr) {
+#ifdef __linux__
+  __atomic_thread_fence(__ATOMIC_SEQ_CST);
+  if (__atomic_load_n(slot(addr), __ATOMIC_SEQ_CST))
+    syscall(SYS_futex, (int32_t *)addr, FUTEX_WAKE_PRIVATE, INT_MAX, NULL, NULL, 0);
+#endif
+}
+"""
+
+
+def _fifo_runtime():
+    """`_FIFO_RUNTIME` as a shared library, compiled once a machine and user."""
+    digest = hashlib.sha1(_FIFO_RUNTIME.encode()).hexdigest()[:12]
+    path = os.path.join(tempfile.gettempdir(), f"allo_fifo_{os.getuid()}_{digest}.so")
+    if not os.path.isfile(path):
+        base = f"{path}.{os.getpid()}"
+        with open(base + ".c", "w", encoding="utf-8") as handle:
+            handle.write(_FIFO_RUNTIME)
+        compiler = os.environ.get("CC", "cc")
+        subprocess.run(
+            [compiler, "-O2", "-shared", "-fPIC", "-o", base + ".so", base + ".c"],
+            check=True,
+            capture_output=True,
+        )
+        os.replace(base + ".so", path)
+        os.remove(base + ".c")
+    return path
+
+
+def _wait_loop(watched_ptr, blocked, ip):
+    """A loop that waits while a FIFO is full or empty, and its `before` block.
+
+    The caller fills that block with the test. `blocked` is the value of the
+    word the other side moves that means this side must wait -- a get waits
+    while the tail equals its head, a put while the head equals its next tail
+    -- so the body hands both to `allo_fifo_wait`, which returns once the word
+    differs from it.
+    """
+    address = memref_d.ExtractAlignedPointerAsIndexOp(watched_ptr, ip=ip)
+    loop = scf_d.WhileOp(results_=[], inits=[], ip=ip)
+    before_ip = InsertionPoint(Block.create_at_start(parent=loop.before, arg_types=[]))
+    openmp_d.FlushOp([], ip=before_ip)
+    after_ip = InsertionPoint(Block.create_at_start(parent=loop.after, arg_types=[]))
+    func_d.CallOp(
+        [],
+        FlatSymbolRefAttr.get("allo_fifo_wait"),
+        [address.result, blocked],
+        ip=after_ip,
+    )
+    scf_d.YieldOp(results_=[], ip=after_ip)
+    return before_ip
+
+
+def _notify(word_ptr, ip):
+    """Wake whoever sleeps on the FIFO word this side has just moved."""
+    address = memref_d.ExtractAlignedPointerAsIndexOp(word_ptr, ip=ip)
+    func_d.CallOp(
+        [], FlatSymbolRefAttr.get("allo_fifo_notify"), [address.result], ip=ip
+    )
+
+
 def _process_function_streams(
     module: Module,
     func: func_d.FuncOp,
     processed_funcs: set,
     all_pe_calls_by_func: dict,
+    funcs: dict = None,
+    rewritten: set = None,
 ):
     """
     Process streams and PE calls within a single function.
@@ -90,6 +207,13 @@ def _process_function_streams(
     if func_name in processed_funcs:
         return {}, {}, {}, {}
     processed_funcs.add(func_name)
+    # Looked up by name rather than by scanning the module for every call: a
+    # spatial design calls a few functions from a thousand sites, and the
+    # scan made this pass quadratic in the sites.
+    if funcs is None:
+        funcs = _functions_by_name(module)
+    if rewritten is None:
+        rewritten = set()
 
     if not isinstance(func.body, Region) or len(func.body.blocks) == 0:
         return {}, {}, {}, {}
@@ -105,15 +229,18 @@ def _process_function_streams(
         if isinstance(op, func_d.CallOp):
             callee_name = str(op.callee)[1:]
             if not callee_name.startswith(("load_buf", "store_res")):
-                for mod_op in module.body.operations:
-                    if isinstance(mod_op, func_d.FuncOp):
-                        if callee_name == str(mod_op.sym_name).strip('"'):
-                            pe_call_define_ops[op] = mod_op
-                            # Recursively process the callee function first
-                            _process_function_streams(
-                                module, mod_op, processed_funcs, all_pe_calls_by_func
-                            )
-                            break
+                mod_op = funcs.get(callee_name)
+                if mod_op is not None:
+                    pe_call_define_ops[op] = mod_op
+                    # Recursively process the callee function first
+                    _process_function_streams(
+                        module,
+                        mod_op,
+                        processed_funcs,
+                        all_pe_calls_by_func,
+                        funcs,
+                        rewritten,
+                    )
         elif isinstance(op, allo_d.StreamConstructOp):
             stream_name = str(op.attributes["name"]).strip('"')
             stream_construct_ops[stream_name] = op
@@ -189,6 +316,13 @@ def _process_function_streams(
         stream_struct_table[stream_name_str] = stream_memref_op.result
         stream_type_table[stream_name_str] = memref_stream_type
 
+    # Which stream each value is, built once rather than searched for every
+    # operand of every call. Keys and lookups are both `Value`s: an operand
+    # comes back as an `OpResult`, which hashes differently.
+    stream_of_value = {
+        Value(op.result): name for name, op in stream_construct_ops.items()
+    }
+
     # Transform the stream operations in function calls
     for call_op, func_def_op in pe_call_define_ops.items():
         # Get the correspondence between arguments and passed pipes
@@ -197,11 +331,9 @@ def _process_function_streams(
         assert isinstance(func_def_op.arguments, BlockArgumentList)
         assert len(call_op.operands_) == len(func_def_op.arguments)
         for i in range(len(call_op.operands_)):
-            arg_instance = call_op.operands_[i]
-            for stream_name, stream_construct_op in stream_construct_ops.items():
-                if Value(stream_construct_op.result) == arg_instance:
-                    arg_def = func_def_op.arguments[i]
-                    arg_stream_table[arg_def] = stream_name
+            stream_name = stream_of_value.get(Value(call_op.operands_[i]))
+            if stream_name is not None:
+                arg_stream_table[func_def_op.arguments[i]] = stream_name
         # Hand this call its FIFO structs, and give the callee's arguments the
         # struct type. Done for every call rather than once per callee: one
         # function may be called from many sites with different streams, and
@@ -223,11 +355,17 @@ def _process_function_streams(
             func_def_op.attributes["function_type"] = TypeAttr.get(
                 new_func_type, module.context
             )
-        # Collect and replace `stream_get`s and `stream_put`s
+        # Collect and replace `stream_get`s and `stream_put`s. A callee whose
+        # accesses were all rewritten at an earlier call has none left: its
+        # body is not walked again for each of its other call sites.
+        callee_name = str(func_def_op.sym_name).strip('"')
+        if callee_name in rewritten:
+            continue
         func_stream_ops = []
         recursive_collect_ops(
             func_def_op, (allo_d.StreamGetOp, allo_d.StreamPutOp), func_stream_ops
         )
+        skipped = 0
         for stream_access_op in func_stream_ops:
             assert isinstance(
                 stream_access_op, (allo_d.StreamGetOp, allo_d.StreamPutOp)
@@ -241,9 +379,11 @@ def _process_function_streams(
                 stream_arg = BlockArgument(stream)
             except ValueError:
                 # Not a block argument, skip - will be handled elsewhere
+                skipped += 1
                 continue
             # Check if this stream is in our arg_stream_table
             if stream_arg not in arg_stream_table:
+                skipped += 1
                 continue
             stream_name = arg_stream_table[stream_arg]
             stream_type = stream_type_table[stream_name]
@@ -302,25 +442,12 @@ def _process_function_streams(
                     rhs=const_fifo_depth.result,
                     ip=replace_ip,
                 )
-            spin_while_op = scf_d.WhileOp(results_=[], inits=[], ip=replace_ip)
-            assert isinstance(spin_while_op.before, Region)
-            assert isinstance(spin_while_op.after, Region)
-            before_block = Block.create_at_start(
-                parent=spin_while_op.before, arg_types=[]
-            )
-            before_ip = InsertionPoint(before_block)
-            openmp_d.FlushOp([], ip=before_ip)
-            after_block = Block.create_at_start(
-                parent=spin_while_op.after, arg_types=[]
-            )
-            after_ip = InsertionPoint(after_block)
-            openmp_d.TaskyieldOp(ip=after_ip)
-            # Inject usleep(1) to prevent CPU starvation
-            c1 = arith_d.ConstantOp(
-                IntegerType.get_signless(32, module.context), 1, ip=after_ip
-            )
-            func_d.CallOp([], FlatSymbolRefAttr.get("usleep"), [c1], ip=after_ip)
-            scf_d.YieldOp(results_=[], ip=after_ip)
+            # A put waits on the head, which the consumer moves; a get on the
+            # tail, which the producer moves.
+            if isinstance(stream_access_op, allo_d.StreamPutOp):
+                before_ip = _wait_loop(head_ptr, tail_next_op.result, replace_ip)
+            else:
+                before_ip = _wait_loop(tail_ptr, head_val_op.result, replace_ip)
             if isinstance(stream_access_op, allo_d.StreamPutOp):
                 head_val_op = memref_d.LoadOp(memref=head_ptr, indices=[], ip=before_ip)
                 cmp_op = arith_d.CmpIOp(
@@ -406,6 +533,7 @@ def _process_function_streams(
                 critical_ip = InsertionPoint(Block.create_at_start(critical_op.region))
                 memref_d.StoreOp(tail_next_op, tail_ptr, [], ip=critical_ip)
                 openmp_d.TerminatorOp(ip=critical_ip)
+                _notify(tail_ptr, replace_ip)
             else:
                 assert isinstance(stream_access_op, allo_d.StreamGetOp)
                 tail_val_op = memref_d.LoadOp(memref=tail_ptr, indices=[], ip=before_ip)
@@ -497,7 +625,10 @@ def _process_function_streams(
                 critical_ip = InsertionPoint(Block.create_at_start(critical_op.region))
                 memref_d.StoreOp(head_next_op, head_ptr, [], ip=critical_ip)
                 openmp_d.TerminatorOp(ip=critical_ip)
+                _notify(head_ptr, replace_ip)
             stream_access_op.operation.erase()
+        if not skipped:
+            rewritten.add(callee_name)
 
     # Also handle local stream operations within this function directly
     # (streams defined locally and used locally via stream_get/put, not passed to callees)
@@ -510,11 +641,7 @@ def _process_function_streams(
         # Get the stream this op uses
         stream = stream_access_op.stream
         # Check if this stream is one of our locally-defined streams
-        stream_name = None
-        for sname, sop in stream_construct_ops.items():
-            if Value(sop.result) == stream:
-                stream_name = sname
-                break
+        stream_name = stream_of_value.get(Value(stream))
         if stream_name is None:
             continue  # Not a local stream we're processing
         if stream_name not in stream_struct_table:
@@ -562,25 +689,7 @@ def _process_function_streams(
                 rhs=const_fifo_depth.result,
                 ip=replace_ip,
             )
-            spin_while_op = scf_d.WhileOp(results_=[], inits=[], ip=replace_ip)
-            assert isinstance(spin_while_op.before, Region)
-            assert isinstance(spin_while_op.after, Region)
-            before_block = Block.create_at_start(
-                parent=spin_while_op.before, arg_types=[]
-            )
-            before_ip = InsertionPoint(before_block)
-            openmp_d.FlushOp([], ip=before_ip)
-            after_block = Block.create_at_start(
-                parent=spin_while_op.after, arg_types=[]
-            )
-            after_ip = InsertionPoint(after_block)
-            openmp_d.TaskyieldOp(ip=after_ip)
-            # Inject usleep(1) to prevent CPU starvation
-            c1 = arith_d.ConstantOp(
-                IntegerType.get_signless(32, module.context), 1, ip=after_ip
-            )
-            func_d.CallOp([], FlatSymbolRefAttr.get("usleep"), [c1], ip=after_ip)
-            scf_d.YieldOp(results_=[], ip=after_ip)
+            before_ip = _wait_loop(head_ptr, tail_next_op.result, replace_ip)
             head_val_op = memref_d.LoadOp(memref=head_ptr, indices=[], ip=before_ip)
             cmp_op = arith_d.CmpIOp(
                 predicate=0, lhs=head_val_op, rhs=tail_next_op, ip=before_ip
@@ -658,6 +767,7 @@ def _process_function_streams(
             critical_ip = InsertionPoint(Block.create_at_start(critical_op.region))
             memref_d.StoreOp(tail_next_op, tail_ptr, [], ip=critical_ip)
             openmp_d.TerminatorOp(ip=critical_ip)
+            _notify(tail_ptr, replace_ip)
         else:
             assert isinstance(stream_access_op, allo_d.StreamGetOp)
             head_val_op = memref_d.LoadOp(memref=head_ptr, indices=[], ip=replace_ip)
@@ -669,25 +779,7 @@ def _process_function_streams(
                 rhs=const_fifo_depth.result,
                 ip=replace_ip,
             )
-            spin_while_op = scf_d.WhileOp(results_=[], inits=[], ip=replace_ip)
-            assert isinstance(spin_while_op.before, Region)
-            assert isinstance(spin_while_op.after, Region)
-            before_block = Block.create_at_start(
-                parent=spin_while_op.before, arg_types=[]
-            )
-            before_ip = InsertionPoint(before_block)
-            openmp_d.FlushOp([], ip=before_ip)
-            after_block = Block.create_at_start(
-                parent=spin_while_op.after, arg_types=[]
-            )
-            after_ip = InsertionPoint(after_block)
-            openmp_d.TaskyieldOp(ip=after_ip)
-            # Inject usleep(1) to prevent CPU starvation
-            c1 = arith_d.ConstantOp(
-                IntegerType.get_signless(32, module.context), 1, ip=after_ip
-            )
-            func_d.CallOp([], FlatSymbolRefAttr.get("usleep"), [c1], ip=after_ip)
-            scf_d.YieldOp(results_=[], ip=after_ip)
+            before_ip = _wait_loop(tail_ptr, head_val_op.result, replace_ip)
             tail_val_op = memref_d.LoadOp(memref=tail_ptr, indices=[], ip=before_ip)
             cmp_op = arith_d.CmpIOp(0, lhs=head_val_op, rhs=tail_val_op, ip=before_ip)
             scf_d.ConditionOp(condition=cmp_op, args=[], ip=before_ip)
@@ -769,6 +861,7 @@ def _process_function_streams(
             critical_ip = InsertionPoint(Block.create_at_start(critical_op.region))
             memref_d.StoreOp(head_next_op, head_ptr, [], ip=critical_ip)
             openmp_d.TerminatorOp(ip=critical_ip)
+            _notify(head_ptr, replace_ip)
         stream_access_op.operation.erase()
 
     # Erase stream construct ops for this function
@@ -824,39 +917,44 @@ def _inject_omp_parallel_sections(pe_call_define_ops):
     openmp_d.TerminatorOp(ip=ip_omp_sections)
 
 
+def _functions_by_name(module: Module):
+    return {
+        str(op.sym_name).strip('"'): op
+        for op in module.body.operations
+        if isinstance(op, func_d.FuncOp)
+    }
+
+
 def build_dataflow_simulator(module: Module, top_func_name: str):
     with module.context, Location.unknown():
-        # Declare usleep for spinloop yielding
-        found_usleep = False
-        for op in module.body.operations:
-            if (
-                isinstance(op, func_d.FuncOp)
-                and op.attributes["sym_name"].value == "usleep"
-            ):
-                found_usleep = True
-                break
-        if not found_usleep:
-            usleep_type = FunctionType.get(
-                [IntegerType.get_signless(32, module.context)],
-                [],
-            )
+        # The FIFO runtime's two entry points (`_FIFO_RUNTIME`)
+        declared = _functions_by_name(module)
+        index_type = IndexType.get(module.context)
+        int_type = IntegerType.get_signless(32, module.context)
+        for name, inputs in (
+            ("allo_fifo_wait", [index_type, int_type]),
+            ("allo_fifo_notify", [index_type]),
+        ):
+            if name in declared:
+                continue
             # pylint: disable=unexpected-keyword-arg
-            usleep_op = func_d.FuncOp(
-                name="usleep",
-                type=usleep_type,
+            decl = func_d.FuncOp(
+                name=name,
+                type=FunctionType.get(inputs, []),
                 ip=InsertionPoint(module.body),
             )
-            usleep_op.attributes["sym_visibility"] = StringAttr.get("private")
+            decl.attributes["sym_visibility"] = StringAttr.get("private")
 
         # Process all functions with streams recursively, starting from top
         processed_funcs: set = set()
         all_pe_calls_by_func: dict = {}
         func = find_func_in_module(module, top_func_name)
         assert isinstance(func.body, Region)
+        funcs = _functions_by_name(module)
 
         # Recursively process the top function and all its callees
         _, _, pe_call_define_ops, _ = _process_function_streams(
-            module, func, processed_funcs, all_pe_calls_by_func
+            module, func, processed_funcs, all_pe_calls_by_func, funcs
         )
 
         # If no PE calls were found in top function, collect them again from the processed functions
@@ -866,11 +964,8 @@ def build_dataflow_simulator(module: Module, top_func_name: str):
                 if isinstance(op, func_d.CallOp):
                     callee_name = str(op.callee)[1:]
                     if not callee_name.startswith(("load_buf", "store_res")):
-                        for mod_op in module.body.operations:
-                            if isinstance(mod_op, func_d.FuncOp):
-                                if callee_name == str(mod_op.sym_name).strip('"'):
-                                    pe_call_define_ops[op] = mod_op
-                                    break
+                        if callee_name in funcs:
+                            pe_call_define_ops[op] = funcs[callee_name]
             all_pe_calls_by_func[top_func_name] = pe_call_define_ops
 
         # Inject omp.parallel/sections into every function that has PE calls
@@ -973,6 +1068,7 @@ class LLVMOMPModule(LLVMModule):
                     os.getenv("LLVM_BUILD_DIR"), "lib", "libmlir_c_runner_utils.so"
                 ),
                 os.path.join(os.getenv("LLVM_BUILD_DIR"), "lib", "libomp.so"),
+                _fifo_runtime(),
             ]
             shared_libs += [lib.compile_shared_lib() for lib in ext_libs]
             self.execution_engine = ExecutionEngine(
