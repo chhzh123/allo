@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 # e9_simtime_controlled.sh <tree> <out> [phase...]: the mini-TPU's simulation
 # times remeasured on a quiet machine, interleaved (e9_simtime_controlled.py
 # says how). <tree> is a checkout of this branch whose allo/_mlir links a

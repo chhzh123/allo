@@ -39,8 +39,11 @@ import subprocess
 import sys
 import time
 
-GATE = 2.0  # cores the whole machine may be using when a run starts
-ACCEPT = 2.5  # mean cores the rest of the machine may use during a run
+# Cores the whole machine may be using when a run starts, and the mean cores
+# the rest of it may use during a run: 3 of 48 logical CPUs, against the 33 to
+# 40 the simulator keeps busy. E9_GATE and E9_ACCEPT override them.
+GATE = float(os.environ.get("E9_GATE", "3.0"))
+ACCEPT = float(os.environ.get("E9_ACCEPT", "3.0"))
 ATTEMPTS = 3
 WAIT_POLL_S = 60
 DEADLINE_S = 30 * 3600
@@ -65,7 +68,10 @@ class Session:
             stdout=open(self.monitor_path, "a", encoding="utf-8"),
             stderr=subprocess.DEVNULL,
         )
-        self.say(f"START pid={os.getpid()} monitor={self.monitor.pid} tree={tree}")
+        self.say(
+            f"START pid={os.getpid()} monitor={self.monitor.pid} tree={tree} "
+            f"gate={GATE} accept={ACCEPT}"
+        )
 
     def say(self, text):
         self.log.write(f"{time.strftime('%F %T')} {text}\n")
@@ -139,6 +145,8 @@ class Session:
             rec.update(item)
             others, peak, mine = self.monitored(t0, t1)
             rec.update(
+                gate=GATE,
+                accept=ACCEPT,
                 attempt=attempt,
                 gate_wait_s=round(waited),
                 gate_busy_cores=quiet,
@@ -221,10 +229,8 @@ class Session:
                     )
 
     def cores(self, repeat=3):
-        names = tuple(CPUSETS)
-        for k in range(3):
-            cpuset = names[k]
-            for size in ROTATIONS[k]:
+        for k, cpuset in enumerate(CPUSETS):
+            for size in ROTATIONS[k % len(ROTATIONS)]:
                 item = {
                     "phase": "cores",
                     "program": "llama",
