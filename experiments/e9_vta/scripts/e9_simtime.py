@@ -13,7 +13,15 @@ checked against the workload's golden.
 The simulator: `spmw.build(..., target="simulator")`, the build and two runs
 timed apart; `ALLO_SIM_DEPTH` raises every channel's depth, which a functional
 run's results do not depend on and which saves most of its synchronisation,
-and the record carries the floor it ran at. Vitis's C simulation: `spmw.build(..., target="vitis_hls")`
+and the record carries the floor it ran at. `ALLO_SIM_REPEAT=n` runs the
+compiled simulation n more times after the first (default 1).
+
+Every timed run also records, under `runs`, what else the machine was doing
+while it ran: `others_cores` is the CPU the rest of the machine used, averaged
+over the run -- the machine's busy time from /proc/stat less this process's
+own -- which the load average cannot give, since it counts this process's
+threads too. With it go this process's own CPU and its voluntary and
+involuntary context switches. Vitis's C simulation: `spmw.build(..., target="vitis_hls")`
 writes the HLS project; `csim_design` runs it with its defaults and a
 testbench that reads the operands from a file. Vitis runs a dataflow region's
 processes one after another in the order they are called, so the generated
@@ -52,9 +60,40 @@ LIBS = ":".join(
 )
 
 
+TICK = os.sysconf("SC_CLK_TCK")
+
+
 def cpu():
     r = resource.getrusage(resource.RUSAGE_SELF)
     return r.ru_utime + r.ru_stime
+
+
+def machine_busy_s():
+    """CPU seconds the whole machine has spent busy, every core summed."""
+    with open("/proc/stat", encoding="utf-8") as handle:
+        v = list(map(int, handle.readline().split()[1:9]))
+    return (sum(v) - v[3] - v[4]) / TICK
+
+
+def timed(call, who=resource.RUSAGE_SELF):
+    """Run `call` and say what it cost, and what everyone else used meanwhile.
+
+    `who` is whose CPU is "ours": this process, or its children for a run
+    that happens in a subprocess.
+    """
+    r0, b0, t0 = resource.getrusage(who), machine_busy_s(), time.time()
+    result = call()
+    t1, b1, r1 = time.time(), machine_busy_s(), resource.getrusage(who)
+    own = (r1.ru_utime - r0.ru_utime) + (r1.ru_stime - r0.ru_stime)
+    wall = t1 - t0
+    return result, {
+        "s": round(wall, 3),
+        "cpu_s": round(own, 2),
+        "cores": round(own / wall, 2) if wall else None,
+        "others_cores": round(max(0.0, (b1 - b0) - own) / wall, 2) if wall else None,
+        "nvcsw": r1.ru_nvcsw - r0.ru_nvcsw,
+        "nivcsw": r1.ru_nivcsw - r0.ru_nivcsw,
+    }
 
 
 def simulator(program, size):
@@ -62,22 +101,30 @@ def simulator(program, size):
     want = engine.spmw_ptpu["expected"]
     ops = [engine.spmw_operands[k] for k in ARRAYS]
     floor = int(os.environ.get("ALLO_SIM_DEPTH", "0"))
-    t0 = time.time()
-    module = spmw.build(engine, target="simulator", fifo_depth_floor=floor or None)
+    module, build = timed(
+        lambda: spmw.build(engine, target="simulator", fifo_depth_floor=floor or None)
+    )
     out = {
         "program": program,
         "size": size,
         "depth_floor": floor,
         "fibers": os.environ.get("ALLO_SIM_FIBERS", "") not in ("", "0"),
-        "build_s": round(time.time() - t0, 3),
+        "build_s": build["s"],
+        "build_run": build,
     }
-    for key in ("run_s", "rerun_s"):
+    runs = []
+    for _ in range(1 + max(1, int(os.environ.get("ALLO_SIM_REPEAT", "1")))):
         Y = np.zeros(want.shape, dtype=np.int32)
-        c0, t0 = cpu(), time.time()
-        module(*ops, Y)
-        out[key] = round(time.time() - t0, 3)
-        out[key.replace("_s", "_cpu_s")] = round(cpu() - c0, 2)
-        out[key.replace("_s", "_pass")] = bool(np.array_equal(Y, want))
+        _, run = timed(lambda: module(*ops, Y))
+        run["pass"] = bool(np.array_equal(Y, want))
+        runs.append(run)
+    # The first two keep the names earlier records used: the first run, which
+    # includes the runtime's first-use costs, and the first run after it.
+    for key, run in zip(("run", "rerun"), runs):
+        out[key + "_s"] = run["s"]
+        out[key + "_cpu_s"] = run["cpu_s"]
+        out[key + "_pass"] = run["pass"]
+    out["runs"] = runs
     out["load"] = [round(x, 2) for x in os.getloadavg()]
     print(json.dumps(out), flush=True)
 
@@ -227,15 +274,18 @@ def csim(program, size, out):
         fields["n" + k] = ops[k].size
     open(os.path.join(out, "tb.cpp"), "w", encoding="utf-8").write(TESTBENCH % fields)
     open(os.path.join(out, "csim.tcl"), "w", encoding="utf-8").write(CSIM_TCL)
-    t0 = time.time()
-    done = subprocess.run(
-        ["vitis_hls", "-f", "csim.tcl"],
-        cwd=out,
-        capture_output=True,
-        text=True,
-        check=False,
+    done, run = timed(
+        lambda: subprocess.run(
+            ["vitis_hls", "-f", "csim.tcl"],
+            cwd=out,
+            capture_output=True,
+            text=True,
+            check=False,
+        ),
+        who=resource.RUSAGE_CHILDREN,
     )
-    res["vitis_wall_s"] = round(time.time() - t0, 3)
+    res["vitis_wall_s"] = run["s"]
+    res["vitis_run"] = run
     found = re.search(
         r"Finished Command csim_design.*?Elapsed time: ([\d.]+) seconds", done.stdout
     )
@@ -250,20 +300,24 @@ def csim(program, size, out):
             os.environ,
             LD_LIBRARY_PATH=os.environ.get("LD_LIBRARY_PATH", "") + ":" + LIBS,
         )
-        hot = []
+        hot, hot_runs = [], []
         for _ in range(2):
-            t0 = time.time()
-            again = subprocess.run(
-                ["./csim.exe"],
-                cwd=build,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
+            again, run = timed(
+                lambda: subprocess.run(
+                    ["./csim.exe"],
+                    cwd=build,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                ),
+                who=resource.RUSAGE_CHILDREN,
             )
-            hot.append(round(time.time() - t0, 3))
+            hot.append(run["s"])
+            hot_runs.append(run)
             res["hot_pass"] = "PTPU CSIM PASS" in again.stdout
         res["hot_s"] = hot
+        res["hot_runs"] = hot_runs
     res["load"] = [round(x, 2) for x in os.getloadavg()]
     print(json.dumps(res), flush=True)
 
