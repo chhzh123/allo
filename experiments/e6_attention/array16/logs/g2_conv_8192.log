@@ -1,0 +1,20 @@
+attnpv16g2-conv-8192: {"roles": 10, "instances": 272, "fifos": 528, "streams": 320}
+staged 10 role project(s) in 2.1s (frontend + per-role HLS codegen)
+synthesising and exporting 10 unit(s) concurrently:
+  mac_r5: rc=0 42.8s
+  mac_r1: rc=0 43.0s
+  mac_r2: rc=0 43.2s
+  mac_r0: rc=0 43.2s
+  mac_r7: rc=0 43.3s
+  mac_r3: rc=0 43.3s
+  mac_r6: rc=0 43.4s
+  mac_r4: rc=0 43.4s
+  drain_r0: rc=0 38.5s
+  mac_r8: rc=0 41.7s
+HLS: 84.5s wall for 10 roles and 0 movers (425.8s of CPU work, 272 instances)
+assembling the array in Vivado:
+Vivado elaborated 272 instances in 76.8s
+simulating the assembled array:
+  SPMW COSIM PASS (262144/262144 tokens, 0 errors)
+  SPMW CYCLES total=8320 first_out=69 first_in=1
+cosim: testbench 1.3s, ip 23.8s, xvlog 3.6s, xelab 8.6s, xsim 13.2s (50.5s)

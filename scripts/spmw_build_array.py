@@ -501,6 +501,25 @@ def design(name, size, lanes=1):
         from test_spmw_tpu_vpu import tpu_tiled
 
         return tpu_tiled
+    if name.startswith("attnpv"):
+        # Attention's P.V on a `side` x `side` array cut into `g` column slabs
+        # (E6's pair, at a size worth measuring). `attnpv<side>g<g>-grouped-<seq>`
+        # reduces `g * side` terms in one launch and is `side / g` wide;
+        # `-conv-<seq>` is one pass of the plain mesh, of which it needs `g`.
+        # The useful work a launch does is the same either way -- the reduction
+        # times the width is the PE count -- so `g` trades the fill and the
+        # per-row rate against each other, which is what there is to measure.
+        from test_spmw_attention_passes import pv_of
+
+        head, kind, seq = name.split("-")
+        side, groups = (int(x) for x in head[len("attnpv") :].split("g"))
+        return pv_of(
+            int(seq),
+            rows=side,
+            cols=side,
+            d=side // groups,
+            grouped=kind == "grouped",
+        )
     if name == "autosa-spec":
         # The fused design with the PE's row specialised -- the control that
         # says whether splitting the drain out was needed at all.
@@ -1304,6 +1323,12 @@ def main():
             "autosa",
             "autosa-spec",
             "gemmws",
+            *(
+                f"attnpv16g{g}-{k}-{m}"
+                for g in (2, 4, 8)
+                for k in ("grouped", "conv")
+                for m in (4, 64, 1024, 2048, 4096, 8192)
+            ),
             *(f"{form}-{w}" for form in TILE_FORMS for w in TILE_SIDES),
             "split",
             "split-spec",

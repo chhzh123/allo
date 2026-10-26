@@ -1,0 +1,26 @@
+ATTN16_START Sat Oct 24 02:25:16 EDT 2026
+grouped seq=1024 rc=0 wall_s=175 SPMW COSIM PASS SPMW CYCLES total=1883 first_out=642 first_in=1 
+grouped seq=2048 rc=0 wall_s=189 SPMW COSIM PASS SPMW CYCLES total=3248 first_out=642 first_in=1 
+grouped seq=4096 rc=0 wall_s=221 SPMW COSIM PASS SPMW CYCLES total=5979 first_out=642 first_in=1 
+grouped seq=8192 rc=0 wall_s=194 SPMW COSIM PASS SPMW CYCLES total=11440 first_out=642 first_in=1 
+conv seq=1024 rc=0 wall_s=217 SPMW COSIM PASS SPMW CYCLES total=1152 first_out=69 first_in=1 
+conv seq=2048 rc=0 wall_s=223 SPMW COSIM PASS SPMW CYCLES total=2176 first_out=69 first_in=1 
+conv seq=4096 rc=0 wall_s=235 SPMW COSIM PASS SPMW CYCLES total=4224 first_out=69 first_in=1 
+conv seq=8192 rc=0 wall_s=221 SPMW COSIM PASS SPMW CYCLES total=8320 first_out=69 first_in=1 
+ATTN16_DONE Sat Oct 24 02:53:11 EDT 2026
+ATTN16_G2_START Sat Oct 24 04:12:46 EDT 2026
+G=2 grouped seq=1024 rc=0 wall_s=208 SPMW COSIM PASS SPMW CYCLES total=1982 first_out=199 
+G=2 grouped seq=2048 rc=0 wall_s=216 SPMW COSIM PASS SPMW CYCLES total=3803 first_out=199 
+G=2 grouped seq=4096 rc=0 wall_s=228 SPMW COSIM PASS SPMW CYCLES total=7443 first_out=199 
+G=2 grouped seq=8192 rc=0 wall_s=231 SPMW COSIM PASS SPMW CYCLES total=14725 first_out=199 
+G=2 conv seq=1024 rc=0 wall_s=209 SPMW COSIM PASS SPMW CYCLES total=1152 first_out=69 
+G=2 conv seq=2048 rc=0 wall_s=216 SPMW COSIM PASS SPMW CYCLES total=2176 first_out=69 
+G=2 conv seq=4096 rc=0 wall_s=230 SPMW COSIM PASS SPMW CYCLES total=4224 first_out=69 
+G=2 conv seq=8192 rc=0 wall_s=216 SPMW COSIM PASS SPMW CYCLES total=8320 first_out=69 
+ATTN16_G2_DONE Sat Oct 24 04:42:00 EDT 2026
+ATTN16_G4_START Sat Oct 24 04:42:00 EDT 2026
+G=4 grouped seq=1024 rc=0 wall_s=212 SPMW COSIM PASS SPMW CYCLES total=1907 first_out=371 
+G=4 grouped seq=2048 rc=0 wall_s=220 SPMW COSIM PASS SPMW CYCLES total=3546 first_out=371 
+G=4 grouped seq=4096 rc=0 wall_s=234 SPMW COSIM PASS SPMW CYCLES total=6823 first_out=371 
+G=4 grouped seq=8192 rc=0 wall_s=225 SPMW COSIM PASS SPMW CYCLES total=13377 first_out=371 
+ATTN16_G4_DONE Sat Oct 24 04:56:51 EDT 2026

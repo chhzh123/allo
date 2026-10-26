@@ -165,6 +165,120 @@ def pv_grouped(seq):
 DESIGNS = {"conventional": pv_conventional, "grouped": pv_grouped}
 
 
+# -- the same pair on any array -------------------------------------------------
+#
+# The two fabrics above are the paper's 4x4. These build them at any shape, so
+# that the question "what does grouping buy" can be asked of an array big
+# enough to matter. The bodies are the same; only `R`, `C` and the operand
+# shapes move, and `pv_of` attaches what a cosimulation needs to check itself.
+
+
+def pv_shaped(seq, rows, cols, d, grouped):
+    """`pv_grouped` or `pv_conventional` on a ``rows x cols`` array of width ``d``.
+
+    ``grouped`` covers the whole reduction in one pass over ``cols / d`` column
+    slabs; the conventional mesh covers ``rows`` of it a pass and needs
+    ``cols / d`` passes, which is what the comparison is about.
+    """
+    groups = cols // d
+    mac, act, drain = units(seq)
+    length = groups * rows
+
+    if grouped:
+
+        @spmw.fabric
+        def pv(Pr: int8[seq, length], V: int8[length, d], Y: int8[seq, d]):
+            P = spmw.place(mac, on=grouped_mxu(WsIO, (rows, cols), groups))
+            Pa = spmw.place(act, on=spmw.Grid((d,)))
+            k = P.rows
+            g, e = spmw.split(P.cols, factor=groups)
+            spmw.shard(V, into=P.w, index=(g * rows + k, e))
+            spmw.stream_in(Pr, into=P.a_in, index=(..., g * rows + k))
+            spmw.stream_in(0, into=P.p_in)
+            spmw.link(P.p_out, to=Pa.z_in)
+            (lane,) = Pa.axes
+            spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    else:
+
+        @spmw.fabric
+        def pv(
+            Pr: int8[seq, rows],
+            V: int8[rows, cols],
+            Zin: int32[seq, cols],
+            Zout: int32[seq, cols],
+            Y: int8[seq, cols],
+        ):
+            P = spmw.place(mac, on=grouped_mxu(WsIO, (rows, cols), 1))
+            Pa = spmw.place(drain, on=spmw.Grid((cols,)))
+            k, c = P.rows, P.cols
+            spmw.shard(V, into=P.w, index=(k, c))
+            spmw.stream_in(Pr, into=P.a_in, index=(..., k))
+            spmw.stream_in(Zin, into=P.p_in, index=(..., c))
+            spmw.link(P.p_out, to=Pa.z_in)
+            (lane,) = Pa.axes
+            spmw.gather(Zout, from_=Pa.z_out, index=(..., lane))
+            spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    return pv
+
+
+def pv_of(seq, rows=16, cols=16, d=2, grouped=True, seed=0):
+    """`pv_shaped` with the operands and the golden a cosimulation checks against.
+
+    The conventional fabric is one *pass*: its launch covers ``rows`` of the
+    reduction and leaves a partial for the next, so its cycles are a pass's
+    and the whole product costs ``cols / d`` of them.
+    """
+    groups = cols // d
+    length = groups * rows
+    rng = np.random.default_rng(seed)
+    P = rng.integers(-4, 4, (seq, length)).astype(np.int8)
+    V = rng.integers(-4, 4, (length, d)).astype(np.int8)
+    fabric = pv_shaped(seq, rows, cols, d, grouped)
+    if grouped:
+        fabric.spmw_operands = {"Pr": P, "V": V}
+        fabric.spmw_expected = {"Y": _reference(P, V)}
+    else:
+        # Pass 0: the first `rows` terms, resuming nothing.
+        Pr = np.ascontiguousarray(P[:, :rows])
+        Vt = np.zeros((rows, cols), dtype=np.int8)
+        Vt[:, :d] = V[:rows, :]
+        zeros = np.zeros((seq, cols), dtype=np.int32)
+        partial = Pr.astype(np.int32) @ Vt.astype(np.int32)
+        fabric.spmw_operands = {"Pr": Pr, "V": Vt, "Zin": zeros}
+        fabric.spmw_expected = {
+            "Zout": partial,
+            "Y": (np.maximum(partial, 0) >> SHIFT).astype(np.int8),
+        }
+    fabric.spmw_cosim_cycles = 8 * seq + 100000
+    fabric.spmw_attention = {
+        "rows": rows,
+        "cols": cols,
+        "d": d,
+        "groups": groups,
+        "reduction": length,
+        "passes": 1 if grouped else groups,
+        "seq": seq,
+    }
+    return fabric
+
+
+@pytest.mark.parametrize("grouped", [True, False])
+def test_a_bigger_array_computes_the_same(grouped):
+    """16 x 16, 256 PEs: the paper's bodies on an array worth measuring."""
+    fabric = pv_of(4, grouped=grouped)
+    out = {k: np.zeros(v.shape, v.dtype) for k, v in fabric.spmw_expected.items()}
+    args = [
+        fabric.spmw_operands.get(n)
+        for n in ("Pr", "V", "Zin")
+        if n in fabric.spmw_operands
+    ]
+    spmw.build(fabric, target="ref")(*args, *[out[k] for k in fabric.spmw_expected])
+    for name, want in fabric.spmw_expected.items():
+        np.testing.assert_array_equal(out[name], want)
+
+
 def adaptation_diff(context=1):
     """The unified diff between the two fabrics -- the adaptation, exactly."""
     before = inspect.getsource(pv_conventional).splitlines()
@@ -236,7 +350,9 @@ def test_the_units_are_the_papers():
     """The bodies are `test_spmw_attention.py`'s; only the trip count is free."""
 
     def body(unit):
-        return textwrap.dedent(inspect.getsource(unit.fn)).replace("range(MT)", "range(seq)")
+        return textwrap.dedent(inspect.getsource(unit.fn)).replace(
+            "range(MT)", "range(seq)"
+        )
 
     mac, act, drain = units(MT)
     assert body(mac) == body(paper_mac)
