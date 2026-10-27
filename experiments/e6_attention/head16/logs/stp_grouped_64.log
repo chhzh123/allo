@@ -1,0 +1,21 @@
+attnhead16d8-grouped-64: {"roles": 11, "instances": 272, "fifos": 528, "streams": 296}
+staged 11 role project(s) in 1.8s (frontend + per-role HLS codegen)
+synthesising and exporting 11 unit(s) concurrently:
+  mac_r0: rc=0 54.6s
+  mac_r3: rc=0 55.3s
+  mac_r7: rc=0 56.4s
+  mac_r6: rc=0 57.3s
+  mac_r5: rc=0 57.3s
+  mac_r1: rc=0 57.5s
+  mac_r2: rc=0 58.3s
+  mac_r4: rc=0 58.7s
+  mac_r8: rc=0 52.2s
+  seed_sums_r0: rc=0 51.8s
+  fold_r0: rc=0 53.9s
+HLS: 110.2s wall for 11 roles and 0 movers (613.3s of CPU work, 272 instances)
+assembling the array in Vivado:
+Vivado elaborated 272 instances in 86.5s
+simulating the assembled array:
+  SPMW COSIM TIMEOUT (0/512 tokens, 0 errors)
+  SPMW CYCLES total=-1 first_out=0
+cosim did not pass; see /scratch/hc676/e21_attnhead/grouped_64/sim/xsim.log

@@ -1,0 +1,12 @@
+HEAD16_START Mon Oct 26 22:10:06 EDT 2026
+grouped S=64 rc=0 wall_s=249 SPMW COSIM PASS SPMW CYCLES total=429 first_out=331 first_in=1 
+conv S=64 rc=0 wall_s=253 SPMW COSIM PASS SPMW CYCLES total=481 first_out=343 first_in=1 
+grouped S=128 rc=0 wall_s=248 SPMW COSIM PASS SPMW CYCLES total=825 first_out=663 first_in=1 
+conv S=128 rc=0 wall_s=270 SPMW COSIM PASS SPMW CYCLES total=1222 first_out=1005 first_in=1 
+grouped S=256 rc=0 wall_s=270 SPMW COSIM PASS SPMW CYCLES total=2294 first_out=1997 first_in=1 
+conv S=256 rc=0 wall_s=292 SPMW COSIM PASS SPMW CYCLES total=4302 first_out=3957 first_in=1 
+grouped S=512 rc=0 wall_s=267 SPMW COSIM PASS SPMW CYCLES total=8446 first_out=7893 first_in=1 
+conv S=512 rc=0 wall_s=275 SPMW COSIM PASS SPMW CYCLES total=16606 first_out=16005 first_in=1 
+grouped S=1024 rc=0 wall_s=313 SPMW COSIM PASS SPMW CYCLES total=33038 first_out=31973 first_in=1 
+conv S=1024 rc=0 wall_s=360 SPMW COSIM PASS SPMW CYCLES total=65790 first_out=64677 first_in=1 
+HEAD16_DONE Mon Oct 26 22:56:44 EDT 2026

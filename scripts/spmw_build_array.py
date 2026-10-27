@@ -520,6 +520,17 @@ def design(name, size, lanes=1):
             d=side // groups,
             grouped=kind == "grouped",
         )
+    if name.startswith("attnhead"):
+        # One attention head's whole P.V, (S, S) @ (S, d), on a `side` x `side`
+        # array in one launch, partials summed across key tiles in the array.
+        # `attnhead<side>d<d>-grouped-<S>` holds `side * side / d` keys a tile;
+        # `-conv-<S>`, the plain mesh, holds `side` and leaves `side - d`
+        # columns empty, so it takes `side / d` times the tiles.
+        from test_spmw_attention_passes import pv_head
+
+        head, kind, seq = name.split("-")
+        side, d = (int(x) for x in head[len("attnhead") :].split("d"))
+        return pv_head(int(seq), d=d, rows=side, cols=side, grouped=kind == "grouped")
     if name == "autosa-spec":
         # The fused design with the PE's row specialised -- the control that
         # says whether splitting the drain out was needed at all.
@@ -1328,6 +1339,11 @@ def main():
                 for g in (2, 4, 8)
                 for k in ("grouped", "conv")
                 for m in (4, 64, 1024, 2048, 4096, 8192)
+            ),
+            *(
+                f"attnhead16d8-{k}-{s}"
+                for k in ("grouped", "conv")
+                for s in (64, 128, 256, 512, 1024)
             ),
             *(f"{form}-{w}" for form in TILE_FORMS for w in TILE_SIDES),
             "split",

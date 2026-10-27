@@ -279,6 +279,130 @@ def test_a_bigger_array_computes_the_same(grouped):
         np.testing.assert_array_equal(out[name], want)
 
 
+# -- a whole head ----------------------------------------------------------------
+#
+# One head's P.V, Y[S, D] = P[S, S] @ V[S, D], in one launch rather than one
+# tile. The array holds V a key tile at a time: each cell keeps its weight for
+# every tile, and the S query rows stream through once per tile. The partial
+# for each query row leaves the bottom of the chain into a FIFO S deep and
+# re-enters at the top on the next tile, so the array's own adders sum across
+# the key tiles; the last tile's sums are the result.
+#
+# The two schemes differ only in the key tile. The plain mesh shares a P row
+# across all its columns, so with D narrower than the array it holds 16 keys a
+# tile and its other columns carry zeros; grouped, the same cells hold 16 * G
+# keys at D = 16 / G, and the head takes G times fewer tiles.
+
+
+def pv_head(seq, d=8, rows=16, cols=16, grouped=True, seed=0):
+    """One head's whole ``(seq, seq) @ (seq, d)`` on a ``rows x cols`` array."""
+    groups = cols // d if grouped else 1
+    keys = groups * rows  # keys a tile
+    lanes = d if grouped else cols  # chains that reach the bottom
+    tiles = seq // keys
+    steps = tiles * seq
+    assert seq % keys == 0 and tiles >= 2, (seq, keys)
+
+    class CellIO(spmw.Interface):
+        a_in = spmw.In(int8)
+        a_out = spmw.Out(int8)
+        p_in = spmw.In(int32)
+        p_out = spmw.Out(int32)
+        w = spmw.MemIn(int8[tiles])  # this cell's weight in every key tile
+
+    class SeedIO(spmw.Interface):
+        back = spmw.In(int32, depth=seq)  # the partials of the tile before
+        p_out = spmw.Out(int32)
+
+    class FoldIO(spmw.Interface):
+        z_in = spmw.In(int32)
+        back = spmw.Out(int32)
+        y_out = spmw.Out(int32)
+
+    @spmw.unit
+    def mac(io: CellIO):
+        for i in range(steps):
+            a = io.a_in.get()
+            p = io.p_in.get()
+            io.p_out.put(p + a * io.w[i // seq])
+            io.a_out.put(a)
+
+    @spmw.unit
+    def seed_sums(io: SeedIO):
+        for i in range(steps):
+            z: int32 = 0
+            if i >= seq:
+                z = io.back.get()
+            io.p_out.put(z)
+
+    @spmw.unit
+    def fold(io: FoldIO):
+        for i in range(steps):
+            z = io.z_in.get()
+            if i < steps - seq:
+                io.back.put(z)
+            else:
+                io.y_out.put(z)
+
+    @spmw.fabric
+    def head(Pt: int8[steps, keys], Wt: int8[keys, lanes, tiles], Y: int32[seq, lanes]):
+        P = spmw.place(mac, on=grouped_mxu(CellIO, (rows, cols), groups))
+        Sd = spmw.place(seed_sums, on=spmw.Grid((lanes,)))
+        F = spmw.place(fold, on=spmw.Grid((lanes,)))
+        k = P.rows
+        g, e = spmw.split(P.cols, factor=groups)
+        spmw.shard(Wt, into=P.w, index=(g * rows + k, e))
+        spmw.stream_in(Pt, into=P.a_in, index=(..., g * rows + k))
+        spmw.link(Sd.p_out, to=P.p_in)
+        spmw.link(P.p_out, to=F.z_in)
+        spmw.link(F.back, to=Sd.back)
+        (lane,) = F.axes
+        spmw.gather(Y, from_=F.y_out, index=(..., lane))
+
+    rng = np.random.default_rng(seed)
+    Pm = rng.integers(-4, 4, (seq, seq)).astype(np.int8)
+    V = rng.integers(-4, 4, (seq, d)).astype(np.int8)
+    Vl = np.zeros((seq, lanes), dtype=np.int8)
+    Vl[:, :d] = V  # the plain mesh's spare columns hold zeros
+    # Tile t streams P[:, t*keys:(t+1)*keys]; cell (key l, lane c) holds V[t*keys+l, c].
+    Pt = Pm.reshape(seq, tiles, keys).transpose(1, 0, 2).reshape(steps, keys)
+    Wt = Vl.reshape(tiles, keys, lanes).transpose(1, 2, 0)
+    Yw = np.zeros((seq, lanes), dtype=np.int32)
+    Yw[:, :d] = Pm.astype(np.int32) @ V.astype(np.int32)
+    head.spmw_operands = {
+        "Pt": np.ascontiguousarray(Pt),
+        "Wt": np.ascontiguousarray(Wt),
+    }
+    head.spmw_expected = {"Y": Yw}
+    head.spmw_cosim_cycles = 2 * steps + 100000
+    # HLS's default pipeline freezes while an input is missing, so a cell
+    # finishes a row only when a later one arrives: the chain then holds about
+    # three rows a cell, and a tile shorter than that never reaches the fold
+    # to feed the next (grouped, S = 64: deadlock). Flushable pipelines drain.
+    head.spmw_pipeline_style = "flp"
+    head.spmw_attention = {
+        "rows": rows,
+        "cols": cols,
+        "d": d,
+        "groups": groups,
+        "keys_a_tile": keys,
+        "tiles": tiles,
+        "seq": seq,
+    }
+    return head
+
+
+@pytest.mark.parametrize("grouped", [True, False])
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_a_whole_head(grouped, target):
+    """(S, S) @ (S, d) in one launch, summed across key tiles in the array."""
+    fabric = pv_head(16, d=2, rows=4, cols=4, grouped=grouped)
+    ops = fabric.spmw_operands
+    Y = np.zeros_like(fabric.spmw_expected["Y"])
+    spmw.build(fabric, target=target)(ops["Pt"], ops["Wt"], Y)
+    np.testing.assert_array_equal(Y, fabric.spmw_expected["Y"])
+
+
 def adaptation_diff(context=1):
     """The unified diff between the two fabrics -- the adaptation, exactly."""
     before = inspect.getsource(pv_conventional).splitlines()

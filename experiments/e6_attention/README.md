@@ -101,9 +101,14 @@ d = 2.
 The G=2 and G=8 forms are exact at all four lengths; G=4's is exact from
 M = 2,048 and one cycle high at 1,024. The per-row rates, 16/9, 8/5 and 4/3,
 are `2w/(w+1)` for a slab `w = 16/G` columns wide -- an observation across
-three points, not a derived law. A likely reason, not traced: an activation
-forwards east only inside its slab, so a wider slab is a longer horizontal
-dependency a row.
+three points, not a derived law. The likely cause is the seed, not the slab:
+these launches seed the partial-sum chain with `spmw.stream_in(0, ...)`, which
+the backend folds into the top-row cells, and the 4x4 study traced that fold to
+a stall loop that costs every constant-seeded design rows
+(`../results/e6_attention/README.md`, "The 3-of-4 rhythm"; grouped there:
+5,499 cycles folded, 4,136 streamed). Not re-traced at 16x16, but the
+whole-head design below seeds from a stream and its grouped array runs a row a
+cycle.
 
 **G = 8 is the fastest at every length.** The shorter psum chain of G = 2
 (32 PEs in series against 128) gives it a 199-cycle fill against 642, but the
@@ -143,3 +148,75 @@ Four things these numbers are not:
 To rerun: `array16/scripts/attn16g.sh <G> grouped conv` on the build machine
 (design `test_spmw_attention_passes.pv_of`, registry `attnpv16g<G>-<kind>-<M>`).
 `array16/report/` keeps each run's `cost.json`, `array16/logs/` its build log.
+
+## A whole head on the 16x16 array, 2026-10-26
+
+`head16/` is one head's **whole** P.V rather than a tile of it:
+`Y[S, 8] = P[S, S] @ V[S, 8]`, int32, in one launch on the same 256 PEs, at
+S = 64 to 1,024. Both schemes are RTL cosimulations through E1's flow, every
+output token checked against numpy.
+
+- **Ungrouped**: the plain 16x16 mesh. A P row passes across all 16 columns,
+  so every column sees the same 16 keys: a key tile is 16 keys, D = 8 fills
+  8 columns and the other 8 hold zeros. S/16 tiles.
+- **Grouped, G = 2**: two slabs of 8 columns, the partial sums of slab 0
+  running on into the top of slab 1. A key tile is 32 keys and every cell
+  holds part of V. S/32 tiles.
+
+How the tiles add up, the same in both: each cell keeps its V entry for every
+tile (a file of S/keys entries, loaded before the first row); the S query rows
+stream through once per tile; each row's partial sum leaves the bottom of the
+chain into a FIFO S deep (`fold` to `seed_sums`) and re-enters at the top on
+the next tile, so the array's own adders sum across the key tiles. The last
+tile's sums are Y. The seed is a unit's stream, not a folded constant.
+
+**Cycles for the whole head**, reset to last output (`head16/results.csv`):
+
+| S | Ungrouped | Grouped, G = 2 | Grouped is faster by |
+|---:|---:|---:|---:|
+| 64 | 481 | 429 | 1.12x |
+| 128 | 1,222 | 825 | 1.48x |
+| 256 | 4,302 | 2,294 | 1.88x |
+| 512 | 16,606 | 8,446 | 1.97x |
+| 1,024 | 65,790 | 33,038 | 1.99x |
+
+**Closed form.** Once a tile is longer than a partial sum's trip round the
+loop, both run a row a cycle and take `T(S + 1) + c` cycles for `T = S/keys`
+tiles: ungrouped `c = 190`, exact from S = 128; grouped `c = 238`, exact from
+S = 256. Grouped streams `S^2/32` rows against `S^2/16`, so the ratio tends to
+2. Below that, a tile waits for the tile before it: a sum takes about 86 cycles
+round the 16-cell chain and 166 round the 32-cell one (from the first outputs,
+about five cycles a cell), so at S = 64 both are bound by the loop and grouped
+at S = 128 is 71 cycles over its form.
+
+**Against Table 2's tile numbers** (`array16/`, G = 2: 1.14x at M = 4,096):
+those launches computed one `[M, 32] @ [32, 8]` tile seeded with the folded
+constant, which runs 16/9 cycles a row, and the ungrouped figure was twice one
+measured pass. Here both schemes compute the whole product, both are measured
+whole, and both run a row a cycle.
+
+**Both are built with HLS's flushable pipelines** (`spmw_pipeline_style =
+"flp"`). With the default, a cell's pipeline freezes while an input is
+missing, so it finishes a row only when a later row arrives and the chain holds
+about three rows a cell. A grouped tile of 64 rows then never reaches `fold` to
+feed the next tile: 0 of 512 outputs (`head16/logs/stp_grouped_64.log`). The
+ungrouped S = 64 head, 16 cells deep, passed that way in 468 cycles
+(`stp_conv_64.log`).
+
+Four things these numbers are not:
+
+- **One seed a point.**
+- **No place-and-route**, so no clock or area. Each cell's weight file arrives
+  as one token of S/keys bytes (64 bytes ungrouped at S = 1,024), the
+  transport that failed place-and-route at 64 entries on the 16x16 stage
+  engine; a board build would load V another way.
+- **The weights are loaded once, before the first row**, all cells at once
+  (S/keys cycles, in the totals). A TPU shifts the next tile's weights in
+  while the current one computes; here no tile waits for weights either way.
+- **The loop FIFO is the accumulator**: S int32 a lane, 8 lanes grouped and
+  16 ungrouped, block RAM in the RTL.
+
+To rerun: `head16/scripts/attnhead.sh 64 128 256 512 1024` on the build machine
+(design `test_spmw_attention_passes.pv_head`, registry
+`attnhead16d8-<grouped|conv>-<S>`). `head16/report/` keeps each run's
+`cost.json`, `head16/logs/` its build log.

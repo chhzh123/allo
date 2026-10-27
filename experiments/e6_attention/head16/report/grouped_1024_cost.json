@@ -1,0 +1,30 @@
+{
+ "cost": {
+  "roles": 11,
+  "instances": 272,
+  "fifos": 528,
+  "streams": 296
+ },
+ "hls_seconds": {
+  "mac_r3": 49.2,
+  "mac_r5": 49.3,
+  "mac_r2": 49.4,
+  "mac_r4": 50.0,
+  "mac_r7": 50.6,
+  "mac_r0": 51.0,
+  "mac_r6": 52.5,
+  "mac_r1": 53.6,
+  "seed_sums_r0": 44.1,
+  "fold_r0": 44.6,
+  "mac_r8": 47.3
+ },
+ "hls_wall_seconds": 96.5,
+ "vivado_seconds": 100.7,
+ "cosim_seconds": {
+  "testbench": 4.9,
+  "ip": 25.2,
+  "xvlog": 4.1,
+  "xelab": 13.5,
+  "xsim": 59.3
+ }
+}

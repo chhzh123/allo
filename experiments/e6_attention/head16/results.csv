@@ -1,0 +1,11 @@
+array,pes,D,scheme,S,keys_a_tile,tiles,rows_streamed,cycles,first_output,cosim_pass,hls_wall_s,vivado_s,xsim_s,cosim_s,design
+16x16,256,8,grouped G=2,64,32,2,128,429,331,True,102.9,88.7,6.6,53.1,attnhead16d8-grouped-64
+16x16,256,8,ungrouped,64,16,4,256,481,343,True,104.7,92.1,7.2,53.6,attnhead16d8-conv-64
+16x16,256,8,grouped G=2,128,32,4,512,825,663,True,102.1,89.7,7.9,53.3,attnhead16d8-grouped-128
+16x16,256,8,ungrouped,128,16,8,1024,1222,1005,True,105.2,103.1,8.1,57.4,attnhead16d8-conv-128
+16x16,256,8,grouped G=2,256,32,8,2048,2294,1997,True,105.5,94.9,11.9,65.7,attnhead16d8-grouped-256
+16x16,256,8,ungrouped,256,16,16,4096,4302,3957,True,118.7,107.2,12.7,62.6,attnhead16d8-conv-256
+16x16,256,8,grouped G=2,512,32,16,8192,8446,7893,True,102.7,98.5,19.0,61.0,attnhead16d8-grouped-512
+16x16,256,8,ungrouped,512,16,32,16384,16606,16005,True,99.2,99.7,26.6,71.3,attnhead16d8-conv-512
+16x16,256,8,grouped G=2,1024,32,32,32768,33038,31973,True,96.5,100.7,59.3,107.0,attnhead16d8-grouped-1024
+16x16,256,8,ungrouped,1024,16,64,65536,65790,64677,True,98.2,110.1,96.0,142.2,attnhead16d8-conv-1024
