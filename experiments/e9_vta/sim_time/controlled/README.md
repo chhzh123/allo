@@ -21,7 +21,7 @@ cause is what a simulated step costs at 16x16, below.
 
 ## gate4: from 1 Nov, gate 4 cores (running)
 
-The simulator phases at a 4-core gate and acceptance limit, then Vitis csim
+The simulator phases (done 02:18) at a 4-core gate and acceptance limit, then Vitis csim
 and xsim cosimulation at 12. Their timed steps run on one thread for minutes
 at a time: a few busy cores barely touch them, but a 4-core window that long
 almost never comes.
@@ -85,6 +85,27 @@ switches more at the same ratio. Units as fibers, which switch without the
 kernel, halved the 16x16 time and doubled the 8x8 one in `../fibers.txt`
 (2.07 to 1.03 s, 0.86 to 1.70 s). And 4x4 is barely faster on 48 CPUs than on
 12, so most of its CPU time on 48 is spent spinning.
+
+### sim0: the depths the design declares, 02:03-02:18
+
+Two processes a case, each a build, a first run and two hot runs; median and
+range over the four hot runs:
+
+| Program | Engine | Threads | Hot s | Cold s | Others' cores |
+|---|---|---:|---:|---:|---:|
+| LLaMA | 4x4 | 42 | **1.66** (1.42-1.87) | 12.5 (12.3-12.6) | 2.93 (2.16-4.44) |
+| LLaMA | 8x8 | 114 | 10.37 (9.86-10.61) | 17.6 (17.0-18.1) | 1.10 (0.34-1.39) |
+| LLaMA | 16x16 | 354 | 9.18 (9.15-9.23) | 21.1 (20.9-21.3) | 2.40 (2.21-3.31) |
+| DeepSeek | 4x4 | 42 | **5.49** (5.03-6.46) | 40.4 (39.1-41.7) | 2.88 (2.31-3.62) |
+| DeepSeek | 8x8 | 114 | 35.92 (35.00-36.74) | 56.9 (56.1-57.8) | 1.15 (0.72-1.53) |
+| DeepSeek | 16x16 | 354 | 30.99 (30.87-31.05) | 48.5 (48.5-48.6) | 2.30 (2.15-2.43) |
+
+Here 4x4 is the fastest by far and 8x8 the slowest, as in `../depth/`. 4x4's
+42 threads each have a core, so a thread waiting on a shallow channel spins
+rather than sleeps. From 8x8 on there are more threads than cores, and a
+thread sleeps on the futex about once a unit-step (0.79 times at 8x8, 1.48 at
+16x16 for LLaMA), which costs 10 to 14 us of CPU a step against 1.25 at 4x4.
+The depth floor of 64 brings that down to 1.2 and 2.9 us.
 
 ## gate3: 26-27 Oct, gate and acceptance limit 3 cores (stopped)
 
