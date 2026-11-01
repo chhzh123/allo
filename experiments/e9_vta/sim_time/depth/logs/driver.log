@@ -1,0 +1,41 @@
+E9_SIMTIME_START reps=2 size=16 programs=llama dsv4 phases=simulator Fri Oct 23 03:44:33 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+simulator S=16 llama r=1 depth=0 rc=0 03:45:06
+simulator S=16 llama r=1 depth=64 rc=0 03:45:23
+simulator S=16 llama r=2 depth=0 rc=0 03:45:56
+simulator S=16 llama r=2 depth=64 rc=0 03:46:12
+simulator S=16 dsv4 r=1 depth=0 rc=0 03:47:36
+simulator S=16 dsv4 r=1 depth=64 rc=0 03:48:07
+simulator S=16 dsv4 r=2 depth=0 rc=0 03:49:30
+simulator S=16 dsv4 r=2 depth=64 rc=0 03:49:58
+E9_SIMTIME_DONE Fri Oct 23 03:49:58 EDT 2026
+E9_SIMTIME_START reps=2 size=4 programs=llama dsv4 phases=simulator Fri Oct 23 03:49:58 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+simulator S=4 llama r=1 depth=0 rc=0 03:50:16
+simulator S=4 llama r=1 depth=64 rc=0 03:50:32
+simulator S=4 llama r=2 depth=0 rc=0 03:50:49
+simulator S=4 llama r=2 depth=64 rc=0 03:51:05
+simulator S=4 dsv4 r=1 depth=0 rc=0 03:51:56
+simulator S=4 dsv4 r=1 depth=64 rc=0 03:52:44
+simulator S=4 dsv4 r=2 depth=0 rc=0 03:53:35
+simulator S=4 dsv4 r=2 depth=64 rc=0 03:54:24
+E9_SIMTIME_DONE Fri Oct 23 03:54:24 EDT 2026
+E9_SIMTIME_START reps=2 size=8 programs=llama dsv4 phases=simulator csim cosim Fri Oct 23 03:54:42 EDT 2026
+allo: /scratch/hc676/simtime/allo/allo/__init__.py
+simulator S=8 llama r=1 depth=0 rc=0 03:55:17
+simulator S=8 llama r=1 depth=64 rc=0 03:55:28
+simulator S=8 llama r=2 depth=0 rc=0 03:56:02
+simulator S=8 llama r=2 depth=64 rc=0 03:56:14
+simulator S=8 dsv4 r=1 depth=0 rc=0 03:58:02
+simulator S=8 dsv4 r=1 depth=64 rc=0 03:58:28
+simulator S=8 dsv4 r=2 depth=0 rc=0 04:00:07
+simulator S=8 dsv4 r=2 depth=64 rc=0 04:00:34
+csim S=8 llama r=1 rc=0 04:02:48
+csim S=8 llama r=2 rc=0 04:05:09
+csim S=8 dsv4 r=1 rc=0 04:12:19
+csim S=8 dsv4 r=2 rc=0 04:19:36
+cosim S=8 llama r=1 rc=0 04:24:40
+cosim S=8 llama r=2 rc=0 04:29:56
+cosim S=8 dsv4 r=1 rc=0 04:38:27
+cosim S=8 dsv4 r=2 rc=0 04:46:51
+E9_SIMTIME_DONE Fri Oct 23 04:46:51 EDT 2026
