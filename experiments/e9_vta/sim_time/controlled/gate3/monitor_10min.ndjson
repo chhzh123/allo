@@ -1,0 +1,181 @@
+{"t": 1793041800, "samples": 170, "others_median": 42.78, "others_p90": 45.18, "others_max": 46.3, "mine_median": 0.03, "top_others": [["user1", 27.4], ["user2", 6.9], ["user3", 0.5]]}
+{"t": 1793042400, "samples": 258, "others_median": 44.3, "others_p90": 45.64, "others_max": 47.19, "mine_median": 0.03, "top_others": [["user1", 31.0], ["user2", 1.6], ["user3", 1.5]]}
+{"t": 1793043000, "samples": 255, "others_median": 44.16, "others_p90": 45.48, "others_max": 47.26, "mine_median": 0.03, "top_others": [["user1", 30.2], ["user2", 2.0], ["user3", 1.8]]}
+{"t": 1793043600, "samples": 254, "others_median": 43.66, "others_p90": 44.79, "others_max": 47.45, "mine_median": 0.03, "top_others": [["user1", 30.0], ["user2", 2.3], ["user4", 0.8]]}
+{"t": 1793044200, "samples": 251, "others_median": 43.46, "others_p90": 44.6, "others_max": 47.64, "mine_median": 0.04, "top_others": [["user1", 29.9], ["user3", 3.8], ["user4", 0.5]]}
+{"t": 1793044800, "samples": 248, "others_median": 45.27, "others_p90": 47.3, "others_max": 47.69, "mine_median": 0.04, "top_others": [["user1", 25.8], ["user3", 8.0], ["user2", 0.8]]}
+{"t": 1793045400, "samples": 242, "others_median": 46.07, "others_p90": 47.42, "others_max": 48.12, "mine_median": 0.04, "top_others": [["user1", 21.2], ["user3", 10.4], ["user2", 2.2]]}
+{"t": 1793046000, "samples": 245, "others_median": 45.8, "others_p90": 46.76, "others_max": 47.71, "mine_median": 0.04, "top_others": [["user1", 21.1], ["user3", 9.8], ["user2", 0.6]]}
+{"t": 1793046600, "samples": 248, "others_median": 46.31, "others_p90": 47.31, "others_max": 48.34, "mine_median": 0.04, "top_others": [["user1", 21.5], ["user3", 10.2], ["user2", 0.4]]}
+{"t": 1793047200, "samples": 243, "others_median": 46.53, "others_p90": 47.5, "others_max": 48.2, "mine_median": 0.04, "top_others": [["user1", 24.1], ["user3", 10.6]]}
+{"t": 1793047800, "samples": 244, "others_median": 45.49, "others_p90": 46.72, "others_max": 47.57, "mine_median": 0.04, "top_others": [["user1", 25.4], ["user3", 8.5]]}
+{"t": 1793048400, "samples": 255, "others_median": 43.59, "others_p90": 45.83, "others_max": 47.37, "mine_median": 0.03, "top_others": [["user1", 27.4], ["user2", 3.3], ["user3", 2.2]]}
+{"t": 1793049000, "samples": 255, "others_median": 41.26, "others_p90": 44.32, "others_max": 47.15, "mine_median": 0.96, "top_others": [["user1", 24.0], ["user2", 5.5], ["user4", 0.6]]}
+{"t": 1793049600, "samples": 259, "others_median": 40.19, "others_p90": 42.22, "others_max": 44.92, "mine_median": 0.04, "top_others": [["user1", 22.5], ["user2", 4.1], ["user3", 1.2]]}
+{"t": 1793050200, "samples": 263, "others_median": 40.58, "others_p90": 44.21, "others_max": 46.46, "mine_median": 0.03, "top_others": [["user1", 22.5], ["user2", 3.3], ["user3", 2.1]]}
+{"t": 1793050800, "samples": 256, "others_median": 41.97, "others_p90": 46.25, "others_max": 48.25, "mine_median": 0.03, "top_others": [["user1", 19.2], ["user2", 9.1], ["user3", 0.5]]}
+{"t": 1793051400, "samples": 265, "others_median": 36.62, "others_p90": 42.66, "others_max": 47.76, "mine_median": 0.03, "top_others": [["user1", 22.1], ["user3", 3.1], ["user2", 2.5]]}
+{"t": 1793052000, "samples": 265, "others_median": 37.69, "others_p90": 43.16, "others_max": 47.76, "mine_median": 0.03, "top_others": [["user1", 23.1], ["user2", 4.7], ["user3", 1.6]]}
+{"t": 1793052600, "samples": 269, "others_median": 35.2, "others_p90": 38.57, "others_max": 44.42, "mine_median": 0.03, "top_others": [["user1", 22.7], ["user2", 4.3], ["user4", 0.3]]}
+{"t": 1793053200, "samples": 268, "others_median": 34.55, "others_p90": 39.78, "others_max": 47.44, "mine_median": 0.03, "top_others": [["user1", 22.1], ["user2", 4.4], ["user4", 1.0]]}
+{"t": 1793053800, "samples": 270, "others_median": 33.41, "others_p90": 39.54, "others_max": 44.6, "mine_median": 0.03, "top_others": [["user1", 19.6], ["user2", 4.5], ["user4", 1.9]]}
+{"t": 1793054400, "samples": 272, "others_median": 35.41, "others_p90": 41.16, "others_max": 44.6, "mine_median": 0.03, "top_others": [["user1", 16.6], ["user2", 8.9], ["user4", 0.8]]}
+{"t": 1793055000, "samples": 269, "others_median": 36.07, "others_p90": 39.12, "others_max": 40.61, "mine_median": 0.03, "top_others": [["user1", 19.6], ["user2", 7.3]]}
+{"t": 1793055600, "samples": 272, "others_median": 36.2, "others_p90": 39.5, "others_max": 42.02, "mine_median": 0.03, "top_others": [["user1", 19.8], ["user2", 4.9], ["user4", 1.4]]}
+{"t": 1793056200, "samples": 275, "others_median": 28.74, "others_p90": 34.28, "others_max": 37.19, "mine_median": 0.02, "top_others": [["user1", 11.6], ["user2", 6.4], ["user4", 1.7]]}
+{"t": 1793056800, "samples": 280, "others_median": 25.72, "others_p90": 28.7, "others_max": 29.89, "mine_median": 0.02, "top_others": [["user1", 8.2], ["user2", 5.8], ["user3", 2.3]]}
+{"t": 1793057400, "samples": 277, "others_median": 29.84, "others_p90": 31.52, "others_max": 34.95, "mine_median": 0.02, "top_others": [["user3", 9.3], ["user2", 8.1], ["user1", 4.9]]}
+{"t": 1793058000, "samples": 272, "others_median": 29.81, "others_p90": 39.06, "others_max": 47.31, "mine_median": 0.03, "top_others": [["user3", 10.5], ["user2", 9.5], ["user1", 5.6]]}
+{"t": 1793058600, "samples": 278, "others_median": 26.11, "others_p90": 27.83, "others_max": 39.28, "mine_median": 0.02, "top_others": [["user2", 11.5], ["user3", 11.0], ["user1", 0.6]]}
+{"t": 1793059200, "samples": 274, "others_median": 30.69, "others_p90": 40.81, "others_max": 47.68, "mine_median": 0.02, "top_others": [["user1", 9.4], ["user2", 8.8], ["user3", 7.6]]}
+{"t": 1793059800, "samples": 275, "others_median": 29.09, "others_p90": 35.88, "others_max": 45.93, "mine_median": 0.02, "top_others": [["user1", 10.2], ["user2", 9.5], ["user3", 4.0]]}
+{"t": 1793060400, "samples": 274, "others_median": 29.09, "others_p90": 33.83, "others_max": 46.95, "mine_median": 0.02, "top_others": [["user2", 9.5], ["user1", 9.5], ["user3", 4.7]]}
+{"t": 1793061000, "samples": 276, "others_median": 28.98, "others_p90": 33.78, "others_max": 38.44, "mine_median": 0.02, "top_others": [["user1", 9.8], ["user2", 9.0], ["user3", 5.2]]}
+{"t": 1793061600, "samples": 276, "others_median": 30.81, "others_p90": 34.87, "others_max": 38.88, "mine_median": 0.02, "top_others": [["user2", 11.0], ["user1", 9.5], ["user3", 5.0]]}
+{"t": 1793062200, "samples": 278, "others_median": 28.11, "others_p90": 33.95, "others_max": 37.65, "mine_median": 0.02, "top_others": [["user1", 10.1], ["user2", 5.3], ["user3", 4.2]]}
+{"t": 1793062800, "samples": 277, "others_median": 27.84, "others_p90": 34.06, "others_max": 37.61, "mine_median": 0.02, "top_others": [["user1", 9.8], ["user2", 4.2], ["user3", 4.2]]}
+{"t": 1793063400, "samples": 277, "others_median": 27.18, "others_p90": 31.76, "others_max": 38.28, "mine_median": 0.02, "top_others": [["user1", 8.7], ["user2", 4.2], ["user3", 4.2]]}
+{"t": 1793064000, "samples": 277, "others_median": 28.1, "others_p90": 33.47, "others_max": 35.21, "mine_median": 0.02, "top_others": [["user1", 8.6], ["user3", 5.1], ["user2", 4.1]]}
+{"t": 1793064600, "samples": 278, "others_median": 30.16, "others_p90": 36.35, "others_max": 42.07, "mine_median": 0.02, "top_others": [["user1", 8.7], ["user3", 6.8], ["user2", 4.1]]}
+{"t": 1793065200, "samples": 275, "others_median": 27.56, "others_p90": 34.16, "others_max": 47.33, "mine_median": 0.03, "top_others": [["user1", 8.2], ["user3", 5.8], ["user2", 4.2]]}
+{"t": 1793065800, "samples": 278, "others_median": 20.22, "others_p90": 29.73, "others_max": 34.73, "mine_median": 0.18, "top_others": [["user1", 7.7], ["user2", 4.7], ["user3", 4.0]]}
+{"t": 1793066400, "samples": 277, "others_median": 22.39, "others_p90": 27.55, "others_max": 32.58, "mine_median": 1.02, "top_others": [["user1", 8.2], ["user2", 4.5], ["user3", 4.2]]}
+{"t": 1793067000, "samples": 277, "others_median": 21.74, "others_p90": 25.63, "others_max": 29.14, "mine_median": 1.02, "top_others": [["user1", 7.0], ["user2", 4.5], ["user3", 4.2]]}
+{"t": 1793067600, "samples": 276, "others_median": 22.7, "others_p90": 27.96, "others_max": 47.95, "mine_median": 1.01, "top_others": [["user2", 8.4], ["user1", 5.9], ["user3", 4.0]]}
+{"t": 1793068200, "samples": 277, "others_median": 22.77, "others_p90": 29.7, "others_max": 46.36, "mine_median": 1.02, "top_others": [["user2", 7.7], ["user1", 6.1], ["user3", 4.0]]}
+{"t": 1793068800, "samples": 280, "others_median": 15.5, "others_p90": 19.02, "others_max": 22.37, "mine_median": 1.02, "top_others": [["user1", 6.1], ["user3", 4.2], ["user2", 2.1]]}
+{"t": 1793069400, "samples": 281, "others_median": 15.24, "others_p90": 19.27, "others_max": 22.58, "mine_median": 1.01, "top_others": [["user1", 5.5], ["user3", 4.1], ["user2", 2.1]]}
+{"t": 1793070000, "samples": 281, "others_median": 15.08, "others_p90": 18.94, "others_max": 24.36, "mine_median": 0.02, "top_others": [["user1", 5.5], ["user3", 4.2], ["user2", 1.8]]}
+{"t": 1793070600, "samples": 282, "others_median": 15.23, "others_p90": 18.69, "others_max": 21.81, "mine_median": 0.02, "top_others": [["user1", 5.0], ["user3", 4.1], ["user2", 2.0]]}
+{"t": 1793071200, "samples": 281, "others_median": 15.83, "others_p90": 20.67, "others_max": 47.59, "mine_median": 0.02, "top_others": [["user1", 5.5], ["user3", 4.1], ["user2", 2.9]]}
+{"t": 1793071800, "samples": 283, "others_median": 14.23, "others_p90": 18.16, "others_max": 21.77, "mine_median": 0.02, "top_others": [["user1", 4.6], ["user3", 4.1], ["user2", 2.7]]}
+{"t": 1793072400, "samples": 282, "others_median": 14.5, "others_p90": 20.27, "others_max": 24.2, "mine_median": 0.02, "top_others": [["user2", 4.1], ["user3", 4.1], ["user1", 3.3]]}
+{"t": 1793073000, "samples": 282, "others_median": 13.32, "others_p90": 17.36, "others_max": 17.98, "mine_median": 0.02, "top_others": [["user3", 4.2], ["user1", 3.6], ["user2", 3.1]]}
+{"t": 1793073600, "samples": 280, "others_median": 18.45, "others_p90": 27.27, "others_max": 31.85, "mine_median": 0.02, "top_others": [["user1", 8.8], ["user3", 4.1], ["user2", 2.8]]}
+{"t": 1793074200, "samples": 278, "others_median": 23.59, "others_p90": 28.78, "others_max": 33.36, "mine_median": 0.02, "top_others": [["user1", 11.6], ["user2", 4.0], ["user3", 3.9]]}
+{"t": 1793074800, "samples": 278, "others_median": 22.23, "others_p90": 25.25, "others_max": 27.27, "mine_median": 0.02, "top_others": [["user1", 11.2], ["user2", 4.0], ["user3", 3.0]]}
+{"t": 1793075400, "samples": 276, "others_median": 21.91, "others_p90": 25.64, "others_max": 47.6, "mine_median": 0.02, "top_others": [["user1", 11.2], ["user2", 3.6], ["user3", 3.1]]}
+{"t": 1793076000, "samples": 280, "others_median": 20.26, "others_p90": 21.78, "others_max": 47.47, "mine_median": 0.02, "top_others": [["user1", 8.8], ["user2", 4.1], ["user3", 3.1]]}
+{"t": 1793076600, "samples": 280, "others_median": 18.41, "others_p90": 28.11, "others_max": 29.59, "mine_median": 0.02, "top_others": [["user1", 5.5], ["user2", 5.3], ["user3", 3.1]]}
+{"t": 1793077200, "samples": 277, "others_median": 21.33, "others_p90": 28.42, "others_max": 47.11, "mine_median": 0.02, "top_others": [["user1", 7.4], ["user2", 5.8], ["user3", 3.0]]}
+{"t": 1793077800, "samples": 285, "others_median": 9.26, "others_p90": 9.57, "others_max": 10.08, "mine_median": 0.02, "top_others": [["user2", 3.8], ["user3", 3.2]]}
+{"t": 1793078400, "samples": 283, "others_median": 9.41, "others_p90": 13.35, "others_max": 15.02, "mine_median": 0.02, "top_others": [["user2", 3.3], ["user3", 3.2], ["root", 1.1]]}
+{"t": 1793079000, "samples": 284, "others_median": 10.31, "others_p90": 13.18, "others_max": 15.04, "mine_median": 0.02, "top_others": [["user2", 3.3], ["user3", 3.1], ["root", 0.9]]}
+{"t": 1793079600, "samples": 283, "others_median": 10.19, "others_p90": 10.55, "others_max": 47.18, "mine_median": 0.02, "top_others": [["user2", 4.3], ["user3", 3.2], ["root", 0.4]]}
+{"t": 1793080200, "samples": 283, "others_median": 10.44, "others_p90": 18.36, "others_max": 47.45, "mine_median": 0.02, "top_others": [["user2", 6.8], ["user3", 3.2]]}
+{"t": 1793080800, "samples": 283, "others_median": 10.8, "others_p90": 18.48, "others_max": 21.26, "mine_median": 0.02, "top_others": [["user2", 5.7], ["user3", 3.1], ["root", 0.3]]}
+{"t": 1793081400, "samples": 284, "others_median": 10.57, "others_p90": 11.48, "others_max": 11.85, "mine_median": 0.02, "top_others": [["user3", 3.1], ["user2", 3.0], ["user1", 1.9]]}
+{"t": 1793082000, "samples": 285, "others_median": 9.26, "others_p90": 9.53, "others_max": 10.17, "mine_median": 0.02, "top_others": [["user2", 3.4], ["user3", 3.2]]}
+{"t": 1793082600, "samples": 284, "others_median": 9.23, "others_p90": 9.55, "others_max": 9.81, "mine_median": 0.02, "top_others": [["user2", 3.9], ["user3", 3.1]]}
+{"t": 1793083200, "samples": 284, "others_median": 8.26, "others_p90": 8.54, "others_max": 8.97, "mine_median": 0.02, "top_others": [["user2", 3.8], ["user3", 3.2]]}
+{"t": 1793083800, "samples": 283, "others_median": 7.29, "others_p90": 13.26, "others_max": 47.77, "mine_median": 0.02, "top_others": [["user2", 4.6], ["user3", 3.6]]}
+{"t": 1793084400, "samples": 283, "others_median": 12.47, "others_p90": 16.77, "others_max": 30.32, "mine_median": 0.02, "top_others": [["user2", 7.7], ["user3", 3.2]]}
+{"t": 1793085000, "samples": 284, "others_median": 12.56, "others_p90": 13.21, "others_max": 15.93, "mine_median": 0.02, "top_others": [["user2", 5.4], ["user3", 3.3]]}
+{"t": 1793085600, "samples": 283, "others_median": 12.48, "others_p90": 12.89, "others_max": 13.38, "mine_median": 0.02, "top_others": [["user2", 6.1], ["user3", 3.3]]}
+{"t": 1793086200, "samples": 284, "others_median": 11.56, "others_p90": 11.94, "others_max": 12.47, "mine_median": 0.02, "top_others": [["user2", 6.0], ["user3", 3.6]]}
+{"t": 1793086800, "samples": 284, "others_median": 11.64, "others_p90": 12.01, "others_max": 12.72, "mine_median": 0.02, "top_others": [["user2", 6.5], ["user3", 3.4]]}
+{"t": 1793087400, "samples": 283, "others_median": 11.62, "others_p90": 12.2, "others_max": 47.39, "mine_median": 0.02, "top_others": [["user2", 8.0], ["user3", 3.3]]}
+{"t": 1793088000, "samples": 285, "others_median": 10.76, "others_p90": 11.1, "others_max": 12.29, "mine_median": 0.02, "top_others": [["user2", 5.6], ["user3", 3.9]]}
+{"t": 1793088600, "samples": 284, "others_median": 10.71, "others_p90": 11.02, "others_max": 11.88, "mine_median": 0.02, "top_others": [["user2", 5.5], ["user3", 4.0]]}
+{"t": 1793089200, "samples": 283, "others_median": 14.37, "others_p90": 15.35, "others_max": 22.82, "mine_median": 0.02, "top_others": [["user2", 8.9], ["user3", 4.0]]}
+{"t": 1793089800, "samples": 285, "others_median": 9.66, "others_p90": 10.07, "others_max": 14.27, "mine_median": 0.02, "top_others": [["user2", 4.9], ["user3", 2.9]]}
+{"t": 1793090400, "samples": 285, "others_median": 9.72, "others_p90": 9.94, "others_max": 10.26, "mine_median": 0.02, "top_others": [["user2", 5.6], ["user3", 2.9]]}
+{"t": 1793091000, "samples": 284, "others_median": 9.67, "others_p90": 9.9, "others_max": 11.32, "mine_median": 0.01, "top_others": [["user2", 5.5], ["user3", 2.9]]}
+{"t": 1793091600, "samples": 285, "others_median": 9.69, "others_p90": 9.93, "others_max": 10.38, "mine_median": 0.02, "top_others": [["user2", 5.6], ["user3", 2.9]]}
+{"t": 1793092200, "samples": 285, "others_median": 9.73, "others_p90": 9.92, "others_max": 10.34, "mine_median": 0.02, "top_others": [["user2", 5.7], ["user3", 2.9]]}
+{"t": 1793092800, "samples": 284, "others_median": 11.14, "others_p90": 13.48, "others_max": 14.62, "mine_median": 0.02, "top_others": [["user2", 5.4], ["user3", 1.9], ["root", 1.7]]}
+{"t": 1793093400, "samples": 286, "others_median": 8.81, "others_p90": 13.05, "others_max": 13.9, "mine_median": 0.01, "top_others": [["user2", 6.3], ["user3", 1.8], ["root", 0.1]]}
+{"t": 1793094000, "samples": 285, "others_median": 13.06, "others_p90": 13.19, "others_max": 14.14, "mine_median": 0.01, "top_others": [["user2", 7.6], ["user3", 1.8]]}
+{"t": 1793094600, "samples": 286, "others_median": 4.12, "others_p90": 4.29, "others_max": 5.4, "mine_median": 0.01, "top_others": [["user3", 1.9], ["user2", 1.3]]}
+{"t": 1793095200, "samples": 287, "others_median": 4.14, "others_p90": 4.41, "others_max": 6.6, "mine_median": 0.01, "top_others": [["user3", 2.0], ["user2", 1.2]]}
+{"t": 1793095800, "samples": 285, "others_median": 4.25, "others_p90": 5.19, "others_max": 7.47, "mine_median": 0.01, "top_others": [["user3", 1.9], ["user2", 1.0], ["root", 0.1]]}
+{"t": 1793096400, "samples": 286, "others_median": 5.13, "others_p90": 5.43, "others_max": 7.03, "mine_median": 0.01, "top_others": [["user3", 2.0], ["user2", 1.0]]}
+{"t": 1793097000, "samples": 286, "others_median": 6.14, "others_p90": 8.12, "others_max": 11.46, "mine_median": 0.01, "top_others": [["user3", 2.7], ["user2", 1.5]]}
+{"t": 1793097600, "samples": 284, "others_median": 9.18, "others_p90": 11.21, "others_max": 17.69, "mine_median": 0.02, "top_others": [["user3", 5.6], ["user2", 2.0]]}
+{"t": 1793098200, "samples": 285, "others_median": 9.11, "others_p90": 9.25, "others_max": 9.76, "mine_median": 0.01, "top_others": [["user3", 5.2], ["user2", 1.5]]}
+{"t": 1793098800, "samples": 286, "others_median": 8.1, "others_p90": 8.29, "others_max": 8.55, "mine_median": 0.01, "top_others": [["user3", 4.8]]}
+{"t": 1793099400, "samples": 286, "others_median": 7.14, "others_p90": 7.33, "others_max": 8.13, "mine_median": 0.01, "top_others": [["user3", 4.4], ["user2", 0.1]]}
+{"t": 1793100000, "samples": 285, "others_median": 7.14, "others_p90": 7.25, "others_max": 7.72, "mine_median": 0.01, "top_others": [["user3", 4.9], ["user2", 0.2]]}
+{"t": 1793100600, "samples": 286, "others_median": 7.18, "others_p90": 7.33, "others_max": 7.71, "mine_median": 0.01, "top_others": [["user3", 4.8], ["user2", 0.2]]}
+{"t": 1793101200, "samples": 286, "others_median": 7.18, "others_p90": 7.33, "others_max": 8.44, "mine_median": 0.01, "top_others": [["user3", 4.8], ["user2", 0.2]]}
+{"t": 1793101800, "samples": 285, "others_median": 7.18, "others_p90": 7.29, "others_max": 8.07, "mine_median": 0.01, "top_others": [["user3", 4.8], ["user2", 0.2]]}
+{"t": 1793102400, "samples": 286, "others_median": 7.13, "others_p90": 7.32, "others_max": 7.95, "mine_median": 0.01, "top_others": [["user3", 5.0], ["user2", 0.2]]}
+{"t": 1793103000, "samples": 285, "others_median": 6.16, "others_p90": 6.38, "others_max": 8.76, "mine_median": 0.01, "top_others": [["user3", 4.9], ["user2", 0.2]]}
+{"t": 1793103600, "samples": 285, "others_median": 8.11, "others_p90": 8.26, "others_max": 8.57, "mine_median": 0.02, "top_others": [["user3", 6.5], ["user2", 0.1]]}
+{"t": 1793104200, "samples": 285, "others_median": 7.1, "others_p90": 7.39, "others_max": 8.58, "mine_median": 0.01, "top_others": [["user3", 5.0], ["user2", 0.2]]}
+{"t": 1793104800, "samples": 285, "others_median": 7.28, "others_p90": 8.36, "others_max": 32.1, "mine_median": 0.01, "top_others": [["user3", 5.7], ["user1", 1.1], ["user2", 0.2]]}
+{"t": 1793105400, "samples": 285, "others_median": 8.16, "others_p90": 8.46, "others_max": 10.18, "mine_median": 0.01, "top_others": [["user3", 5.7], ["user2", 0.1]]}
+{"t": 1793106000, "samples": 285, "others_median": 7.17, "others_p90": 8.17, "others_max": 8.77, "mine_median": 0.01, "top_others": [["user3", 5.9], ["user2", 0.1]]}
+{"t": 1793106600, "samples": 285, "others_median": 7.2, "others_p90": 11.15, "others_max": 13.03, "mine_median": 0.02, "top_others": [["user3", 5.7], ["root", 0.6], ["user2", 0.1]]}
+{"t": 1793107200, "samples": 285, "others_median": 8.79, "others_p90": 11.23, "others_max": 13.06, "mine_median": 0.02, "top_others": [["user3", 5.3], ["root", 1.2], ["user2", 0.1]]}
+{"t": 1793107800, "samples": 284, "others_median": 8.2, "others_p90": 8.43, "others_max": 20.17, "mine_median": 0.02, "top_others": [["user3", 5.7], ["user1", 0.2], ["user2", 0.2]]}
+{"t": 1793108400, "samples": 284, "others_median": 7.69, "others_p90": 8.57, "others_max": 18.79, "mine_median": 0.02, "top_others": [["user3", 5.7], ["user1", 0.4], ["user2", 0.1]]}
+{"t": 1793109000, "samples": 285, "others_median": 6.6, "others_p90": 8.19, "others_max": 10.1, "mine_median": 0.01, "top_others": [["user3", 5.3], ["user2", 0.2]]}
+{"t": 1793109600, "samples": 285, "others_median": 7.16, "others_p90": 7.41, "others_max": 18.86, "mine_median": 0.01, "top_others": [["user3", 5.7], ["user2", 0.1]]}
+{"t": 1793110200, "samples": 283, "others_median": 14.52, "others_p90": 16.53, "others_max": 24.29, "mine_median": 0.02, "top_others": [["user3", 11.9], ["user2", 0.1], ["user1", 0.1]]}
+{"t": 1793110800, "samples": 281, "others_median": 16.06, "others_p90": 20.1, "others_max": 41.56, "mine_median": 0.02, "top_others": [["user3", 12.0], ["root", 1.4], ["user1", 0.4]]}
+{"t": 1793111400, "samples": 283, "others_median": 14.56, "others_p90": 18.89, "others_max": 23.49, "mine_median": 0.02, "top_others": [["user3", 10.7], ["root", 0.4], ["user1", 0.2]]}
+{"t": 1793112000, "samples": 284, "others_median": 8.25, "others_p90": 8.84, "others_max": 23.07, "mine_median": 0.02, "top_others": [["user3", 5.9], ["user1", 0.3], ["user2", 0.2]]}
+{"t": 1793112600, "samples": 284, "others_median": 8.28, "others_p90": 37.24, "others_max": 47.49, "mine_median": 0.02, "top_others": [["user3", 10.8], ["user2", 0.3]]}
+{"t": 1793113200, "samples": 283, "others_median": 4.19, "others_p90": 39.86, "others_max": 47.54, "mine_median": 0.02, "top_others": [["user3", 7.9], ["user2", 0.8]]}
+{"t": 1793113800, "samples": 286, "others_median": 9.34, "others_p90": 11.59, "others_max": 18.21, "mine_median": 0.02, "top_others": [["user3", 6.1], ["user2", 0.8]]}
+{"t": 1793114400, "samples": 283, "others_median": 12.46, "others_p90": 14.51, "others_max": 27.57, "mine_median": 0.02, "top_others": [["user3", 10.7], ["user2", 0.2]]}
+{"t": 1793115000, "samples": 284, "others_median": 12.32, "others_p90": 13.59, "others_max": 15.94, "mine_median": 0.02, "top_others": [["user3", 10.2], ["user2", 0.2]]}
+{"t": 1793115600, "samples": 286, "others_median": 4.32, "others_p90": 5.94, "others_max": 25.2, "mine_median": 0.01, "top_others": [["user3", 4.2], ["user1", 0.2]]}
+{"t": 1793116200, "samples": 286, "others_median": 4.26, "others_p90": 4.53, "others_max": 5.43, "mine_median": 0.01, "top_others": [["user3", 4.1]]}
+{"t": 1793116800, "samples": 285, "others_median": 3.29, "others_p90": 4.29, "others_max": 5.13, "mine_median": 0.01, "top_others": [["user3", 3.2]]}
+{"t": 1793117400, "samples": 286, "others_median": 3.26, "others_p90": 3.49, "others_max": 3.93, "mine_median": 0.01, "top_others": [["user3", 3.1]]}
+{"t": 1793118000, "samples": 286, "others_median": 3.26, "others_p90": 3.47, "others_max": 3.77, "mine_median": 0.01, "top_others": [["user3", 3.1]]}
+{"t": 1793118600, "samples": 286, "others_median": 3.26, "others_p90": 3.42, "others_max": 4.28, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793119200, "samples": 286, "others_median": 3.19, "others_p90": 3.36, "others_max": 4.36, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793119800, "samples": 286, "others_median": 3.2, "others_p90": 3.45, "others_max": 7.98, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793120400, "samples": 285, "others_median": 3.23, "others_p90": 3.47, "others_max": 4.44, "mine_median": 0.01, "top_others": [["user3", 3.1]]}
+{"t": 1793121000, "samples": 285, "others_median": 3.21, "others_p90": 3.36, "others_max": 3.97, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793121600, "samples": 285, "others_median": 3.27, "others_p90": 4.29, "others_max": 5.26, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793122200, "samples": 285, "others_median": 3.49, "others_p90": 5.7, "others_max": 7.03, "mine_median": 0.02, "top_others": [["user3", 2.9], ["user1", 0.1]]}
+{"t": 1793122800, "samples": 285, "others_median": 3.19, "others_p90": 3.41, "others_max": 16.89, "mine_median": 0.01, "top_others": [["user3", 3.1]]}
+{"t": 1793123400, "samples": 286, "others_median": 3.16, "others_p90": 3.34, "others_max": 3.57, "mine_median": 0.01, "top_others": [["user3", 3.0]]}
+{"t": 1793124000, "samples": 285, "others_median": 3.12, "others_p90": 3.41, "others_max": 5.16, "mine_median": 0.01, "top_others": [["user3", 2.7]]}
+{"t": 1793124600, "samples": 285, "others_median": 4.21, "others_p90": 4.61, "others_max": 9.3, "mine_median": 0.02, "top_others": [["user3", 3.5]]}
+{"t": 1793125200, "samples": 282, "others_median": 12.73, "others_p90": 15.83, "others_max": 40.5, "mine_median": 0.02, "top_others": [["user3", 9.8], ["user1", 1.7]]}
+{"t": 1793125800, "samples": 282, "others_median": 12.17, "others_p90": 15.16, "others_max": 43.92, "mine_median": 0.02, "top_others": [["user3", 9.9], ["user1", 1.5]]}
+{"t": 1793126400, "samples": 284, "others_median": 10.18, "others_p90": 12.65, "others_max": 14.85, "mine_median": 0.02, "top_others": [["user3", 8.8]]}
+{"t": 1793127000, "samples": 286, "others_median": 4.37, "others_p90": 5.01, "others_max": 6.65, "mine_median": 0.02, "top_others": [["user3", 4.2]]}
+{"t": 1793127600, "samples": 284, "others_median": 5.46, "others_p90": 5.88, "others_max": 6.96, "mine_median": 0.02, "top_others": [["user3", 5.0]]}
+{"t": 1793128200, "samples": 285, "others_median": 5.63, "others_p90": 7.51, "others_max": 18.83, "mine_median": 0.02, "top_others": [["user3", 4.9], ["user1", 1.0]]}
+{"t": 1793128800, "samples": 284, "others_median": 6.57, "others_p90": 11.58, "others_max": 19.5, "mine_median": 0.02, "top_others": [["user3", 3.7], ["user1", 2.0]]}
+{"t": 1793129400, "samples": 284, "others_median": 5.78, "others_p90": 7.65, "others_max": 12.77, "mine_median": 0.02, "top_others": [["user3", 3.6], ["user1", 1.4]]}
+{"t": 1793130000, "samples": 284, "others_median": 4.61, "others_p90": 5.89, "others_max": 17.45, "mine_median": 0.02, "top_others": [["user3", 4.0], ["user1", 0.1]]}
+{"t": 1793130600, "samples": 285, "others_median": 4.41, "others_p90": 5.29, "others_max": 47.37, "mine_median": 0.02, "top_others": [["user3", 5.8]]}
+{"t": 1793131200, "samples": 284, "others_median": 4.38, "others_p90": 4.82, "others_max": 47.33, "mine_median": 0.02, "top_others": [["user3", 4.7]]}
+{"t": 1793131800, "samples": 285, "others_median": 4.4, "others_p90": 6.35, "others_max": 7.24, "mine_median": 0.02, "top_others": [["user3", 4.4]]}
+{"t": 1793132400, "samples": 283, "others_median": 8.86, "others_p90": 10.43, "others_max": 11.94, "mine_median": 0.02, "top_others": [["user3", 5.3], ["root", 1.8]]}
+{"t": 1793133000, "samples": 285, "others_median": 7.22, "others_p90": 7.91, "others_max": 13.07, "mine_median": 0.02, "top_others": [["user3", 5.8]]}
+{"t": 1793133600, "samples": 281, "others_median": 7.22, "others_p90": 46.39, "others_max": 47.62, "mine_median": 0.02, "top_others": [["user3", 14.4]]}
+{"t": 1793134200, "samples": 285, "others_median": 6.22, "others_p90": 6.51, "others_max": 8.31, "mine_median": 0.02, "top_others": [["user3", 4.8]]}
+{"t": 1793134800, "samples": 285, "others_median": 6.22, "others_p90": 6.48, "others_max": 6.78, "mine_median": 0.01, "top_others": [["user3", 5.0]]}
+{"t": 1793135400, "samples": 285, "others_median": 6.22, "others_p90": 6.55, "others_max": 46.56, "mine_median": 0.02, "top_others": [["user3", 6.2]]}
+{"t": 1793136000, "samples": 283, "others_median": 6.27, "others_p90": 32.35, "others_max": 47.63, "mine_median": 0.02, "top_others": [["user3", 9.2]]}
+{"t": 1793136600, "samples": 285, "others_median": 5.26, "others_p90": 5.57, "others_max": 7.27, "mine_median": 0.02, "top_others": [["user3", 4.1]]}
+{"t": 1793137200, "samples": 285, "others_median": 6.12, "others_p90": 6.69, "others_max": 11.44, "mine_median": 0.01, "top_others": [["user3", 4.1]]}
+{"t": 1793137800, "samples": 285, "others_median": 6.23, "others_p90": 6.49, "others_max": 7.2, "mine_median": 0.02, "top_others": [["user3", 4.1]]}
+{"t": 1793138400, "samples": 284, "others_median": 6.24, "others_p90": 6.89, "others_max": 8.17, "mine_median": 0.02, "top_others": [["user3", 4.1]]}
+{"t": 1793139000, "samples": 284, "others_median": 7.28, "others_p90": 14.46, "others_max": 22.63, "mine_median": 0.02, "top_others": [["user3", 6.4]]}
+{"t": 1793139600, "samples": 282, "others_median": 14.2, "others_p90": 24.25, "others_max": 47.51, "mine_median": 0.02, "top_others": [["user3", 14.0]]}
+{"t": 1793140200, "samples": 283, "others_median": 13.53, "others_p90": 14.98, "others_max": 16.5, "mine_median": 0.02, "top_others": [["user3", 11.8]]}
+{"t": 1793140800, "samples": 284, "others_median": 8.93, "others_p90": 13.02, "others_max": 14.88, "mine_median": 0.02, "top_others": [["user3", 7.3]]}
+{"t": 1793141400, "samples": 285, "others_median": 7.44, "others_p90": 8.57, "others_max": 13.24, "mine_median": 0.02, "top_others": [["user3", 4.9]]}
+{"t": 1793142000, "samples": 283, "others_median": 8.34, "others_p90": 8.67, "others_max": 13.35, "mine_median": 0.02, "top_others": [["user3", 5.6]]}
+{"t": 1793142600, "samples": 284, "others_median": 7.4, "others_p90": 7.69, "others_max": 9.09, "mine_median": 0.02, "top_others": [["user3", 5.1]]}
+{"t": 1793143200, "samples": 284, "others_median": 7.39, "others_p90": 7.65, "others_max": 8.24, "mine_median": 0.02, "top_others": [["user3", 5.1]]}
+{"t": 1793143800, "samples": 285, "others_median": 7.36, "others_p90": 7.69, "others_max": 8.43, "mine_median": 0.02, "top_others": [["user3", 5.1]]}
+{"t": 1793144400, "samples": 285, "others_median": 7.35, "others_p90": 7.65, "others_max": 8.37, "mine_median": 0.02, "top_others": [["user3", 5.6]]}
+{"t": 1793145000, "samples": 283, "others_median": 7.25, "others_p90": 11.27, "others_max": 47.58, "mine_median": 0.02, "top_others": [["user3", 8.7]]}
+{"t": 1793145600, "samples": 285, "others_median": 6.34, "others_p90": 7.27, "others_max": 7.91, "mine_median": 0.01, "top_others": [["user3", 5.3]]}
+{"t": 1793146200, "samples": 286, "others_median": 7.25, "others_p90": 7.62, "others_max": 12.62, "mine_median": 0.01, "top_others": [["user3", 5.2]]}
+{"t": 1793146800, "samples": 285, "others_median": 7.23, "others_p90": 7.53, "others_max": 7.96, "mine_median": 0.01, "top_others": [["user3", 5.0]]}
+{"t": 1793147400, "samples": 285, "others_median": 7.21, "others_p90": 7.49, "others_max": 8.11, "mine_median": 0.02, "top_others": [["user3", 5.0]]}
+{"t": 1793148000, "samples": 285, "others_median": 7.24, "others_p90": 7.53, "others_max": 9.63, "mine_median": 0.02, "top_others": [["user3", 4.9]]}
+{"t": 1793148600, "samples": 284, "others_median": 7.46, "others_p90": 9.6, "others_max": 47.49, "mine_median": 0.02, "top_others": [["user3", 7.5]]}
+{"t": 1793149200, "samples": 285, "others_median": 7.3, "others_p90": 7.76, "others_max": 47.56, "mine_median": 0.02, "top_others": [["user3", 6.6]]}
+{"t": 1793149800, "samples": 92, "others_median": 7.81, "others_p90": 8.74, "others_max": 10.99, "mine_median": 0.02, "top_others": [["user3", 4.7], ["user1", 0.6]]}

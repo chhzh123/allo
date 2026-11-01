@@ -1,0 +1,70 @@
+2026-10-26 15:13:09 START pid=1030185 monitor=1030200 tree=/scratch/hc676/e21_minitpu/allo gate=3.0 accept=3.0
+2026-10-26 15:13:09 PHASE sim64
+2026-10-26 15:13:19   waiting: machine busy 48.0 cores
+2026-10-26 15:42:29   waiting: machine busy 44.9 cores
+2026-10-26 16:12:50   waiting: machine busy 48.0 cores
+2026-10-26 16:43:10   waiting: machine busy 47.9 cores
+2026-10-26 17:12:20   waiting: machine busy 46.8 cores
+2026-10-26 17:42:40   waiting: machine busy 42.4 cores
+2026-10-26 18:13:00   waiting: machine busy 35.8 cores
+2026-10-26 18:42:10   waiting: machine busy 41.2 cores
+2026-10-26 19:12:30   waiting: machine busy 27.9 cores
+2026-10-26 19:42:50   waiting: machine busy 32.3 cores
+2026-10-26 20:13:10   waiting: machine busy 33.7 cores
+2026-10-26 20:42:20   waiting: machine busy 36.2 cores
+2026-10-26 21:12:40   waiting: machine busy 32.5 cores
+2026-10-26 21:43:00   waiting: machine busy 30.7 cores
+2026-10-26 22:12:10   waiting: machine busy 28.0 cores
+2026-10-26 22:42:30   waiting: machine busy 19.5 cores
+2026-10-26 23:12:50   waiting: machine busy 20.1 cores
+2026-10-26 23:43:10   waiting: machine busy 19.2 cores
+2026-10-27 00:12:20   waiting: machine busy 30.1 cores
+2026-10-27 00:42:40   waiting: machine busy 21.3 cores
+2026-10-27 01:13:00   waiting: machine busy 9.5 cores
+2026-10-27 01:42:10   waiting: machine busy 10.4 cores
+2026-10-27 02:12:30   waiting: machine busy 11.6 cores
+2026-10-27 02:42:50   waiting: machine busy 8.4 cores
+2026-10-27 03:13:10   waiting: machine busy 8.5 cores
+2026-10-27 03:42:20   waiting: machine busy 11.8 cores
+2026-10-27 04:12:40   waiting: machine busy 10.8 cores
+2026-10-27 04:43:00   waiting: machine busy 9.8 cores
+2026-10-27 05:12:10   waiting: machine busy 9.8 cores
+2026-10-27 05:42:30   waiting: machine busy 13.4 cores
+2026-10-27 06:12:50   waiting: machine busy 5.5 cores
+2026-10-27 06:43:10   waiting: machine busy 11.3 cores
+2026-10-27 07:12:20   waiting: machine busy 7.2 cores
+2026-10-27 07:42:40   waiting: machine busy 7.3 cores
+2026-10-27 08:13:00   waiting: machine busy 6.3 cores
+2026-10-27 08:42:10   waiting: machine busy 7.4 cores
+2026-10-27 09:12:30   waiting: machine busy 7.3 cores
+2026-10-27 09:42:50   waiting: machine busy 8.3 cores
+2026-10-27 10:13:11   waiting: machine busy 15.0 cores
+2026-10-27 10:42:21   waiting: machine busy 8.4 cores
+2026-10-27 11:12:41   waiting: machine busy 3.2 cores
+2026-10-27 11:43:01   waiting: machine busy 4.4 cores
+2026-10-27 12:12:11   waiting: machine busy 3.4 cores
+2026-10-27 12:42:31   waiting: machine busy 3.4 cores
+2026-10-27 13:12:51   waiting: machine busy 3.4 cores
+2026-10-27 13:43:11   waiting: machine busy 3.4 cores
+2026-10-27 14:08:05 {'phase': 'sim64', 'program': 'llama', 'size': 4, 'rep': 1} attempt=1 waited=82460s ok
+2026-10-27 14:09:30 {'phase': 'sim64', 'program': 'dsv4', 'size': 4, 'rep': 1} attempt=1 waited=0s ok
+2026-10-27 14:09:55 {'phase': 'sim64', 'program': 'llama', 'size': 8, 'rep': 1} attempt=1 waited=0s ok
+2026-10-27 14:10:05   waiting: machine busy 3.2 cores
+2026-10-27 14:11:53 {'phase': 'sim64', 'program': 'dsv4', 'size': 8, 'rep': 1} attempt=1 waited=70s REJECTED: others used 4.2 cores (max 5.3)
+2026-10-27 14:12:03   waiting: machine busy 4.2 cores
+2026-10-27 14:41:13   waiting: machine busy 12.2 cores
+2026-10-27 15:11:33   waiting: machine busy 6.0 cores
+2026-10-27 15:41:53   waiting: machine busy 12.6 cores
+2026-10-27 16:11:03   waiting: machine busy 4.6 cores
+2026-10-27 16:41:23   waiting: machine busy 7.4 cores
+2026-10-27 17:11:43   waiting: machine busy 6.3 cores
+2026-10-27 17:40:53   waiting: machine busy 5.4 cores
+2026-10-27 18:11:13   waiting: machine busy 7.5 cores
+2026-10-27 18:41:33   waiting: machine busy 13.8 cores
+2026-10-27 19:11:53   waiting: machine busy 7.6 cores
+2026-10-27 19:41:03   waiting: machine busy 7.6 cores
+2026-10-27 20:11:23   waiting: machine busy 7.4 cores
+2026-10-27 20:41:43   waiting: machine busy 7.4 cores
+2026-10-27 21:10:54   waiting: machine busy 9.2 cores
+2026-10-27 21:13:14 STOPPED: TimeoutError('the machine never went quiet before the deadline')
+2026-10-27 21:13:14 DONE

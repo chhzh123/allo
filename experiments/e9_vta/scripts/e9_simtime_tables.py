@@ -188,7 +188,8 @@ def main():
             )
     waited = sum(r.get("gate_wait_s", 0) for r in records)
     span = (
-        max(r["t_end"] for r in records) - min(r["t_start"] for r in records)
+        max(r["t_end"] for r in records)
+        - min(r["t_start"] - r.get("gate_wait_s", 0) for r in records)
     ) / 3600
     print(
         f"\n{len(ok)} accepted runs over {span:.1f} h, {waited / 3600:.1f} h of it waiting for a quiet machine"
