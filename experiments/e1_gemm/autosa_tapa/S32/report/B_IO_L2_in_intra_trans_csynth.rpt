@@ -1,0 +1,264 @@
+
+
+================================================================
+== Vitis HLS Report for 'B_IO_L2_in_intra_trans'
+================================================================
+* Date:           Mon Nov  2 23:13:17 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       B_IO_L2_in_boundary (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  1.825 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+    |   min   |   max   |    min   |    max   | min | max |   Type  |
+    +---------+---------+----------+----------+-----+-----+---------+
+    |       36|       36|  0.120 us|  0.120 us|   36|   36|       no|
+    +---------+---------+----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +-------------------------------------------------------------+--------------------------------------------------+---------+---------+----------+----------+-----+-----+---------+
+        |                                                             |                                                  |  Latency (cycles) |  Latency (absolute) |  Interval | Pipeline|
+        |                           Instance                          |                      Module                      |   min   |   max   |    min   |    max   | min | max |   Type  |
+        +-------------------------------------------------------------+--------------------------------------------------+---------+---------+----------+----------+-----+-----+---------+
+        |grp_B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1_fu_538  |B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1  |       34|       34|  0.113 us|  0.113 us|   34|   34|       no|
+        +-------------------------------------------------------------+--------------------------------------------------+---------+---------+----------+----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|       17|      224|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       29|    -|
+|Register             |        -|     -|      260|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        0|     0|      277|      253|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +-------------------------------------------------------------+--------------------------------------------------+---------+----+----+-----+-----+
+    |                           Instance                          |                      Module                      | BRAM_18K| DSP| FF | LUT | URAM|
+    +-------------------------------------------------------------+--------------------------------------------------+---------+----+----+-----+-----+
+    |grp_B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1_fu_538  |B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1  |        0|   0|  17|  224|    0|
+    +-------------------------------------------------------------+--------------------------------------------------+---------+----+----+-----+-----+
+    |Total                                                        |                                                  |        0|   0|  17|  224|    0|
+    +-------------------------------------------------------------+--------------------------------------------------+---------+----+----+-----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +--------------------------+----+-----------+-----+-----------+
+    |           Name           | LUT| Input Size| Bits| Total Bits|
+    +--------------------------+----+-----------+-----+-----------+
+    |ap_NS_fsm                 |  20|          4|    1|          4|
+    |fifo_B_local_out_s_write  |   9|          2|    1|          2|
+    +--------------------------+----+-----------+-----+-----------+
+    |Total                     |  29|          6|    2|          6|
+    +--------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +--------------------------------------------------------------------------+---+----+-----+-----------+
+    |                                   Name                                   | FF| LUT| Bits| Const Bits|
+    +--------------------------------------------------------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                                                                 |  3|   0|    3|          0|
+    |grp_B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1_fu_538_ap_start_reg  |  1|   0|    1|          0|
+    |local_B_0_load_reg_768                                                    |  8|   0|    8|          0|
+    |local_B_10_load_reg_818                                                   |  8|   0|    8|          0|
+    |local_B_11_load_reg_823                                                   |  8|   0|    8|          0|
+    |local_B_12_load_reg_828                                                   |  8|   0|    8|          0|
+    |local_B_13_load_reg_833                                                   |  8|   0|    8|          0|
+    |local_B_14_load_reg_838                                                   |  8|   0|    8|          0|
+    |local_B_15_load_reg_843                                                   |  8|   0|    8|          0|
+    |local_B_16_load_reg_848                                                   |  8|   0|    8|          0|
+    |local_B_17_load_reg_853                                                   |  8|   0|    8|          0|
+    |local_B_18_load_reg_858                                                   |  8|   0|    8|          0|
+    |local_B_19_load_reg_863                                                   |  8|   0|    8|          0|
+    |local_B_1_load_reg_773                                                    |  8|   0|    8|          0|
+    |local_B_20_load_reg_868                                                   |  8|   0|    8|          0|
+    |local_B_21_load_reg_873                                                   |  8|   0|    8|          0|
+    |local_B_22_load_reg_878                                                   |  8|   0|    8|          0|
+    |local_B_23_load_reg_883                                                   |  8|   0|    8|          0|
+    |local_B_24_load_reg_888                                                   |  8|   0|    8|          0|
+    |local_B_25_load_reg_893                                                   |  8|   0|    8|          0|
+    |local_B_26_load_reg_898                                                   |  8|   0|    8|          0|
+    |local_B_27_load_reg_903                                                   |  8|   0|    8|          0|
+    |local_B_28_load_reg_908                                                   |  8|   0|    8|          0|
+    |local_B_29_load_reg_913                                                   |  8|   0|    8|          0|
+    |local_B_2_load_reg_778                                                    |  8|   0|    8|          0|
+    |local_B_30_load_reg_918                                                   |  8|   0|    8|          0|
+    |local_B_31_load_reg_923                                                   |  8|   0|    8|          0|
+    |local_B_3_load_reg_783                                                    |  8|   0|    8|          0|
+    |local_B_4_load_reg_788                                                    |  8|   0|    8|          0|
+    |local_B_5_load_reg_793                                                    |  8|   0|    8|          0|
+    |local_B_6_load_reg_798                                                    |  8|   0|    8|          0|
+    |local_B_7_load_reg_803                                                    |  8|   0|    8|          0|
+    |local_B_8_load_reg_808                                                    |  8|   0|    8|          0|
+    |local_B_9_load_reg_813                                                    |  8|   0|    8|          0|
+    +--------------------------------------------------------------------------+---+----+-----+-----------+
+    |Total                                                                     |260|   0|  260|          0|
+    +--------------------------------------------------------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+------------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |      Source Object     |    C Type    |
++---------------------------+-----+-----+------------+------------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|ap_rst                     |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans|  return value|
+|local_B_0_address0         |  out|    1|   ap_memory|               local_B_0|         array|
+|local_B_0_ce0              |  out|    1|   ap_memory|               local_B_0|         array|
+|local_B_0_q0               |   in|    8|   ap_memory|               local_B_0|         array|
+|local_B_1_address0         |  out|    1|   ap_memory|               local_B_1|         array|
+|local_B_1_ce0              |  out|    1|   ap_memory|               local_B_1|         array|
+|local_B_1_q0               |   in|    8|   ap_memory|               local_B_1|         array|
+|local_B_2_address0         |  out|    1|   ap_memory|               local_B_2|         array|
+|local_B_2_ce0              |  out|    1|   ap_memory|               local_B_2|         array|
+|local_B_2_q0               |   in|    8|   ap_memory|               local_B_2|         array|
+|local_B_3_address0         |  out|    1|   ap_memory|               local_B_3|         array|
+|local_B_3_ce0              |  out|    1|   ap_memory|               local_B_3|         array|
+|local_B_3_q0               |   in|    8|   ap_memory|               local_B_3|         array|
+|local_B_4_address0         |  out|    1|   ap_memory|               local_B_4|         array|
+|local_B_4_ce0              |  out|    1|   ap_memory|               local_B_4|         array|
+|local_B_4_q0               |   in|    8|   ap_memory|               local_B_4|         array|
+|local_B_5_address0         |  out|    1|   ap_memory|               local_B_5|         array|
+|local_B_5_ce0              |  out|    1|   ap_memory|               local_B_5|         array|
+|local_B_5_q0               |   in|    8|   ap_memory|               local_B_5|         array|
+|local_B_6_address0         |  out|    1|   ap_memory|               local_B_6|         array|
+|local_B_6_ce0              |  out|    1|   ap_memory|               local_B_6|         array|
+|local_B_6_q0               |   in|    8|   ap_memory|               local_B_6|         array|
+|local_B_7_address0         |  out|    1|   ap_memory|               local_B_7|         array|
+|local_B_7_ce0              |  out|    1|   ap_memory|               local_B_7|         array|
+|local_B_7_q0               |   in|    8|   ap_memory|               local_B_7|         array|
+|local_B_8_address0         |  out|    1|   ap_memory|               local_B_8|         array|
+|local_B_8_ce0              |  out|    1|   ap_memory|               local_B_8|         array|
+|local_B_8_q0               |   in|    8|   ap_memory|               local_B_8|         array|
+|local_B_9_address0         |  out|    1|   ap_memory|               local_B_9|         array|
+|local_B_9_ce0              |  out|    1|   ap_memory|               local_B_9|         array|
+|local_B_9_q0               |   in|    8|   ap_memory|               local_B_9|         array|
+|local_B_10_address0        |  out|    1|   ap_memory|              local_B_10|         array|
+|local_B_10_ce0             |  out|    1|   ap_memory|              local_B_10|         array|
+|local_B_10_q0              |   in|    8|   ap_memory|              local_B_10|         array|
+|local_B_11_address0        |  out|    1|   ap_memory|              local_B_11|         array|
+|local_B_11_ce0             |  out|    1|   ap_memory|              local_B_11|         array|
+|local_B_11_q0              |   in|    8|   ap_memory|              local_B_11|         array|
+|local_B_12_address0        |  out|    1|   ap_memory|              local_B_12|         array|
+|local_B_12_ce0             |  out|    1|   ap_memory|              local_B_12|         array|
+|local_B_12_q0              |   in|    8|   ap_memory|              local_B_12|         array|
+|local_B_13_address0        |  out|    1|   ap_memory|              local_B_13|         array|
+|local_B_13_ce0             |  out|    1|   ap_memory|              local_B_13|         array|
+|local_B_13_q0              |   in|    8|   ap_memory|              local_B_13|         array|
+|local_B_14_address0        |  out|    1|   ap_memory|              local_B_14|         array|
+|local_B_14_ce0             |  out|    1|   ap_memory|              local_B_14|         array|
+|local_B_14_q0              |   in|    8|   ap_memory|              local_B_14|         array|
+|local_B_15_address0        |  out|    1|   ap_memory|              local_B_15|         array|
+|local_B_15_ce0             |  out|    1|   ap_memory|              local_B_15|         array|
+|local_B_15_q0              |   in|    8|   ap_memory|              local_B_15|         array|
+|local_B_16_address0        |  out|    1|   ap_memory|              local_B_16|         array|
+|local_B_16_ce0             |  out|    1|   ap_memory|              local_B_16|         array|
+|local_B_16_q0              |   in|    8|   ap_memory|              local_B_16|         array|
+|local_B_17_address0        |  out|    1|   ap_memory|              local_B_17|         array|
+|local_B_17_ce0             |  out|    1|   ap_memory|              local_B_17|         array|
+|local_B_17_q0              |   in|    8|   ap_memory|              local_B_17|         array|
+|local_B_18_address0        |  out|    1|   ap_memory|              local_B_18|         array|
+|local_B_18_ce0             |  out|    1|   ap_memory|              local_B_18|         array|
+|local_B_18_q0              |   in|    8|   ap_memory|              local_B_18|         array|
+|local_B_19_address0        |  out|    1|   ap_memory|              local_B_19|         array|
+|local_B_19_ce0             |  out|    1|   ap_memory|              local_B_19|         array|
+|local_B_19_q0              |   in|    8|   ap_memory|              local_B_19|         array|
+|local_B_20_address0        |  out|    1|   ap_memory|              local_B_20|         array|
+|local_B_20_ce0             |  out|    1|   ap_memory|              local_B_20|         array|
+|local_B_20_q0              |   in|    8|   ap_memory|              local_B_20|         array|
+|local_B_21_address0        |  out|    1|   ap_memory|              local_B_21|         array|
+|local_B_21_ce0             |  out|    1|   ap_memory|              local_B_21|         array|
+|local_B_21_q0              |   in|    8|   ap_memory|              local_B_21|         array|
+|local_B_22_address0        |  out|    1|   ap_memory|              local_B_22|         array|
+|local_B_22_ce0             |  out|    1|   ap_memory|              local_B_22|         array|
+|local_B_22_q0              |   in|    8|   ap_memory|              local_B_22|         array|
+|local_B_23_address0        |  out|    1|   ap_memory|              local_B_23|         array|
+|local_B_23_ce0             |  out|    1|   ap_memory|              local_B_23|         array|
+|local_B_23_q0              |   in|    8|   ap_memory|              local_B_23|         array|
+|local_B_24_address0        |  out|    1|   ap_memory|              local_B_24|         array|
+|local_B_24_ce0             |  out|    1|   ap_memory|              local_B_24|         array|
+|local_B_24_q0              |   in|    8|   ap_memory|              local_B_24|         array|
+|local_B_25_address0        |  out|    1|   ap_memory|              local_B_25|         array|
+|local_B_25_ce0             |  out|    1|   ap_memory|              local_B_25|         array|
+|local_B_25_q0              |   in|    8|   ap_memory|              local_B_25|         array|
+|local_B_26_address0        |  out|    1|   ap_memory|              local_B_26|         array|
+|local_B_26_ce0             |  out|    1|   ap_memory|              local_B_26|         array|
+|local_B_26_q0              |   in|    8|   ap_memory|              local_B_26|         array|
+|local_B_27_address0        |  out|    1|   ap_memory|              local_B_27|         array|
+|local_B_27_ce0             |  out|    1|   ap_memory|              local_B_27|         array|
+|local_B_27_q0              |   in|    8|   ap_memory|              local_B_27|         array|
+|local_B_28_address0        |  out|    1|   ap_memory|              local_B_28|         array|
+|local_B_28_ce0             |  out|    1|   ap_memory|              local_B_28|         array|
+|local_B_28_q0              |   in|    8|   ap_memory|              local_B_28|         array|
+|local_B_29_address0        |  out|    1|   ap_memory|              local_B_29|         array|
+|local_B_29_ce0             |  out|    1|   ap_memory|              local_B_29|         array|
+|local_B_29_q0              |   in|    8|   ap_memory|              local_B_29|         array|
+|local_B_30_address0        |  out|    1|   ap_memory|              local_B_30|         array|
+|local_B_30_ce0             |  out|    1|   ap_memory|              local_B_30|         array|
+|local_B_30_q0              |   in|    8|   ap_memory|              local_B_30|         array|
+|local_B_31_address0        |  out|    1|   ap_memory|              local_B_31|         array|
+|local_B_31_ce0             |  out|    1|   ap_memory|              local_B_31|         array|
+|local_B_31_q0              |   in|    8|   ap_memory|              local_B_31|         array|
+|fifo_B_local_out_s_din     |  out|    9|     ap_fifo|      fifo_B_local_out_s|       pointer|
+|fifo_B_local_out_s_full_n  |   in|    1|     ap_fifo|      fifo_B_local_out_s|       pointer|
+|fifo_B_local_out_s_write   |  out|    1|     ap_fifo|      fifo_B_local_out_s|       pointer|
++---------------------------+-----+-----+------------+------------------------+--------------+
+

@@ -1,0 +1,5 @@
+array,tapa_analyze_s,tapa_bram18,tapa_check,tapa_compile_j1_s,tapa_compile_j8_s,tapa_cycles,tapa_dsp,tapa_ff,tapa_fmax_mhz,tapa_hls_j8_s,tapa_lut,tapa_pack_s,tapa_rtl_assembly_s,tapa_sum_of_hls_jobs_s,tapa_tasks,tapa_wns_ns,hlsc_bram18,hlsc_csynth_s,hlsc_cycles,hlsc_dsp,hlsc_ff,hlsc_fmax_mhz,hlsc_interface,hlsc_lut,hlsc_wns_ns
+4x4,2.2,3,Passed!,324.3,76.5,81,16,6393,449,40.8,5134,31.1,2.2,274.8,15,+1.108,6,40.8,78,16,8171,354,narrow,4974,0.512
+8x8,2.3,46,Passed!,374.0,95.8,156,64,22448,340,58.9,21111,31.3,3.1,329.3,18,+0.394,46,182.4,130,64,25536,385,wide,15343,0.738
+16x16,2.5,46,Passed!,376.9,101.5,507,256,57541,346,59.1,54752,33.4,6.3,333.1,18,+0.441,46,1783.4,374,256,84062,339,wide,48957,0.38
+32x32,3.6,46,Passed!,421.3,141.3,1786,1024,196873,319,58.6,186473,40.5,38.3,332.7,18,+0.195,48,35022.9,1222,1024,320772,309,wide,186369,0.101

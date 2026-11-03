@@ -1,0 +1,10 @@
+# hlsc_beats.sh 8: E1's 8x8 wide AutoSA design (Vitis HLS C target) rebuilt with E1's recipe
+# and its cosim replayed with a VCD; beats.py's census (AR is the A address handshake,
+# listed for the read latency only -- E1's cycles count the A, B and C data beats).
+Passed!
+  A:    1 beats  first 93     last 93
+  B:    1 beats  first 93     last 93
+  C:    4 beats  first 219    last 222
+  AR:    1 beats  first 91     last 91
+BEATS first 91 last 222 cycles 132
+# data beats only: first 93 last 222 -> 130 cycles, E1's recorded 130

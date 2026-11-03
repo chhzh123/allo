@@ -1,0 +1,185 @@
+
+
+================================================================
+== Vitis HLS Report for 'A_IO_L2_in_boundary'
+================================================================
+* Date:           Mon Nov  2 23:09:58 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       A_IO_L2_in_boundary (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  2.388 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max   | min | max |   Type  |
+    +---------+---------+-----------+----------+-----+-----+---------+
+    |       18|       33|  59.994 ns|  0.110 us|   19|   34|       no|
+    +---------+---------+-----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +--------------------------------------------+---------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |                                            |                                 |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+        |                  Instance                  |              Module             |   min   |   max   |    min    |    max    | min | max |   Type  |
+        +--------------------------------------------+---------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |grp_A_IO_L2_in_inter_trans_boundary_fu_112  |A_IO_L2_in_inter_trans_boundary  |        2|       17|   6.666 ns|  56.661 ns|    2|   17|       no|
+        |grp_A_IO_L2_in_intra_trans_fu_128           |A_IO_L2_in_intra_trans           |       12|       12|  39.996 ns|  39.996 ns|   12|   12|       no|
+        +--------------------------------------------+---------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|       91|      247|    -|
+|Memory               |        8|     -|        0|        0|    -|
+|Multiplexer          |        -|     -|        -|      265|    -|
+|Register             |        -|     -|        7|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        8|     0|       98|      512|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +--------------------------------------------+---------------------------------+---------+----+----+-----+-----+
+    |                  Instance                  |              Module             | BRAM_18K| DSP| FF | LUT | URAM|
+    +--------------------------------------------+---------------------------------+---------+----+----+-----+-----+
+    |grp_A_IO_L2_in_inter_trans_boundary_fu_112  |A_IO_L2_in_inter_trans_boundary  |        0|   0|   8|  102|    0|
+    |grp_A_IO_L2_in_intra_trans_fu_128           |A_IO_L2_in_intra_trans           |        0|   0|  83|  145|    0|
+    +--------------------------------------------+---------------------------------+---------+----+----+-----+-----+
+    |Total                                       |                                 |        0|   0|  91|  247|    0|
+    +--------------------------------------------+---------------------------------+---------+----+----+-----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    +------------------+-------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |      Memory      |             Module            | BRAM_18K| FF| LUT| URAM| Words| Bits| Banks| W*Bits*Banks|
+    +------------------+-------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |local_A_pong_U    |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_1_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_2_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_3_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_4_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_5_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_6_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    |local_A_pong_7_U  |local_A_pong_RAM_2P_BRAM_1R1W  |        1|  0|   0|    0|     1|    8|     1|            8|
+    +------------------+-------------------------------+---------+---+----+-----+------+-----+------+-------------+
+    |Total             |                               |        8|  0|   0|    0|     8|   64|     8|           64|
+    +------------------+-------------------------------+---------+---+----+-----+------+-----+------+-------------+
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +--------------------------+----+-----------+-----+-----------+
+    |           Name           | LUT| Input Size| Bits| Total Bits|
+    +--------------------------+----+-----------+-----+-----------+
+    |ap_NS_fsm                 |  31|          6|    1|          6|
+    |fifo_A_in_s_read          |   9|          2|    1|          2|
+    |fifo_A_local_out_s_write  |   9|          2|    1|          2|
+    |local_A_pong_1_ce0        |   9|          2|    1|          2|
+    |local_A_pong_1_ce1        |   9|          2|    1|          2|
+    |local_A_pong_1_we1        |   9|          2|    1|          2|
+    |local_A_pong_2_ce0        |   9|          2|    1|          2|
+    |local_A_pong_2_ce1        |   9|          2|    1|          2|
+    |local_A_pong_2_we1        |   9|          2|    1|          2|
+    |local_A_pong_3_ce0        |   9|          2|    1|          2|
+    |local_A_pong_3_ce1        |   9|          2|    1|          2|
+    |local_A_pong_3_we1        |   9|          2|    1|          2|
+    |local_A_pong_4_ce0        |   9|          2|    1|          2|
+    |local_A_pong_4_ce1        |   9|          2|    1|          2|
+    |local_A_pong_4_we1        |   9|          2|    1|          2|
+    |local_A_pong_5_ce0        |   9|          2|    1|          2|
+    |local_A_pong_5_ce1        |   9|          2|    1|          2|
+    |local_A_pong_5_we1        |   9|          2|    1|          2|
+    |local_A_pong_6_ce0        |   9|          2|    1|          2|
+    |local_A_pong_6_ce1        |   9|          2|    1|          2|
+    |local_A_pong_6_we1        |   9|          2|    1|          2|
+    |local_A_pong_7_ce0        |   9|          2|    1|          2|
+    |local_A_pong_7_ce1        |   9|          2|    1|          2|
+    |local_A_pong_7_we1        |   9|          2|    1|          2|
+    |local_A_pong_ce0          |   9|          2|    1|          2|
+    |local_A_pong_ce1          |   9|          2|    1|          2|
+    |local_A_pong_we1          |   9|          2|    1|          2|
+    +--------------------------+----+-----------+-----+-----------+
+    |Total                     | 265|         58|   27|         58|
+    +--------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +---------------------------------------------------------+---+----+-----+-----------+
+    |                           Name                          | FF| LUT| Bits| Const Bits|
+    +---------------------------------------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                                                |  5|   0|    5|          0|
+    |grp_A_IO_L2_in_inter_trans_boundary_fu_112_ap_start_reg  |  1|   0|    1|          0|
+    |grp_A_IO_L2_in_intra_trans_fu_128_ap_start_reg           |  1|   0|    1|          0|
+    +---------------------------------------------------------+---+----+-----+-----------+
+    |Total                                                    |  7|   0|    7|          0|
+    +---------------------------------------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+-----------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |     Source Object     |    C Type    |
++---------------------------+-----+-----+------------+-----------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|ap_rst_n                   |   in|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|    A_IO_L2_in_boundary|  return value|
+|idx                        |   in|   32|     ap_none|                    idx|        scalar|
+|fifo_A_in_s_dout           |   in|   65|     ap_fifo|            fifo_A_in_s|       pointer|
+|fifo_A_in_s_empty_n        |   in|    1|     ap_fifo|            fifo_A_in_s|       pointer|
+|fifo_A_in_s_read           |  out|    1|     ap_fifo|            fifo_A_in_s|       pointer|
+|fifo_A_in_peek_dout        |   in|   65|     ap_fifo|         fifo_A_in_peek|       pointer|
+|fifo_A_in_peek_empty_n     |   in|    1|     ap_fifo|         fifo_A_in_peek|       pointer|
+|fifo_A_in_peek_read        |  out|    1|     ap_fifo|         fifo_A_in_peek|       pointer|
+|fifo_A_local_out_s_din     |  out|    9|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_full_n  |   in|    1|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_write   |  out|    1|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_peek      |   in|    9|     ap_none|  fifo_A_local_out_peek|       pointer|
++---------------------------+-----+-----+------------+-----------------------+--------------+
+

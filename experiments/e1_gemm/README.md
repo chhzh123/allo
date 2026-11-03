@@ -20,6 +20,7 @@ Every framework has the same shape, one directory per array size:
 | `spmw_mesh/` | the SPMW array with its boundary buffers, no memory interface |
 | `spmw_kernel/` | the same array packaged with its memory loaders and drain |
 | `autosa/` | AutoSA's generated design, its own memory interface included |
+| `autosa_tapa/` | the same AutoSA configurations through its TAPA backend (`--target=autosa_tapa`), with its own README |
 | `allo/` | Allo's library systolic array, its own memory interface included |
 
 `spmw_mesh` is the only **array-scope** row. The other three are **kernel

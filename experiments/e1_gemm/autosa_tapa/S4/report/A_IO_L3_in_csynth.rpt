@@ -1,0 +1,187 @@
+
+
+================================================================
+== Vitis HLS Report for 'A_IO_L3_in'
+================================================================
+* Date:           Mon Nov  2 23:08:41 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       A_IO_L3_in (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  2.433 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max    | min | max |   Type  |
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |       21|       21|  69.993 ns|  69.993 ns|   22|   22|       no|
+    +---------+---------+-----------+-----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +-----------------------------------------------+-------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |                                               |                                     |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+        |                    Instance                   |                Module               |   min   |   max   |    min    |    max    | min | max |   Type  |
+        +-----------------------------------------------+-------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |grp_A_IO_L3_in_Pipeline_VITIS_LOOP_44_1_fu_60  |A_IO_L3_in_Pipeline_VITIS_LOOP_44_1  |       19|       19|  63.327 ns|  63.327 ns|   19|   19|       no|
+        +-----------------------------------------------+-------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        2|     -|     1100|     1181|    0|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       47|    -|
+|Register             |        -|     -|        6|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        2|     0|     1106|     1228|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +-----------------------------------------------+-------------------------------------+---------+----+-----+-----+-----+
+    |                    Instance                   |                Module               | BRAM_18K| DSP|  FF | LUT | URAM|
+    +-----------------------------------------------+-------------------------------------+---------+----+-----+-----+-----+
+    |grp_A_IO_L3_in_Pipeline_VITIS_LOOP_44_1_fu_60  |A_IO_L3_in_Pipeline_VITIS_LOOP_44_1  |        0|   0|  404|  461|    0|
+    |A_m_axi_U                                      |A_m_axi                              |        2|   0|  696|  720|    0|
+    +-----------------------------------------------+-------------------------------------+---------+----+-----+-----+-----+
+    |Total                                          |                                     |        2|   0| 1100| 1181|    0|
+    +-----------------------------------------------+-------------------------------------+---------+----+-----+-----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +--------------------------+----+-----------+-----+-----------+
+    |           Name           | LUT| Input Size| Bits| Total Bits|
+    +--------------------------+----+-----------+-----+-----------+
+    |A_ARVALID                 |   9|          2|    1|          2|
+    |A_RREADY                  |   9|          2|    1|          2|
+    |ap_NS_fsm                 |  20|          4|    1|          4|
+    |fifo_A_local_out_s_write  |   9|          2|    1|          2|
+    +--------------------------+----+-----------+-----+-----------+
+    |Total                     |  47|         10|    4|         10|
+    +--------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +------------------------------------------------------------+---+----+-----+-----------+
+    |                            Name                            | FF| LUT| Bits| Const Bits|
+    +------------------------------------------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                                                   |  3|   0|    3|          0|
+    |grp_A_IO_L3_in_Pipeline_VITIS_LOOP_44_1_fu_60_ap_start_reg  |  1|   0|    1|          0|
+    |trunc_ln44_reg_79                                           |  2|   0|    2|          0|
+    +------------------------------------------------------------+---+----+-----+-----------+
+    |Total                                                       |  6|   0|    6|          0|
+    +------------------------------------------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+-----------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |     Source Object     |    C Type    |
++---------------------------+-----+-----+------------+-----------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|ap_rst_n                   |   in|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|             A_IO_L3_in|  return value|
+|m_axi_A_AWVALID            |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_AWREADY            |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_AWADDR             |  out|   64|       m_axi|                      A|       pointer|
+|m_axi_A_AWID               |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_AWLEN              |  out|    8|       m_axi|                      A|       pointer|
+|m_axi_A_AWSIZE             |  out|    3|       m_axi|                      A|       pointer|
+|m_axi_A_AWBURST            |  out|    2|       m_axi|                      A|       pointer|
+|m_axi_A_AWLOCK             |  out|    2|       m_axi|                      A|       pointer|
+|m_axi_A_AWCACHE            |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_AWPROT             |  out|    3|       m_axi|                      A|       pointer|
+|m_axi_A_AWQOS              |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_AWREGION           |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_AWUSER             |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_WVALID             |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_WREADY             |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_WDATA              |  out|   32|       m_axi|                      A|       pointer|
+|m_axi_A_WSTRB              |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_WLAST              |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_WID                |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_WUSER              |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_ARVALID            |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_ARREADY            |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_ARADDR             |  out|   64|       m_axi|                      A|       pointer|
+|m_axi_A_ARID               |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_ARLEN              |  out|    8|       m_axi|                      A|       pointer|
+|m_axi_A_ARSIZE             |  out|    3|       m_axi|                      A|       pointer|
+|m_axi_A_ARBURST            |  out|    2|       m_axi|                      A|       pointer|
+|m_axi_A_ARLOCK             |  out|    2|       m_axi|                      A|       pointer|
+|m_axi_A_ARCACHE            |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_ARPROT             |  out|    3|       m_axi|                      A|       pointer|
+|m_axi_A_ARQOS              |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_ARREGION           |  out|    4|       m_axi|                      A|       pointer|
+|m_axi_A_ARUSER             |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RVALID             |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RREADY             |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RDATA              |   in|   32|       m_axi|                      A|       pointer|
+|m_axi_A_RLAST              |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RID                |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RUSER              |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_RRESP              |   in|    2|       m_axi|                      A|       pointer|
+|m_axi_A_BVALID             |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_BREADY             |  out|    1|       m_axi|                      A|       pointer|
+|m_axi_A_BRESP              |   in|    2|       m_axi|                      A|       pointer|
+|m_axi_A_BID                |   in|    1|       m_axi|                      A|       pointer|
+|m_axi_A_BUSER              |   in|    1|       m_axi|                      A|       pointer|
+|A_offset                   |   in|   64|     ap_none|               A_offset|        scalar|
+|fifo_A_local_out_s_din     |  out|   33|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_full_n  |   in|    1|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_write   |  out|    1|     ap_fifo|     fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_peek      |   in|   33|     ap_none|  fifo_A_local_out_peek|       pointer|
++---------------------------+-----+-----+------------+-----------------------+--------------+
+

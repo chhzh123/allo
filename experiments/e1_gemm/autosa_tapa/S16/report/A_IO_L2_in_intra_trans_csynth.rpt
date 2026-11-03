@@ -1,0 +1,200 @@
+
+
+================================================================
+== Vitis HLS Report for 'A_IO_L2_in_intra_trans'
+================================================================
+* Date:           Mon Nov  2 23:11:34 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       A_IO_L2_in_boundary (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  1.664 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max    | min | max |   Type  |
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |       20|       20|  66.660 ns|  66.660 ns|   20|   20|       no|
+    +---------+---------+-----------+-----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +------------------------------------------------------------+-------------------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |                                                            |                                                 |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+        |                          Instance                          |                      Module                     |   min   |   max   |    min    |    max    | min | max |   Type  |
+        +------------------------------------------------------------+-------------------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+        |grp_A_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_61_1_fu_282  |A_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_61_1  |       18|       18|  59.994 ns|  59.994 ns|   18|   18|       no|
+        +------------------------------------------------------------+-------------------------------------------------+---------+---------+-----------+-----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|       16|      139|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       29|    -|
+|Register             |        -|     -|      132|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        0|     0|      148|      168|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +------------------------------------------------------------+-------------------------------------------------+---------+----+----+-----+-----+
+    |                          Instance                          |                      Module                     | BRAM_18K| DSP| FF | LUT | URAM|
+    +------------------------------------------------------------+-------------------------------------------------+---------+----+----+-----+-----+
+    |grp_A_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_61_1_fu_282  |A_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_61_1  |        0|   0|  16|  139|    0|
+    +------------------------------------------------------------+-------------------------------------------------+---------+----+----+-----+-----+
+    |Total                                                       |                                                 |        0|   0|  16|  139|    0|
+    +------------------------------------------------------------+-------------------------------------------------+---------+----+----+-----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +--------------------------+----+-----------+-----+-----------+
+    |           Name           | LUT| Input Size| Bits| Total Bits|
+    +--------------------------+----+-----------+-----+-----------+
+    |ap_NS_fsm                 |  20|          4|    1|          4|
+    |fifo_A_local_out_s_write  |   9|          2|    1|          2|
+    +--------------------------+----+-----------+-----+-----------+
+    |Total                     |  29|          6|    2|          6|
+    +--------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +-------------------------------------------------------------------------+---+----+-----+-----------+
+    |                                   Name                                  | FF| LUT| Bits| Const Bits|
+    +-------------------------------------------------------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                                                                |  3|   0|    3|          0|
+    |grp_A_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_61_1_fu_282_ap_start_reg  |  1|   0|    1|          0|
+    |local_A_0_load_reg_400                                                   |  8|   0|    8|          0|
+    |local_A_10_load_reg_450                                                  |  8|   0|    8|          0|
+    |local_A_11_load_reg_455                                                  |  8|   0|    8|          0|
+    |local_A_12_load_reg_460                                                  |  8|   0|    8|          0|
+    |local_A_13_load_reg_465                                                  |  8|   0|    8|          0|
+    |local_A_14_load_reg_470                                                  |  8|   0|    8|          0|
+    |local_A_15_load_reg_475                                                  |  8|   0|    8|          0|
+    |local_A_1_load_reg_405                                                   |  8|   0|    8|          0|
+    |local_A_2_load_reg_410                                                   |  8|   0|    8|          0|
+    |local_A_3_load_reg_415                                                   |  8|   0|    8|          0|
+    |local_A_4_load_reg_420                                                   |  8|   0|    8|          0|
+    |local_A_5_load_reg_425                                                   |  8|   0|    8|          0|
+    |local_A_6_load_reg_430                                                   |  8|   0|    8|          0|
+    |local_A_7_load_reg_435                                                   |  8|   0|    8|          0|
+    |local_A_8_load_reg_440                                                   |  8|   0|    8|          0|
+    |local_A_9_load_reg_445                                                   |  8|   0|    8|          0|
+    +-------------------------------------------------------------------------+---+----+-----+-----------+
+    |Total                                                                    |132|   0|  132|          0|
+    +-------------------------------------------------------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+------------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |      Source Object     |    C Type    |
++---------------------------+-----+-----+------------+------------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|ap_rst                     |   in|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|  A_IO_L2_in_intra_trans|  return value|
+|local_A_0_address0         |  out|    1|   ap_memory|               local_A_0|         array|
+|local_A_0_ce0              |  out|    1|   ap_memory|               local_A_0|         array|
+|local_A_0_q0               |   in|    8|   ap_memory|               local_A_0|         array|
+|local_A_1_address0         |  out|    1|   ap_memory|               local_A_1|         array|
+|local_A_1_ce0              |  out|    1|   ap_memory|               local_A_1|         array|
+|local_A_1_q0               |   in|    8|   ap_memory|               local_A_1|         array|
+|local_A_2_address0         |  out|    1|   ap_memory|               local_A_2|         array|
+|local_A_2_ce0              |  out|    1|   ap_memory|               local_A_2|         array|
+|local_A_2_q0               |   in|    8|   ap_memory|               local_A_2|         array|
+|local_A_3_address0         |  out|    1|   ap_memory|               local_A_3|         array|
+|local_A_3_ce0              |  out|    1|   ap_memory|               local_A_3|         array|
+|local_A_3_q0               |   in|    8|   ap_memory|               local_A_3|         array|
+|local_A_4_address0         |  out|    1|   ap_memory|               local_A_4|         array|
+|local_A_4_ce0              |  out|    1|   ap_memory|               local_A_4|         array|
+|local_A_4_q0               |   in|    8|   ap_memory|               local_A_4|         array|
+|local_A_5_address0         |  out|    1|   ap_memory|               local_A_5|         array|
+|local_A_5_ce0              |  out|    1|   ap_memory|               local_A_5|         array|
+|local_A_5_q0               |   in|    8|   ap_memory|               local_A_5|         array|
+|local_A_6_address0         |  out|    1|   ap_memory|               local_A_6|         array|
+|local_A_6_ce0              |  out|    1|   ap_memory|               local_A_6|         array|
+|local_A_6_q0               |   in|    8|   ap_memory|               local_A_6|         array|
+|local_A_7_address0         |  out|    1|   ap_memory|               local_A_7|         array|
+|local_A_7_ce0              |  out|    1|   ap_memory|               local_A_7|         array|
+|local_A_7_q0               |   in|    8|   ap_memory|               local_A_7|         array|
+|local_A_8_address0         |  out|    1|   ap_memory|               local_A_8|         array|
+|local_A_8_ce0              |  out|    1|   ap_memory|               local_A_8|         array|
+|local_A_8_q0               |   in|    8|   ap_memory|               local_A_8|         array|
+|local_A_9_address0         |  out|    1|   ap_memory|               local_A_9|         array|
+|local_A_9_ce0              |  out|    1|   ap_memory|               local_A_9|         array|
+|local_A_9_q0               |   in|    8|   ap_memory|               local_A_9|         array|
+|local_A_10_address0        |  out|    1|   ap_memory|              local_A_10|         array|
+|local_A_10_ce0             |  out|    1|   ap_memory|              local_A_10|         array|
+|local_A_10_q0              |   in|    8|   ap_memory|              local_A_10|         array|
+|local_A_11_address0        |  out|    1|   ap_memory|              local_A_11|         array|
+|local_A_11_ce0             |  out|    1|   ap_memory|              local_A_11|         array|
+|local_A_11_q0              |   in|    8|   ap_memory|              local_A_11|         array|
+|local_A_12_address0        |  out|    1|   ap_memory|              local_A_12|         array|
+|local_A_12_ce0             |  out|    1|   ap_memory|              local_A_12|         array|
+|local_A_12_q0              |   in|    8|   ap_memory|              local_A_12|         array|
+|local_A_13_address0        |  out|    1|   ap_memory|              local_A_13|         array|
+|local_A_13_ce0             |  out|    1|   ap_memory|              local_A_13|         array|
+|local_A_13_q0              |   in|    8|   ap_memory|              local_A_13|         array|
+|local_A_14_address0        |  out|    1|   ap_memory|              local_A_14|         array|
+|local_A_14_ce0             |  out|    1|   ap_memory|              local_A_14|         array|
+|local_A_14_q0              |   in|    8|   ap_memory|              local_A_14|         array|
+|local_A_15_address0        |  out|    1|   ap_memory|              local_A_15|         array|
+|local_A_15_ce0             |  out|    1|   ap_memory|              local_A_15|         array|
+|local_A_15_q0              |   in|    8|   ap_memory|              local_A_15|         array|
+|fifo_A_local_out_s_din     |  out|    9|     ap_fifo|      fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_full_n  |   in|    1|     ap_fifo|      fifo_A_local_out_s|       pointer|
+|fifo_A_local_out_s_write   |  out|    1|     ap_fifo|      fifo_A_local_out_s|       pointer|
++---------------------------+-----+-----+------------+------------------------+--------------+
+

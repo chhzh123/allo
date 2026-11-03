@@ -1,0 +1,8 @@
+S16_j8     analyze   2.5  hls   59.1  rtl   6.3  pack  33.4  total  101.3 | tasks  18  sum of HLS jobs   333.1  longest   19.6
+S32_j8     analyze   3.6  hls   58.6  rtl  38.3  pack  40.5  total  141.1 | tasks  18  sum of HLS jobs   332.7  longest   20.2
+S4_j8      analyze   2.2  hls   40.8  rtl   2.2  pack  31.1  total   76.3 | tasks  15  sum of HLS jobs   274.8  longest   18.9
+S8_j8      analyze   2.3  hls   58.9  rtl   3.1  pack  31.3  total   95.7 | tasks  18  sum of HLS jobs   329.3  longest   19.0
+S16_j1     analyze   2.5  hls  335.5  rtl   6.2  pack  32.6  total  376.7 | tasks  18  sum of HLS jobs   307.0  longest   17.7
+S32_j1     analyze   3.6  hls  338.2  rtl  38.6  pack  40.6  total  421.0 | tasks  18  sum of HLS jobs   309.8  longest   18.1
+S4_j1      analyze   2.3  hls  288.9  rtl   2.1  pack  30.9  total  324.1 | tasks  15  sum of HLS jobs   264.6  longest   21.2
+S8_j1      analyze   2.3  hls  337.1  rtl   3.1  pack  31.4  total  373.9 | tasks  18  sum of HLS jobs   308.4  longest   17.7

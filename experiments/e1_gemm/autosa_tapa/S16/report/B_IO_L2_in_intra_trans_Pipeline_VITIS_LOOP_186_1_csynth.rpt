@@ -1,0 +1,167 @@
+
+
+================================================================
+== Vitis HLS Report for 'B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1'
+================================================================
+* Date:           Mon Nov  2 23:11:34 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       B_IO_L2_in_boundary (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  1.481 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |  Latency (cycles) |   Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max    | min | max |   Type  |
+    +---------+---------+-----------+-----------+-----+-----+---------+
+    |       18|       18|  59.994 ns|  59.994 ns|   18|   18|       no|
+    +---------+---------+-----------+-----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        N/A
+
+        * Loop: 
+        +--------------------+---------+---------+----------+-----------+-----------+------+----------+
+        |                    |  Latency (cycles) | Iteration|  Initiation Interval  | Trip |          |
+        |      Loop Name     |   min   |   max   |  Latency |  achieved |   target  | Count| Pipelined|
+        +--------------------+---------+---------+----------+-----------+-----------+------+----------+
+        |- VITIS_LOOP_186_1  |       16|       16|         2|          1|          1|    16|       yes|
+        +--------------------+---------+---------+----------+-----------+-----------+------+----------+
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        0|       29|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        -|     -|        0|       65|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       45|    -|
+|Register             |        -|     -|       16|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        0|     0|       16|      139|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |        0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +--------------------------+----------------------+---------+----+---+----+-----+
+    |         Instance         |        Module        | BRAM_18K| DSP| FF| LUT| URAM|
+    +--------------------------+----------------------+---------+----+---+----+-----+
+    |sparsemux_33_4_8_1_1_U19  |sparsemux_33_4_8_1_1  |        0|   0|  0|  65|    0|
+    +--------------------------+----------------------+---------+----+---+----+-----+
+    |Total                     |                      |        0|   0|  0|  65|    0|
+    +--------------------------+----------------------+---------+----+---+----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    +---------------------------+----------+----+---+----+------------+------------+
+    |       Variable Name       | Operation| DSP| FF| LUT| Bitwidth P0| Bitwidth P1|
+    +---------------------------+----------+----+---+----+------------+------------+
+    |add_ln186_fu_223_p2        |         +|   0|  0|  12|           5|           1|
+    |ap_block_pp0_stage0_01001  |       and|   0|  0|   2|           1|           1|
+    |icmp_ln186_fu_217_p2       |      icmp|   0|  0|  13|           5|           6|
+    |ap_enable_pp0              |       xor|   0|  0|   2|           1|           2|
+    +---------------------------+----------+----+---+----+------------+------------+
+    |Total                      |          |   0|  0|  29|          12|          10|
+    +---------------------------+----------+----+---+----+------------+------------+
+
+    * Multiplexer: 
+    +--------------------------+----+-----------+-----+-----------+
+    |           Name           | LUT| Input Size| Bits| Total Bits|
+    +--------------------------+----+-----------+-----+-----------+
+    |ap_done_int               |   9|          2|    1|          2|
+    |ap_enable_reg_pp0_iter1   |   9|          2|    1|          2|
+    |ap_sig_allocacmp_c5_1     |   9|          2|    5|         10|
+    |c5_fu_102                 |   9|          2|    5|         10|
+    |fifo_B_local_out_s_blk_n  |   9|          2|    1|          2|
+    +--------------------------+----+-----------+-----+-----------+
+    |Total                     |  45|         10|   13|         26|
+    +--------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +-------------------------+---+----+-----+-----------+
+    |           Name          | FF| LUT| Bits| Const Bits|
+    +-------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                |  1|   0|    1|          0|
+    |ap_done_reg              |  1|   0|    1|          0|
+    |ap_enable_reg_pp0_iter1  |  1|   0|    1|          0|
+    |c5_fu_102                |  5|   0|    5|          0|
+    |out_data_reg_324         |  8|   0|    8|          0|
+    +-------------------------+---+----+-----+-----------+
+    |Total                    | 16|   0|   16|          0|
+    +-------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++---------------------------+-----+-----+------------+--------------------------------------------------+--------------+
+|         RTL Ports         | Dir | Bits|  Protocol  |                   Source Object                  |    C Type    |
++---------------------------+-----+-----+------------+--------------------------------------------------+--------------+
+|ap_clk                     |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|ap_rst                     |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|ap_start                   |   in|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|ap_done                    |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|ap_idle                    |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|ap_ready                   |  out|    1|  ap_ctrl_hs|  B_IO_L2_in_intra_trans_Pipeline_VITIS_LOOP_186_1|  return value|
+|fifo_B_local_out_s_din     |  out|    9|     ap_fifo|                                fifo_B_local_out_s|       pointer|
+|fifo_B_local_out_s_full_n  |   in|    1|     ap_fifo|                                fifo_B_local_out_s|       pointer|
+|fifo_B_local_out_s_write   |  out|    1|     ap_fifo|                                fifo_B_local_out_s|       pointer|
+|data_split                 |   in|    8|     ap_none|                                        data_split|        scalar|
+|data_split_1               |   in|    8|     ap_none|                                      data_split_1|        scalar|
+|data_split_2               |   in|    8|     ap_none|                                      data_split_2|        scalar|
+|data_split_3               |   in|    8|     ap_none|                                      data_split_3|        scalar|
+|data_split_4               |   in|    8|     ap_none|                                      data_split_4|        scalar|
+|data_split_5               |   in|    8|     ap_none|                                      data_split_5|        scalar|
+|data_split_6               |   in|    8|     ap_none|                                      data_split_6|        scalar|
+|data_split_7               |   in|    8|     ap_none|                                      data_split_7|        scalar|
+|data_split_8               |   in|    8|     ap_none|                                      data_split_8|        scalar|
+|data_split_9               |   in|    8|     ap_none|                                      data_split_9|        scalar|
+|data_split_10              |   in|    8|     ap_none|                                     data_split_10|        scalar|
+|data_split_11              |   in|    8|     ap_none|                                     data_split_11|        scalar|
+|data_split_12              |   in|    8|     ap_none|                                     data_split_12|        scalar|
+|data_split_13              |   in|    8|     ap_none|                                     data_split_13|        scalar|
+|data_split_14              |   in|    8|     ap_none|                                     data_split_14|        scalar|
+|data_split_15              |   in|    8|     ap_none|                                     data_split_15|        scalar|
++---------------------------+-----+-----+------------+--------------------------------------------------+--------------+
+

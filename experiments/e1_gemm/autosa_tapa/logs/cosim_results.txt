@@ -1,0 +1,4 @@
+S=8 build=S8_j8 rc=0 BEATS first 1132 last 1287 cycles 156 | A 1 from 1132 (AR 1130) B 1 from 1132 C 4 from 1208 check=Passed! wall_s=48
+S=4 build=S4_j8 rc=0 BEATS first 1134 last 1214 cycles 81 | A 4 from 1134 (AR 1132) B 4 from 1134 C 16 from 1176 check=Passed! wall_s=45
+S=16 build=S16_j8 rc=0 BEATS first 1134 last 1640 cycles 507 | A 4 from 1134 (AR 1132) B 4 from 1134 C 16 from 1237 check=Passed! wall_s=64
+S=32 build=S32_j8 rc=0 BEATS first 1134 last 2919 cycles 1786 | A 16 from 1134 (AR 1132) B 16 from 1134 C 64 from 1276 check=Passed! wall_s=127
