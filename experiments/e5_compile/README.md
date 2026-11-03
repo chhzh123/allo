@@ -249,3 +249,27 @@ rerun, against 4 to 17 originally) rather than the compiler. What the
 experiment is about is unchanged: `shared-parallel` is **79.7, 79.8, 79.8,
 79.7 s** from 4x4 to 32x32, flat to within 0.3 per cent across a 64-fold range
 of instances, and the repetition spread is 1.00x to 1.01x.
+
+## Against AutoSA through TAPA, one protocol (2026-11-03)
+
+The AutoSA column above is AutoSA's Vitis HLS backend: one HLS project for the
+whole array. AutoSA's TAPA backend synthesizes each distinct task once, the same
+reuse SPMW's roles have, and compiles the 32x32 array in about 100 s rather than
+9.7 hours (`../e1_gemm/autosa_tapa/`). `vs_tapa_2026-11-03/` measures it against
+SPMW on one machine in one session, 8 workers, three repetitions, source to
+complete RTL in every flow (frontend, HLS, and TAPA's top-level RTL; no
+packaging, elaboration or P&R), with SPMW's per-role `export_design` removed
+because the array is assembled from the synthesized RTL, not from the IP.
+
+| Array | AutoSA -> TAPA | SPMW mesh | SPMW kernel |
+|---|---:|---:|---:|
+| 4x4 | 46.8 s | 34.8 s | 54.4 s |
+| 8x8 | 65.9 s | 35.2 s | 54.5 s |
+| 16x16 | 69.8 s | 35.0 s | 54.5 s |
+| 32x32 | 104.0 s | 35.7 s | 56.6 s |
+
+Medians of three. SPMW's mesh is 1.3x to 2.9x faster; its kernel, the scope
+AutoSA's design has, is slower at 4x4 and 1.2x to 1.8x faster from 8x8. Both
+SPMW flows are flat; TAPA's grows only in its top-level RTL assembly (2.2 s at
+4x4, 39.2 s at 32x32). One-worker figures, the as-built SPMW rows and the stage
+splits are in that folder's README.

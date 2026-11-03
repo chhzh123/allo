@@ -1,0 +1,11 @@
+design=gemm8 size=16 mode=shared-parallel jobs=8: 9 roles, 256 instances, 9 projects, frontend 1.06s
+  pe_r4: rc=0 42.4s
+  pe_r3: rc=0 42.4s
+  pe_r2: rc=0 42.4s
+  pe_r7: rc=0 42.7s
+  pe_r5: rc=0 42.8s
+  pe_r6: rc=0 42.9s
+  pe_r0: rc=0 42.9s
+  pe_r1: rc=0 43.2s
+  pe_r8: rc=0 41.0s
+E5 design=gemm8 size=16 mode=shared-parallel jobs=8 roles=9 instances=256 projects=9 completed_jobs=9 frontend_s=1.06 hls_wall_s=83.3 hls_sum_job_elapsed_s=382.7 cpu_user_s=241.9 cpu_sys_s=22.0 load_start=9.9 load_end=8.2

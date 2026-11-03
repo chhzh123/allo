@@ -1,0 +1,25 @@
+staging roles and feeders:
+  staged 15 role(s) and 3 feeder(s) in 2.7s
+synthesising 18 unit(s):
+  pe_r0: rc=0 18.3s
+  pe_r1: rc=0 18.2s
+  pe_r2: rc=0 18.2s
+  pe_r3: rc=0 17.9s
+  pe_r4: rc=0 18.3s
+  pe_r5: rc=0 18.5s
+  pe_r6: rc=0 18.4s
+  pe_r7: rc=0 18.3s
+  pe_r8: rc=0 18.4s
+  feed_r0: rc=0 15.4s
+  feed_r1: rc=0 15.9s
+  feed_r2: rc=0 15.7s
+  feed_2_r0: rc=0 15.5s
+  feed_2_r1: rc=0 15.6s
+  feed_2_r2: rc=0 15.5s
+  drain_pe_c_out_bind: rc=0 18.4s
+  feed_feed_up_bind: rc=0 17.5s
+  feed_feed_2_up_bind: rc=0 17.7s
+  HLS: 311.5s
+  AXI widths: drain_pe_c_out_bind=512b, feed_feed_2_up_bind=512b, feed_feed_up_bind=512b
+  kernel: 6 argument(s), 3 AXI master(s)
+stopping before v++ (--sim)

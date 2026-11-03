@@ -1,0 +1,10 @@
+  pe_r3: rc=0 17.2s
+  pe_r2: rc=0 17.2s
+  pe_r0: rc=0 17.2s
+  pe_r1: rc=0 17.2s
+  pe_r4: rc=0 17.2s
+  pe_r6: rc=0 17.3s
+  pe_r7: rc=0 17.3s
+  pe_r5: rc=0 17.3s
+  pe_r8: rc=0 16.0s
+E5 design=gemm8 size=16 mode=rtl-only jobs=8 roles=9 completed_jobs=9 frontend_s=1.0 hls_wall_s=33.2 hls_sum_job_elapsed_s=153.9

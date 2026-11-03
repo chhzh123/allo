@@ -98,8 +98,10 @@ takes 17 to 21 s; their sum is 265 to 333 s.
 
 These are single runs on a shared machine, and the stages are not SPMW's: SPMW's
 E1 figure is the HLS phase alone (synthesis and `export_design` of each role),
-with its frontend, which writes the fabric RTL, timed apart. Compare stage by
-stage, not total against total.
+with its frontend, which writes the fabric RTL, timed apart. The comparison with
+SPMW under one protocol -- same machine and session, same worker cap, three
+repetitions, source to complete RTL in every flow -- is
+`../../e5_compile/vs_tapa_2026-11-03/`.
 
 ## Files
 

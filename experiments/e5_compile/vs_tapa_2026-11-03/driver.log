@@ -1,0 +1,59 @@
+CMP_START Tue Nov  3 01:53:22 EST 2026 load 6.64 8.71 8.35
+done spmw_mesh S=4 j=8 r=0 01:54:46 rc 0 total 84.4
+done tapa S=4 j=8 r=0 01:55:34 rc 0 total 47.7
+done spmw_mesh_rtl S=4 j=8 r=0 01:56:09 rc 0 total 34.8
+done tapa S=8 j=8 r=0 01:57:16 rc 0 total 66.8
+done spmw_mesh S=8 j=8 r=0 01:58:41 rc 0 total 84.4
+done spmw_mesh_rtl S=8 j=8 r=0 01:59:17 rc 0 total 35.7
+done tapa S=16 j=8 r=0 02:00:27 rc 0 total 70.0
+done spmw_mesh_rtl S=16 j=8 r=0 02:01:03 rc 0 total 35.3
+done spmw_mesh S=16 j=8 r=0 02:02:28 rc 0 total 85.6
+done spmw_mesh_rtl S=32 j=8 r=0 02:03:05 rc 0 total 36.1
+CMP2_START Tue Nov  3 02:04:47 EST 2026 load 8.04 8.79 8.75
+done spmw_kernel_rtl S=4 j=8 r=0 02:05:42 rc 0 total 54.6
+done spmw_kernel_rtl S=8 j=8 r=0 02:06:38 rc 0 total 55.4
+done spmw_kernel_rtl S=16 j=8 r=0 02:07:34 rc 0 total 55.5
+done spmw_mesh S=32 j=8 r=0 02:09:00 rc 0 total 86.2
+done tapa S=32 j=8 r=0 02:10:42 rc 0 total 101.5
+done spmw_kernel_rtl S=32 j=8 r=0 02:11:40 rc 0 total 57.2
+done tapa S=4 j=8 r=1 02:12:28 rc 0 total 47.9
+done spmw_kernel_rtl S=4 j=8 r=1 02:13:22 rc 0 total 54.4
+done spmw_mesh_rtl S=4 j=8 r=1 02:13:57 rc 0 total 34.8
+done spmw_kernel_rtl S=8 j=8 r=1 02:14:52 rc 0 total 54.5
+done spmw_mesh_rtl S=8 j=8 r=1 02:15:27 rc 0 total 34.8
+done tapa S=8 j=8 r=1 02:16:34 rc 0 total 66.7
+done spmw_mesh_rtl S=16 j=8 r=1 02:17:09 rc 0 total 35.0
+done spmw_kernel_rtl S=16 j=8 r=1 02:18:04 rc 0 total 54.4
+done tapa S=16 j=8 r=1 02:19:13 rc 0 total 68.9
+done tapa S=32 j=8 r=1 02:20:54 rc 0 total 100.3
+done spmw_mesh_rtl S=32 j=8 r=1 02:21:29 rc 0 total 35.7
+done spmw_kernel_rtl S=32 j=8 r=1 02:22:26 rc 0 total 56.6
+done tapa S=4 j=8 r=2 02:23:15 rc 0 total 48.0
+done spmw_kernel_rtl S=4 j=8 r=2 02:24:08 rc 0 total 53.4
+done spmw_mesh_rtl S=4 j=8 r=2 02:24:43 rc 0 total 34.5
+done spmw_mesh_rtl S=8 j=8 r=2 02:25:18 rc 0 total 35.2
+done spmw_kernel_rtl S=8 j=8 r=2 02:26:13 rc 0 total 53.9
+done tapa S=8 j=8 r=2 02:27:19 rc 0 total 66.7
+done spmw_mesh_rtl S=16 j=8 r=2 02:27:55 rc 0 total 35.0
+done spmw_kernel_rtl S=16 j=8 r=2 02:28:49 rc 0 total 54.5
+done tapa S=16 j=8 r=2 02:29:58 rc 0 total 68.8
+done spmw_mesh_rtl S=32 j=8 r=2 02:30:34 rc 0 total 35.5
+done tapa S=32 j=8 r=2 02:32:14 rc 0 total 99.2
+done spmw_kernel_rtl S=32 j=8 r=2 02:33:10 rc 0 total 56.5
+PHASE_B_START Tue Nov  3 02:33:10 EST 2026 load 8.25 8.42 8.64
+CMP2_DONE Tue Nov  3 02:40:10 EST 2026
+CMP3_START Tue Nov  3 02:45:08 EST 2026 load 6.33 8.26 9.32
+done tapa S=4 j=8 r=0 02:45:55 rc 0 total 46.8
+done tapa S=8 j=8 r=0 02:47:02 rc 0 total 65.9
+done tapa S=16 j=8 r=0 02:48:12 rc 0 total 69.7
+done tapa S=32 j=8 r=0 02:49:56 rc 0 total 103.8
+done tapa S=4 j=8 r=1 02:50:43 rc 0 total 46.7
+done tapa S=8 j=8 r=1 02:51:49 rc 0 total 66.4
+done tapa S=16 j=8 r=1 02:52:59 rc 0 total 69.8
+done tapa S=32 j=8 r=1 02:54:44 rc 0 total 104.1
+done tapa S=4 j=8 r=2 02:55:31 rc 0 total 46.8
+done tapa S=8 j=8 r=2 02:56:37 rc 0 total 65.8
+done tapa S=16 j=8 r=2 02:57:47 rc 0 total 70.2
+done tapa S=32 j=8 r=2 02:59:31 rc 0 total 104.0
+PHASE_B_START Tue Nov  3 02:59:31 EST 2026 load 7.33 8.73 9.17
+CMP3_DONE Tue Nov  3 03:06:37 EST 2026
