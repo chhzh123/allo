@@ -82,6 +82,36 @@ flows in a seeded random order per size. Seconds.
   E5's earlier figures (79.7 s on a quiet machine) contain; here, at load 7 to 9,
   it is 84 to 86 s.
 
+## The frontends E1's Vitis HLS baselines leave out
+
+E1's AutoSA (Vitis HLS) and Allo compile times are one `csynth_design` each,
+without the step that writes the C++ it synthesizes. Both flows run that step
+and then synthesis, one after the other, so the two times add. This times the
+missing step on E1's own inputs, one run per size, one at a time, at load 7.9
+to 8.3 (`frontends.ndjson`, `scripts/fe_run.sh`):
+
+- **AutoSA:** `./autosa --target=autosa_hls_c` with E1's recorded command
+  (`e1_autosa_matched/S4`, narrow; `e1_autosa_wide/S8..S32`, `--host-serialize`).
+- **Allo:** `scripts/fe_allo.py`: the import, `build_schedule` and
+  `s.build(target="vitis_hls", mode="csyn")` of E1's `e1_allo_gen.py` (the
+  same file). The generator's inspection copy, inputs and testbench are not timed.
+
+Every output is byte-identical to the file E1 synthesized (`kernel_kernel.cpp`
+for AutoSA, `kernel_allo.cpp` for Allo). Seconds; Allo's is the process wall.
+
+| Array | AutoSA codegen | + E1 csynth | = to RTL | Allo frontend | + E1 csynth | = to RTL |
+|---|---:|---:|---:|---:|---:|---:|
+| 4x4 | 1.87 | 40.8 | 42.7 | 2.76 | 59.6 | 62.4 |
+| 8x8 | 1.88 | 182.4 | 184.3 | 3.23 | 79.6 | 82.8 |
+| 16x16 | 1.94 | 1,783.4 | 1,785.3 | 9.01 | 423.3 | 432.3 |
+| 32x32 | 2.12 | 35,022.9 | 35,025.0 | 77.72 | 5,977.6 | 6,055.3 |
+
+Allo's 32x32 frontend is 72.5 s of scheduling (`schedule_systolic` on 1,024
+PEs) and 3.9 s of code generation. E1's csynth figures are the `csynth_design`
+command alone (AutoSA's log: "Finished Command csynth_design ... Elapsed time";
+Allo's timer opens after `open_project`), so `vitis_hls` start-up and project
+setup, a few seconds, remain outside them.
+
 ## How it was run
 
 On brg-zhang-xcel, Vitis HLS 2023.2, `xcu280-fsvh2892-2L-e`, 3.333 ns, from a
