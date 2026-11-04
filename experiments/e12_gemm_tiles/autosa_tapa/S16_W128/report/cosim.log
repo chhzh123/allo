@@ -1,0 +1,13 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261104 02:34:08.728935 1782005 frt.cpp:22] Loading /scratch/hc676/e22_autosa_tapa/e12/build/W128/kernel0.xo
+I20261104 02:34:08.732256 1782005 tapa_fast_cosim_device.cpp:59] created work directory '/scratch/hc676/e22_autosa_tapa/e12/cosim/W128/work'
+I20261104 02:34:08.735671 1782005 tapa_fast_cosim_device.cpp:134] Running hardware simulation with TAPA fast cosim
+fastcosim_beats.sh args: --config_path=/scratch/hc676/e22_autosa_tapa/e12/cosim/W128/work/config.json --tb_output_dir=/scratch/hc676/e22_autosa_tapa/e12/cosim/W128/work/output --launch_simulation --part_num=xcu280-fsvh2892-2L-e
+[INFO:__main__:156] TAPA fast cosim version: 0.1.20250127
+[INFO:__main__:134] append `default_nettype wire to every RTL file
+[WARNING:__main__:205] Waveform is not saved. Use --save_waveform to save the simulation waveform.
+[INFO:tapa.cosim.vivado:30] Vivado version: 2023.2
+[INFO:tapa.cosim.vivado:113] DPI directory: /opt/rapidstream-tapa/usr/lib
+[INFO:__main__:221] User requested to only setup the cosim environment, exiting...
+BEATS first 1134 last 12124 cycles 10991 | A 512 from 1134 (AR 1132) B 512 from 1134 C 1024 from 3429
+Passed!

@@ -1,0 +1,153 @@
+
+
+================================================================
+== Vitis HLS Report for 'C_drain_IO_L1_out_wrapper'
+================================================================
+* Date:           Wed Nov  4 02:21:34 2026
+
+* Version:        2023.2 (Build 4023990 on Oct 11 2023)
+* Project:        project
+* Solution:       C_drain_IO_L1_out_wrapper (Vivado IP Flow Target)
+* Product family: virtexuplusHBM
+* Target device:  xcu280-fsvh2892-2L-e
+
+
+================================================================
+== Performance Estimates
+================================================================
++ Timing: 
+    * Summary: 
+    +--------+---------+----------+------------+
+    |  Clock |  Target | Estimated| Uncertainty|
+    +--------+---------+----------+------------+
+    |ap_clk  |  3.33 ns|  2.433 ns|     0.90 ns|
+    +--------+---------+----------+------------+
+
++ Latency: 
+    * Summary: 
+    +---------+---------+-----------+----------+-----+-----+---------+
+    |  Latency (cycles) |  Latency (absolute)  |  Interval | Pipeline|
+    |   min   |   max   |    min    |    max   | min | max |   Type  |
+    +---------+---------+-----------+----------+-----+-----+---------+
+    |       25|      273|  83.325 ns|  0.910 us|   26|  274|       no|
+    +---------+---------+-----------+----------+-----+-----+---------+
+
+    + Detail: 
+        * Instance: 
+        +-----------------------------+-------------------+---------+---------+-----------+----------+-----+-----+---------+
+        |                             |                   |  Latency (cycles) |  Latency (absolute)  |  Interval | Pipeline|
+        |           Instance          |       Module      |   min   |   max   |    min    |    max   | min | max |   Type  |
+        +-----------------------------+-------------------+---------+---------+-----------+----------+-----+-----+---------+
+        |grp_C_drain_IO_L1_out_fu_92  |C_drain_IO_L1_out  |       23|      271|  76.659 ns|  0.903 us|   23|  271|       no|
+        +-----------------------------+-------------------+---------+---------+-----------+----------+-----+-----+---------+
+
+        * Loop: 
+        N/A
+
+
+
+================================================================
+== Utilization Estimates
+================================================================
+* Summary: 
++---------------------+---------+------+---------+---------+-----+
+|         Name        | BRAM_18K|  DSP |    FF   |   LUT   | URAM|
++---------------------+---------+------+---------+---------+-----+
+|DSP                  |        -|     -|        -|        -|    -|
+|Expression           |        -|     -|        -|        -|    -|
+|FIFO                 |        -|     -|        -|        -|    -|
+|Instance             |        4|     -|      317|      674|    -|
+|Memory               |        -|     -|        -|        -|    -|
+|Multiplexer          |        -|     -|        -|       47|    -|
+|Register             |        -|     -|        4|        -|    -|
++---------------------+---------+------+---------+---------+-----+
+|Total                |        4|     0|      321|      721|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available SLR        |     1344|  3008|   869120|   434560|  320|
++---------------------+---------+------+---------+---------+-----+
+|Utilization SLR (%)  |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+|Available            |     4032|  9024|  2607360|  1303680|  960|
++---------------------+---------+------+---------+---------+-----+
+|Utilization (%)      |       ~0|     0|       ~0|       ~0|    0|
++---------------------+---------+------+---------+---------+-----+
+
++ Detail: 
+    * Instance: 
+    +-----------------------------+-------------------+---------+----+-----+-----+-----+
+    |           Instance          |       Module      | BRAM_18K| DSP|  FF | LUT | URAM|
+    +-----------------------------+-------------------+---------+----+-----+-----+-----+
+    |grp_C_drain_IO_L1_out_fu_92  |C_drain_IO_L1_out  |        4|   0|  317|  674|    0|
+    +-----------------------------+-------------------+---------+----+-----+-----+-----+
+    |Total                        |                   |        4|   0|  317|  674|    0|
+    +-----------------------------+-------------------+---------+----+-----+-----+-----+
+
+    * DSP: 
+    N/A
+
+    * Memory: 
+    N/A
+
+    * FIFO: 
+    N/A
+
+    * Expression: 
+    N/A
+
+    * Multiplexer: 
+    +------------------------------+----+-----------+-----+-----------+
+    |             Name             | LUT| Input Size| Bits| Total Bits|
+    +------------------------------+----+-----------+-----+-----------+
+    |ap_NS_fsm                     |  20|          4|    1|          4|
+    |fifo_C_drain_in_s_read        |   9|          2|    1|          2|
+    |fifo_C_drain_local_in_s_read  |   9|          2|    1|          2|
+    |fifo_C_drain_out_s_write      |   9|          2|    1|          2|
+    +------------------------------+----+-----------+-----+-----------+
+    |Total                         |  47|         10|    4|         10|
+    +------------------------------+----+-----------+-----+-----------+
+
+    * Register: 
+    +------------------------------------------+---+----+-----+-----------+
+    |                   Name                   | FF| LUT| Bits| Const Bits|
+    +------------------------------------------+---+----+-----+-----------+
+    |ap_CS_fsm                                 |  3|   0|    3|          0|
+    |grp_C_drain_IO_L1_out_fu_92_ap_start_reg  |  1|   0|    1|          0|
+    +------------------------------------------+---+----+-----+-----------+
+    |Total                                     |  4|   0|    4|          0|
+    +------------------------------------------+---+----+-----+-----------+
+
+
+
+================================================================
+== Interface
+================================================================
+* Summary: 
++------------------------------------+-----+-----+------------+----------------------------+--------------+
+|              RTL Ports             | Dir | Bits|  Protocol  |        Source Object       |    C Type    |
++------------------------------------+-----+-----+------------+----------------------------+--------------+
+|ap_clk                              |   in|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|ap_rst_n                            |   in|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|ap_start                            |   in|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|ap_done                             |  out|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|ap_idle                             |  out|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|ap_ready                            |  out|    1|  ap_ctrl_hs|   C_drain_IO_L1_out_wrapper|  return value|
+|idx                                 |   in|   32|     ap_none|                         idx|        scalar|
+|idy                                 |   in|   32|     ap_none|                         idy|        scalar|
+|fifo_C_drain_in_s_dout              |   in|  129|     ap_fifo|           fifo_C_drain_in_s|       pointer|
+|fifo_C_drain_in_s_empty_n           |   in|    1|     ap_fifo|           fifo_C_drain_in_s|       pointer|
+|fifo_C_drain_in_s_read              |  out|    1|     ap_fifo|           fifo_C_drain_in_s|       pointer|
+|fifo_C_drain_in_peek_dout           |   in|  129|     ap_fifo|        fifo_C_drain_in_peek|       pointer|
+|fifo_C_drain_in_peek_empty_n        |   in|    1|     ap_fifo|        fifo_C_drain_in_peek|       pointer|
+|fifo_C_drain_in_peek_read           |  out|    1|     ap_fifo|        fifo_C_drain_in_peek|       pointer|
+|fifo_C_drain_out_s_din              |  out|  129|     ap_fifo|          fifo_C_drain_out_s|       pointer|
+|fifo_C_drain_out_s_full_n           |   in|    1|     ap_fifo|          fifo_C_drain_out_s|       pointer|
+|fifo_C_drain_out_s_write            |  out|    1|     ap_fifo|          fifo_C_drain_out_s|       pointer|
+|fifo_C_drain_out_peek               |   in|  129|     ap_none|       fifo_C_drain_out_peek|       pointer|
+|fifo_C_drain_local_in_s_dout        |   in|   33|     ap_fifo|     fifo_C_drain_local_in_s|       pointer|
+|fifo_C_drain_local_in_s_empty_n     |   in|    1|     ap_fifo|     fifo_C_drain_local_in_s|       pointer|
+|fifo_C_drain_local_in_s_read        |  out|    1|     ap_fifo|     fifo_C_drain_local_in_s|       pointer|
+|fifo_C_drain_local_in_peek_dout     |   in|   33|     ap_fifo|  fifo_C_drain_local_in_peek|       pointer|
+|fifo_C_drain_local_in_peek_empty_n  |   in|    1|     ap_fifo|  fifo_C_drain_local_in_peek|       pointer|
+|fifo_C_drain_local_in_peek_read     |  out|    1|     ap_fifo|  fifo_C_drain_local_in_peek|       pointer|
++------------------------------------+-----+-----+------------+----------------------------+--------------+
+

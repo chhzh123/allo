@@ -1,0 +1,86 @@
+I1104 02:22:35.039 tapa.util:202] logging level set to INFO
+I1104 02:22:35.039 __main__:85] tapa version: 0.1.20250127
+I1104 02:22:35.039 __main__:89] Python recursion limit set to 3000
+I1104 02:22:35.056 tapa.steps.analyze:206] added vendor include path `/opt/xilinx/Vitis_HLS/2023.2/include`
+I1104 02:22:35.056 tapa.steps.analyze:206] added vendor include path `/opt/xilinx/Vitis_HLS/2023.2/tps/lnx64/gcc-9.3.0/include/c++/9.3.0`
+I1104 02:22:35.056 tapa.steps.analyze:206] added vendor include path `/opt/xilinx/Vitis_HLS/2023.2/tps/lnx64/gcc-9.3.0/include/c++/9.3.0/x86_64-linux-gnu`
+I1104 02:22:35.181 tapa.steps.analyze:358] running tapacc command: /opt/rapidstream-tapa/usr/bin/tapacc /scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp -top kernel0 -vitis -- -std=c++14 -nostdinc++ -isystem /opt/rapidstream-tapa/usr/include -Wno-attributes -Wno-unknown-pragmas -Wno-unused-label -isystem /opt/xilinx/Vitis_HLS/2023.2/include -isystem /opt/xilinx/Vitis_HLS/2023.2/tps/lnx64/gcc-9.3.0/include/c++/9.3.0 -isystem /opt/xilinx/Vitis_HLS/2023.2/tps/lnx64/gcc-9.3.0/include/c++/9.3.0/x86_64-linux-gnu -isystem /opt/rapidstream-tapa/usr/share/tapa/system-include -DTAPA_TARGET_DEVICE_ -DTAPA_TARGET_STUB_
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:1133:25: warning: unused stream: fifo_A_A_IO_L2_in_16
+ 1133 |   /* A_IO_L2_in fifo */ tapa::stream<A_t64, 2> fifo_A_A_IO_L2_in_16("fifo_A_A_IO_L2_in_16");
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:1150:25: warning: unused stream: fifo_B_B_IO_L2_in_16
+ 1150 |   /* B_IO_L2_in fifo */ tapa::stream<B_t64, 2> fifo_B_B_IO_L2_in_16("fifo_B_B_IO_L2_in_16");
+      |                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:1967:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_0_16
+ 1967 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_0_16("fifo_C_drain_C_drain_IO_L1_out_0_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2137:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_10_16
+ 2137 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_10_16("fifo_C_drain_C_drain_IO_L1_out_10_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2154:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_11_16
+ 2154 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_11_16("fifo_C_drain_C_drain_IO_L1_out_11_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2171:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_12_16
+ 2171 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_12_16("fifo_C_drain_C_drain_IO_L1_out_12_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2188:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_13_16
+ 2188 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_13_16("fifo_C_drain_C_drain_IO_L1_out_13_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2205:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_14_16
+ 2205 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_14_16("fifo_C_drain_C_drain_IO_L1_out_14_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2222:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_15_16
+ 2222 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_15_16("fifo_C_drain_C_drain_IO_L1_out_15_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:1984:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_1_16
+ 1984 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_1_16("fifo_C_drain_C_drain_IO_L1_out_1_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2001:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_2_16
+ 2001 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_2_16("fifo_C_drain_C_drain_IO_L1_out_2_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2018:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_3_16
+ 2018 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_3_16("fifo_C_drain_C_drain_IO_L1_out_3_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2035:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_4_16
+ 2035 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_4_16("fifo_C_drain_C_drain_IO_L1_out_4_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2052:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_5_16
+ 2052 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_5_16("fifo_C_drain_C_drain_IO_L1_out_5_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2069:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_6_16
+ 2069 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_6_16("fifo_C_drain_C_drain_IO_L1_out_6_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2086:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_7_16
+ 2086 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_7_16("fifo_C_drain_C_drain_IO_L1_out_7_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2103:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_8_16
+ 2103 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_8_16("fifo_C_drain_C_drain_IO_L1_out_8_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2120:32: warning: unused stream: fifo_C_drain_C_drain_IO_L1_out_9_16
+ 2120 |   /* C_drain_IO_L1_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L1_out_9_16("fifo_C_drain_C_drain_IO_L1_out_9_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/flatten/flatten-a05f4a44-kernel_kernel.cpp:2239:32: warning: unused stream: fifo_C_drain_C_drain_IO_L2_out_16
+ 2239 |   /* C_drain_IO_L2_out fifo */ tapa::stream<C_t4, 2> fifo_C_drain_C_drain_IO_L2_out_16("fifo_C_drain_C_drain_IO_L2_out_16");
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+19 warnings generated.
+I1104 02:22:37.695 tapa.steps.common:116] writing TAPA graph to json `/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/graph.json`.
+I1104 02:22:37.728 tapa.steps.common:116] writing TAPA settings to json `/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/settings.json`.
+I1104 02:22:37.729 tapa.steps.common:116] writing TAPA has_template to json `/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/has_template.json`.
+I1104 02:22:37.729 tapa.steps.common:59] reusing TAPA settings from upstream flows.
+I1104 02:22:37.729 tapa.core:516] extracting hls C++ files
+I1104 02:22:37.742 tapa.core:586] running hls
+I1104 02:22:37.742 tapa.core:667] spawn 8 workers for parallel hls synthesis of the tasks
+I1104 02:23:40.463 tapa.core:685] extracting RTL files
+I1104 02:23:40.586 tapa.core:717] parsing RTL files and populating tasks
+I1104 02:23:42.671 tapa.core:734] instrumenting upper-level RTL
+I1104 02:23:42.671 tapa.steps.common:116] writing TAPA settings to json `/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/settings.json`.
+I1104 02:23:42.672 tapa.steps.common:59] reusing TAPA settings from upstream flows.
+I1104 02:23:42.672 tapa.core:761] instrumenting top-level RTL
+I1104 02:23:42.682 tapa.core:1389] split stream data ports to data and eot on kernel0
+I1104 02:23:46.946 tapa.core:767] generating report
+I1104 02:23:46.973 tapa.core:775] writing generated auxiliary RTL files
+I1104 02:23:46.973 tapa.steps.common:116] writing TAPA settings to json `/scratch/hc676/e22_autosa_tapa/e12/build/W128/work/settings.json`.
+I1104 02:23:46.974 tapa.steps.common:59] reusing TAPA settings from upstream flows.
+I1104 02:23:46.974 tapa.core:783] packaging RTL code
+I1104 02:24:22.310 tapa.core:795] packaging HLS report
+I1104 02:24:22.592 tapa.core:816] generated the v++ xo file at /scratch/hc676/e22_autosa_tapa/e12/build/W128/kernel0.xo

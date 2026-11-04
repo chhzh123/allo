@@ -32,6 +32,7 @@ SYSTEMS = (
     ("spmw_kernel", "SPMW kernel", "kernel", True),
     ("dato", "Dato's design", "kernel", False),
     ("autosa_wide", "AutoSA", "kernel", False),
+    ("autosa_tapa", "AutoSA (TAPA)", "kernel", False),
     ("allo", "Allo", "kernel", False),
 )
 COLUMNS = (
