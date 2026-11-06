@@ -1,1 +1,0 @@
-mac_r0 vpu_r0

@@ -1,1 +1,0 @@
-./autosa <build>/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_tapa --output-dir=<build>/out --host-serialize --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[64,64,64];kernel[]->latency[4,4];kernel[]->simd[1]} --simd-info=<build>/simd_info.json --hls

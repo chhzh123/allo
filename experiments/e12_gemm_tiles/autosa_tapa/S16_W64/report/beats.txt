@@ -1,1 +1,0 @@
-BEATS first 1134 last 4468 cycles 3335 | A 64 from 1134 (AR 1132) B 64 from 1134 C 256 from 2303

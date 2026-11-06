@@ -1,0 +1,592 @@
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Attention's P.V on a fixed budget: two conventional passes against one grouped.
+
+`test_spmw_attention.py` shows that grouping is a Python argument.  This file
+asks the question a reviewer asks next: on the *same* 4x4 array, computing the
+*same* product, what does grouping buy?
+
+The product is O = P @ V with P [M, 8] and V [8, 2]: an output width d=2 on a
+four-wide array, and a reduction of eight terms on a four-deep one.
+
+* ``conventional`` keeps the plain mesh.  Activations forward east across all
+  four columns, so every column sees the same four reduction terms and the two
+  spare columns can hold nothing but padding.  Covering eight terms takes two
+  passes over the same hardware, each with its own four-row weight tile, and
+  the second pass has to pick up where the first left off: the partial leaves
+  the array un-shifted and un-clipped (``drain`` taps the psum beside ``act``'s
+  own output) and re-enters at the top of the columns on the next pass, where
+  the psum chain -- already an adder chain -- adds the tile's terms onto it.
+  Only the last pass's activation output is the result.
+
+* ``grouped`` is ``attention_pv(2)`` from `test_spmw_attention.py`: the same
+  sixteen PEs cut into two column slabs, slab 1 holding the second weight tile
+  and the psum chain serpentining from slab 0's bottom into slab 1's top.  One
+  pass covers all eight terms.
+
+The PE is the paper's ``mac`` in both, unchanged.  The two fabrics differ in
+the topology's group count, in the boundary bindings, and in the boundary
+unit's tap; :func:`adaptation_diff` prints exactly that difference.
+"""
+
+import difflib
+import functools
+import inspect
+import re
+import tempfile
+import textwrap
+
+import numpy as np
+import pytest
+
+import allo.backend.hls as hls
+import allo.spmw as spmw
+from allo.ir.types import int8, int32
+from test_spmw_attention import (
+    C,
+    MT,
+    R,
+    SHIFT,
+    ActIO,
+    WsIO,
+    _reference,
+    act as paper_act,
+    grouped_mxu,
+    mac as paper_mac,
+)
+
+D = 2  # the output width, held fixed
+G = C // D  # column slabs the grouped design cuts the array into
+L = G * R  # the reduction length: two four-deep tiles, or one pass of two slabs
+PASSES = L // R  # what the conventional design needs to cover it
+SEQS = (6, 64, 4096)
+SEEDS = (0, 1, 2)
+
+
+class DrainIO(spmw.Interface):
+    z_in = spmw.In(int32)
+    z_out = spmw.Out(int32)  # the sum as it is, so a later pass can resume it
+    y_out = spmw.Out(int8)
+
+
+def units(seq):
+    """The paper's ``mac`` and ``act`` at sequence length ``seq``, and ``act`` with a tap.
+
+    The trip count is the only free variable: `test_the_units_are_the_papers`
+    checks the bodies against `test_spmw_attention.py` token for token.
+    """
+
+    @spmw.unit
+    def mac(io: WsIO):
+        for m in range(seq):
+            a = io.a_in.get()
+            p = io.p_in.get()
+            io.p_out.put(p + a * io.w)
+            io.a_out.put(a)
+
+    @spmw.unit
+    def act(io: ActIO):
+        for m in range(seq):
+            z = io.z_in.get()
+            if z < 0:
+                z = 0
+            y: int8 = z >> SHIFT
+            io.y_out.put(y)
+
+    @spmw.unit
+    def drain(io: DrainIO):
+        for m in range(seq):
+            z = io.z_in.get()
+            io.z_out.put(z)
+            if z < 0:
+                z = 0
+            y: int8 = z >> SHIFT
+            io.y_out.put(y)
+
+    return mac, act, drain
+
+
+# -- the pair -----------------------------------------------------------------
+#
+# Two functions rather than one with a flag, so that the adaptation is a diff
+# between them and nothing else: `adaptation_diff()` below.
+
+
+def pv_conventional(seq):
+    """The plain mesh, d=2 of its four columns useful, one four-row tile per pass."""
+    mac, _act, drain = units(seq)
+
+    @spmw.fabric
+    def pv(
+        Pr: int8[seq, R],
+        V: int8[R, C],
+        Zin: int32[seq, C],
+        Zout: int32[seq, C],
+        Y: int8[seq, C],
+    ):
+        P = spmw.place(mac, on=grouped_mxu(WsIO, (R, C), 1))
+        Pa = spmw.place(drain, on=spmw.Grid((C,)))
+        k, c = P.rows, P.cols
+        spmw.shard(V, into=P.w, index=(k, c))  # PE (k, c) holds V[k, c]
+        spmw.stream_in(Pr, into=P.a_in, index=(..., k))  # the west edge
+        spmw.stream_in(Zin, into=P.p_in, index=(..., c))  # the top row resumes the sum
+        spmw.link(P.p_out, to=Pa.z_in)  # the bottom row
+        (lane,) = Pa.axes
+        spmw.gather(Zout, from_=Pa.z_out, index=(..., lane))
+        spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    return pv
+
+
+def pv_grouped(seq):
+    """Two column slabs, the psum chain serpentining between them: one pass."""
+    mac, act, _drain = units(seq)
+
+    @spmw.fabric
+    def pv(
+        Pr: int8[seq, L],
+        V: int8[L, D],
+        Y: int8[seq, D],
+    ):
+        P = spmw.place(mac, on=grouped_mxu(WsIO, (R, C), G))
+        Pa = spmw.place(act, on=spmw.Grid((D,)))
+        k = P.rows
+        g, e = spmw.split(P.cols, factor=G)  # g: which slab; e: column in it
+        spmw.shard(V, into=P.w, index=(g * R + k, e))  # PE (k, c) holds V[g.R+k, e]
+        spmw.stream_in(Pr, into=P.a_in, index=(..., g * R + k))  # each slab's west edge
+        spmw.stream_in(0, into=P.p_in)  # slab 0's top row
+        spmw.link(P.p_out, to=Pa.z_in)  # the last slab's bottom row
+        (lane,) = Pa.axes
+        spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    return pv
+
+
+DESIGNS = {"conventional": pv_conventional, "grouped": pv_grouped}
+
+
+# -- the same pair on any array -------------------------------------------------
+#
+# The two fabrics above are the paper's 4x4. These build them at any shape, so
+# that the question "what does grouping buy" can be asked of an array big
+# enough to matter. The bodies are the same; only `R`, `C` and the operand
+# shapes move, and `pv_of` attaches what a cosimulation needs to check itself.
+
+
+def pv_shaped(seq, rows, cols, d, grouped):
+    """`pv_grouped` or `pv_conventional` on a ``rows x cols`` array of width ``d``.
+
+    ``grouped`` covers the whole reduction in one pass over ``cols / d`` column
+    slabs; the conventional mesh covers ``rows`` of it a pass and needs
+    ``cols / d`` passes, which is what the comparison is about.
+    """
+    groups = cols // d
+    mac, act, drain = units(seq)
+    length = groups * rows
+
+    if grouped:
+
+        @spmw.fabric
+        def pv(Pr: int8[seq, length], V: int8[length, d], Y: int8[seq, d]):
+            P = spmw.place(mac, on=grouped_mxu(WsIO, (rows, cols), groups))
+            Pa = spmw.place(act, on=spmw.Grid((d,)))
+            k = P.rows
+            g, e = spmw.split(P.cols, factor=groups)
+            spmw.shard(V, into=P.w, index=(g * rows + k, e))
+            spmw.stream_in(Pr, into=P.a_in, index=(..., g * rows + k))
+            spmw.stream_in(0, into=P.p_in)
+            spmw.link(P.p_out, to=Pa.z_in)
+            (lane,) = Pa.axes
+            spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    else:
+
+        @spmw.fabric
+        def pv(
+            Pr: int8[seq, rows],
+            V: int8[rows, cols],
+            Zin: int32[seq, cols],
+            Zout: int32[seq, cols],
+            Y: int8[seq, cols],
+        ):
+            P = spmw.place(mac, on=grouped_mxu(WsIO, (rows, cols), 1))
+            Pa = spmw.place(drain, on=spmw.Grid((cols,)))
+            k, c = P.rows, P.cols
+            spmw.shard(V, into=P.w, index=(k, c))
+            spmw.stream_in(Pr, into=P.a_in, index=(..., k))
+            spmw.stream_in(Zin, into=P.p_in, index=(..., c))
+            spmw.link(P.p_out, to=Pa.z_in)
+            (lane,) = Pa.axes
+            spmw.gather(Zout, from_=Pa.z_out, index=(..., lane))
+            spmw.gather(Y, from_=Pa.y_out, index=(..., lane))
+
+    return pv
+
+
+def pv_of(seq, rows=16, cols=16, d=2, grouped=True, seed=0):
+    """`pv_shaped` with the operands and the golden a cosimulation checks against.
+
+    The conventional fabric is one *pass*: its launch covers ``rows`` of the
+    reduction and leaves a partial for the next, so its cycles are a pass's
+    and the whole product costs ``cols / d`` of them.
+    """
+    groups = cols // d
+    length = groups * rows
+    rng = np.random.default_rng(seed)
+    P = rng.integers(-4, 4, (seq, length)).astype(np.int8)
+    V = rng.integers(-4, 4, (length, d)).astype(np.int8)
+    fabric = pv_shaped(seq, rows, cols, d, grouped)
+    if grouped:
+        fabric.spmw_operands = {"Pr": P, "V": V}
+        fabric.spmw_expected = {"Y": _reference(P, V)}
+    else:
+        # Pass 0: the first `rows` terms, resuming nothing.
+        Pr = np.ascontiguousarray(P[:, :rows])
+        Vt = np.zeros((rows, cols), dtype=np.int8)
+        Vt[:, :d] = V[:rows, :]
+        zeros = np.zeros((seq, cols), dtype=np.int32)
+        partial = Pr.astype(np.int32) @ Vt.astype(np.int32)
+        fabric.spmw_operands = {"Pr": Pr, "V": Vt, "Zin": zeros}
+        fabric.spmw_expected = {
+            "Zout": partial,
+            "Y": (np.maximum(partial, 0) >> SHIFT).astype(np.int8),
+        }
+    fabric.spmw_cosim_cycles = 8 * seq + 100000
+    fabric.spmw_attention = {
+        "rows": rows,
+        "cols": cols,
+        "d": d,
+        "groups": groups,
+        "reduction": length,
+        "passes": 1 if grouped else groups,
+        "seq": seq,
+    }
+    return fabric
+
+
+@pytest.mark.parametrize("grouped", [True, False])
+def test_a_bigger_array_computes_the_same(grouped):
+    """16 x 16, 256 PEs: the paper's bodies on an array worth measuring."""
+    fabric = pv_of(4, grouped=grouped)
+    out = {k: np.zeros(v.shape, v.dtype) for k, v in fabric.spmw_expected.items()}
+    args = [
+        fabric.spmw_operands.get(n)
+        for n in ("Pr", "V", "Zin")
+        if n in fabric.spmw_operands
+    ]
+    spmw.build(fabric, target="ref")(*args, *[out[k] for k in fabric.spmw_expected])
+    for name, want in fabric.spmw_expected.items():
+        np.testing.assert_array_equal(out[name], want)
+
+
+# -- a whole head ----------------------------------------------------------------
+#
+# One head's P.V, Y[S, D] = P[S, S] @ V[S, D], in one launch rather than one
+# tile. The array holds V a key tile at a time: each cell keeps its weight for
+# every tile, and the S query rows stream through once per tile. The partial
+# for each query row leaves the bottom of the chain into a FIFO S deep and
+# re-enters at the top on the next tile, so the array's own adders sum across
+# the key tiles; the last tile's sums are the result.
+#
+# The two schemes differ only in the key tile. The plain mesh shares a P row
+# across all its columns, so with D narrower than the array it holds 16 keys a
+# tile and its other columns carry zeros; grouped, the same cells hold 16 * G
+# keys at D = 16 / G, and the head takes G times fewer tiles.
+
+
+def pv_head(seq, d=8, rows=16, cols=16, grouped=True, seed=0):
+    """One head's whole ``(seq, seq) @ (seq, d)`` on a ``rows x cols`` array."""
+    groups = cols // d if grouped else 1
+    keys = groups * rows  # keys a tile
+    lanes = d if grouped else cols  # chains that reach the bottom
+    tiles = seq // keys
+    steps = tiles * seq
+    assert seq % keys == 0 and tiles >= 2, (seq, keys)
+
+    class CellIO(spmw.Interface):
+        a_in = spmw.In(int8)
+        a_out = spmw.Out(int8)
+        p_in = spmw.In(int32)
+        p_out = spmw.Out(int32)
+        w = spmw.MemIn(int8[tiles])  # this cell's weight in every key tile
+
+    class SeedIO(spmw.Interface):
+        back = spmw.In(int32, depth=seq)  # the partials of the tile before
+        p_out = spmw.Out(int32)
+
+    class FoldIO(spmw.Interface):
+        z_in = spmw.In(int32)
+        back = spmw.Out(int32)
+        y_out = spmw.Out(int32)
+
+    @spmw.unit
+    def mac(io: CellIO):
+        for i in range(steps):
+            a = io.a_in.get()
+            p = io.p_in.get()
+            io.p_out.put(p + a * io.w[i // seq])
+            io.a_out.put(a)
+
+    @spmw.unit
+    def seed_sums(io: SeedIO):
+        for i in range(steps):
+            z: int32 = 0
+            if i >= seq:
+                z = io.back.get()
+            io.p_out.put(z)
+
+    @spmw.unit
+    def fold(io: FoldIO):
+        for i in range(steps):
+            z = io.z_in.get()
+            if i < steps - seq:
+                io.back.put(z)
+            else:
+                io.y_out.put(z)
+
+    @spmw.fabric
+    def head(Pt: int8[steps, keys], Wt: int8[keys, lanes, tiles], Y: int32[seq, lanes]):
+        P = spmw.place(mac, on=grouped_mxu(CellIO, (rows, cols), groups))
+        Sd = spmw.place(seed_sums, on=spmw.Grid((lanes,)))
+        F = spmw.place(fold, on=spmw.Grid((lanes,)))
+        k = P.rows
+        g, e = spmw.split(P.cols, factor=groups)
+        spmw.shard(Wt, into=P.w, index=(g * rows + k, e))
+        spmw.stream_in(Pt, into=P.a_in, index=(..., g * rows + k))
+        spmw.link(Sd.p_out, to=P.p_in)
+        spmw.link(P.p_out, to=F.z_in)
+        spmw.link(F.back, to=Sd.back)
+        (lane,) = F.axes
+        spmw.gather(Y, from_=F.y_out, index=(..., lane))
+
+    rng = np.random.default_rng(seed)
+    Pm = rng.integers(-4, 4, (seq, seq)).astype(np.int8)
+    V = rng.integers(-4, 4, (seq, d)).astype(np.int8)
+    Vl = np.zeros((seq, lanes), dtype=np.int8)
+    Vl[:, :d] = V  # the plain mesh's spare columns hold zeros
+    # Tile t streams P[:, t*keys:(t+1)*keys]; cell (key l, lane c) holds V[t*keys+l, c].
+    Pt = Pm.reshape(seq, tiles, keys).transpose(1, 0, 2).reshape(steps, keys)
+    Wt = Vl.reshape(tiles, keys, lanes).transpose(1, 2, 0)
+    Yw = np.zeros((seq, lanes), dtype=np.int32)
+    Yw[:, :d] = Pm.astype(np.int32) @ V.astype(np.int32)
+    head.spmw_operands = {
+        "Pt": np.ascontiguousarray(Pt),
+        "Wt": np.ascontiguousarray(Wt),
+    }
+    head.spmw_expected = {"Y": Yw}
+    head.spmw_cosim_cycles = 2 * steps + 100000
+    # HLS's default pipeline freezes while an input is missing, so a cell
+    # finishes a row only when a later one arrives: the chain then holds about
+    # three rows a cell, and a tile shorter than that never reaches the fold
+    # to feed the next (grouped, S = 64: deadlock). Flushable pipelines drain.
+    head.spmw_pipeline_style = "flp"
+    head.spmw_attention = {
+        "rows": rows,
+        "cols": cols,
+        "d": d,
+        "groups": groups,
+        "keys_a_tile": keys,
+        "tiles": tiles,
+        "seq": seq,
+    }
+    return head
+
+
+@pytest.mark.parametrize("grouped", [True, False])
+@pytest.mark.parametrize("target", ["ref", "simulator"])
+def test_a_whole_head(grouped, target):
+    """(S, S) @ (S, d) in one launch, summed across key tiles in the array."""
+    fabric = pv_head(16, d=2, rows=4, cols=4, grouped=grouped)
+    ops = fabric.spmw_operands
+    Y = np.zeros_like(fabric.spmw_expected["Y"])
+    spmw.build(fabric, target=target)(ops["Pt"], ops["Wt"], Y)
+    np.testing.assert_array_equal(Y, fabric.spmw_expected["Y"])
+
+
+def adaptation_diff(context=1):
+    """The unified diff between the two fabrics -- the adaptation, exactly."""
+    before = inspect.getsource(pv_conventional).splitlines()
+    after = inspect.getsource(pv_grouped).splitlines()
+    return "\n".join(
+        difflib.unified_diff(
+            before, after, "pv_conventional", "pv_grouped", n=context, lineterm=""
+        )
+    )
+
+
+# -- running them --------------------------------------------------------------
+
+
+def operands(seq, seed):
+    """P [seq, L] and V [L, D], small signed integers so int8 results never wrap."""
+    rng = np.random.default_rng(seed)
+    P = rng.integers(-4, 4, (seq, L)).astype(np.int8)
+    V = rng.integers(-4, 4, (L, D)).astype(np.int8)
+    return P, V
+
+
+def conventional_pass(t, P, V, Z):
+    """The conventional design's operands for pass ``t``: its slice of P, its
+    tile of V zero-padded to the array's width, and the partial to resume."""
+    seq = P.shape[0]
+    Pr = np.ascontiguousarray(P[:, t * R : (t + 1) * R])
+    Vt = np.zeros((R, C), dtype=np.int8)
+    Vt[:, :D] = V[t * R : (t + 1) * R, :]
+    Zin = np.ascontiguousarray(Z, dtype=np.int32)
+    Zout = np.zeros((seq, C), dtype=np.int32)
+    Y = np.zeros((seq, C), dtype=np.int8)
+    return Pr, Vt, Zin, Zout, Y
+
+
+def run_conventional(launch, P, V):
+    """Two launches of the one conventional fabric, the second seeded with the
+    first's partial.  Returns the result and the partial that crossed over."""
+    Z = np.zeros((P.shape[0], C), dtype=np.int32)
+    for t in range(PASSES):
+        Pr, Vt, Zin, Zout, Y = conventional_pass(t, P, V, Z)
+        launch(Pr, Vt, Zin, Zout, Y)
+        Z = Zout
+    return Y[:, :D].copy(), Z
+
+
+def run_grouped(launch, P, V):
+    Y = np.zeros((P.shape[0], D), dtype=np.int8)
+    launch(P, V, Y)
+    return Y
+
+
+def run(design, launch, P, V):
+    if design == "conventional":
+        return run_conventional(launch, P, V)[0]
+    return run_grouped(launch, P, V)
+
+
+@functools.lru_cache(maxsize=None)
+def _launch(design, seq, target):
+    """Built once per (design, size, target); the seeds share it."""
+    return spmw.build(DESIGNS[design](seq), target=target)
+
+
+# -- tests ---------------------------------------------------------------------
+
+
+def test_the_units_are_the_papers():
+    """The bodies are `test_spmw_attention.py`'s; only the trip count is free."""
+
+    def body(unit):
+        return textwrap.dedent(inspect.getsource(unit.fn)).replace(
+            "range(MT)", "range(seq)"
+        )
+
+    mac, act, drain = units(MT)
+    assert body(mac) == body(paper_mac)
+    assert body(act) == body(paper_act)
+    # `drain` is `act` plus the tap, and the tap is the only added line.
+    added = [
+        line[1:].strip()
+        for line in difflib.unified_diff(
+            body(act).splitlines(), body(drain).splitlines(), n=0, lineterm=""
+        )
+        if line.startswith("+") and not line.startswith("+++")
+    ]
+    assert added == ["def drain(io: DrainIO):", "io.z_out.put(z)"]
+
+
+def test_the_same_array_underneath():
+    """Sixteen PEs in both; what differs is which of their ports the topology leaves open."""
+    conv = spmw.elaborate(pv_conventional(MT)).placements[0]
+    grp = spmw.elaborate(pv_grouped(MT)).placements[0]
+    assert len(list(conv.sites())) == len(list(grp.sites())) == R * C
+    assert (len(conv.a_in), len(conv.p_in), len(conv.p_out)) == (R, C, C)
+    assert (len(grp.a_in), len(grp.p_in), len(grp.p_out)) == (R * G, D, D)
+
+
+def changed_lines():
+    """The adaptation's changed lines, each classified by what kind of line it is.
+
+    A line is a tensor signature, a placement, a binding, an axis symbol, the
+    choice of boundary unit, or the function's own header and docstring -- or
+    it is something else, which is what the test below forbids: nothing in the
+    diff may be arithmetic.
+    """
+    kinds = (
+        ("signature", r"^\w+: int(8|32)\["),
+        ("placement", r"^\w+ = spmw\.place\("),
+        ("binding", r"^spmw\.(shard|stream_in|link|gather)\("),
+        ("axes", r"^(\(lane,\)|k, c|k|g, e) = "),
+        ("unit-choice", r"^mac, .*= units\(seq\)$"),
+        ("header", r'^(def pv_|def pv\(|"""|\):$|return pv$)'),
+    )
+    out = []
+    for line in adaptation_diff(context=0).splitlines():
+        if line[:1] not in "+-" or line.startswith(("+++", "---")):
+            continue
+        text = line[1:].strip()
+        kind = next((k for k, pat in kinds if re.match(pat, text)), "other")
+        out.append((line[0], kind, text))
+    return out
+
+
+def test_the_adaptation_is_topology_and_bindings():
+    """Every changed line is a signature, a placement, a binding or an axis; none is arithmetic."""
+    changed = changed_lines()
+    assert changed, "the two fabrics must differ"
+    others = [text for _sign, kind, text in changed if kind == "other"]
+    assert not others, f"lines that are neither topology nor binding: {others}"
+    assert any(kind == "placement" for _s, kind, _t in changed)  # the group count
+    assert any(kind == "binding" for _s, kind, _t in changed)  # the loaders and drains
+
+
+@pytest.mark.parametrize("seq", SEQS)
+@pytest.mark.parametrize("seed", SEEDS)
+@pytest.mark.parametrize("design", sorted(DESIGNS))
+def test_reference_matches(design, seq, seed):
+    P, V = operands(seq, seed)
+    Y = run(design, _launch(design, seq, "ref"), P, V)
+    np.testing.assert_array_equal(Y, _reference(P, V))
+
+
+@pytest.mark.parametrize("seq", SEQS)
+@pytest.mark.parametrize("seed", SEEDS)
+def test_the_passes_hand_over_the_raw_sum(seq, seed):
+    """What crosses between the passes is the un-shifted, un-clipped int32 partial."""
+    P, V = operands(seq, seed)
+    Y, Z = run_conventional(_launch("conventional", seq, "ref"), P, V)
+    full = P.astype(np.int32) @ V.astype(np.int32)
+    np.testing.assert_array_equal(Z[:, :D], full)  # the final partial is the whole sum
+    np.testing.assert_array_equal(Z[:, D:], 0)  # the padding columns carry nothing
+    np.testing.assert_array_equal(Y, _reference(P, V))
+
+
+@pytest.mark.parametrize("seq", SEQS)
+@pytest.mark.parametrize("seed", SEEDS)
+@pytest.mark.parametrize("design", sorted(DESIGNS))
+def test_simulator_matches(design, seq, seed):
+    P, V = operands(seq, seed)
+    Y = run(design, _launch(design, seq, "simulator"), P, V)
+    np.testing.assert_array_equal(Y, _reference(P, V))
+
+
+@pytest.mark.parametrize("seq", SEQS)
+@pytest.mark.parametrize("seed", SEEDS)
+def test_both_designs_agree_bit_for_bit(seq, seed):
+    P, V = operands(seq, seed)
+    conv = run("conventional", _launch("conventional", seq, "ref"), P, V)
+    grp = run("grouped", _launch("grouped", seq, "ref"), P, V)
+    np.testing.assert_array_equal(conv, grp)
+
+
+@pytest.mark.skipif(not hls.is_available("vitis_hls"), reason="vitis_hls not on PATH")
+@pytest.mark.parametrize("design", sorted(DESIGNS))
+def test_hls_csim_matches(design):
+    P, V = operands(MT, SEEDS[0])
+    with tempfile.TemporaryDirectory() as tmpdir:
+        launch = spmw.build(
+            DESIGNS[design](MT), target="vitis_hls", mode="csim", project=tmpdir
+        )
+        Y = run(design, launch, P, V)
+    np.testing.assert_array_equal(Y, _reference(P, V))
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

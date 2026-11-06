@@ -1,3 +1,0 @@
-WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261104 02:19:30.159559 1769650 task.h:74] running software simulation with TAPA library
-Passed!

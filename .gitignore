@@ -94,21 +94,21 @@ sg_execution_times.rst
 tests/xlscc_tests/**/test.cpp
 tests/xlscc_tests/**/test_block.cpp
 tests/xlscc_tests/**/test
-experiments/agentstudy/trials/
+experiments/productivity/agent_study/trials/
 *.openrouter_key
 .openrouter_key
 
 # The agent study raw runs: every file here is evidence for a published number,
 # so the generic rules above (*.log, *.txt, build/) must not reach into it.
 # The directory has to be re-included before the files inside it can be.
-!experiments/agentstudy/runs/**/build/
-!experiments/agentstudy/runs/**/*.log
-!experiments/agentstudy/runs/**/*.jsonl
-!experiments/agentstudy/runs/**/*.txt
-!experiments/agentstudy/runs/**/*.tcl
-!experiments/agentstudy/runs/**/*.v
-!experiments/agentstudy/runs/**/*.sv
-!experiments/agentstudy/runs/**/*.rpt
+!experiments/productivity/agent_study/runs/**/build/
+!experiments/productivity/agent_study/runs/**/*.log
+!experiments/productivity/agent_study/runs/**/*.jsonl
+!experiments/productivity/agent_study/runs/**/*.txt
+!experiments/productivity/agent_study/runs/**/*.tcl
+!experiments/productivity/agent_study/runs/**/*.v
+!experiments/productivity/agent_study/runs/**/*.sv
+!experiments/productivity/agent_study/runs/**/*.rpt
 
 # macOS finder metadata, swept in by a subagent commit
 .DS_Store

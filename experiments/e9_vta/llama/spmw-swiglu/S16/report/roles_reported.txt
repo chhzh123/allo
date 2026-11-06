@@ -1,2 +1,0 @@
-main: lanesw_k128n8_r0 pe_r0
-c1_: lanesw_k128n8_r0 pe_r0

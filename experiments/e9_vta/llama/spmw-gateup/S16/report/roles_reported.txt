@@ -1,1 +1,0 @@
-main: laneq_k128n8_r0 pe_r0

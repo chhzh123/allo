@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """The E3 microbenchmark: a tiled int8 GEMM whose whole epilogue is on device.
 
-E3 measured SPMW as a TPU and `experiments/e3_tpu/gemmini/` measured Gemmini as
-one, and the two were never run against the same workload.  This is that
-workload:
+E3 measured SPMW as a TPU and Gemmini as one, and the two were never run
+against the same workload (E3's records are in git history, no longer under
+`experiments/`).  This is that workload:
 
     int8 A x int8 B -> int32 accumulate -> + bias -> arithmetic shift -> ReLU
     -> clip to int8

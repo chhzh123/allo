@@ -1,1 +1,0 @@
-./autosa /scratch/hc676/e22_autosa_tapa/gen/S32/kernel.c --config=./autosa_config/autosa_config.json --target=autosa_tapa --output-dir=/scratch/hc676/e22_autosa_tapa/gen/S32/out --host-serialize --sa-sizes={kernel[]->space_time[3];kernel[]->array_part[32,32,32];kernel[]->latency[1,1];kernel[]->simd[1]} --simd-info=/scratch/hc676/e22_autosa_tapa/gen/S32/simd_info.json --hls

@@ -1,2 +1,0 @@
-Passed!
-TAPA RTL simulation: PASS (the host's check against AutoSA's golden model)

@@ -1,7 +1,0 @@
-E1 TB seed=0 A[min,max]=[-128,127] B[min,max]=[-128,127]
-E1 TB seed=0 PASS max_abs_err=0 mismatches=0 of 1048576
-E1 TB seed=1 A[min,max]=[-128,127] B[min,max]=[-128,127]
-E1 TB seed=1 PASS max_abs_err=0 mismatches=0 of 1048576
-E1 TB seed=2 A[min,max]=[-128,127] B[min,max]=[-128,127]
-E1 TB seed=2 PASS max_abs_err=0 mismatches=0 of 1048576
-E1 TB ALL PASS seeds=3

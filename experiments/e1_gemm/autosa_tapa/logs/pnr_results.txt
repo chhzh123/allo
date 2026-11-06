@@ -1,8 +1,0 @@
-build=S4_j8 rc=0 wall_s=377 PNR_UNROUTED 
-PNR_UNROUTED 0
-build=S8_j8 rc=0 wall_s=670 PNR_UNROUTED 
-PNR_UNROUTED 0
-build=S16_j8 rc=0 wall_s=1260 PNR_UNROUTED 
-PNR_UNROUTED 0
-build=S32_j8 rc=0 wall_s=4263 PNR_UNROUTED 
-PNR_UNROUTED 0

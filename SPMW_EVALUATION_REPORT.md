@@ -39,7 +39,7 @@ here now computes the same thing -- `C = A B`, int8 in and int32 out, with
 M = N = K = S on an S x S array holding one multiplier per element -- and every
 cycle figure is on one definition: **first memory beat to last memory beat**,
 with control writes, the start bit and each flow's own polling outside it. The
-package is `experiments/e1_gemm/`.
+package is `experiments/performance/gemm_arrays/`.
 
 ### Routed, out of context at 3.333 ns
 

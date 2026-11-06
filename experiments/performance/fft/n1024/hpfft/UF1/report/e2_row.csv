@@ -1,0 +1,2 @@
+n,framework,config,transforms,samples_per_cycle,first_output_cycles,completion_cycles,steady_interval_cycles,pct_of_ideal,steady_interval_measured,full_transform_latency,ideal_interval_cycles,lut,ff,dsp,bram_18k_equiv,wns_ns,achieved_ns,fmax_mhz
+1024,hpfft,"UF1, 2 samples/beat",33,2,6298,6809,525.5,97.4,525.5,6809,512,29316,28835,96,104,0.261,3.072,326

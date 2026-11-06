@@ -1,1 +1,0 @@
-main: laneq_k512n32_r0 pe_r0
