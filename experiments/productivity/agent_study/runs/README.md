@@ -1,25 +1,25 @@
 # Raw runs: transcripts, logs and generated hardware
 
 Everything the fifteen trials produced that is worth keeping, copied from
-`/scratch/hc676/agentstudy` on brg-zhang-xcel. 1,866 files, 36 MB.
+`/scratch/hc676/agentstudy` on brg-zhang-xcel. The cleanup in cb8da1aa kept
+what Fig. 14 reads, 175 files, 9.6 MB; `generated/`, `rounds/`,
+`transcripts/repeated/`, the driver logs other than `steady_all.log` and the
+duplicate result files are in commit c20b2ee8.
 
 ## What is here
 
 | Path | Contents |
 |---|---|
-| `transcripts/` | 15 `.transcript.jsonl`, the complete turn-by-turn record of each trial; the runner's stdout `.log`; the `.summary.json` each trial ended with |
-| `transcripts/repeated/` | the four trials that were repeated because a harness fault ended them, named in `PREREG.md` |
-| `rounds/` | one Markdown timeline per trial, rendered from its transcript: every model turn, every tool call, every build verdict and every routing result in order |
-| `generated/<trial>/` | the design the trial ended on, the hardware the tools generated from it, the simulation logs, and the three routing runs with the reports the model was shown |
-| `steady/<trial>/` | the twelve-product re-measurement and its place-and-route: logs and reports only, since it rebuilds the same final design |
-| `results*.csv`, `results.json` | the graded tables, also in `../results/` |
-| `*.log` | the top-level driver logs for the grading, salvage and steady passes |
+| `transcripts/` | 15 `.transcript.jsonl`, the complete turn-by-turn record of each trial; the runner's stdout `.log`; the `.summary.json` each trial ended with; `run_all.log` |
+| `steady/<trial>/` | the twelve-product re-measurement and its place-and-route: the final design, logs and reports |
+| `steady_all.log` | the twelve-product results of all fifteen; the graded tables are in `../results/` |
 
-Inside `generated/<trial>/`: `route_N/` holds `pnr.log`, `util.rpt`,
-`timing.rpt`, `clockInfo.txt` and the `pnr.tcl` that produced them -- `util.rpt`
-and `timing.rpt` are where the lookup-table, register, multiplier and slack
-columns come from. `sim/` holds the elaboration and simulation logs and, for
-the HLS and SPMW arms, the RTL the tools generated. SPMW trials also have
+Inside `generated/<trial>/` (commit c20b2ee8): `route_N/` holds `pnr.log`,
+`util.rpt`, `timing.rpt`, `clockInfo.txt` and the `pnr.tcl` that produced them,
+the routing the model was shown; the graded lookup-table, register, multiplier
+and slack columns come from `util.rpt` and `timing.rpt` under
+`steady/<trial>/pnr/`. `sim/` holds the elaboration and simulation logs and,
+for the HLS and SPMW arms, the RTL the tools generated. SPMW trials also have
 `build/` with the fabric RTL (`spmw_top.sv`, `spmw_fifo.sv`, `spmw_const.sv`)
 and `reports/csynth_*.rpt`, one per role.
 
@@ -39,8 +39,8 @@ So for a trial that built eight times, the eight intermediate designs cannot be
 reconstructed. What *is* complete for every round: the model's prose, which
 tool it called, the full build verdict including error text, the per-stage
 timings, the routing output, and the token and wall-clock accounting. The
-`rounds/` timelines carry all of that, and each says at the top that the code
-is truncated.
+`rounds/` timelines (commit c20b2ee8) carry all of that, and each says at the
+top that the code is truncated.
 
 `harness/agent.py` now archives every revision to `<trial>.rounds/rNN_bMM_<file>`
 as it is written, so a rerun would preserve what these fifteen lost. Recovering

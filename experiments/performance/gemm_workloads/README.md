@@ -1,588 +1,188 @@
-# E12: one output-stationary array, GEMMs larger than itself
+# GEMMs of 64^3 to 512^3 on one 16x16 array
 
-E1 gave every array one tile, which measures a launch's latency. A GEMM is
-usually larger than the array it runs on: an S x S output-stationary array
-given `C = A B` with A, B and C all W x W computes `(W / S)^2` tiles of W
-steps each, and what matters then is throughput -- how much of the time every
-cell is doing a multiply-add. Its ceiling is one a cell a cycle, `W^3 / S^2`
-cycles for the whole GEMM, and a design falls short of it by whatever it
-spends between tiles: loading the next one, draining the last.
+Fig. 9(a) of the paper (arXiv version).
 
-This is the measure of the Dato paper's FPGA result (arXiv:2509.06794, section
-7.5 and figure 12): a 16x16 int8 output-stationary array at 300 MHz on GEMMs
-from 64^3 to 1,024^3, reported as operations a second against a peak of 153.6
-billion. This experiment runs the same sweep, on that array size and on 32x32,
-for SPMW's design, AutoSA's and Allo's library array; the Dato paper's own
-design is prepared here but not yet simulated. Every cycle count is from RTL
-simulation of the whole GEMM with every result checked, and every design is
-routed out of context at 3.333 ns on `xcu280-fsvh2892-2L-e`.
-
-**Status, 2026-10-12.** The 16x16 array is complete from 64^3 to 512^3 for
-SPMW, AutoSA and Allo, and the 32x32 array over the same range for SPMW and
-Allo. Not here: 1,024^3 on any design -- those simulations were stopped
-part-way, and an empty row is that; AutoSA on 32x32, not yet built in the
-configuration its 16x16 rows settled on; and the Dato paper's own design,
-stopped before its RTL simulations finished. A blank cell is a run that is not
-there; none is an estimate. **2026-11-04:** the 16x16 AutoSA row rebuilt
-through AutoSA's TAPA backend, `AutoSA (TAPA)` in the tables. **2026-11-05:**
-that row through RapidStream, TAPA's floorplanner, which finds a floorplan only
-at 64^3 (`autosa_tapa_rapidstream/`, below).
+A 16x16 output-stationary array given `C = A B` with A, B and C all W x W
+computes `(W / 16)^2` tiles of W steps each. Its ceiling is one multiply-add a
+cell a cycle, `W^3 / 256` cycles for the whole GEMM, and 153.6 GOP/s at
+300 MHz (two operations a multiply-add); a design falls short of it by
+whatever it spends between tiles. Three designs run W = 64, 128, 256 and 512:
+SPMW, AutoSA and Allo's library array, all int8 operands into int32 sums, one
+multiplier, one DSP, a cell. Every row is **kernel scope**, memory port to
+memory port: each design has its own AXI masters and control interface; the
+host's layout of the operands and host communication are outside it. Every
+cycle count is RTL simulation of the whole GEMM with every result checked
+against numpy, and every design is routed out of context at 3.333 ns on
+`xcu280-fsvh2892-2L-e` with Vitis HLS and Vivado 2023.2.
 
 ## Layout
 
-An SPMW array is **one build a size**: the same hardware runs every GEMM, so
-its folders are a size and hold one cycle record a workload. A baseline is
-generated for its workload, so it has a folder a size and workload.
+SPMW is **one build** that runs every GEMM, so it has one folder with a cycle
+record a workload. A baseline is generated for its workload, so it has a
+folder a workload.
 
-    spmw_mesh/S<n>/      spmw_kernel/S<n>/           report/W<side>_*.txt
-    <baseline>/S<n>_W<side>/
-        source/      what the framework was given
-        generated/   what it emitted
+    spmw_kernel/S16/                    report/W<side>_kernel_sim.txt, one a workload
+    autosa_wide/S16_W<side>/, allo/S16_W<side>/
+        source/      what the framework was given, and the command
+        generated/   what it emitted (64^3 only; a note for the rest)
         report/      the reports each number was read from
 
 | Folder | Design |
 |---|---|
-| `spmw_mesh/` | the SPMW array with its boundary buffers, no memory interface |
-| `spmw_kernel/` | the same array as a kernel: three memory movers and a control register file |
-| `dato/` | the Dato paper's daisy-chain array (its appendix A; `tests/dataflow/test_multi_cache_gemm.py`), its own memory interface included |
-| `autosa_wide/` | AutoSA's design as its own examples are run -- `--host-serialize`, K tiled, latency hiding -- its own memory interface included. `S<n>_W<side>` is the configuration of the tables; `S<n>_W<side>_k<part>[_l<hiding>]` are the other builds made on the way |
-| `autosa/` | AutoSA's design without the flag, with K whole and one sum a cell: this experiment's first runs, kept as measured |
-| `autosa_wide_whole/` | `--host-serialize` with K whole, which fails its own C testbench |
-| `autosa_tapa/` | the `autosa_wide/` configuration through AutoSA's TAPA backend (`--target=autosa_tapa`) instead of its Vitis HLS one; `logs/` has the drivers' logs |
-| `autosa_tapa_rapidstream/` | `autosa_tapa/`'s design floorplanned and pipelined by RapidStream: routed at 64^3; the other sizes hold only its log, which finds no floorplan |
-| `autosa_paper/` | AutoSA's published int8 design, generated by its documented command and simulated here on a quarter of its K |
-| `allo/` | Allo's library systolic array, its own memory interface included |
+| `spmw_kernel/S16/` | SPMW's array (`source/test_spmw_gemm_tiles.py`, `gemmtiles` in the repository's `scripts/spmw_build_array.py`) with a 512-bit memory mover on each of its three edge bindings and a control register file |
+| `autosa_wide/S16_W<side>/` | AutoSA with `--host-serialize`, K tiled and latency hiding, 512-bit ports |
+| `allo/S16_W<side>/` | Allo's library systolic array, generated by `../gemm_arrays/allo/S16/source/e1_allo_gen.py` with the workload's side; 32-bit ports |
+| `results.csv` | one row a design and workload (12 rows), written by `scripts/make_results.py` |
 
-`spmw_mesh` is the only **array-scope** row; the others are **kernel scope**,
-memory port to memory port. A baseline's generated kernel is megabytes and
-differs between workloads only in its loop bounds, so `generated/` holds it for
-64^3 and a note for the rest.
+A baseline's generated kernel differs between workloads only in its loop
+bounds (and, for AutoSA, its K tile), so `generated/` keeps it at 64^3.
 
 ## Results
 
-Cycles are E1's: **first memory beat to last memory beat** of one launch
-(`spmw_mesh` moves no memory beats: first input token to last output token).
-Beside each is its share of the peak, `W^3 / S^2` cycles over the cycles
-taken. A dagger marks a count that is the flow's own, start to done, because
-no waveform of that run was kept (see the definitions below).
+Cycles, first memory beat to last, and their share of the peak. A dagger is
+the flow's own start-to-done count, used where no waveform was kept
+(definitions below).
 
-### 16x16, the Dato paper's array
+| GEMM | peak | SPMW | AutoSA | Allo |
+|---|---:|---:|---:|---:|
+| 64^3 | 1,024 | 1,116 (91.8%) | 2,672 (38.3%) | 15,803 (6.5%) |
+| 128^3 | 8,192 | 8,284 (98.9%) | 9,880 (82.9%) | 71,275 (11.5%) |
+| 256^3 | 65,536 | 65,628 (99.9%) | 67,532 (97.0%) | 350,507 (18.7%) |
+| 512^3 | 524,288 | 524,380 (99.98%) | 528,700† (99.2%) | 1,926,236† (27.2%) |
 
-| GEMM | peak | SPMW mesh | SPMW kernel | AutoSA | AutoSA (TAPA) | Allo |
-|---|---:|---:|---:|---:|---:|---:|
-| 64^3 | 1,024 | 1,079 (94.9%) | 1,116 (91.8%) | 2,672 (38.3%) | 3,335 (30.7%) | 15,803 (6.5%) |
-| 128^3 | 8,192 | 8,247 (99.3%) | 8,284 (98.9%) | 9,880 (82.9%) | 10,991 (74.5%) | 71,275 (11.5%) |
-| 256^3 | 65,536 | 65,591 (99.9%) | 65,628 (99.9%) | 67,532 (97.0%) | 68,295 (96.0%) | 350,507 (18.7%) |
-| 512^3 | 524,288 | 524,343 (99.99%) | 524,380 (99.98%) | 528,700† (99.2%) | 529,391 (99.0%) | 1,926,236† (27.2%) |
-| 1024^3 | 4,194,304 |  |  |  |  |  |
+**Fig. 9(a)**, GOP/s at `f = min(300 MHz, f_routed)`, the routed frequency
+unrounded: `2 W^3 f / cycles`.
 
-Operations a second, in billions, at the clock each design routed to -- two a
-multiply-add, as the Dato paper counts them; the peak at 300 MHz is 153.6:
+| GEMM | SPMW | AutoSA | Allo |
+|---|---:|---:|---:|
+| 64^3 | 140.94 | 56.71 | 9.95 |
+| 128^3 | 151.89 | 108.41 | 17.65 |
+| 256^3 | 153.38 | 124.12 | 28.72 |
+| 512^3 | 153.57 | 125.83 | 31.14 |
+| *f used* | 300 MHz | 289.02, 255.36, 249.81, 247.83 MHz | 300, 300, 300, 223.46 MHz |
 
-| GEMM | SPMW mesh | SPMW kernel | AutoSA | AutoSA (TAPA) | Allo |
-|---|---:|---:|---:|---:|---:|
-| 64^3 | 150.2 | 148.9 | 56.7 | 40.5 | 10.8 |
-| 128^3 | 157.3 | 160.4 | 108.4 | 87.2 | 18.6 |
-| 256^3 | 158.2 | 162.0 | 124.1 | 112.7 | 30.4 |
-| 512^3 | 158.3 | 162.2 | 125.8 | 110.4 | 31.1 |
+`make_results.py` and the `gops` column of `results.csv` use the routed clock
+uncapped: SPMW 148.9, 160.4, 162.0, 162.2 at 317 MHz, and Allo 10.8, 18.6 and
+30.4 at 325, 316 and 318 MHz up to 256^3. AutoSA, and Allo at 512^3, route
+below 300 MHz, so their values are the same either way.
 
 What was routed:
 
 | Design | GEMM | Port in/out | LUT | FF | DSP | BRAM18 | Slack | Clock |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| SPMW mesh | every one | streams | 31,430 | 34,573 | 256 | 0 | +0.099 ns | 309 MHz |
-| SPMW kernel | every one | 512/512 | 38,196 | 44,626 | 256 | 110 | +0.177 ns | 317 MHz |
+| SPMW | every one | 512/512 | 38,196 | 44,626 | 256 | 110 | +0.177 ns | 317 MHz |
 | AutoSA | 64^3 | 512/512 | 144,146 | 199,144 | 256 | 1838 | -0.127 ns | 289 MHz |
-|  | 128^3 | 512/512 | 164,423 | 233,269 | 256 | 2286 | -0.583 ns | 255 MHz |
-|  | 256^3 | 512/512 | 166,566 | 236,610 | 256 | 2286 | -0.670 ns | 250 MHz |
-|  | 512^3 | 512/512 | 167,840 | 239,697 | 256 | 2286 | -0.702 ns | 248 MHz |
-| AutoSA (TAPA) | 64^3 | 512/512 | 144,873 | 91,084 | 256 | 3374 | -0.549 ns | 258 MHz |
-|  | 128^3 | 512/512 | 187,689 | 141,367 | 256 | 4032 | -1.044 ns | 228 MHz |
-|  | 256^3 | 512/512 | 189,037 | 144,012 | 256 | 4032 | -1.028 ns | 229 MHz |
-|  | 512^3 | 512/512 | 191,876 | 147,784 | 256 | 4032 | -1.261 ns | 218 MHz |
+| | 128^3 | 512/512 | 164,423 | 233,269 | 256 | 2286 | -0.583 ns | 255 MHz |
+| | 256^3 | 512/512 | 166,566 | 236,610 | 256 | 2286 | -0.670 ns | 250 MHz |
+| | 512^3 | 512/512 | 167,840 | 239,697 | 256 | 2286 | -0.702 ns | 248 MHz |
 | Allo | 64^3 | 32/32 | 34,821 | 30,426 | 256 | 35 | +0.253 ns | 325 MHz |
-|  | 128^3 | 32/32 | 36,208 | 31,568 | 256 | 43 | +0.170 ns | 316 MHz |
-|  | 256^3 | 32/32 | 40,002 | 32,630 | 256 | 155 | +0.186 ns | 318 MHz |
-|  | 512^3 | 32/32 | 39,736 | 33,451 | 256 | 659 | -1.142 ns | 223 MHz |
-|  | 1024^3 | 32/32 | 43,842 | 35,640 | 256 | 2595 | -2.411 ns | 174 MHz |
+| | 128^3 | 32/32 | 36,208 | 31,568 | 256 | 43 | +0.170 ns | 316 MHz |
+| | 256^3 | 32/32 | 40,002 | 32,630 | 256 | 155 | +0.186 ns | 318 MHz |
+| | 512^3 | 32/32 | 39,736 | 33,451 | 256 | 659 | -1.142 ns | 223 MHz |
 
-### 32x32
-
-| GEMM | peak | SPMW mesh | SPMW kernel | AutoSA | AutoSA (TAPA) | Allo |
-|---|---:|---:|---:|---:|---:|---:|
-| 64^3 | 256 | 359 (71.3%) | 469 (54.6%) |  |  | 13,770 (1.9%) |
-| 128^3 | 2,048 | 2,151 (95.2%) | 2,225 (92.0%) |  |  | 57,019 (3.6%) |
-| 256^3 | 16,384 | 16,487 (99.4%) | 16,561 (98.9%) |  |  | 244,331 (6.7%) |
-| 512^3 | 131,072 | 131,175 (99.9%) | 131,249 (99.9%) |  |  | 1,108,316† (11.8%) |
-| 1024^3 | 1,048,576 |  |  |  |  |  |
-
-| GEMM | SPMW mesh | SPMW kernel | AutoSA | AutoSA (TAPA) | Allo |
-|---|---:|---:|---:|---:|---:|
-| 64^3 | 439.8 | 336.9 |  |  | 10.8 |
-| 128^3 | 587.2 | 568.1 |  |  | 18.6 |
-| 256^3 | 612.8 | 610.6 |  |  | 30.5 |
-| 512^3 | 616.2 | 616.4 |  |  | 51.7 |
-
-| Design | GEMM | Port in/out | LUT | FF | DSP | BRAM18 | Slack | Clock |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| SPMW mesh | every one | streams | 125,116 | 135,693 | 1,024 | 0 | +0.012 ns | 301 MHz |
-| SPMW kernel | every one | 512/512 | 134,783 | 148,015 | 1,024 | 174 | +0.015 ns | 301 MHz |
-| Allo | 64^3 | 32/32 | 157,792 | 114,631 | 1,024 | 3 | -0.188 ns | 284 MHz |
-|  | 128^3 | 32/32 | 159,485 | 116,688 | 1,024 | 67 | -0.623 ns | 253 MHz |
-|  | 256^3 | 32/32 | 173,031 | 120,816 | 1,024 | 163 | -1.174 ns | 222 MHz |
-|  | 512^3 | 32/32 | 170,404 | 124,546 | 1,024 | 691 | -1.352 ns | 213 MHz |
-
-Three things to take from it.
-
-**SPMW loses nothing at a tile boundary.** Its array takes the peak's cycles
-plus 55 at 16x16 and plus 103 at 32x32 -- `3S + 7`, its fill and drain -- at
-every workload simulated, and its kernel the peak plus 92 and, from 128^3,
-plus 177. So its share of the peak is set by the GEMM's length alone: 91.8%
-at 64^3 on the 16x16 array, 98.9% at 128^3, 99.9% at 256^3.
-
-**AutoSA reaches the peak when the GEMM is long, and its drain decides how
-long.** Run as its own examples are, it takes 97.0% of the peak's cycles at
-256^3 and 99.2% at 512^3, the level its paper reports at 1,024^3. At 128^3 it
-is at 82.9% and at 64^3 at 38.3%: its results leave only after a tile's last
-step, down one chain at about three a cycle, and a 64^3 GEMM's 4,096 results
-take longer to leave than its 1,024 cycles of work. The configuration that
-gets it there is large and slow to route -- 144,000 to 168,000 LUTs, 1,838 to
-2,286 BRAM18 and 248 to 289 MHz, against the SPMW kernel's 38,196 LUTs, 110
-BRAM18 and 317 MHz -- so in operations a second SPMW is ahead by 2.6 times at
-64^3, 1.5 at 128^3 and 1.3 from 256^3.
-
-**Allo is an order of magnitude from the peak at the short end.** At 64^3 on
-16x16 it takes 15,803 cycles for 1,024 cycles of work, and 27% of the peak at
-512^3; on 32x32 it runs from 1.9% to 11.8%. It copies both operands in and
-all results out through 32-bit ports before and after its tiles, and runs a
-tile in about three times its steps.
+Every route reports no routing errors (`report/route_status.rpt`).
 
 ## What each design does between two tiles
 
+Read from `report/beats.txt` and SPMW's `report/W<side>_kernel_sim.txt`.
+
 - **SPMW: nothing.** A tile's operands follow the last tile's on the next
   cycle, and the cells hand the last tile's sums down while they multiply the
-  next one's. The simulated period of a tile is its K steps exactly.
-- **AutoSA: its drain.** Its host lays the operands out tile by tile, and its
-  row and column modules hold a part of a tile in two buffers, one filling
-  while the other feeds the cells, so loading overlaps computing. The way out
-  does not overlap: a cell keeps its sums until its tile's last step, and
-  they then leave down a chain of modules a column and one across the
-  columns, four to a beat. At 64^3 the 64 beats of A and of B are read in
-  cycles 94 to 157 and the 256 result beats leave from cycle 1,342 to 2,765,
-  2.9 sums a cycle, after the one tile's 1,024 steps. At 256^3 a tile is 4,096
-  cycles and its sums are gone before the next tile's are whole, so only the
-  last tile's drain is left over.
-- **Allo: everything.** The kernel copies all of A, then all of B, on to the
-  chip (1,024 beats each at 64^3, cycles 79 to 3,173 and 4,189 to 7,283), runs
-  its 16 tiles in 250 cycles each -- a copy of A's tile, a copy of B's, then
-  the 64 steps -- and then writes all of C (4,096 beats, cycles 11,276 to
-  15,881). Nothing overlaps anything.
-- **The Dato design:** not yet simulated.
+  next one's. The kernel takes the peak plus 92 cycles at every workload, so
+  its share of the peak is set by the GEMM's length alone.
+- **AutoSA: its drain.** Its row and column modules double-buffer a tile's
+  operands, so loading overlaps computing, but a cell keeps its sums until
+  its tile's last step and they then leave down a chain. At 64^3 the 64 beats
+  of A and of B are read in cycles 94 to 157 and the 256 result beats leave
+  from 1,342 to 2,765, after the one tile's work. From 256^3 a tile is long
+  enough that the sums of one leave while the next computes (C's beats from
+  4,431 to 67,625), and only the last tile's drain is left over. Its clock is
+  set by routing from FIFO control to the cells' sum memories: at 512^3 the
+  worst path is a FIFO's empty flag to a PE's `local_C` RAM enable, 3.663 ns,
+  92% of it routing (`report/timing.rpt`).
+- **Allo: everything.** The top function calls `load_buf0`, `load_buf1`,
+  `systolic_gemm` and `store_res2` one after another with no dataflow region
+  around them (`allo/S16_W64/generated/kernel.cpp`). At 64^3 it copies all of
+  A (1,024 beats, cycles 79 to 3,173), then all of B (4,189 to 7,283), runs
+  its 16 tiles in the 3,993 cycles before C's first beat, about 250 each, and
+  then writes all of C (4,096 beats, 11,276 to 15,881). Its 32-bit ports make
+  each copy long, but nothing overlaps whatever their width.
 
-## The SPMW array
+## The designs
 
-`spmw_mesh/S*/source/test_spmw_gemm_tiles.py`; the suite runs it against numpy
-on the reference and the simulator at one tile, four, six of a rectangular
-GEMM, and with a tile as short as the array is tall. The cell:
-
-```python
-@spmw.unit
-def pe(io: MacIO, site: spmw.Site):
-    row, _col = site.rank
-    above: uint8 = row  # sized: a bare `row` counts in 32 bits
-    acc: int32 = 0
-    rem: uint8 = 0
-    tail: uint1 = 0
-    go: uint1 = 1
-    while go != 0:
-        if tail != 0:  # the launch is over: what is still coming down
-            io.c_out.put(io.c_in.get())
-            if rem == 1:
-                go = 0
-            rem = rem - 1
-        else:
-            t: int16 = io.west.get()
-            b: int8 = io.north.get()
-            io.east.put(t)
-            io.south.put(b)
-            a: int8 = ((t & 255) ^ 128) - 128
-            s: int32 = acc + a * b
-            if ((t >> 8) & 1) != 0:  # LAST: this tile's sum is whole
-                io.c_out.put(s)
-                acc = 0
-                rem = above
-            else:
-                acc = s
-                if rem != 0:  # a sum of the tile before, from above
-                    io.c_out.put(io.c_in.get())
-                    rem = rem - 1
-            if ((t >> 9) & 1) != 0:  # END
-                tail = 1
-                if above == 0:
-                    go = 0
-```
-
-Three things in it are there for the tile boundary.
+**SPMW** (`spmw_kernel/S16/source/test_spmw_gemm_tiles.py`).
 
 - **The stream says where a tile ends.** An operand of A carries `LAST` on a
   tile's final step and `END` on the launch's, as a bus carries TLAST. The
   marks are not in memory: a row's operands are plain int8 behind a five-byte
   header (K - 1 and the tile count less one), and one unit a row, `frame`,
   counts the steps and sets them. A cell counts nothing.
-- **A tile's sums leave during the next tile.** They go down their column as
-  in E1's design, but a cell does not stop to pass them: in each step after a
-  `LAST` it forwards one sum from above beside that step's multiply-add. This
-  needs a tile at least as long as the array is tall, K >= S.
-- **The cell is one state** (`spmw.pipeline(P, ii=1, combinational=True)`),
-  with the launch's last sums going down in the same loop. A row runs a cycle
-  behind the row above, so a sum should pass a row in a cycle too.
+- **A tile's sums leave during the next tile.** In each step after a `LAST` a
+  cell forwards one sum from above beside that step's multiply-add, which
+  needs K >= 16. The links that carry sums are four deep; the cell is one
+  state (`spmw.pipeline(P, ii=1, combinational=True)`).
+- **One build runs every GEMM.** No unit holds a tile's length or count; the
+  kernel reads them from its operand stream. It is packaged once, elaborated
+  at W = 256 so that every edge buffer has the depth a long launch needs
+  (`scripts/spmw_tiles_kernel.sh`), and every workload is simulated on that
+  build and routed once; `report/same_hardware.txt` hashes its roles and
+  fabric. Of its 110 BRAM18, 46 are the three movers' (as in
+  `../gemm_arrays`) and 64 the edge FIFOs (`report/util_hier.rpt`).
+- **The bench memory returns a beat a cycle** within a burst
+  (the repository's `scripts/spmw_kernel_sim.py --beat 1`; `memory .BEAT(1)` in each record), as the
+  baselines' cosimulation memories do. The host lays the operands out in the
+  order the array reads them: row tile after row tile, each against every
+  column tile.
 
-The links that carry the sums are four deep (`spmw.In(int32, depth=4)`); every
-other link is the default two.
+**AutoSA** (`autosa_wide/S16_W<side>/source/autosa_command.txt`):
+`space_time[3]`, `array_part[64,64,Kt]`, `latency[4,4]`, `simd[1]`,
+`--host-serialize`, with Kt = 32 at 64^3 and 64 otherwise
+(`scripts/autosa_ktile.txt`), as AutoSA's own matrix-multiplication examples
+tile K and hide latency. With `latency[4,4]` each cell keeps 16 sums
+(`local_C[4][4]`), a tile is 64 x 64 results, and the drain packs four sums a
+beat; the cells and their one multiplier are the same, and so is the peak.
+The generated design declares its local buffers `RAM_2P_BRAM`, which is its
+1,838 to 2,286 BRAM18. Its host program is E1's (`../gemm_arrays`) with
+operands that span int8; it keeps its arrays on the stack, so
+`autosa_tiles2.sh` raises the stack limit before cosimulating.
 
-What the last two are worth, measured in RTL on 16 tiles at 4x4 and 8x8
-(`spmw_forms/forms.txt`; `one_state` and `sum_depth` of the design take each
-away):
+**Allo**: E1's generator unchanged, given the workload's side; the library
+tiles M and N by the array and runs the tiles one after another. C simulation
+checks three seeds (`report/csim_verdict.txt`); the timed cosimulation is one
+launch (`source/tb_1launch.cpp`, `report/cosim_verdict.txt`).
 
-| Array | as written | cell left to pipeline | sum links two deep |
-|---|---:|---:|---:|
-| 4x4, 16 tiles of 16 steps (256) | 275 | 282 | 290 |
-| 8x8, 16 tiles of 32 steps (512) | 543 | 554 | 618 |
+## Definitions
 
-As written the array takes its steps plus `3S + 7` cycles. Left to pipeline,
-the cell is five stages deep and four cycles later to its first sum, and
-loses a further 3 and 7 cycles over the 16 tiles. With two-deep sum links it
-loses 0.9 and 4.7 cycles a tile: the row above is two steps into handing its
-sums down when a cell takes the first, and a two-entry register slice says it
-is full a cycle after it is.
+- **Cycles** are first memory beat to last of one launch, any master, on
+  rising clock edges with VALID and READY both high. SPMW's kernel testbench
+  reports them (`SPMW TB DATA`); a baseline's come from a waveform of a second
+  run of the same cosimulation (`scripts/beats.py`), made up to 256 on a side
+  (`BEATS_MAX` in the drivers). At 512^3 AutoSA and Allo use the flow's own
+  start-to-done figure, `report/kernel0_cosim.rpt` and `gemm_cosim.rpt` (the
+  daggers). At the smaller sizes that figure exceeds first beat to last by 49
+  cycles in Allo and 71 to 78 in AutoSA (`cycles_flow_reported` in
+  `results.csv`), so the daggered points overstate their cycles by that much.
+- **The peak** is `W^3 / 256` cycles: no fill, no drain.
+- **Clock** is `1000 / (3.333 - WNS)` MHz from the routed `timing.rpt`;
+  `achieved_ns` in `results.csv` is the unrounded period.
+- **BRAM18** is twice the Block RAM tiles of `report_utilization`.
 
-An earlier form of the cell marked the step *before* a tile's last, so that
-every stream access was decided by a flag the cell already held and not by
-the token it was reading, on the belief that Vitis HLS would otherwise need a
-second state. Built both ways, it does not: the cell above is one state and
-takes the same 275 and 543 cycles.
-
-**One build runs every GEMM.** No unit holds a tile's length or a tile count:
-the only counters that depend on the workload are `frame`'s, and they are
-loaded from the stream. `report/same_hardware.txt` hashes each role's HLS code
-and the fabric as generated for each of the five workloads and for the routed
-build: one hash a size. The suite checks the same thing for two GEMMs of
-different shapes (`test_one_array_for_every_workload`). The baselines are
-generated for their workload: each of their rows is its own synthesis.
-
-### The kernel's memory side
-
-Packaged as a kernel the array has three bindings and so three movers on
-512-bit ports: A's rows, B's columns and the drained sums.
-
-- **The host lays the operands out in the order the array reads them**
-  (`streams` in the design file): row tile after row tile, each against every
-  column tile, a step a token. That is the layout every SPMW kernel takes, and
-  for this workload it is `W / S` copies of A and of B, `W^3 / S` bytes each,
-  walked once. AutoSA with `--host-serialize` does the same: its host hands
-  over each tile's part of A and of B in the order its modules take them.
-  Allo is given a `W^2` image of each operand and copies both on to the chip
-  whole before its first tile. The Dato design is given the images too and
-  reads a tile's A and B out of them again for every tile.
-- **The bench memory returns a beat a cycle.** SPMW's kernel testbench had a
-  memory that dropped RVALID between the beats of a burst, a beat every other
-  cycle: 256 bits a cycle on a 512-bit port, which is exactly what 32 int8
-  lanes consume.
-  On it the 32x32 kernel takes 17,070 cycles for 256^3 where it takes 16,561
-  on a beat a cycle: 509 cycles, 3%, that are the bench's and not the
-  kernel's (`spmw_kernel/S32/report/W256_beat2_kernel_sim.txt`). The 16x16
-  kernel takes a beat every four cycles and is 65,628 on both.
-  A beat a cycle is now an option of the bench (`spmw_kernel_sim.py --beat
-  1`), on for every kernel row here; the default stays as it was so that E1's
-  and E10's rows reproduce.
-- **The edge buffers are deep.** The packaging gives every edge channel a
-  1,024-entry FIFO in block RAM for a launch this long, which is where the
-  kernel's block RAM beyond its movers' 46 goes. The array needs a few tens of
-  entries a channel to hold its skew; the depth is the packaging's, not tuned
-  here.
-- **64^3 on the 32x32 array is bound by the result port.** Its four tiles
-  produce 4,096 sums in 256 steps -- 512 bits a cycle, a 512-bit port's whole
-  capacity -- so the kernel's last beat comes after the array's last sum.
-
-## The baselines
-
-### The Dato paper's design
-
-**Not simulated yet.** Its builds pass C simulation at every size and were
-stopped before their RTL simulations finished, so it has no rows above; this
-is how it is built and what was found on the way.
-
-`scripts/dato_gen.py` holds the design as text: the listing of the paper's
-appendix A, which this repository has as
-`tests/dataflow/test_multi_cache_gemm.py`, with the array size and the GEMM
-filled in. Two loaders read a tile's packed operands from memory, an (S + 2)
-x (S + 2) grid of kernels passes them along its first row and column and
-collects each column's packed results along its last row, and a store writes
-them. The stream depths are the appendix's: 4 on the three memory-side
-streams and the default, 2, on the rest (the test file has 1,024 on all of
-them). Before emitting, the generator runs the design on Allo's dataflow
-simulator against numpy at twice the array's side.
-
-Three things about it should be read with its rows when they are there.
-
-- **It is built as one flat region.** The test file wraps the region in a
-  kernel of a second one. Built that way, Vitis HLS 2023.2 inlines the 309
-  kernels into the inner region and applies no dataflow to it, so they run
-  one after another: its own report gives 2,853,905 cycles for 128^3
-  (`dato/S16_W128/report/nested_form_top_csynth.rpt`), and at these stream
-  depths they would wait on each other for ever. Written flat, the tool makes
-  each kernel a process, 310 of them.
-- **It sums in int8.** Its cell is `c: int8 = 0 ... c += a * b` and its results
-  are stored as int8, a column a token. The other three designs sum int8
-  products into int32. That changes nothing in the cycle counts -- the loop is
-  the same loop -- but its area is not that of an int32 array, and it moves a
-  quarter of the result bits. Its testbench checks it against numpy's product
-  wrapped to int8.
-- **At 64^3 it is built with `config_compile -pipeline_loops 32`.** The design
-  carries no pipeline pragma, and Vitis HLS pipelines a loop itself only above
-  64 steps. At 64 on a side the cell's loop is exactly 64, so left alone the
-  tool pipelines the tile loop around it and unrolls the 64 steps in each of
-  the 256 cells (`dato/S16_W64/report/default_threshold.txt`). With the
-  threshold at 32 it treats that loop as it treats the longer ones at the
-  other four sizes, which are built with no setting at all.
-
-### AutoSA
-
-AutoSA's design for the same array -- `space_time[3]`, one multiplier a cell
-(`simd[1]`) -- generated the way its own examples are: with `--host-serialize`,
-the array partitioned in K as well (`array_part[4S, 4S, Kt]`: 64 steps a part,
-32 at 64^3) and with latency hiding (`latency[4,4]`). Its host program is E1's
-with operands that span int8.
-
-Latency hiding is AutoSA's name for giving a cell several results to work on
-in turn. Here a cell keeps 16 sums in a small memory, a tile is 64 x 64
-results and takes 16 W cycles. The cells and their one multiplier each are
-the same, and so is the peak.
-
-Every matrix multiplication in AutoSA's repository sets these three things --
-`docs/examples/mm.rst` has `array_part[16,16,16]` and `latency[8,8]`, and its
-three published 1,024^3 designs `latency[20,16]`, `[16,16]` and `[11,32]` --
-and this experiment's first runs set none of them. Every build made on the way
-to the rows above, cycles first memory beat to last:
-
-| GEMM | `--host-serialize` | `array_part` | `latency` | Cycles | Of the peak | Folder |
-|---|---|---|---|---:|---:|---|
-| 64^3 | no | 16,16,64 | 1,1 | 11,714 | 8.7% | `autosa/S16_W64` |
-| 64^3 | yes | 16,16,16 | 1,1 | 4,759 | 21.5% | `autosa_wide/S16_W64_k16` |
-| 64^3 | yes | 16,16,32 | 1,1 | 4,751 | 21.6% | `autosa_wide/S16_W64_k32` |
-| 64^3 | yes | 32,32,32 | 2,2 | 4,223 | 24.2% | `autosa_wide/S16_W64_k32_l2` |
-| 64^3 | yes | 64,64,32 | 4,4 | 2,672 | 38.3% | `autosa_wide/S16_W64` |
-| 64^3 | yes | 32,64,32 | 2,4 | 2,587 | 39.6% | `autosa_wide/S16_W64_k32_l2x4` |
-| 64^3 | yes | 16,64,32 | 1,4 | 2,316 | 44.2% | `autosa_wide/S16_W64_k32_l1x4` |
-| 128^3 | no | 16,16,128 | 1,1 | 46,641 | 17.6% | `autosa/S16_W128` |
-| 128^3 | yes | 64,64,64 | 4,4 | 9,880 | 82.9% | `autosa_wide/S16_W128` |
-| 256^3 | no | 16,16,256 | 1,1 | 186,065 | 35.2% | `autosa/S16_W256` |
-| 256^3 | yes | 16,16,32 | 1,1 | 74,625 | 87.8% | `autosa_wide/S16_W256_k32` |
-| 256^3 | yes | 16,16,128 | 1,1 | 74,110 | 88.4% | `autosa_wide/S16_W256_k128` |
-| 256^3 | yes | 64,64,64 | 4,4 | 67,532 | 97.0% | `autosa_wide/S16_W256` |
-| 512^3 | yes | 64,64,64 | 4,4 | 528,700† | 99.2% | `autosa_wide/S16_W512` |
-
-- **`--host-serialize` is most of it.** Without the flag each result is its
-  own memory write, 2.8 cycles apart: 11,600 of the 11,714 cycles at 64^3.
-  With it the results leave packed, 16 to a beat.
-- **K has to be tiled for the serialised design to be correct.** The first
-  runs left K whole, `array_part[S, S, W]`, as the other designs treat it.
-  AutoSA then keeps a row tile's A across the column tiles, and its generated
-  reader takes one copy of A a row tile (64 beats at 64^3) where its generated
-  serialiser hands over one a tile (256). That design fails its own C
-  testbench with 3,072 of 4,096 results wrong, and in RTL the simulation's
-  deadlock monitor stops it (`autosa_wide_whole/S16_W64/report/`). With K
-  tiled the two agree. It is why the flag was missing from the first runs.
-- **Latency hiding is what the drain needs.** With one sum a cell the drain
-  cannot pack, and a tile's 256 sums leave one a beat down one chain: about
-  300 cycles a tile however long the tile computes. That is 4.6 times the
-  peak at 64^3, where a tile is 64 cycles of work, and 88% of it at 256^3.
-  With `latency[4,4]` the chain carries four sums a beat and a tile is 16
-  times as long, which is enough from 256^3 up and not below it.
-- **Its other shapes change little at 64^3**: `latency[1,4]` and `[2,4]`,
-  which also pack four sums a beat, take 13% and 3% fewer cycles. The rows use
-  the square one, as AutoSA's examples do.
-
-**Latency hiding costs AutoSA area and clock.** The generated design declares
-every local buffer block RAM (`RAM_2P_BRAM`), and with latency hiding each
-cell, each cell's drain module and each row and column module has one of 4 or
-16 entries: 2,286 BRAM18 at 256^3. The drain modules and the links, now 128
-bits wide, are 116,000 of its 167,000 LUTs. It routes at 248 to 289 MHz. The
-`latency[1,1]` design routes at 320 MHz at 64^3 and 304 at 256^3 with 84,134
-and 91,264 LUTs and 46 BRAM18 (`autosa_wide/S16_W64_k32`, `S16_W256_k32`), so
-at 256^3 it does more operations a second than the rows' configuration, 137
-billion against 124, and at 64^3 fewer, 35 against 57.
-
-**AutoSA's published design shows the same thing when its K is cut.** Its
-documentation gives three designs of about 1,024^3 measured on a U250
-(`docs/examples/mm_int8_large.rst`, `mm_int16_large.rst`, `mm_large.rst`):
-int8 on 192 cells of 64 multipliers each (`array_part[264,256,64]`,
-`latency[11,32]`, `simd[64]`), 0.303 ms at 300 MHz, 7.3 trillion operations a
-second; int16 on 256 cells of 32, 0.625 ms at 261 MHz; and float on 208 cells
-of 8, 2.32 ms at 300 MHz. Taking the listed clock as the kernel's, those
-times are 99%, 80% and 94% of `I J K / multipliers` cycles, each array's
-peak. The int8 one was generated here by the documented command and simulated
-on a quarter of its K, 528 x 512 x 256 (`autosa_paper/`): it passes, and takes
-12,874 cycles for 5,632 cycles of work, 44% of its peak. A 264 x 256 block of
-its results computes for 1,408 cycles at that K and for 5,632 at the published
-1,024, which is what its drain needs to hide behind. The published problem
-itself was not simulated here.
-
-AutoSA's host program keeps its operands and results on the stack, 10 MB at
-1,024 on a side, so its cosimulation needs `ulimit -s unlimited`
-(`scripts/autosa_tiles2.sh`).
-
-### AutoSA through TAPA
-
-The same AutoSA design, generated with `--target=autosa_tapa` instead of
-`--target=autosa_hls_c`: E12's inputs, `--host-serialize`,
-`array_part[64,64,Kt]`, `latency[4,4]`, `simd[1]`. AutoSA's TAPA backend is from 2021; the changes it
-needs on TAPA 0.1.20250127 are E1's (`../e1_gemm/autosa_tapa/`) and touch only
-the kernel's signatures and the host. TAPA synthesizes each distinct task once
-(18 here) and wires its 598 instances in its own top-level RTL. The
-routing flow is E12's (`report/pnr.tcl`). Cycles are first memory beat to last
-at every size, counted by a beat counter in TAPA's own testbench
-(`../e1_gemm/autosa_tapa/scripts/fastcosim_beats.sh`), so no row has a dagger;
-TAPA's host checks C against AutoSA's golden model, and every size passes.
-
-It is slower than the Vitis HLS build at every size, on clock and on cycles:
-
-| GEMM | Clock, HLS / TAPA | Cycles, HLS / TAPA | GOP/s, HLS / TAPA | BRAM18, HLS / TAPA |
-|---|---:|---:|---:|---:|
-| 64^3 | 289 / 258 MHz | 2,672 / 3,335 | 56.7 / 40.5 | 1,838 / 3,374 |
-| 128^3 | 255 / 228 MHz | 9,880 / 10,991 | 108.4 / 87.2 | 2,286 / 4,032 |
-| 256^3 | 250 / 229 MHz | 67,532 / 68,295 | 124.1 / 112.7 | 2,286 / 4,032 |
-| 512^3 | 248 / 218 MHz | 528,700† / 529,391 | 125.8 / 110.4 | 2,286 / 4,032 |
-
-- **Block RAM fills the device from 128^3.** AutoSA's TAPA code types its
-  data `tapa::vec_t<char, 32>` and `<char, 64>` (`kernel_kernel.h`) where the
-  Vitis HLS code has `ap_uint<256>` and `<512>`, and HLS splits an array of
-  `vec_t` into one memory a byte lane. Each local buffer, declared
-  `RAM_2P_BRAM`, becomes 32 or 64 block RAMs of 4 x 8 bits, so a row module
-  takes 64 BRAM18 at 64^3 and 128 from 128^3, against 16 and 30 in the
-  Vitis HLS build (`report/util_hier.rpt` of both). From 128^3 the design
-  asks for about 5,400 BRAM18 (`report/*_csynth.rpt`) and the device has
-  4,032: Vivado gives nearly all of them to the row and column modules and
-  builds the cells' and drain modules' memories in LUTs.
-- **The worst paths run through those memories.** At 64^3 it is a FIFO's
-  write into one of a row module's 64 RAMs, 3.36 ns of its 3.60 ns in
-  routing; at 512^3 a read out of one of 128 through the 64-to-1 lane
-  select (`report/timing.rpt`).
-- **The extra cycles are the result writes.** TAPA's result beats leave about
-  8.5 cycles apart at 64^3 and 128^3 where the Vitis HLS build's leave 5.6
-  and 7.4 (`report/beats.txt`), as in E1, where TAPA writes each result
-  beat as its own transaction. A long GEMM hides them behind its compute:
-  25% more cycles at 64^3, 1% at 256^3.
-- **It compiles 18 to 24 times faster:** `tapa compile` with 8 jobs,
-  analysis to the packed `.xo`, takes 106 to 120 s (`logs/compile_times.txt`), against
-  2,130 to 2,581 s for the Vitis HLS build's one `csynth_design`
-  (`autosa_wide/S16_W<side>/report/build.log`).
-
-A build with the buffers packed into one wide word was not made; it would
-depart from AutoSA's backend as it ships.
-
-#### With RapidStream
-
-RapidStream, TAPA's floorplanner, was run on the TAPA build's `.xo`
-(`scripts/autosa_tapa_rs.sh`). It splits a design over the device's slots, two
-columns by three SLRs on the U280, and adds pipeline registers to the FIFOs
-that cross between slots. Its configs are its defaults on its model of the
-whole chip, with the memory ports pinned to the bottom row of slots, where the
-HBM is (`autosa_tapa_rapidstream/source/`). The routing flow is the one above
-with RapidStream's floorplan (`S16_W64/generated/floorplan.xdc`, six soft
-pblocks) read after synthesis; `report/pblocks.txt` shows every slot holds its
-cells.
-
-**It finds a floorplan only at 64^3.** From 128^3 its own area estimate is
-5,422 BRAM18 and the device has 4,032 (`S16_W128/report/rs_floorplan.log`), so
-no split exists and it stops with "No solution found". At 64^3 the design is
-3,374 BRAM18, 84% of the device, and a floorplan was found once the limit on
-each slot was raised from 70% to 84%.
-
-**At 64^3 it routes at 311 MHz**, meeting the 3.333 ns target that neither
-the Vitis HLS nor the TAPA build meets:
-
-| 64^3 | Clock | Cycles | GOP/s | LUT | FF | BRAM18 |
-|---|---:|---:|---:|---:|---:|---:|
-| AutoSA | 289 MHz | 2,672 | 56.7 | 144,146 | 199,144 | 1,838 |
-| AutoSA (TAPA) | 258 MHz | 3,335 | 40.5 | 144,873 | 91,084 | 3,374 |
-| AutoSA (TAPA) + RapidStream | 311 MHz | not simulated | at most 48.9 | 158,916 | 139,966 | 3,374 |
-
-- **It is still slower than the Vitis HLS build.** At TAPA's 3,335 cycles,
-  311 MHz is 48.9 GOP/s; matching 56.7 would take 361 MHz. The cycles were not
-  simulated: elaborating RapidStream's RTL for TAPA's RTL simulation reached
-  115 GB and ran the build machine out of memory. TAPA's extra cycles are the
-  result writes, which RapidStream leaves as they are, and its registers add
-  latency, so the count is not expected to fall below 3,335.
-- **Its registers cost 14,043 LUTs (+10%) and 48,882 FFs (+54%)** over the
-  TAPA build; DSPs and block RAM are unchanged. Each slot's block RAM is 83 to
-  84% full (`report/util_pblocks.rpt`). The worst path is one LUT between two
-  registers in one of B's buffer modules (`B_IO_L2_in_4`), 2.97 of its 3.19 ns
-  in routing (`report/timing.rpt`).
-- **It takes hours.** RapidStream ran 6,538 s at 64^3, and 1,333 to 1,381 s to
-  fail at the other sizes (`logs/rs_results.txt`). Vivado took 2 h 58 min to
-  synthesize its RTL, 2,533 files, and 13,007 s for the whole routing run,
-  against 3,422 s for the TAPA build's.
-
-The shared July 2025 RapidStream ran it; the January 2025 install in `/opt`
-fails its license check. The configs in `source/` were written by the January
-install's generator, which leaves the wires between the two columns uncapped
-where the July one caps them at 40,320; the floorplan was not rerun with the
-July model. 64^3 was routed twice: the first run stopped in a report after
-routing, before its timing report, and `logs/pnr_results.txt` keeps both lines.
-
-### Allo
-
-Allo's library array, generated by E1's own script unchanged
-(`experiments/e1_gemm/allo/S16/source/e1_allo_gen.py`, which takes the
-workload's side): the library tiles M and N by the array and runs the tiles
-one after another. C simulation runs three seeds; the cosimulation that is
-timed runs one launch.
-
-## How the numbers are defined
-
-- **Cycles** are first memory beat to last, as in E1 and E10. SPMW's kernel
-  testbench reports them; a baseline's come from a waveform of its
-  cosimulation (`scripts/beats.py`), which is a second run of the same
-  simulation. That second run was made up to 256 on a side. Above it a
-  baseline's count is its flow's own figure from start to done (the daggers),
-  which at the smaller sizes is more than first beat to last by
-  49 cycles in Allo's flow and 71 to 78 in AutoSA's.
-- **The peak** is `W^3 / S^2` cycles: one multiply-add a cell a cycle, no
-  fill, no drain. An S x S array takes about 2S cycles to fill and S to
-  drain, so nothing reaches 100%, and a short GEMM on a large array is the
-  furthest from it: 64^3 on 32x32 is 256 cycles of work.
-- **Operations a second** count two a multiply-add, as the Dato paper does,
-  at the period each design routed to: `2 W^3 / (cycles x period)`.
-- **BRAM18** is twice the block RAM tiles.
+The tree before this folder was cut to what the paper uses is commit
+`c20b2ee8` (`experiments/e12_gemm_tiles/`).
 
 ## Reproducing
 
-Everything was built on brg-zhang-xcel with Vitis HLS and Vivado 2023.2.
+On brg-zhang-xcel; the drivers work under `/scratch/hc676/e16_tiles`.
 
-    scripts/spmw_tiles.sh <S> <W> cosim       # SPMW array: one GEMM in RTL
-    scripts/spmw_tiles.sh <S> 64 pnr          # SPMW array: route (once a size)
-    scripts/spmw_tiles_kernel.sh <S> package  # SPMW kernel: once a size
-    scripts/spmw_tiles_kernel.sh <S> sim <W>  # SPMW kernel: one GEMM in RTL
-    scripts/spmw_tiles_kernel.sh <S> pnr      # SPMW kernel: route
-    scripts/spmw_all.sh                       # all of the above, in a safe order
-    scripts/dato_tiles.sh <S> <W>             # runs dato_gen.py first
-    KTILE=64 LAT=4 scripts/autosa_tiles2.sh <S> <W> wide   # KTILE=32 at 64^3
-    scripts/autosa_tiles.sh <S> <W> narrow                 # AutoSA's first runs
-    scripts/autosa_pub.sh mm_int8 528 512 256              # its published design, K cut
-    scripts/autosa_tapa_gen.sh <W> <Kt>   # AutoSA -> TAPA, fixes, software sim (Kt 32 at 64^3, else 64)
-    scripts/autosa_tapa_all.sh            # compile, RTL simulation and routing of all four
-    scripts/autosa_tapa_collect.sh        # stages autosa_tapa/ from those builds
-    scripts/autosa_tapa_rs_config.py      # RapidStream's inputs: /opt/rapidstream/rapidstream <it>
-    scripts/autosa_tapa_rs_compile.sh <W> 8   # the TAPA .xo again, in RapidStream's tree
-    scripts/autosa_tapa_rs.sh <W> 4       # floorplan and pipeline (4 jobs)
-    scripts/autosa_tapa_rs_pnr.sh 64      # route with its floorplan
-    scripts/autosa_tapa_rs_collect.sh     # stages autosa_tapa_rapidstream/
-    scripts/allo_tiles.sh <S> <W>
-    scripts/lane.sh <driver> <S> <max> <W>... # builds one after another, memory checked
-    scripts/collect_tiles.sh                  # stages this folder's shape from the builds
-    python3 scripts/make_results.py           # results.csv and the tables above
+    scripts/spmw_tiles_kernel.sh 16 package       # the one SPMW build
+    scripts/spmw_tiles_kernel.sh 16 sim <W>       # one GEMM in RTL, a beat a cycle
+    scripts/spmw_tiles_kernel.sh 16 pnr           # route, movers and control included
+    KTILE=32 LAT=4 scripts/autosa_tiles2.sh 16 64 wide   # KTILE=64 at W = 128, 256, 512
+    scripts/allo_tiles.sh 16 <W>
+    scripts/lane.sh <driver> 16 <max> <W>...      # builds one after another, memory checked
+    scripts/when_free.sh <GB> <cmd>, scripts/stagger.sh <GB> <gap> <cmd>...   # start builds as memory allows
+    scripts/collect_tiles.sh                      # stages this folder from the builds
+    python3 scripts/make_results.py               # results.csv and the tables, GOP/s uncapped
 
-A 32x32 baseline build takes 40 GB for its first minutes and 14 to 29 GB for
-hours at its end. `lane.sh` exists because five of them started together asked
-for more memory than the machine has.
+The machine is shared and a baseline build can take tens of GB; `lane.sh`,
+`when_free.sh` and `stagger.sh` start builds only as memory allows.

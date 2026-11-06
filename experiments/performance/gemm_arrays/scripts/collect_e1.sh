@@ -1,18 +1,19 @@
 #!/bin/bash
+# Copyright Allo authors. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 # Stage exactly what reproduces the matched E1 table, one shape for every
 # framework:  <framework>/<size>/{source,generated,report}
 set -u
 STAGE=/scratch/hc676/e1_stage
 rm -rf $STAGE
 for S in 4 8 16 32; do
-  # ---- SPMW: the mesh (array scope) and the kernel (memory scope) ----------
-  for V in mesh kernel; do
+  # ---- SPMW: the kernel (memory scope) ---------------------------------------
+  for V in kernel; do
     D=$STAGE/spmw_$V/S$S; mkdir -p $D/source $D/generated $D/report
-    if [ $V = mesh ]; then B=/scratch/hc676/e1_spmw_${S}_pnr; C=/scratch/hc676/e1_spmw_${S}_cosim
-    else B=/scratch/hc676/e1_spmwmem_${S}_pnr; C=/scratch/hc676/e1_memsim_${S}; fi
+    B=/scratch/hc676/e1_spmwmem_${S}_pnr
     # source: the design and the command that built it
     cp /scratch/hc676/allo/tests/dataflow/spmw/test_spmw_gemm_int8.py $D/source/ 2>/dev/null
-    [ $V = kernel ] && cp /scratch/hc676/allo/tests/dataflow/spmw/test_spmw_autosa_match.py $D/source/ 2>/dev/null
+    cp /scratch/hc676/allo/tests/dataflow/spmw/test_spmw_autosa_match.py $D/source/ 2>/dev/null
     # generated: one role's C++ and wrapper, and the assembled fabric
     for r in $(ls -d $B/pe_r0 $B/feed_r0 2>/dev/null | head -1); do
       cp $r/kernel.cpp $D/generated/$(basename $r).cpp 2>/dev/null
@@ -24,14 +25,9 @@ for S in 4 8 16 32; do
     # report: routed resources and timing, and the run that gave the cycles
     cp $B/util.rpt $B/timing.rpt $B/cost.json $D/report/ 2>/dev/null
     cp /scratch/hc676/e1_spmw_${S}_pnr.log $D/report/build_pnr.log 2>/dev/null
-    if [ $V = mesh ]; then
-      cp /scratch/hc676/e1_spmw_${S}_cosim.log $D/report/cosim.log 2>/dev/null
-      grep -hE "SPMW COSIM|SPMW CYCLES" $C/sim/xsim.log > $D/report/cycles.txt 2>/dev/null
-    else
-      cp /scratch/hc676/e1_memsim_${S}.sim.log $D/report/kernel_sim.log 2>/dev/null
-      grep -hE "SPMW TB" /scratch/hc676/e1_memsim_${S}.sim.log > $D/report/cycles.txt 2>/dev/null
-      cp /scratch/hc676/e1_memsim_${S}.package.log $D/report/package.log 2>/dev/null
-    fi
+    cp /scratch/hc676/e1_memsim_${S}.sim.log $D/report/kernel_sim.log 2>/dev/null
+    grep -hE "SPMW TB" /scratch/hc676/e1_memsim_${S}.sim.log > $D/report/cycles.txt 2>/dev/null
+    cp /scratch/hc676/e1_memsim_${S}.package.log $D/report/package.log 2>/dev/null
   done
   # ---- AutoSA, matched -----------------------------------------------------
   A=/scratch/hc676/e1_autosa_matched

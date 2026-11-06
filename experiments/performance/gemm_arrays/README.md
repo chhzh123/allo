@@ -1,442 +1,178 @@
-# E1: an S x S array computing S x S x S, in four designs
+# GEMM on D x D arrays, 4x4 to 32x32
 
-Every design here computes the same thing: `C = A B` for 8-bit signed inputs
-and 32-bit signed outputs, with `M = N = K = S`, on an array of S x S elements
-holding one multiplier each. Earlier runs did not do this; AutoSA was given a
-fixed 16-cubed problem while the others computed one S-cubed tile, so its
-launch did up to sixty-four times the arithmetic of the row beside it. These
-runs fix that, and `results.csv` is the table.
+Fig. 9(b) and Table 1 (GEMM rows) of the paper (arXiv version).
+
+Every design computes `C = A B` with int8 A and B and int32 C, `M = N = K = D`,
+on a D x D output-stationary array with one multiplier, one DSP, a cell, in
+one launch. Three systems: SPMW, AutoSA's generated design and Allo's library
+systolic array. Every row is **kernel scope**, memory port to memory port:
+each design has its own AXI masters and control interface; the host's layout
+of the operands, host communication and control traffic are outside it. All
+are built with Vitis HLS and Vivado 2023.2 for `xcu280-fsvh2892-2L-e` and
+routed out of context at 3.333 ns.
 
 ## Layout
 
-Every framework has the same shape, one directory per array size:
-
-    <framework>/S<size>/source/      what the framework was given
-    <framework>/S<size>/generated/   what it emitted
-    <framework>/S<size>/report/      the reports each number was read from
+    <system>/S<D>/source/      what the framework was given
+    <system>/S<D>/generated/   what it emitted
+    <system>/S<D>/report/      the reports the numbers are read from
 
 | Folder | Design |
 |---|---|
-| `spmw_mesh/` | the SPMW array with its boundary buffers, no memory interface |
-| `spmw_kernel/` | the same array packaged with its memory loaders and drain |
-| `autosa/` | AutoSA's generated design, its own memory interface included |
-| `autosa_tapa/` | the same AutoSA configurations through its TAPA backend (`--target=autosa_tapa`), with its own README |
-| `allo/` | Allo's library systolic array, its own memory interface included |
+| `spmw_kernel/S<D>/` | SPMW's array (`source/test_spmw_autosa_match.py`, registry name `autosa` in the repository's `scripts/spmw_build_array.py`) with a 512-bit memory mover on each of its three edge bindings and a control register file. `report/full_kernel/` is that kernel simulated and routed whole |
+| `autosa/S<D>/` | AutoSA as generated, narrow ports |
+| `autosa/S8_wide/` | AutoSA with `--host-serialize`, 512-bit ports, 8x8 |
+| `allo/S<D>/` | Allo's library systolic array (`source/allo_library_systolic.py`), wrapped and emitted by `source/e1_allo_gen.py`; `allo/S16/source/e1_allo_gen.py` also generates `../gemm_workloads/allo/` |
+| `results.csv` | one row a design and size (15 rows) |
+| `ALLO_PNR.md` | how Allo was routed, and its resources and timing at every size |
 
-`spmw_mesh` is the only **array-scope** row. The other three are **kernel
-scope**: they include each system's own memory interface, and those interfaces
-differ, which the last section explains.
+## Fig. 9(b): latency
 
-## Results
+Cycles from the first memory beat to the last (definitions below). AutoSA is
+its lower-latency build at each size: narrow at 4x4, wide at 8x8 and up.
 
-Cycles are **first memory beat to last memory beat**, one definition for every
-row: the control writes, the start bit and the polling or handshake that each
-flow's own testbench performs are all outside it. SPMW's testbench reports it
-directly; AutoSA's comes from a waveform of the same cosimulation snapshot,
-logging the same handshakes. Where a flow's own reported figure differs it is
-kept beside it, because the gap is the control traffic and is worth seeing.
-
-| Array | Design | Port in/out | Cycles | (flow reports) | LUT | FF | DSP | BRAM18 | Slack | Clock |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4x4 | SPMW mesh | streams | 16 | | 560 | 1,021 | 16 | 0 | +1.167 ns | 462 MHz |
-| | SPMW kernel | 512/512 | 47 | 66 | 1,867 | 2,516 | 16 | 0 | +1.301 ns | 492 MHz |
-| | AutoSA | 32/32 | 78 | 148 | 4,974 | 8,171 | 16 | 3 | +0.512 ns | 354 MHz |
-| | Allo | 32/32 | 118 | 167 | 3,693 | 4,459 | 16 | 3 | +0.625 ns | 369 MHz |
-| 8x8 | SPMW mesh | streams | 28 | | 2,225 | 4,301 | 64 | 0 | +0.996 ns | 428 MHz |
-| | SPMW kernel | 512/512 | 82 | 100 | 8,015 | 10,220 | 64 | 0 | +1.232 ns | 476 MHz |
-| | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
-| | **AutoSA, wide** | **512/512** | **130** | **202** | 15,343 | 25,536 | 64 | 23 | +0.738 ns | 385 MHz |
-| | Allo | 32/32 | 288 | 337 | 8,419 | 8,220 | 64 | 3 | +0.598 ns | 366 MHz |
-| 16x16 | SPMW mesh | streams | 52 | | 9,026 | 18,048 | 256 | 0 | +0.428 ns | 344 MHz |
-| | SPMW kernel | 512/512 | 133 | 152 | 32,756 | 40,732 | 256 | 0 | +0.541 ns | 358 MHz |
-| | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | 9 | +0.410 ns | 342 MHz |
-| | **AutoSA, wide** | **512/512** | **374** | **445** | 48,957 | 84,062 | 256 | 23 | +0.380 ns | 339 MHz |
-| 32x32 | SPMW mesh | streams | 100 | | 37,917 | 74,945 | 1,024 | 0 | +0.431 ns | 345 MHz |
-| | SPMW kernel | 512/512 | 280 | 298 | 137,741 | 163,708 | 1,024 | 0 | +0.529 ns | 357 MHz |
-| | AutoSA | 256/32 | 2,990 | 3,064 | 185,634 | 317,967 | 1,024 | 9.5 | +0.111 ns | 310 MHz |
-| | **AutoSA, wide** | **512/512** | **1,222** | **1,300** | 186,369 | 320,772 | 1,024 | 24 | +0.101 ns | 309 MHz |
-| | Allo | 32/32 | 3,408 | 3,457 | | | 1,024 | | | |
-
-Port width is read off each design's synthesised RTL
-(`C_M_AXI_*_DATA_WIDTH`), never assumed from the source.
-
-Slack is against a 3.333 ns target, routed out of context with nothing
-unrouted; the clock is the period that slack implies. `spmw_mesh` is the array
-alone and moves no memory beats, so its cycles are the array cosimulation's own
-count from first input token to last output token, which is the same idea one
-level in. Blank cells are builds still running or, for Allo, a cosimulation
-that does not complete in this tool version; none is an estimate.
-
-**Scope of the SPMW kernel row.** Its cycles are the packaged kernel's; its area,
-block RAM and clock were routed without the kernel's movers and control. The
-section at the end of this file gives the kernel routed whole.
-
-**Allo, re-measured.** Its rows now carry the same definition, from the same
-waveform method. An earlier note here said its cosimulation does not complete
-at 16x16 and 32x32 in this tool version; that was wrong. Both complete on a
-retry. What stalls is Vitis's deadlock-monitor step, "Generating RTL test
-bench", which hangs indefinitely and was killed by the driver's watchdog after
-35 minutes at 16x16; re-running the same cosimulation unchanged finished it in
-131 seconds. 32x32 took two retries and 1,127 seconds. Both stage logs are in
-`report/stages.txt`, including a correction one of those watchdogs wrote about
-itself.
-
-Two differences had to be removed to get there, and both had been inflating
-Allo's standing in the earlier table:
-
-- Its testbench runs **three seeds per launch**, and the shipped figure was the
-  *minimum* of the three (min 136, avg 146, max 167 at 4x4), where SPMW and
-  AutoSA each report a single launch. Later launches are faster because the
-  cosimulation's memory model is warm. The measurement build runs one seed;
-  4x4's flow-reported figure is therefore 167 rather than the 136 previously
-  recorded, and 8x8's is 337 rather than 306 (min 306, avg 316, max 337). The
-  single-launch figure equals that run's own maximum at both sizes, which is
-  the first launch: the later ones are the fast ones. The shipped three-seed
-  figures at the other sizes are 946/956/977 at 16x16 and 3426/3436/3457 at
-  32x32. The three-seed run
-  remains the correctness evidence.
-- First beat to last across three launches is not the quantity the other two
-  report, so the window had to come from a single-launch build regardless.
-
-## Gemmini, a published RTL baseline
-
-`gemmini/` holds UCB's Gemmini systolic mesh at the same four sizes, routed the
-same way. Gemmini's `Mesh`, `Tile` and `PE` import `chisel3` alone -- no
-rocket-chip, no RoCC, no DMA, no scratchpad -- so the array elaborates on its
-own, and the array is what `spmw_mesh` is. `source/` carries those files
-verbatim, the elaboration entry point and the exact command.
-
-| Array | Design | LUT | FF | DSP | Clock |
-|---|---|---:|---:|---:|---:|
-| 4x4 | SPMW mesh | 560 | 1,021 | **16** | 462 MHz |
-| | Gemmini WS mesh | 1,592 | 1,064 | **0** | 365 MHz |
-| 8x8 | SPMW mesh | 2,225 | 4,301 | **64** | 428 MHz |
-| | Gemmini WS mesh | 6,457 | 4,128 | **0** | 343 MHz |
-| 16x16 | SPMW mesh | 9,026 | 18,048 | **256** | 344 MHz |
-| | Gemmini WS mesh | 26,847 | 17,024 | **0** | 330 MHz |
-| 32x32 | SPMW mesh | 37,917 | 74,945 | **1,024** | 345 MHz |
-| | Gemmini WS mesh | 111,787 | 71,380 | **0** | 308 MHz |
-
-Across a 64-fold range of array size the lookup-table ratio is flat at 2.84,
-2.90, 2.97, 2.95, and **the register counts agree within 6 per cent at every
-size** -- 1.04, 0.96, 0.94, 0.95. Equal registers with a constant lookup-table
-gap and every SPMW multiplier in a DSP is one difference, not three: the arrays
-are structurally the same and the 8-bit multiply lands in fabric on one side
-and in a DSP block on the other. Vivado leaves a signed 8x8 multiply written in
-plain RTL below its inference threshold; the HLS path does not. This is the
-second RTL baseline to behave this way -- FEATHER does the same in E4 -- so it
-is a property of how the multiply is written, not of one baseline. **Do not
-read the lookup-table column here without the DSP column beside it.**
-
-SPMW's clock advantage is real and largest where the arrays are small: 462
-against 365 MHz at 4x4, narrowing to 345 against 308 at 32x32.
-
-### Cycles, and what the driver does and does not cover
-
-Gemmini's shipped `MeshWithDelaysUnitTest` does not compile against its own
-HEAD, so `source/MeshDriver.scala` drives the current `req`/`resp` interface
-instead. It checks every output against a golden matmul, which is what makes
-the cycle count worth anything: get the protocol wrong and the mesh emits
-well-formed rows of **zeros** with correct handshaking, correct row count and
-plausible timing. That happened three times before the driver was right. The
-specific trap is `MeshWithDelays` line 118 --
-
-    in_prop := io.req.bits.pe_control.propagate ^ in_prop
-
-`propagate` is XORed into the running state, so it is a *flip* flag rather than
-an absolute weight-register selector (Gemmini's ISA calls the op
-COMPUTE_AND_FLIP). Both the preload and the compute pass must set it.
-
-| Array | SPMW mesh | Gemmini WS, preload + compute | Gemmini WS, compute only |
-|---|---:|---:|---:|
-| 4x4 | 16 | 17 | 12 |
-| 8x8 | 28 | 33 | 24 |
-
-**The middle column is the comparable one.** SPMW's mesh is output-stationary
-and streams both operands in, so its figure already contains getting the
-weights on chip; Gemmini's compute-only window has them resident. The compute
-column is reported because it is a real quantity, not because it compares.
-
-One caveat stays attached to the sequence figure: this driver issues preload
-and compute serially, where Gemmini's `ExecuteController` can overlap the next
-tile's preload with the current tile's compute. So it is a fair single-matmul
-latency and an understatement of back-to-back throughput. 16x16 and 32x32 were
-still measuring when this was written.
-
-### Why the weight-stationary rows are the comparable ones
-
-Gemmini's output-stationary mode is also built here, and it is **not** a
-like-for-like area comparison. Its PE performs output requantisation that the
-weight-stationary PE does not and that SPMW's array does not have at all --
-four 32-bit variable shifts and round-to-nearest per PE:
-
-    wire [31:0] _io_out_c_point_five_T_3 = $signed(c1) >>> _io_out_c_point_five_T_2;
-    wire [31:0] _io_out_c_ones_digit_T   = $signed(c1) >>> shift_offset;
-
-The weight-stationary PE contains no shift at all. Barrel shifters on 32 bits
-are expensive in fabric, and that is the whole of the difference between
-Gemmini's own two modes, and it is near-constant with size: 4.54x, 4.49x,
-4.32x, 4.16x from 4x4 to 32x32 (1,592 against 7,235 lookup tables, 6,457
-against 28,982, 26,847 against 116,055, 111,787 against 465,002). SPMW requantises on the
-host (E3 records this), so charging Gemmini's OS rows against SPMW would bill
-it for arithmetic SPMW never performs -- and would turn a 2.9x gap into 12.9x.
-The OS rows are kept because they say what that mode costs, not as a
-comparison. The requantisation also costs the clock: OS meets timing at 4x4, 8x8 and
-16x16 with shrinking margin (+0.297, +0.112, +0.032 ns) and **misses it at
-32x32**, WNS -0.065 ns, where the weight-stationary mesh still closes with
-+0.083 ns. The same 32x32 OS mesh is 465,002 lookup tables, a third of the
-part.
-
-**Cycles are not measured for Gemmini.** Its shipped `MeshWithDelaysUnitTest`
-does not compile against its own HEAD -- it drives `io.s`, `io.tag_in`,
-`io.shift`, which the current `MeshWithDelays` has consolidated into `req` and
-`resp` -- and the last commit where test and source agree is the 2019 rename of
-the package. A cycle count would therefore come from a driver written here, and
-a correct but untuned driver understates the design it drives. That is the same
-kind of bias the interface work in this experiment removed, so the number is
-left out rather than reported unqualified.
-
-## The element is identical in all four
-
-The reduction loop is what has to pipeline, and every system pipelines it the
-same way. Read from the reports in each `report/` directory:
-
-| System | Loop | Latency | Iteration latency | Interval | Trip |
-|---|---|---:|---:|---:|---:|
-| SPMW | `l_S_k_0_k` | 11 | 5 | 1 | 8 |
-| AutoSA | `VITIS_LOOP_540_1` | 11 | 5 | 1 | 8 |
-| Allo | `l_reduction_k` | 11 | 5 | 1 | 8 |
-
-Eight iterations, one per cycle, five cycles deep, one multiplier. So no
-difference in the table above comes from the arithmetic.
-
-## Where the differences do come from
-
-**Operand delivery and result draining.** AutoSA builds an explicit multi-level
-network; SPMW moves results through the array itself. At 8x8 AutoSA instantiates
-64 elements, 64 per-element drain modules, 7 row drain aggregators, 14 operand
-distributors and 2 memory readers, so an operand crosses two levels to reach an
-element and a result crosses two more leaving. That is what lets AutoSA scale
-off-chip bandwidth independently of the array, and it costs latency, area and
-clock: 1.7 times the lookup tables and 2.2 times the registers of the SPMW
-kernel for the same 64 multipliers, block RAM where SPMW needs none, and 378 MHz
-against 476. Its cost also grows with the array, because the drain network grows
-as S squared while the arithmetic per element stays at eight cycles: 148, 292,
-859 against 66, 100, 152.
-
-**The memory port, which is not an array property.** The three systems reach
-DRAM through very different ports, and none of that is a property of the array:
-
-| | in | out |
-|---|---:|---:|
-| SPMW kernel | 512 b | 512 b |
-| AutoSA, as generated | S x 8 b | 32 b |
-| AutoSA, `--host-serialize` | 512 b | 512 b |
-| Allo | 32 b | 32 b |
-
-SPMW's width is structural: `BEAT = 512` in `allo/spmw/shell.py` is a constant
-that becomes the `ap_uint<512>` feeder port, not a synthesis ceiling -- setting
-`-m_axi_max_widen_bitwidth` to 32 still produced a 512-bit port. AutoSA's is a
-command-line knob: its `data_pack` bound is already 64 bytes, and it reaches it
-once `--host-serialize` lays the operands out in the order the array consumes
-them. That is the same assumption SPMW's shell already makes, in its own words:
-"The host lays each family's tokens out in the order its channels consume
-them." So the match is symmetric, and neither figure includes host-side layout.
-
-Widening AutoSA at 8x8 takes it from 8 + 8 + 64 beats to 1 + 1 + 4 -- the same
-six beats SPMW moves -- and from 222 cycles to 130, against SPMW's 82. Roughly
-half the gap was the port. The half that remains is the network above.
-
-4x4 cannot be widened at all: a 4x4 int8 operand is 16 bytes, less than one
-beat, so the packed loop's trip count is zero and AutoSA's bit-width shrinker
-divides by zero. It fails the same way at a 16- and a 32-byte bound, so it is
-the serializer rather than the pack size, and that row stays narrow.
-
-Allo is the narrowest of the three at 32 bits on all three ports, and its beat
-census is what that predicts: 4 + 4 + 16 at 4x4 and 16 + 16 + 64 at 8x8, so 96
-transactions where SPMW moves 6. It has not been rebuilt wide; unlike AutoSA it
-has no flag for this, because its ports come from `int8_t *` scalars and the
-width would have to come from Vitis's own widening.
-
-Its waveform also shows the operands loaded **sequentially** rather than
-together, and the gap grows with the array: A's beats land at 79-94 and B's at
-157-172 at 8x8, and at 79-142 and 349-412 at 16x16 -- 63 cycles apart, then
-207. `load_buf0` drains fully before `load_buf1` starts, where AutoSA fetches
-both at once. That serialization is a dataflow opportunity the generated code
-does not take, and it is a large part of the 288 and the 928.
-
-The census is exactly what the port widths predict at every size, and the
-ratio between the two is the ratio of their ports:
-
-| Array | Allo beats | SPMW beats | ratio |
-|---|---:|---:|---:|
-| 4x4 | 4 + 4 + 16 = 24 | 3 | 8x |
-| 8x8 | 16 + 16 + 64 = 96 | 6 | 16x |
-| 16x16 | 64 + 64 + 256 = 384 | 24 | 16x |
-| 32x32 | 256 + 256 + 1024 = 1,536 | 96 | 16x |
-
-16x is 512/32, the port-width ratio exactly. Only 4x4 differs, at 8x, because
-one 512-bit beat already holds more than the whole 16-byte operand there and
-SPMW cannot use less than one beat.
-
-The gap between A's and B's loads widens the same way -- 63 cycles at 8x8, 207
-at 16x16, 1,038 at 32x32 -- because each operand load is itself longer.
-
-The wide port is not free, which is the part worth reporting. Buying those 92
-cycles cost AutoSA 15 per cent more lookup tables, 11 per cent more registers
-and **4.6 times the block RAM** -- 23 tiles against 5 -- because the wider
-masters need the staging to match. Its clock moved the right way but barely,
-378 to 385 MHz. So at a matched 512-bit interface the comparison at 8x8 is:
-
-| Both at 512 bits | Cycles | LUT | FF | BRAM18 | Clock |
+| Array | SPMW | AutoSA | Allo | AutoSA / SPMW | Allo / SPMW |
 |---|---:|---:|---:|---:|---:|
-| 8x8 SPMW kernel | 82 | 8,015 | 10,220 | 0 | 476 MHz |
-| 8x8 AutoSA, wide | 130 | 15,343 | 25,536 | 23 | 385 MHz |
-| 16x16 SPMW kernel | 133 | 32,756 | 40,732 | 0 | 358 MHz |
-| 16x16 AutoSA, wide | 374 | 48,957 | 84,062 | 23 | 339 MHz |
-| 32x32 SPMW kernel | 280 | 137,741 | 163,708 | 0 | 357 MHz |
-| 32x32 AutoSA, wide | 1,222 | 186,369 | 320,772 | 24 | 309 MHz |
+| 4x4 | **47** | 78 (narrow) | 118 | 1.66x | 2.51x |
+| 8x8 | **82** | 130 (wide) | 288 | 1.59x | 3.51x |
+| 16x16 | **133** | 374 (wide) | 928 | 2.81x | 6.98x |
+| 32x32 | **280** | 1,222 (wide) | 3,408 | 4.36x | 12.17x |
 
-The wide port's own overhead is mostly fixed rather than proportional, which is
-visible once there are two sizes: it costs 15 per cent of the lookup tables at
-8x8, 3 per cent at 16x16 and 0.4 per cent at 32x32, and 23 to 24 block RAM
-tiles at every size, against 5, 9 and 9.5 narrow. The staging it adds is sized by the 512-bit port, not by the
-array. Its effect on the clock is small and not consistently signed: 378 to 385
-MHz at 8x8, 342 to 339 at 16x16.
+## Table 1: 32x32
 
-At 16x16 the same change takes AutoSA from 782 beats-cycles to 374 and from
-859 flow-reported to 445, again on exactly the arithmetic: 4 + 4 + 16 beats,
-the 24 SPMW moves. But the gap that survives the match *grows* with the array,
-1.6x at 8x8 and 2.8x at 16x16 against SPMW's 82 and 133, which is what a drain
-network growing as S squared predicts and a port width does not.
+Throughput is `2 D^3 f / (1000 L)` GOP/s at `f = min(300, f_routed)` MHz.
 
-Matching the port narrowed the cycle gap at 8x8 from 2.7x to 1.6x and widened
-the area gap: 1.9 times the lookup tables and 2.5 times the registers for the same 64
-multipliers, and block RAM where SPMW uses none. Both directions are the same
-cause -- SPMW's feeders write into the array's edge FIFOs, so a 512-bit port
-needs no staging behind it, while AutoSA's has to feed a level that then feeds
-another.
+| Design | Latency (cycles) | Throughput (GOP/s) | LUT | FF | DSP | BRAM18 | Freq. (MHz) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| SPMW | **280** | **70.22** | 147,551 | 193,953 | 1,024 | 46 | 330 |
+| AutoSA, wide | 1,222 | 16.09 | 186,369 | 320,772 | 1,024 | 48 | 309 |
+| Allo | 3,408 | 4.82 | 151,663 | 109,251 | 1,024 | 3 | 251 |
 
-**How the cycles are counted, now settled.** The table's first cycle column is
-one definition on both sides, so the control traffic that used to differ is no
-longer in it. Measuring it cost SPMW 19 cycles of apparent advantage at every
-size and AutoSA between 71 and 78, which is roughly what the earlier record
-guessed for AutoSA and had not accounted for at all on the SPMW side. The
-remaining gap is design and interface, not measurement.
+SPMW's row is `spmw_kernel/S32/report/full_kernel/` (cycles in `cycles.txt`,
+resources in `util.rpt`, slack +0.302 ns in `timing.rpt`). AutoSA's and Allo's
+are `results.csv`; Allo's reports are `allo/S32/report/ooc_*`. Allo misses
+timing at WNS -0.657 ns: its worst path starts at the result-store loop's
+start register and fans out over a 1,077-load net into a LUTRAM result buffer
+(`buf2`), 3.890 ns with 90% in routing.
+
+## Every row
+
+| Array | Design | Port in/out | Cycles | Flow reports | LUT | FF | DSP | BRAM18 | Slack | Clock |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4x4 | SPMW | 512/512 | 47 | 66 | 6,548 | 11,104 | 16 | 46 | +0.313 ns | 331 MHz |
+| | AutoSA | 32/32 | 78 | 148 | 4,974 | 8,171 | 16 | 3 | +0.512 ns | 354 MHz |
+| | Allo | 32/32 | 118 | 167 | 3,703 | 4,459 | 16 | 3 | +0.720 ns | 383 MHz |
+| 8x8 | SPMW | 512/512 | 82 | 100 | 12,833 | 19,944 | 64 | 46 | +0.475 ns | 350 MHz |
+| | AutoSA | 64/32 | 222 | 292 | 13,393 | 22,924 | 64 | 5 | +0.690 ns | 378 MHz |
+| | AutoSA, wide | 512/512 | 130 | 202 | 15,343 | 25,536 | 64 | 46 | +0.738 ns | 385 MHz |
+| | Allo | 32/32 | 288 | 337 | 8,425 | 8,220 | 64 | 3 | +0.719 ns | 383 MHz |
+| 16x16 | SPMW | 512/512 | 133 | 152 | 38,507 | 53,682 | 256 | 46 | +0.500 ns | 353 MHz |
+| | AutoSA | 128/32 | 782 | 859 | 47,390 | 81,265 | 256 | 18 | +0.410 ns | 342 MHz |
+| | AutoSA, wide | 512/512 | 374 | 445 | 48,957 | 84,062 | 256 | 46 | +0.380 ns | 339 MHz |
+| | Allo | 32/32 | 928 | 977 | 32,480 | 28,780 | 256 | 3 | +0.343 ns | 334 MHz |
+| 32x32 | SPMW | 512/512 | 280 | 298 | 147,551 | 193,953 | 1,024 | 46 | +0.302 ns | 330 MHz |
+| | AutoSA | 256/32 | 2,990 | 3,064 | 185,634 | 317,967 | 1,024 | 19 | +0.111 ns | 310 MHz |
+| | AutoSA, wide | 512/512 | 1,222 | 1,300 | 186,369 | 320,772 | 1,024 | 48 | +0.101 ns | 309 MHz |
+| | Allo | 32/32 | 3,408 | 3,457 | 151,663 | 109,251 | 1,024 | 3 | -0.657 ns | 251 MHz |
+
+Port widths are each design's synthesised `C_M_AXI_*_DATA_WIDTH`, widest read
+master and the write master. SPMW's kernel routes report no routing errors
+(`full_kernel/route_status.rpt`).
+
+**SPMW's resources here are the kernel's, not `results.csv`'s.** The
+`spmw_kernel` rows of `results.csv` carry the kernel's cycles but the route of
+the array and its distribution chains alone, without the movers and control
+(`spmw_kernel/S<D>/report/util.rpt`, `timing.rpt`; `cost.json` lists 15 roles
+and no mover): 1,867 to 137,741 LUTs, no block RAM, 357 to 492 MHz. That
+route's `cost.json` is also where Fig. 13(a)'s SPMW build times come from
+(`../../compilation/compile_time/build_time/`). Routed whole, the memory side
+adds 4,681, 4,818, 5,751 and 9,810 LUTs and 8,588, 9,724, 12,950 and 30,245
+FFs from 4x4 to 32x32, and 46 BRAM18 at every size, all of it in the three
+movers (`full_kernel/util_hier.rpt`: 8, 7 and 7 RAMB36 and two RAMB18). Wide
+AutoSA's 46 to 48 are its 512-bit masters too.
+
+**AutoSA's narrow BRAM18 at 4x4 and 8x8** are read from `report/util.rpt`:
+1.5 and 2.5 tiles, 3 and 5 BRAM18. `results.csv` holds 6 and 10 for them,
+doubled once more than the reports say. The paper does not use these cells.
+
+## Definitions
+
+- **Cycles** are first memory beat to last memory beat of one launch, any
+  master, counted on rising clock edges where VALID and READY are both high.
+  The paper calls it latency from the first input-memory transfer through the
+  final result write. SPMW's kernel testbench reports it
+  (`full_kernel/cycles.txt`, `SPMW TB DATA`); a baseline's comes from a
+  waveform of the same cosimulation snapshot (`scripts/beats.py`). The
+  baselines' beat counts are in `results.csv`; the waveforms were not kept.
+- **Flow reports** is each flow's own start-to-done figure: SPMW's testbench
+  start to its done poll at a 4 ns simulation clock, the baselines' Vitis
+  cosimulation report (`kernel0_cosim.rpt`, Allo's `gemm_cosim_1launch.rpt`).
+  The difference is control traffic. The paper uses the first column.
+- **Clock** is `1000 / (3.333 - WNS)` MHz, from the out-of-context route.
+- **BRAM18** is twice the Block RAM tiles of `report_utilization`.
+
+## The designs
+
+- **SPMW.** A and B each enter, one packed vector a step, at the head of a
+  chain of feed units, each of which keeps its row's or column's lane; each
+  cell's result leaves down its column, its own first and then those from
+  above, to a third mover. The kernel bench memory returns a read beat every other cycle within a burst
+  (the repository's `scripts/spmw_kernel_sim.py`, default `--beat 2`), where the baselines'
+  cosimulation memories return one a cycle.
+- **AutoSA**, `space_time[3]`, `array_part[D,D,D]`, `latency[1,1]`, `simd[1]`
+  (`scripts/gen_matched.sh`; `source/kernel.h` sets `I = J = K = D`). As
+  generated its read ports are D bytes wide and its write port 32 bits.
+  `--host-serialize` (`scripts/gen_wide.sh`) lays the operands out in the
+  order the array reads them and widens all three to 512 bits. 4x4 cannot be
+  widened: its 16-byte operand is less than one beat, and AutoSA's serializer
+  fails on it, so 4x4 stays narrow.
+- **Allo.** The library unfolds the PE grid and streams A and B between PEs,
+  but the top function calls `load_buf0`, `load_buf1`, `systolic_gemm` and
+  `store_res2` one after another with no dataflow region around them
+  (`generated/kernel.cpp`): all of A, then all of B, then the compute, then
+  all of C, through 32-bit ports. Cycles are from a one-seed launch
+  (`source/tb_1launch.cpp`, `report/gemm_cosim_1launch.rpt`); the three-seed
+  run (`report/gemm_cosim.rpt`) is the correctness check.
+
+AutoSA's and Allo's reduction loop is 8 steps at II = 1, 11 cycles at 8x8
+(`autosa/S8/report/PE_csynth.rpt`, `allo/S8/report/PE_kernel_gemm_0_0_csynth.rpt`);
+the paper states the same for SPMW, whose cell report is not kept here.
+
+## Not in this folder
+
+- **AutoSA's wide 16x16 and 32x32 builds**, the AutoSA points of Fig. 9(b) at
+  those sizes and Table 1's AutoSA row. Only their `results.csv` rows are
+  here; the builds are on brg-zhang-xcel in `/scratch/hc676/e1_autosa_wide`.
+- **Some AutoSA reports**: `autosa/S8_wide` and `autosa/S16` have HLS and
+  cosimulation reports but no routed ones, and `autosa/S32` has its source and
+  generated code only. Their resources are `results.csv`'s.
+
+The tree before this folder was cut to what the paper uses is commit
+`c20b2ee8` (`experiments/e1_gemm/`).
 
 ## Reproducing
 
-Each `source/` holds the input and, for AutoSA, the exact command in
-`autosa_command.txt`, including the space-time transform and the array
-partition. The three scripts that drove these runs are in `scripts/`.
+On brg-zhang-xcel; the drivers name their working directories under
+`/scratch/hc676`.
 
-## Rerun on the direct-MLIR compiler (2026-09-14)
+    # SPMW: package, simulate one launch, route the kernel whole (report/full_kernel/)
+    scripts/spmw_ws_kernel.sh <D> 4 autosa e1kernel
+    # AutoSA, narrow
+    scripts/gen_matched.sh          # generate D = 4, 8, 16, 32
+    scripts/hls_matched.sh <D>      # csynth and cosimulation
+    scripts/vcd_matched.sh <D>      # waveform, first and last beat (beats.py)
+    scripts/pnr_matched.sh <D>      # out-of-context route at 3.333 ns
+    # AutoSA, wide (D = 8, 16, 32; 4 fails in generation)
+    scripts/gen_wide.sh
+    scripts/hls_wide.sh <D>
+    # Allo
+    scripts/allo_retry.sh <D>       # allo_beats.sh (one-seed cosim) under a hang watchdog, then vcd_allo.sh
+    scripts/allo_ooc.sh <D>         # out-of-context route
+    scripts/allo_pnr.sh <D>         # Vitis export -flow impl; completes at 4x4 and 8x8 only (ALLO_PNR.md)
+    scripts/collect_e1.sh           # stages source/, generated/, report/ from the builds
 
-The compiler was refactored to build a design's program as `spmw` MLIR
-directly (`allo/spmw/lower_mlir.py`): each role and mover goes to Allo's IR
-builder as an in-memory AST and the `spmw.map` ops are built with the MLIR
-bindings, where before every role was rendered as an `allo.dataflow` Python
-program, written to disk, executed and traced back. The SPMW rows were rerun
-from the refactored tree with the same design sources and the same commands
-as the original runs -- `e1_spmw.sh`'s cosim mode for the mesh, `e1_memsim.sh`
-and `e1_memsim2.sh` for the memory-fed kernel -- by `e1_refactor.sh`; the logs
-are under `/scratch/hc676/spmw_refactor/e1` on brg-zhang-xcel.
-
-Every run passes and every cycle count is the recorded one:
-
-| Array | Mesh cosim, cycles (first out) | Kernel sim, data-beat cycles | Mesh frontend, before → after | Kernel frontend, before → after |
-|---|---:|---:|---:|---:|
-| 4x4 | 16 (10) | 47 | 1.0 s → 0.8 s | 4.3 s → 1.6 s |
-| 8x8 | 28 (14) | 82 | 1.2 s → 0.8 s | 5.1 s → 1.8 s |
-| 16x16 | 52 (22) | 133 | 1.4 s → 0.9 s | 7.5 s → 1.9 s |
-| 32x32 | 100 (38) | 280 | 2.4 s → 1.5 s | 7.2 s → 3.0 s |
-
-"Frontend" is the staging time the build scripts print: elaboration and
-per-role code generation, before any `vitis_hls` run -- nine roles for the
-mesh, fifteen roles and three feeders for the kernel. It is the only stage the
-refactor touches, and it is 1.5x to 2.7x shorter. The nine mesh roles
-synthesised in 80 to 86 s of wall clock (before: 80 to 105 s, on a busier
-machine); a role's generated C++ is identical to the recorded
-`spmw_mesh/S*/generated/pe_r0.cpp` except for the order of its stream
-parameters, which the wrapper maps by name. E5 re-measures the compilation
-time under its own protocol (`e5_compile/README.md`).
-
-The mesh was then taken through place and route at 300 MHz with the same
-command as the original `pnr` runs (`e1_pnr_refactor.sh`):
-
-| Array | LUT | FF | DSP | Slack | Clock | Recorded row |
-|---|---:|---:|---:|---:|---:|---|
-| 4x4 | 560 | 1,021 | 16 | +1.167 ns | 462 MHz | identical |
-| 8x8 | 2,225 | 4,301 | 64 | +0.996 ns | 428 MHz | identical |
-| 16x16 | 9,026 | 18,048 | 256 | +0.428 ns | 344 MHz | identical |
-| 32x32 | 37,846 | 74,953 | 1,024 | +0.382 ns | 339 MHz | 37,917 / 74,945 / +0.431 ns / 345 MHz |
-
-Three of the four routed arrays are the recorded ones to the lookup table
-and the picosecond. At 32x32 the netlist differs in the order of each role's
-stream ports, which is enough for Vivado to place a 1,024-cell array a little
-differently: 0.2 per cent fewer lookup tables, 8 more registers, and 49 ps
-less slack, within the run-to-run movement a design of that size shows. Every
-array routed with nothing unrouted.
-
-## Scope correction, 2026-10-11: what the SPMW kernel row was routed with
-
-The `SPMW kernel` row's lookup tables, registers, block RAM and clock in the
-table above were routed without the kernel's memory side. They come from
-`spmw_build_array.py --pnr` of the array and its distribution chains
-(`spmw_harness`; `spmw_kernel/S*/report/cost.json` lists 15 roles and no
-mover), while the AutoSA and Allo rows are routed with their AXI masters and
-control interface. **The cycle counts are unaffected**: they come from the
-packaged kernel's simulation, which has the movers in it.
-
-Routed as a kernel -- the same roles, the three 512-bit movers and the control
-register file, by the recipe `pnr_matched.sh` uses for AutoSA
-(`experiments/e10_gemm_ws/scripts/spmw_ws_kernel.sh <S> 4 autosa e1kernel`;
-reports in `spmw_kernel/S*/report/full_kernel/`):
-
-| Array | LUT, as tabled | FF | BRAM18 | Clock | LUT, as a kernel | FF | BRAM18 | Slack | Clock |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4x4 | 1,867 | 2,516 | 0 | 492 MHz | 6,548 | 11,104 | 46 | +0.313 ns | 331 MHz |
-| 8x8 | 8,015 | 10,220 | 0 | 476 MHz | 12,833 | 19,944 | 46 | +0.475 ns | 350 MHz |
-| 16x16 | 32,756 | 40,732 | 0 | 358 MHz | 38,507 | 53,682 | 46 | +0.500 ns | 353 MHz |
-| 32x32 | 137,741 | 163,708 | 0 | 357 MHz | 147,551 | 193,953 | 46 | +0.302 ns | 330 MHz |
-
-The memory side -- the movers, the launch-deep buffers they write into and
-the control interface -- adds 4,681, 4,818, 5,751, 9,810 lookup tables and
-8,588, 9,724, 12,950, 30,245 registers from the smallest array to the largest,
-and 46 block RAMs at every size, so the correction is proportionally largest
-where the array is smallest. What it changes below:
-
-- **Block RAM.** "Block RAM where SPMW needs none" and the 0 in the "Both at
-  512 bits" table are the movers missing from the route. With them the SPMW
-  kernel has 46 at every size, the same 46 to 48 as wide AutoSA: they are the
-  512-bit AXI masters in both, not staging one system needs and the other
-  does not.
-- **Clock.** 476 MHz against AutoSA's 378 at 8x8 was the array's clock against
-  a kernel's. The SPMW kernel closes at 331, 350, 353, 330 MHz.
-- **Area against wide AutoSA.** Same 512-bit ports on both sides:
-
-| Array | AutoSA wide, LUT | FF | AutoSA / SPMW as tabled (LUT, FF) | as a kernel | Clock |
-|---|---:|---:|---:|---:|---:|
-| 8x8 | 15,343 | 25,536 | 1.9x, 2.5x | 1.2x, 1.3x | 385 against 350 MHz |
-| 16x16 | 48,957 | 84,062 | 1.5x, 2.1x | 1.3x, 1.6x | 339 against 353 MHz |
-| 32x32 | 186,369 | 320,772 | 1.4x, 2.0x | 1.3x, 1.7x | 309 against 330 MHz |
-
-- **Area against AutoSA as generated, 8x8.** "1.7 times the lookup tables and
-  2.2 times the registers" becomes 1.04 and 1.15.
-- **Area against Allo, 16x16** (`ALLO_PNR.md`). Allo's kernel is 16% smaller
-  in lookup tables and 46% smaller in registers than the SPMW kernel, not
-  0.8% and 29%.
-
-The mesh rows, the cycle comparisons, the port-width analysis and the Gemmini
-section do not involve the kernel's route and stand as written.
-
-## Simulation time, 2026-10-22
-
-`SIM_TIME.md` times the mesh's design three ways, on the same machine in one
-session. From nothing compiled, SPMW's parallel OpenMP simulator takes 1.1 to
-92 seconds from 4x4 to 32x32, Vitis HLS's own C simulation of the HLS code
-SPMW emits 7.9 to 15.2, and the RTL cosimulation through Vivado 188 to 243 end
-to end with HLS (38 to 50 for its cosimulation steps). Run again once
-compiled, the simulator takes 0.002 to 1.5 seconds and Vitis's compiled C
-simulation 0.005 to 0.054. The simulator is the faster cold up to 16x16 only,
-and hot at 4x4 only.
+`vcd_matched.sh` and `pnr_matched.sh` name the narrow builds' directory
+(`/scratch/hc676/e1_autosa_matched`); the wide builds were measured by the
+same recipe on theirs, and no separate driver for that is kept. `collect_e1.sh`
+does not stage `report/full_kernel/`, `autosa/S8_wide/`, Allo's `ooc_*` or
+one-launch reports.

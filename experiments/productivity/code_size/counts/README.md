@@ -1,4 +1,7 @@
-# E7: design-only source size, HLS against SPMW, counted language-aware
+# Counting rule and records
+
+The method behind Table 3 (arXiv version); which cells come from here is in
+[`../README.md`](../README.md).
 
 `scripts/spmw_loc2.py` (in the Allo tree, with fixtures and 22 tests in
 `tests/dataflow/spmw/test_spmw_loc2.py`) counts a physical line when it holds
@@ -23,15 +26,17 @@ on both sides and not reported.
 ## What is here
 
 - `loc_recount_2026-09-06/` -- the main recount: `manifest.json` (what each row
-  selects, by symbol), `counts.json`, `counts.md` (the tables), 
-  `included_files.txt` (a sha256 per file and per selected range),
-  `counter_sha256.txt` and an archived copy of the counter.
+  selects, by symbol), `counts.json` (each file's and each selected range's
+  sha256, and the counter's), `counts.md` (the tables and per-design notes).
+  The counter is `../scripts/spmw_loc2.py`. The `included_files.txt` and
+  `counter_sha256.txt` this list once named were never committed; `--included`
+  regenerates the first, and the hash is in `counts.json` and `counts.md`.
 - `fft_folded/` -- the FFT addendum, added once both sides had the same folded
-  architecture: HP-FFT's one-sample-per-cycle kernel (`n256/UF1`, checkout
-  c4611b8) against the SPMW delay-feedback pipeline.
-- `results.csv` / `results.json` -- one row per design, both sides' design and
-  config counts and their ratio; rows whose HLS side has no counterpart carry
-  status `unsupported` with the reason.
+  architecture: HP-FFT's `n256/UF1` kernel (checkout c4611b8, two samples a
+  cycle) against the SPMW single-path delay-feedback pipeline (one).
+- `../results.csv` -- the three rows Table 3 uses, both sides' design and
+  config counts and their ratio; FEATHER, with no HLS counterpart, carries
+  status `unsupported`.
 
 ## Why these numbers differ from the archived ones
 

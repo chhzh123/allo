@@ -1,119 +1,125 @@
-# E9 simulation time: the programmable mini-TPU's long programs
+# Fig. 13(c), arXiv version: simulating the 16x16 mini-TPU
 
-E1 measures how long it takes to simulate a design whose launch is 16 to 100
-cycles (`../e1_gemm/SIM_TIME.md`). This is the other end: the programmable
-mini-TPU of this experiment (`ptpu`, `tests/dataflow/spmw/test_spmw_ptpu.py`)
-running the two programs E9 cosimulated, whose launches are 65 thousand to
-3.7 million cycles -- the longest simulations in any of these experiments.
+How long the stream-fed programmable mini-TPU of Section 6.1.2 takes to
+simulate one long program, three ways: SPMW's OpenMP simulator (`spmw.build(..., target="simulator")`,
+one thread a unit), Vitis HLS's C simulation of the HLS code SPMW emits
+(`csim_design` with its defaults), and RTL simulation of the assembled array in
+xsim (`scripts/spmw_build_array.py --design ptpu-<program> --cosim`). Measured on
+brg-zhang-xcel (48 threads, shared) on 2026-10-23, after the simulator fixes of
+`32d1db81` and with the FIFO depth floor of `6268c1d4`.
 
-| Program | 4x4 engine | 16x16 engine |
-|---|---:|---:|
-| LLaMA-3.2-1B's FFN gate and up projections | 1,048,590 cycles | 65,586 |
-| One DeepSeek-V4-Pro routed expert | 3,670,030 | 229,426 |
+## What is plotted
 
-Three ways, as in E1: SPMW's parallel OpenMP simulator
-(`spmw.build(..., target="simulator")`), Vitis HLS's own C simulation
-(`csim_design`, with its defaults, on the HLS code SPMW emits), and RTL
-cosimulation in xsim through `spmw_build_array.py --design ptpu-<program>
---cosim`, E9's own command.
+Execution time after compilation, seconds; medians, with the runs in brackets.
 
-Measured on brg-zhang-xcel (48 cores, shared) on 2026-10-23, after the
-simulator fixes of 32d1db81, two runs each by `scripts/e9_simtime.sh`; every
-run passes against the workload's golden, and every cosimulation counts the
-cycles E9 recorded. Raw records in `sim_time/`.
-
-## Functional simulation
-
-**Cold** is a fresh process from the design to checked results; **hot** runs
-an already-compiled simulation again.
-
-| Program | Cycles | Simulator, cold | Vitis csim, cold | **Simulator, hot** | **Vitis csim, hot** | Hot speedup |
+| Workload | RTL cycles | SPMW | Vitis HLS csim | xsim | csim / SPMW | xsim / SPMW |
 |---|---:|---:|---:|---:|---:|---:|
-| LLaMA, 4x4 | 1,048,590 | 12.8-13.1 s | 59.3-60.3 s | **1.75-1.83 s** | 40.7-42.8 s | **23x** |
-| DeepSeek, 4x4 | 3,670,030 | 40.4-41.7 s | 189.5-192.2 s | **6.34-6.35 s** | 143.3-150.3 s | **23x** |
-| LLaMA, 16x16 | 65,586 | 21.2 s | 50.1 s | **9.12-9.30 s** | 35.6 s | **3.9x** |
-| DeepSeek, 16x16 | 229,426 | 49.2-49.7 s | 145.3-147.6 s | **30.97-31.22 s** | 123.8-125.1 s | **4.0x** |
+| LLaMA | 65,586 | **1.934** (1.819, 2.049) | 35.57 (35.55-35.64) | 92.3 (92.1, 92.5) | **18.4x** | **47.7x** |
+| DeepSeek | 229,426 | **6.94** (5.765, 8.115) | 124.58 (123.84-125.11) | 329.85 (326.6, 333.1) | **18.0x** | **47.5x** |
 
-**On these programs the simulator wins outright**, cold and hot, at both
-sizes -- the opposite of E1, where a 16-cycle launch left it 2.3 times behind
-Vitis's C simulation at 32x32. A long launch is what it is for: the FIFOs
-stay busy, so a thread rarely waits.
+| Column | Records | Field |
+|---|---|---|
+| SPMW | `depth/simulator.ndjson`, `size` 16, `depth_floor` 64: two rows a program | `rerun_s` |
+| Vitis HLS csim | `csim.ndjson`, `size` 16: two builds a program, two runs each | all four `hot_s` |
+| xsim | `cosim.ndjson`, `size` 16: two rows a program; raw logs `logs/cosim_S16_<program>_r<n>.log` | `cosim_steps_s.xsim` |
+| RTL cycles | `cosim.ndjson` and the logs' `SPMW CYCLES total=` | `cycles` |
 
-**The futex fix is what made the 4x4 engine fast.** Before 32d1db81 the same
-LLaMA program took 61.7 s hot; it now takes 1.79, **34 times shorter**
-(`sim_time/simulator_before_fix.ndjson`). At 16x16 the same fix was worth
-1.2 times (11.0-11.3 -> 9.1-9.3 s for LLaMA, 35.9-36.6 -> 31.0-31.2 for
-DeepSeek), for the reason the next section measures.
+## The workload
 
-## Why 354 threads buy only 4x
+`ptpu_workload(16, "llama")` and `ptpu_workload(16, "dsv4")` of
+`tests/dataflow/spmw/test_spmw_ptpu.py`, the programs `ptpu-llama` and
+`ptpu-dsv4`: one launch of the engine's instruction program computing the
+gate/up projection slice of an FFN, 64 tokens times 64 columns of each of
+`W_gate` and `W_up`, requantised to int8, with K = 2,048 (LLaMA-3.2-1B) or
+K = 7,168 (DeepSeek-V4-Pro). Operands are seeded random int8, so the outputs
+are not model inference. Every run checks all 8,192 outputs against the
+workload's golden.
 
-The simulator gives every unit a thread: 42 sections at 4x4 and 354 at 16x16
-(counted in the lowered IR -- 256 cells and the sequencer, 16 taps, 16 lanes
-and the loader and drain units). Normalising the work as **unit-cycles**,
-units times simulated cycles, and taking the cores actually busy as the run's
-CPU time over its wall time:
+The engine is stream-fed: 14 roles, 289 instances, 817 FIFOs at 16x16, the same
+hardware for every program (`ptpu/S16/report/same_hardware.txt`).
 
-| Case | Threads | Cores busy | Simulator | per core | Vitis csim (1 core) | Speedup | Efficiency |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| LLaMA, 4x4 | 42 | 32.5 | 24.6 M u-c/s | 0.76 M | 1.06 M u-c/s | 23.3x | **72%** |
-| DeepSeek, 4x4 | 42 | 32.4 | 24.3 M | 0.75 M | 1.05 M | 23.1x | **72%** |
-| LLaMA, 16x16 | 354 | 36.0 | 2.52 M | 0.070 M | 0.65 M | 3.9x | **11%** |
-| DeepSeek, 16x16 | 354 | 35.7 | 2.61 M | 0.073 M | 0.65 M | 4.0x | **11%** |
+## What each time is
 
-The two programs agree within 2% at each size, so this is a property of the
-engine and not of the workload.
+- **SPMW** (`rerun_s`): one process builds the simulator (`build_s`, 6.9 to
+  13.3 s), runs it once (`run_s`) and then again; the second, in-process call is
+  the plotted time. `ALLO_SIM_DEPTH=64` raises every channel to at least 64
+  entries in the simulator only. Results do not depend on it, it cuts blocking,
+  and it does not change the RTL. The plotted runs kept 36 to 40 cores busy
+  (`rerun_cpu_s / rerun_s`).
+- **Vitis HLS csim** (`hot_s`): `spmw.build(..., target="vitis_hls",
+  mode="csim")` writes the whole design as one `kernel.cpp`; `csim_design`
+  compiles its default debug `csim.exe` and runs it once; the plotted times are
+  two further runs of that `csim.exe`. They include process start-up and
+  reading the operands from a file. No call was reordered (`order.reordered`
+  is false).
+- **xsim** (`cosim_steps_s.xsim`): the xsim command alone. The frontend, HLS of
+  the 14 roles (6 at once), Vivado's elaboration of the array, testbench
+  generation, IP preparation, `xvlog` and `xelab` are timed apart and excluded.
+  It is cycle-accurate; the other two are functional only. Whole commands took
+  339.8 to 341.1 s (LLaMA) and 605.4 to 610.3 s (DeepSeek).
 
-- **At 4x4 the simulator is close to ideal.** 42 threads fit in 48 cores, a
-  thread sustains 0.75-0.76 M unit-cycles a second against Vitis's 1.06 M on
-  one core, and the speedup is about the number of cores busy.
-- **At 16x16 a thread does 10 times less useful work.** 36 cores are busy,
-  but they spend their time waiting rather than multiplying: 354 threads on 48
-  cores is 7.4 times oversubscribed, so a thread holding a core is often
-  spinning on a FIFO whose producer is not scheduled -- it runs out its spin,
-  sleeps on the futex, and the producer advances only when the OS next
-  schedules it. The accounting shows it: 331 s of CPU for 9.2 s of wall clock,
-  on 23 M unit-cycles that Vitis does on one core in 36 s.
+## Files
 
-So the limit is the oversubscription, not the thread count. Running several
-units per thread, so the thread count stays near the core count, is the fix
-that would address it -- the half of 32d1db81's second change that was not
-made. If 16x16 reached the 4x4 efficiency it would be about 25 times faster
-than Vitis's C simulation rather than 4.
+| Path | What |
+|---|---|
+| `depth/simulator.ndjson` | SPMW at 4x4, 8x8 and 16x16, depth floors 0 and 64, two runs each; the 16x16 floor-64 rows are plotted |
+| `csim.ndjson`, `cosim.ndjson` | Vitis csim and xsim at 4x4 and 16x16, two runs each; the 16x16 rows are plotted |
+| `depth/csim.ndjson`, `depth/cosim.ndjson` | the 8x8 supplement; `depth/logs/` has its driver log and the cosim logs (added in `207e07b1`) |
+| `logs/` | the 4x4 and 16x16 cosim logs and the driver log |
+| `simulator.ndjson` | the first SPMW runs, 4x4 and 16x16, at the default depth (no floor) |
+| `simulator_before_fix.ndjson` | SPMW before `32d1db81`: the 16x16 pair and one 4x4 LLaMA run |
+| `fibers.txt` | hand-kept notes on units as fibers over a worker pool; not plotted |
+| `ptpu/S16/` | E9's build of the engine, 2026-10-01 and 02: `source/` (= `tests/dataflow/spmw/test_spmw_ptpu.py`), the per-role HLS C++, wrappers and fabric RTL in `generated/`, its build logs, csynth, cosim-cycle and P&R reports in `report/` |
+| `scripts/` | `e9_simtime.py` (one simulator or csim record) and `e9_simtime.sh` (the driver) |
 
-## RTL cosimulation
+`ptpu/S16/` is the array that the cosim command builds and xsim runs. The
+2026-10-23 runs rebuilt it in fresh directories, which were not kept; their logs
+report the same 14 roles, 289 instances and cycle counts. `ptpu/S16/` predates
+`32d1db81`, so it is not byte-for-byte what those runs generated. The single
+`kernel.cpp` that csim compiled was not kept.
 
-| Program | Cycles | **xsim** | Testbench | HLS, 14 roles (6 at once) | Vivado elaborates | End to end |
-|---|---:|---:|---:|---:|---:|---:|
-| LLaMA, 4x4 | 1,048,590 | **72-108 s** | 22-45 s | 130-208 s | 68-104 s | 356-583 s |
-| DeepSeek, 4x4 | 3,670,030 | **180-356 s** | 72-128 s | 123-129 s | 64-71 s | 627-913 s |
-| LLaMA, 16x16 | 65,586 | **92.1-92.5 s** | 5.1 s | 123-125 s | 73.8-74.1 s | 340-341 s |
-| DeepSeek, 16x16 | 229,426 | **327-333 s** | 17.7-17.9 s | 126 s | 73.3-74.1 s | 605-610 s |
+## Records that are not plotted
 
-"End to end" is the whole command, as in E1: the frontend, one Vitis HLS run a
-role, Vivado elaborating the assembled array, then the testbench, the IP
-models, xvlog, xelab and xsim.
+- **The depth floor.** At the default depth the same 16x16 runs take 9.38 to
+  9.45 s (LLaMA) and 31.91 to 32.13 s (DeepSeek) hot
+  (`depth/simulator.ndjson`, `depth_floor` 0), or 9.12 to 9.30 s and 30.97 to
+  31.22 s in `simulator.ndjson`.
+- **The fix of `32d1db81`.** Before it, 16x16 took 11.04 to 11.30 s (LLaMA) and
+  35.93 to 36.59 s (DeepSeek) hot, and 4x4 LLaMA 61.7 s against 1.75 to 1.83 s
+  after.
+- **Fibers.** The records carry no `fibers` field: they ran one thread a unit.
+  The fiber runs are only the notes in `fibers.txt`.
+- **4x4 and 8x8**, all three ways. The 4x4 cycles are 1,048,590 (LLaMA) and
+  3,670,030 (DeepSeek); 8x8, 262,170 and 917,530.
 
-**The 4x4 rows are two runs apart, not a range of one quantity.** Another
-user's job took the machine to a load average of 112 while they ran, which is
-why xsim reports 72 and 108 s for the same LLaMA launch and 180 and 356 s for
-the same DeepSeek one. The 16x16 rows, and everything in the functional
-tables, ran at a load of 6 to 68, most of that the measurement's own threads.
+## Caveats
 
-Against the fixed simulator, xsim is **40 times slower at 4x4** (72-108 s
-against 1.79) and **10 times at 16x16** (92 s against 9.2). The testbench
-step grows with the launch because it renders every input token and every
-expected result as text for `$readmemh`.
+- **The machine is shared.** The load average is recorded at the end of each
+  run: 1-minute values of 29 to 60 for the plotted SPMW runs (much of it their
+  own threads), 6.0 to 13.4 for csim and 5.3 to 6.9 for xsim at 16x16. The two
+  DeepSeek SPMW runs differ by 1.4x (5.77 and 8.12 s), so their median is
+  their mean. At 4x4 the load reached 98, and xsim's two runs differ by up
+  to 2x (72.1 and 107.8 s; 179.8 and 356.4 s).
+- **The timers are not the same kind.** SPMW is timed in-process; Vitis csim
+  includes process start-up and operand-file input; xsim is one step of a
+  longer command.
+- **SPMW and csim check function, not cycles.** Only xsim models RTL timing.
+- **The kept records are older than the scripts.** `e9_simtime.py` now also
+  writes `fibers`, `runs`, `vitis_run` and `hot_runs`; these records predate
+  them.
 
 ## Reproducing
 
-    scripts/e9_simtime.py <program> <size>              # the OpenMP simulator
-    scripts/e9_simtime.py <program> <size> csim <dir>   # Vitis HLS's csim
-    SIZE=<size> scripts/e9_simtime.sh <reps> llama dsv4 # both, and the cosim
+On brg-zhang-xcel. The driver's `T` is the checkout it imports
+(`/scratch/hc676/simtime/allo`), `SIMTIME_OUT` is where records go, and it sets
+`PYTHONPATH` to `T` and `T/tests/dataflow/spmw` and raises the stack limit,
+without which Vitis's C simulation dies at once.
 
-`<program>` is `llama`, `dsv4`, `micro` or `mixed`. `PHASES` picks which of
-`simulator`, `csim` and `cosim` run; `SIMTIME_OUT` is where the records go.
-The driver raises the stack limit: the generated top copies each operand into
-a local array, which is megabytes for these programs, and Vitis's C simulation
-dies at once without it. `REORDER=1` moves the generated calls into producer
-order before that simulation, which is how the code before 32d1db81 could be
-simulated at all; `order.reordered` in the records says whether it was used.
+    SIZE=16 PHASES=simulator scripts/e9_simtime.sh 2 llama dsv4      # SPMW at DEPTHS="0 64" -> simulator.ndjson
+    SIZE=16 PHASES="csim cosim" scripts/e9_simtime.sh 2 llama dsv4   # Vitis csim and xsim -> csim/cosim.ndjson, logs/
+    ALLO_SIM_DEPTH=64 python3 scripts/e9_simtime.py llama 16          # one SPMW record
+    python3 scripts/e9_simtime.py dsv4 16 csim <dir>                  # one csim record
+
+`REORDER=1` moves the generated calls into producer order before csim; no
+record here used it. The tree before this layout, with the other sizes' builds
+and a controlled rerun, is commit `c20b2ee8` (`experiments/e9_vta/`).

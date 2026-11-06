@@ -1,51 +1,23 @@
-# Fixing the HP-FFT baseline on Vitis 2023.2 / xcu280
+# HP-FFT's corrected UF4 and UF8: the w = 8 and 16 HP-FFT rows of Fig. 9(c,d), arXiv version
 
-E2 reported HP-FFT at 91.1% / 85.9% / 8.0% of its ideal interval `FFT_NUM/(2*UF)`
-at UF1 / UF2 / UF4, with the UF4 row collapsing to an interval of 400 cycles
-against an ideal of 32. This directory holds the investigation of that collapse
-and the pragma changes that remove it. UF8, not measured before, turned out to
-have a second and unrelated defect.
+Built on Vitis HLS 2023.2 for `xcu280-fsvh2892-2L-e` at 3.333 ns, the shipped
+UF4 and UF8 sources (UCLA-VAST/HP-FFT-HLS @ `c4611b8`) fall far short of their
+ideal interval for two unrelated reasons. Both Fig. 9 panels use the corrected
+sources below, at 256 points (`N256/source/fix_UF4_a8`, `fix_UF8_b4`) and with
+the same edits at 1,024 points (`../../n1024/hpfft/UF4_a8`, `UF8_b4`). UF1 and
+UF2 are as shipped. Intervals below are read from the per-module **Interval**
+column of `csynth.rpt` or from the cosimulation, never inferred from a cycle
+count.
 
-Everything below is read out of the per-module **Interval** column of
-`csynth.rpt` (Vitis 2023.2, `xcu280-fsvh2892-2L-e`, 3.333 ns) or out of the
-cosimulation, never inferred from a cycle count.
+## UF4: static scratch arrays, and the bit-reversal stage pipelined as a function
 
-## What was actually wrong
-
-The top-level number is a dataflow region's interval, which is the interval of
-its **slowest process**. Reading the per-loop column rather than the top line
-shows that at UF4 *every loop meets its `target_ti` of 32* -- the Performance
-Pragma Report says `TI met: yes` for all of them -- while the enclosing module
-`reverse_input_stream_UF4` reports interval 423 and `Pipelined: no`.
-
-Its five loop nests run back to back:
-
-| loop nest in `reverse_input_stream_UF4` | latency |
-|---|---:|
-| `Pipeline_2 / Loop 1` (trip 8, II=4) | 33 |
-| `READ_STREAM_INPUT` | 34 |
-| `FROM_BLOCK_TO_CYCLIC` | 35 |
-| `STREAM_OUT_REVERSE` | 34 |
-| `Loop 1` (trip 8, not pipelined) | 279 |
-| sum + handshake overhead | **423** |
-
-Two of those -- 33 and 279, i.e. **312 of the 423 cycles** -- are not FFT work.
-They are the `complex<float>` default constructor initialising the two
-non-`static` scratch arrays `data_rev_stream[UF*2][FFT_NUM/(UF*2)]` and
-`data_in_cyclic[...]` on every call.
-
-**The N=256 UF4 source is the only one of the four that pays this.** UF1 and UF8
-declare the same two arrays `static`; UF2 does not have them at all, because its
-reverse stage is already split into three process functions
-(`reverse_read_stream_input`, `reverse_from_block_to_cyclic`,
-`reverse_write_stream_output`) that take the buffers as parameters -- the
-canonical dataflow form, which is also what the commented-out lines in the UF1
-source sketch. UF4 is the outlier: one monolithic function, automatic arrays, no
-dataflow pragma.
-
-## The two fixes
-
-### UF4: `static` scratch arrays, then pipeline the reverse stage as a function
+A dataflow region's interval is that of its slowest process. At UF4 every loop
+meets its target, but `reverse_input_stream_UF4` is not pipelined and its loop
+nests run back to back. Two of them are not FFT work: they are the
+`complex<float>` default constructor initialising the stage's non-`static`
+scratch arrays (`data_rev_stream`, `data_in_cyclic`; at 1,024 points
+`data_in_cyclic` and `data_rev_stream_0..7`) on every call. UF1 and UF8 declare
+them `static`; UF2 splits the stage into three dataflow processes. The fix:
 
 ```c
  void reverse_input_stream_UF4 (...) {
@@ -55,194 +27,88 @@ dataflow pragma.
 +    static complex<float> data_rev_stream[UF*2][FFT_NUM/(UF*2)];
 +    static complex<float> data_in_cyclic[UF*2][FFT_NUM/(UF*2)];
      ...
-     READ_STREAM_INPUT: for (...) {
--        #pragma HLS pipeline          // and the same on the other two loops:
-                                       // function pipelining unrolls them, so
-                                       // the per-loop pragmas are superseded
+-        #pragma HLS pipeline          // on each loop: function pipelining
+                                       // unrolls them, so these are superseded
 ```
 
-`static` alone takes the FFT_TOP interval from **424 to 109**. The remaining 108
-is the three real loops still running in sequence. Pipelining the whole function
-at II = beats-per-transform takes it to **52**, with
-`reverse_input_stream_UF4` reporting interval **32 = exactly its trip count**
-and latency 60.
+`static` removes the constructor loops; the function pipeline overlaps the
+three real loops. Upstream's Vitis 2024.2 build infers that function pipeline
+by itself; 2023.2 does not, so the pragma asks for it. In
+`N256/report/fix_UF4_a8/csynth.rpt`, `reverse_input_stream_UF4` is pipelined,
+latency 60, interval 32 (its trip count), and `FFT_TOP` is at interval 52.
 
-That is the same structure upstream's own build has. On Vitis **2024.2** /
-`xcvp1802` the shipped UF4 reports `reverse_input_stream_UF4` at latency 61,
-interval 32, `Pipelined: yes` -- 2024.2 infers the function pipeline by itself
-and 2023.2 does not, so the pragma just asks for it explicitly.
-
-### UF8: one wrong cyclic partition factor
+## UF8: one partition factor
 
 ```c
 -    #pragma HLS array_partition variable=data_2 type=cyclic factor=UF*2 dim=1
 +    #pragma HLS array_partition variable=data_2 type=cyclic factor=UF*4 dim=1
 ```
 
-At UF8 the reverse stage is already fine (2023.2 function-pipelines it on its
-own, interval 16). The bottleneck is `FFT_stage_spatial_unroll_5_s` at interval
-66 with its inner loop at **II=3**, and the tool names the cause:
+At UF8 the bit-reversal stage is already function-pipelined by 2023.2. The
+bottleneck is `FFT_stage_spatial_unroll_5_s`, whose inner loop runs at II=3,
+and the tool names the cause on `data_2`:
 
 > `[HLS 200-885] The II Violation in module 'FFT_stage_spatial_unroll_5_s' ...
-> due to limited memory ports (II = 1). Please consider using a memory core with
-> more ports or partitioning the array`
+> due to limited memory ports`
 
-on `data_2`. This is the banking conflict the butterfly's `i` / `i + (1 << s)`
-access pair creates. `data_2` is read by stage 5 (stride 16) and written by
-stage 4 (stride 8); at `factor=UF*2` = 16 banks the stride-16 read pair lands in
-the same bank, and at `factor=UF` = 8 banks the stride-8 write pair does.
-`factor=UF*4` = 32 banks satisfies both. FFT_TOP goes **67 to 36**.
+`data_2` is written by stage 4 (stride 8) and read by stage 5 (stride 16). At
+`factor=UF*2` (16 banks) the stride-16 read pair shares a bank; at `factor=UF`
+(8 banks) the stride-8 write pair does; `factor=UF*4` (32 banks) satisfies
+both. In `N256/report/fix_UF8_b4/csynth.rpt`, `FFT_TOP` is at interval 36 and
+`reverse_input_stream_UF8` at 16.
 
-`bind_storage type=RAM_T2P` -- the tool's other suggestion -- changes nothing.
+## Results at 256 points
 
-## Results, N=256
-
-FFT_TOP interval from `csynth.rpt`:
-
-| UF | ideal | before | after | change |
-|---|---:|---:|---:|---|
-| 1 | 128 | 147 | 147 | none found |
-| 2 | 64 | 84 | 84 | none found |
-| 4 | 32 | **424** | **52** | `static` + function pipeline |
-| 8 | 16 | **67** | **36** | `data_2` factor `UF*2` -> `UF*4` |
-
-Steady interval from the **cosimulation**, 32 transforms of numpy stimulus,
-`min` and `max` equal in every row (dead flat, no jitter):
-
-| UF | ideal | before | after | of ideal, before -> after | speedup |
+| config | ideal | csynth interval | cosimulated interval | of ideal | latency |
 |---|---:|---:|---:|---:|---:|
-| 1 | 128 | 140.5 | 140.5 | 91.1% | 1.00x |
-| 2 | 64 | 74.5 | 74.5 | 85.9% | 1.00x |
-| 4 | 32 | **400.0** | **42.0** | 8.0% -> **76.2%** | **9.52x** |
-| 8 | 16 | **57.0** | **26.0** | 28.1% -> **61.5%** | **2.19x** |
+| UF4, fixed | 32 | 52 | 42.0 | 76.2% | 408 |
+| UF8, fixed | 16 | 36 | 26.0 | 61.5% | 269 |
 
-Latency falls with it: UF4 first output 782 -> 377 and full transform 813 ->
-408; UF8 284 -> 254 and 299 -> 269.
+From `cosim_events.json`: 32 transforms complete, every completion interval
+equal (min = max). `validate_rtl_vcd.json` checks all 32 against
+`numpy.fft.fft` and passes, max absolute error 5.37e-6 (1.8e-7 of the largest
+output) for both. The edits change the schedule, not the arithmetic.
 
-The RTL result is checked against `numpy.fft.fft` on every one of the 32
-transforms, and the max absolute error is **identical before and after** --
-`5.372450323953043e-06` for all four configurations. The fix changed the
-schedule and nothing else.
+The variant folders keep only `FFT.cpp`; `FFT.h` and `project.tcl` are the
+shipped UF4 and UF8 ones, which `mkvariant.py` copies unchanged.
 
-Cost: UF4 keeps its 258 DSPs, spends FF 85,651 -> 104,962 and saves LUT 92,237
--> 78,012. UF8 goes DSP 423 -> 486, FF 165,953 -> 180,336, LUT 143,535 ->
-156,983. (csynth estimates; the fixed designs were not put through
-place-and-route, so the resource columns in `results.csv` are left blank for
-them rather than filled in with pre-P&R numbers.)
+**Timing.** csynth flags both fixed builds at slack -0.00 ns. Routed, UF4
+closes (+0.119 ns) and UF8 misses (-0.093 ns) in `../results.csv`; their routed
+reports are not in this folder. At 1,024 points the UF4 fix does not survive
+routing: `../../n1024/README.md`.
 
-## The same defect at N=1024
+## Why neither reaches ideal
 
-`n1024/UF4` has the same bug spelled differently: nine function-scope arrays
-(`data_in_cyclic` plus `data_rev_stream_0..7`), all non-`static`, in a
-monolithic reverse stage. Each pays a 129-cycle constructor loop, and the shipped
-build reports FFT_TOP interval **1576 against an ideal of 128 -- 8.1%**, the same
-signature as N=256 UF4. So this is a property of the shipped UF4 sources rather
-than a one-off in one file.
+Every butterfly stage is a separate non-pipelined process holding one II=1
+loop, so it cannot overlap its own successive invocations and its interval is
+the loop's trip count, `N / (2 UF)` beats, plus the float butterfly's pipeline
+depth:
 
-`static` alone takes it **1576 -> 397** (3.97x, csim passing), leaving the
-reverse stage's three real loops in sequence at 396 while every butterfly stage
-sits at 145-147 -- trip 128 plus the same ~18-cycle iteration latency, the same
-floor as at N=256. Adding the function pipeline takes it to **148**, with
-`reverse_input_stream_UF4` again at interval **128 = its trip count**:
+| UF | trip | stage interval | difference | read from |
+|---:|---:|---:|---:|---|
+| 1 | 128 | 146 | 18 | `N256/report/UF1/csynth.rpt` |
+| 4 | 32 | 50 | 18 | `N256/report/fix_UF4_a8/csynth.rpt` |
+| 8 | 16 | 35 | 19 | `N256/report/fix_UF8_b4/csynth.rpt` |
 
-| N=1024 UF4 | interval | of ideal 128 |
-|---|---:|---:|
-| shipped | 1576 | 8.1% |
-| `static` | 397 | 32.2% |
-| `static` + function pipeline | **148** | **86.5%** |
-
-The function pipeline is not free in build time: it fully unrolls the reverse
-loop, so csynth goes from 104 s to 515 s at N=1024 (trip 128) against 77 s to
-101 s at N=256 (trip 32). It will get worse with N.
-
-## The one caveat: the function pipeline spends the timing margin
-
-Issue type and slack on `FFT_TOP` in `csynth.rpt`, at the 3.333 ns target:
-
-| build | issue | slack (ns) |
-|---|---|---:|
-| n256 UF4 shipped | -- | 0.06 |
-| n256 UF4 `static` | -- | 0.06 |
-| n256 UF4 `static` + fn pipeline | **Timing** | **-0.00** |
-| n256 UF8 shipped | Timing | -0.00 |
-| n256 UF8 fixed | Timing | -0.00 |
-| n1024 UF4 shipped | Timing | -0.19 |
-| n1024 UF4 `static` | Timing | -0.19 |
-| n1024 UF4 `static` + fn pipeline | Timing | -0.19 |
-
-The UF8 fix and the `static` step cost nothing -- UF8 and N=1024 were already
-flagged in the shipped builds, and `static` leaves N=256 UF4's 0.06 ns
-untouched. At N=1024 the function pipeline costs nothing either: -0.19 before
-and after. **N=256 UF4 is the single case where a fix spends margin**, going
-from 0.06 to -0.00 on the function-pipeline step. These are csynth estimates, not routed results,
-and none of the fixed designs were taken through place-and-route; the shipped
-UF4 routed at 3.322 ns against the 3.333 ns target (wns 0.011), so it was
-already close to the edge. If the fixed UF4 will not close at 300 MHz, the
-`static`-only variant is the fallback: interval 109 rather than 52, still 3.9x
-better than the shipped 424, at the baseline's own slack. The cosimulated
-intervals quoted here are cycle counts and are unaffected either way, but a
-clock that has to drop would change the throughput in Hz.
-
-`mkvariant.py`'s `static` edit covers both spellings: it promotes every
-`complex<float>` array declared at function scope in the reverse stage, and
-deliberately leaves the loop-body scratch arrays (`block_data`, `cyclic_data`)
-automatic, since those are rewritten every iteration. Restricting it to
-function scope matters -- the first version of the edit made those two static as
-well, which would have been wrong.
-
-## Why none of them reach ideal, and why that is not a pragma problem
-
-Every butterfly stage is a separate non-pipelined process in the dataflow
-region, containing one pipelined loop at II=1. Such a process cannot overlap its
-own successive invocations, so its interval is its latency:
-
-> **stage interval = trip count + iteration latency**
-
-The fit is exact at every unroll factor, with the iteration latency being the
-float butterfly's pipeline depth and essentially constant:
-
-| UF | trip | iteration latency | stage interval |
-|---:|---:|---:|---:|
-| 1 | 128 | 18 | 146 |
-| 2 | 64 | 18 | 82 |
-| 4 | 32 | 18 | 50 |
-| 8 | 16 | 19 | 35 |
-
-The trip count *is* the ideal interval, so the shortfall is a fixed ~19 cycles
-whatever the width -- which is why the percentage of ideal necessarily falls as
-UF rises, from 87% at UF1 to 44% at UF8. After the fixes all four unroll factors
-sit within one cycle of that floor. **The baseline is now as fast as this
-structure permits.**
-
-Three routes out of the floor were tried and all failed:
-
-- **Over-unrolling** the butterfly (`unroll factor=UF*2`) halves the trip count
-  but the loop II rises 1 -> 2 in exact compensation: interval stays 146 at UF1
-  and 52 -> 53 at UF4. Scaling the partition factor with the unroll
-  (`cyclic factor=UF*2`) does not change that.
-- **Dropping the `cyclic factor=UF dim=2` partition** on `data_in_cyclic` -- the
-  original prime suspect -- changes nothing at all (109 either way).
-- **Removing the `bind_op impl=fabric` bindings** makes it worse: the butterfly's
-  iteration latency rises 7 -> 9.
-
-Reaching ideal needs the stage's address mapping changed so that `i` and
-`i + (1 << s)` never share a bank at any stage -- an XOR swizzle -- which is an
-algorithmic change to the butterfly indexing, outside the scope of this fix.
-Recorded here as a finding rather than made.
+The trip count is the ideal interval, so the shortfall is a near-constant and
+its share grows with UF. Removing it needs a bank mapping in which `i` and
+`i + (1 << s)` never share a bank at any stage, an XOR swizzle: a change to the
+algorithm's indexing, not a pragma, and not made here.
 
 ## Reproducing
 
-`mkvariant.py` derives each variant from a baseline source by named pragma
-edits, and every edit asserts that it matched, so a variant that silently failed
-to apply is impossible:
+`../scripts/hpfft/mkvariant.py` derives a variant from a source directory by
+named edits; each edit asserts that it matched, so a variant cannot silently
+build the baseline:
 
-```
-python3 mkvariant.py <src_dir> <dst_dir> static fnpipe
-python3 mkvariant.py <src_dir> <dst_dir> "repart:data_2:cyclic factor=UF*4"
-```
+    python3 mkvariant.py <src_dir> <dst_dir> static fnpipe
+    python3 mkvariant.py <src_dir> <dst_dir> "repart:data_2:cyclic factor=UF*4"
 
-`testbench_check.cpp` is the correctness gate: it runs three transforms through
-`FFT_TOP` and compares against a double-precision DFT, returning non-zero if the
-max absolute error exceeds 2e-3. Every configuration in the table above passes
-it at 1.3293e-05. The shipped testbench only prints its output and never
-asserts, so "csim passed" meant nothing before.
+`static` promotes only the `complex<float>` arrays declared at function scope in
+the bit-reversal stage, ahead of its first loop; the loop-body scratch arrays
+(`block_data`, `cyclic_data`) are rewritten every iteration and stay automatic.
+
+`../scripts/hpfft/testbench_check.cpp` is a csim gate: three transforms through
+`FFT_TOP` against a double-precision DFT, non-zero exit above 2e-3 max absolute
+error. The shipped testbench only prints its output. The build, cosimulation
+and route scripts are listed in `../README.md`.

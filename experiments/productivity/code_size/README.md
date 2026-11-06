@@ -1,63 +1,92 @@
-# E7: lines of code, HLS against SPMW
+# Code size: design-only source lines
 
-**This experiment does not use the `<framework>/<size>/{source,generated,report}`
-layout, and forcing it would be misleading.** E7 builds nothing: it counts
-source lines. There is no per-size design, nothing is generated, and there is
-no synthesis or place-and-route to report. Its artefacts are the count records
-and the manifest that says exactly which files were counted at which commit.
+Table 3 of the paper (arXiv version).
 
-The counted files are not copied here either. They *are* the repository's own
-sources; `counts/*/included_files.txt` names every one and
-`counts/*/manifest.json` pins the revision, which is what makes the count
-reproducible without duplicating the tree into an experiment folder.
+Nothing is built here: the folder counts source lines. A line counts when it
+holds code and belongs to the design; configuration, tests, references,
+comment-only lines and docstrings are excluded on both sides. The rule and the
+categories are in [`counts/README.md`](counts/README.md). The counted files
+are the repository's own sources, mostly outside `experiments/`; the records
+pin each one by sha256 and each selected range by line numbers and sha256.
 
-## Read the denominator first
+## Layout
 
-Twenty rows, and **only 8 have a ratio at all**:
+| Path | Contents |
+|---|---|
+| `results.csv` | the three rows Table 3 takes from here: `fft_folded`, `systolic_gemm`, `feather`. `report_paths` is relative to `counts/` |
+| `counts/loc_recount_2026-09-06/` | the recount: `manifest.json` (what each row selects, by symbol), `counts.json` (every range and its sha256), `counts.md` (tables and per-design notes). 19 rows; Table 3 uses three |
+| `counts/fft_folded/` | the folded FFT, counted separately on brg-zhang-xcel; the same three files |
+| `scripts/spmw_loc2.py` | the counter, sha256 `68a47ad0...`, the hash the paper's table script asserts. The repository's `scripts/spmw_loc2.py` (`fea0ba57...`) is the same program after black (identical AST); `fft_folded` was counted with that one |
+| `sources/fft_folded_spmw.py` | the folded SPMW FFT, `tests/dataflow/spmw/test_spmw_fft_sdf.py` as committed in d98c3538 |
 
-| Status | Rows | Meaning |
-|---|---:|---|
-| `pass` | 8 | both an HLS and an SPMW implementation exist and were counted |
-| `unsupported` | 11 | **no HLS counterpart exists to compare against** |
-| `environment_blocked` | 1 | AutoSA's generated GEMM; the counter could not run |
+## Table 3, cell by cell
 
-The 11 `unsupported` rows are the designs where only an SPMW version was
-written -- the FFT butterfly network, the complete mini-TPU stage engine,
-FEATHER and its variants, and three of the four paper listings. Their
-`spmw_design_lines` are recorded and their HLS column is empty. That is not a
-ratio of infinity; it is an absent measurement, and it should not be read as
-one direction of the result.
+| Row | HLS | RTL | SPMW | Ratio | Counted here |
+|---|---:|---:|---:|---:|---|
+| Systolic array | 94 | -- | 24 | 3.92x | HLS and SPMW: `systolic_gemm` |
+| FFT | 299 | 5,284 | 106 | 2.82x | HLS and SPMW: `fft_folded`; not RTL |
+| Mini-TPU | 673 | 3,226 | 154 | 4.37x | SPMW only, derived from `gpt_stage_v1` |
+| FEATHER | -- | 1,802 | 97 | 18.58x | SPMW only: `feather` |
 
-## The eight rows that do compare
+Ratios are HLS / SPMW, except FEATHER (RTL / SPMW).
 
-| Workload | Kind | HLS | SPMW | Ratio |
-|---|---|---:|---:|---:|
-| Tiled GEMM, two-level | design | 153 | 32 | 4.78 |
-| Systolic GEMM, output-stationary int8 | design | 94 | 24 | 3.92 |
-| Multi-cache GEMM, daisy-chained drain | design | 113 | 40 | 2.83 |
-| Mini-TPU matrix unit, weight-stationary | design | 113 | 40 | 2.83 |
-| Folded radix-2 FFT, HP-FFT n256/UF1 | design | 299 | 106 | 2.82 |
-| Grouped attention-PV | design | 112 | 53 | 2.11 |
-| Matrix unit, staged double-buffered | variant | 113 | 54 | 2.09 |
-| Paper listing, Fig. comparison | fragment | 30 | 26 | **1.15** |
+- **Systolic array.** HLS: [`gemm_output_stationary.cpp`](../../../examples/spmw/baselines/hls/gemm_output_stationary.cpp),
+  99 lines = 94 design + 5 config. SPMW: `gemm_int8_of` in
+  [`test_spmw_gemm_int8.py`](../../../tests/dataflow/spmw/test_spmw_gemm_int8.py).
+- **FFT.** HLS: HP-FFT's `n256/UF1/FFT.cpp` at c4611b8, every function and
+  both tables; its `FFT.cpp` and `FFT.h` are the files in
+  [`../../performance/fft/n256/hpfft/N256/source/UF1/`](../../performance/fft/n256/hpfft/N256/source/UF1/)
+  (same sha256). The record's title calls UF1 one sample per cycle; its ideal
+  interval is N/2, two samples per cycle, as the paper says. SPMW: `twiddles`,
+  `bitrev` and `fft_sdf_of` in [`sources/fft_folded_spmw.py`](sources/fft_folded_spmw.py).
+- **Mini-TPU.** SPMW 154 is the stage engine as measured,
+  [`gpt_stage_v1.py`](../../../tests/dataflow/spmw/gpt_stage_v1.py): its
+  `stage_engine` (148, without the `engine.spmw_parts` hook) plus `VpuIO`
+  (6) from [`test_spmw_tpu_isa.py`](../../../tests/dataflow/spmw/test_spmw_tpu_isa.py).
+  The `gpt_stage_v1` row of `counts/loc_recount_2026-09-06/counts.md` reads 163
+  because it also lists the unused module-level `MacIO` (9); that row is not
+  in `results.csv`.
+- **FEATHER.** SPMW: `feather` and its helpers `reverse_bits`, `birrd_shape`,
+  `stage_bits` in [`test_spmw_feather.py`](../../../tests/dataflow/spmw/test_spmw_feather.py),
+  without the cosim hooks at the end of `feather()`.
 
-Median 2.83, range 1.15 to 4.78.
+**Not counted here:** Spiral's RTL (5,284), VTA's HLS (673: 523 C++ + 150 Tcl,
+VTA d4a15f6), its Chisel (3,226) and FEATHER's RTL (1,802). They come from the
+paper's own recounts (`spiral_loc_20261011`, `loc_vta_chisel_20261011`,
+`loc_rtl_20260913`) in its evidence archive, not in this repository; Spiral's
+generated RTL is not redistributed.
 
-**The 1.15 is worth as much attention as the 4.78.** The paper's own figure
-listing -- the fragment a reader actually sees -- is the closest of the eight,
-because a figure is already trimmed to the interesting lines on both sides. The
-larger ratios come from complete designs, where the HLS version carries
-boilerplate the figure omits. Quoting a single number from this experiment
-without saying which kind of artefact it counts would misrepresent it, so
-`results.csv` carries a `kind` column (`design`, `variant`, `fragment`,
-`generated`) and an `in_paper_table` flag.
+## Pinned revisions
 
-## Files
+- The recount ran at d7ce0da. The five files its three rows read are identical
+  at 23eedb2, where the paper pins its SPMW counts. Since then
+  `test_spmw_feather.py` gained a build hook in `feather()` (ed056f9a), which
+  shifts the manifest's line exclusion: the same manifest at HEAD gives
+  FEATHER 102. Count at 23eedb2.
+- `fft_folded` counted `test_spmw_fft_sdf.py` before its last five lines of
+  `fft_sdf_of` were added (lines 177-181 of the kept file: four comment lines
+  and the HLS hook `engine.spmw_pipeline_style = "flp"`). The kept file counts
+  107; without those lines it hashes to the record's `eae8d087...` and counts
+  106.
 
-- `counts/loc_recount_2026-09-06/` -- the recount: `counts.json`, `counts.md`,
-  `included_files.txt` (every counted file), `manifest.json` (the revision) and
-  `counter_sha256.txt` (the hash of the counter that produced them).
-- `counts/fft_folded/` -- the same four records for the folded FFT, counted
-  separately.
-- `scripts/spmw_loc2.py` -- the counter itself. `counter_sha256.txt` is its
-  hash, so the records can be checked against the script that made them.
+## Reproducing
+
+From this folder:
+
+    mkdir -p /tmp/allo_23eedb2 && git archive 23eedb2 | tar -x -C /tmp/allo_23eedb2
+    python3 scripts/spmw_loc2.py counts/loc_recount_2026-09-06/manifest.json \
+        --root allo=/tmp/allo_23eedb2 --root paper=<paper checkout> \
+        --json counts.json --markdown counts.md --included included_files.txt
+
+`--included` writes the per-range list `included_files.txt`; it was never
+committed, and `counts.json` holds the same ranges and hashes. The manifest's
+four `fragment_*` rows count the paper's listings, which have changed since
+(the Fig. attn one no longer parses); without them, every other row reproduces
+at 23eedb2. For the FFT, point `--root hpfft=` at HP-FFT-HLS at c4611b8
+(the manifest also reads
+`n256/UF1/testbench.cpp`, test code, not kept here) and `--root allo=` at a
+tree whose `tests/dataflow/spmw/test_spmw_fft_sdf.py` is the counted file.
+The counter imports only the standard library; its tests are
+`tests/dataflow/spmw/test_spmw_loc2.py`.
+
+The pre-cleanup E7 tree (`experiments/e7_loc/`) is at commit c20b2ee8.

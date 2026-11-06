@@ -1,10 +1,10 @@
 #!/bin/bash
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# collect_tiles.sh: stage exactly what reproduces E12's tables.
-#   spmw_mesh/S<n>, spmw_kernel/S<n>        one build a size; a cycle record a
+# collect_tiles.sh: stage exactly what reproduces this folder's tables.
+#   spmw_kernel/S<n>                        one build a size; a cycle record a
 #                                           workload, report/W<side>_*.txt
-#   <baseline>/S<n>_W<side>                 one build a workload
+#   autosa_wide/S<n>_W<side>, allo/S<n>_W<side>   one build a workload
 # each with source/, generated/ and report/. A baseline's generated kernel is
 # megabytes and differs between workloads only in its loop bounds, so it is
 # kept for the 64-cubed workload alone. Copies; touches nothing it reads.
@@ -12,7 +12,7 @@ set -u
 E=/scratch/hc676/e16_tiles
 T=/scratch/hc676/allo
 STAGE=$E/stage
-SIDES="64 128 256 512 1024"
+SIDES="64 128 256 512"
 rm -rf $STAGE
 c() { cp "$@" 2>/dev/null; }   # a missing file is a missing result, not an error
 width() {  # <rtl file>: the data width of each memory master, as synthesised
@@ -31,32 +31,7 @@ monitor() {  # <cosim log> <dst>: what the simulation's deadlock monitor printed
     } > $2
   fi
 }
-for S in 16 32; do
-  # ---- SPMW: the array alone -------------------------------------------------
-  B=$E/spmw/mesh_S${S}_W64_pnr
-  if [ -d $B ]; then
-    D=$STAGE/spmw_mesh/S$S; mkdir -p $D/source $D/generated $D/report
-    c $T/tests/dataflow/spmw/test_spmw_gemm_tiles.py $D/source/
-    { echo "python3 scripts/spmw_build_array.py --design gemmtiles-<side> --size $S --frequency 300 --jobs 4 --cosim --out <dir>"
-      echo "python3 scripts/spmw_build_array.py --design gemmtiles-64 --size $S --frequency 300 --jobs 4 --pnr --out <dir>"
-    } > $D/source/command.txt
-    for r in pe_r4 frame_r0; do c $B/$r/kernel.cpp $D/generated/$r.cpp; c $B/$r/$r.sv $D/generated/; done
-    c $B/spmw_top.sv $B/spmw_fifo.sv $D/generated/
-    c $B/pe_r4/prj/sol/syn/report/csynth.rpt $D/report/pe_r4_csynth.rpt
-    c $B/frame_r0/prj/sol/syn/report/csynth.rpt $D/report/frame_r0_csynth.rpt
-    for f in $B/pe_r4/prj/sol/syn/report/pe_r4_0_Pipeline_*_csynth.rpt; do c $f $D/report/; done
-    c $B/util.rpt $B/timing.rpt $B/cost.json $D/report/
-    c $E/spmw/mesh_S${S}_W64_pnr.log $D/report/build_pnr.log
-    for W in $SIDES; do
-      L=$E/spmw/mesh_S${S}_W${W}_cosim
-      grep -hE "SPMW COSIM|SPMW CYCLES|^gemmtiles|^HLS:" $L.log > $D/report/W${W}_cosim.txt 2>/dev/null
-      # One array for every workload: what each workload's build generated.
-      [ -f $L/spmw_top.sv ] && same "W=$W roles+fabric" $L/pe_r*/kernel.cpp $L/frame_r0/kernel.cpp \
-        $L/spmw_top.sv $L/spmw_fifo.sv >> $D/report/same_hardware.txt
-    done
-    same "pnr roles+fabric" $B/pe_r*/kernel.cpp $B/frame_r0/kernel.cpp $B/spmw_top.sv $B/spmw_fifo.sv \
-      >> $D/report/same_hardware.txt
-  fi
+for S in 16; do
   # ---- SPMW: the same array as a kernel ---------------------------------------
   K=$E/spmw/kernel_S$S
   if [ -d $K ]; then
@@ -78,45 +53,32 @@ for S in 16 32; do
     c $E/logs/spmw_kernel_S${S}_pnr.log $D/report/build.log
     same "kernel roles+fabric" $K/roles/pe_r*/kernel.cpp $K/roles/frame_r0/kernel.cpp $K/spmw_top.sv \
       $K/spmw_fifo.sv > $D/report/same_hardware.txt
-    for W in $SIDES; do for T in "" _beat2; do
-      L=${K}_W$W$T
+    for W in $SIDES; do
+      L=${K}_W$W
       [ -f $L.sim.log ] || continue
       { grep -hE "SPMW TB|xsim:|counts:|expected drain" $L.sim.log
         grep -m1 -oE "\.BEAT\([0-9]+\)" ${L}_sim/tb.sv 2>/dev/null | sed "s/^/memory /"
         P=$(grep -m1 -oE "always #[0-9.]+ ap_clk" ${L}_sim/tb.sv 2>/dev/null | grep -oE "[0-9.]+")
         [ -n "$P" ] && echo "clock period $(echo "$P" | awk '{print 2 * $1}') ns"
-      } > $D/report/W${W}${T}_kernel_sim.txt
-    done; done
+      } > $D/report/W${W}_kernel_sim.txt
+    done
     c ${K}_W64_sim/tb.sv $D/report/W64_tb.sv
   fi
   for W in $SIDES; do
     # ---- AutoSA ---------------------------------------------------------------
-    # autosa_wide/        --host-serialize with K tiled, the way AutoSA's own
-    #                     examples are run; the build each workload's row uses
-    #                     is in autosa_ktile.txt ("S W <depth>[_l<hiding>]"),
-    #                     and the others tried are kept as
-    #                     S<n>_W<side>_k<depth>[_l<hiding>]
-    # autosa/             no --host-serialize, K whole: the first runs
-    # autosa_wide_whole/  --host-serialize with K whole, which fails
-    for A in $E/autosa/narrow/S${S}_W$W $E/autosa/wide/S${S}_W$W $E/autosa/wide_k*/S${S}_W$W; do
-      [ -d $A ] || continue
-      V=$(basename $(dirname $A))
-      case $V in
-        narrow) D=$STAGE/autosa/S${S}_W$W;;
-        wide)   D=$STAGE/autosa_wide_whole/S${S}_W$W;;
-        *)      KT=${V#wide_k}
-                D=$STAGE/autosa_wide/S${S}_W${W}_k$KT
-                grep -qx "$S $W $KT" $E/autosa_ktile.txt 2>/dev/null && D=$STAGE/autosa_wide/S${S}_W$W;;
-      esac
-      mkdir -p $D/source $D/generated $D/report
+    # autosa_wide/: --host-serialize with K tiled and latency hiding, the build
+    # autosa_ktile.txt names for each workload ("S W <depth>_l<hiding>").
+    KT=$(awk -v s=$S -v w=$W '$1 == s && $2 == w {print $3}' $E/autosa_ktile.txt 2>/dev/null)
+    V=wide_k$KT; A=$E/autosa/$V/S${S}_W$W
+    if [ -n "$KT" ] && [ -d $A ]; then
+      D=$STAGE/autosa_wide/S${S}_W$W; mkdir -p $D/source $D/generated $D/report
       c $A/kernel.c $A/kernel.h $A/simd_info.json $A/hls/cosim.tcl $D/source/
       grep -h . $A/out/src/cmd > $D/source/autosa_command.txt 2>/dev/null
-      # 390 KB a design: kept for the 64-cubed build of each row and of the
-      # two tile depths without latency hiding, not for every variant tried.
-      if [ $W = 64 ] && ! echo "$D" | grep -q "_l[0-9x]*$"; then
+      # 390 KB a design: kept for the 64-cubed workload alone.
+      if [ $W = 64 ]; then
         c $A/out/src/kernel_kernel.cpp $A/out/src/kernel_kernel.h $A/out/src/kernel_host.cpp $D/generated/
       else
-        echo "source/autosa_command.txt regenerates it; the 64-cubed build of the row's configuration is kept in ../S${S}_W64/generated." > $D/generated/README.txt
+        echo "source/autosa_command.txt regenerates it; ../../S${S}_W64/generated holds the 64-cubed build, whose K tile is 32 where this one's is 64." > $D/generated/README.txt
       fi
       R=$A/hls/cosim_prj/sol
       c $R/syn/report/kernel0_csynth.rpt $R/syn/report/PE_csynth.rpt $R/sim/report/kernel0_cosim.rpt $D/report/
@@ -129,54 +91,6 @@ for S in 16 32; do
       done > $D/report/cosim_verdict.txt
       monitor $A/hls/cosim.log $D/report/deadlock_monitor.txt
       c $E/logs/autosa_${V}_S${S}_W$W.log $D/report/build.log
-    done
-    # AutoSA's own C testbench alone, on the serialized 64-cubed designs.
-    for C in $E/keep/autosa_csim_S${S}_W${W}_k*; do
-      [ -f $C/csim.log ] || continue
-      KT=${C##*_k}
-      for D in $STAGE/autosa_wide/S${S}_W${W}_k$KT $STAGE/autosa_wide/S${S}_W$W; do
-        [ -d $D ] && grep -q "array_part\[$S,$S,$KT\]" $D/source/autosa_command.txt 2>/dev/null \
-          && grep -hE "^Passed!|^Failed|CSIM (finish|start)|leftover" $C/csim.log > $D/report/csim_verdict.txt
-      done
-    done
-    # ---- the Dato paper's array, at its appendix's depths and at the test's ----
-    for KIND in paper test; do
-      L=$E/dato/$KIND/S${S}_W$W
-      [ -d $L ] || continue
-      if [ $KIND = paper ]; then D=$STAGE/dato/S${S}_W$W; else D=$STAGE/dato_deep/S${S}_W$W; fi
-      mkdir -p $D/source $D/generated $D/report
-      c $L/gen/dato_mxu_${S}_$W.py $L/hls/tb.cpp $L/hls/csim.tcl $L/hls/run.tcl $D/source/
-      if [ $W = 64 ]; then
-        c $L/gen/kernel.cpp $L/gen/kernel.h $D/generated/
-      else
-        echo "As ../../S${S}_W64/generated, with this workload's loop bounds; scripts/dato_gen.py regenerates it." > $D/generated/README.txt
-      fi
-      R=$L/hls/prj/sol
-      c $R/syn/report/top_csynth.rpt $R/sim/report/top_cosim.rpt $D/report/
-      c $L/pnr/util.rpt $L/pnr/timing.rpt $L/pnr/util_hier.rpt $L/pnr/route_status.rpt $L/pnr/pnr.tcl $D/report/
-      c $L/beats.txt $D/report/
-      grep -v "LICENSE file" $L/gen.log > $D/report/gen.log 2>/dev/null
-      width $R/syn/verilog/top.v > $D/report/port_widths.txt
-      grep -hE "DATO TB" $L/hls/csim.log 2>/dev/null > $D/report/csim_verdict.txt
-      grep -hE "DATO TB|co-simulation finished|^ERROR" $L/hls/build.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
-      c $E/logs/dato_${KIND}_S${S}_W$W.log $D/report/build.log
-    done
-    # The 64-cubed Dato design at the tool's default pipelining threshold, and
-    # the test file's nested form at 128 cubed: what the tool made of each.
-    U=$E/keep/dato_default_S${S}_W64/build.log
-    if [ $W = 64 ] && [ -f $U ] && [ -d $STAGE/dato/S${S}_W64 ]; then
-      { echo "tile loops the tool chose to pipeline: $(grep -c "HLS 214-376.*Loop< l_nt" $U), for example"
-        grep -h -m2 "HLS 214-376.*Loop< l_nt" $U
-        echo "loops unrolled completely by a factor of 64: $(grep -c "completely with a factor of 64" $U), for example"
-        grep -h -m1 "completely with a factor of 64" $U
-        grep -hE "XFORM 203-712|HLS 200-111\] Finished (Standard Transforms|Checking Synthesizability|Loop, function|Command)" $U
-        cat $E/keep/dato_default_S${S}_W64/done.txt 2>/dev/null
-      } > $STAGE/dato/S${S}_W64/report/default_threshold.txt
-      c $E/keep/dato_default_S${S}_W64/syn.tcl $STAGE/dato/S${S}_W64/source/default_threshold.tcl
-    fi
-    if [ $W = 128 ] && [ -f $E/keep/dato_nested_S${S}_W128_messages.txt ] && [ -d $STAGE/dato/S${S}_W128 ]; then
-      c $E/keep/dato_nested_S${S}_W128_messages.txt $STAGE/dato/S${S}_W128/report/nested_form_messages.txt
-      c $E/keep/dato_nested_S${S}_W128_top_csynth.rpt $STAGE/dato/S${S}_W128/report/nested_form_top_csynth.rpt
     fi
     # ---- Allo's library array ----------------------------------------------------
     L=$E/allo/S${S}_W$W
@@ -202,35 +116,8 @@ for S in 16 32; do
     fi
   done
 done
-# ---- AutoSA's published int8 design, synthesised and simulated here ----------
-for P in $E/autosa_paper/*; do
-  [ -d $P ] || continue
-  D=$STAGE/autosa_paper/$(basename $P); mkdir -p $D/source $D/report
-  c $P/kernel.c $P/kernel.h $P/simd_info.json $P/hls/cosim.tcl $D/source/
-  grep -h . $P/out/src/cmd > $D/source/autosa_command.txt 2>/dev/null
-  R=$P/hls/cosim_prj/sol
-  c $R/syn/report/kernel0_csynth.rpt $R/syn/report/PE_csynth.rpt $R/sim/report/kernel0_cosim.rpt $D/report/
-  grep -hE "^Passed!|^Failed|co-simulation finished|^ERROR|leftover data" $P/hls/cosim.log 2>/dev/null | head -12 > $D/report/cosim_verdict.txt
-  c $E/logs/autosa_paper_$(basename $P).log $D/report/build.log
-done
-# ---- the array's three forms at 4x4 and 8x8, 16 tiles each --------------------
-D=$STAGE/spmw_forms; mkdir -p $D
-for F in gemmtiles gemmtilesp gemmtiles2; do
-  for P in "16 4" "32 8"; do
-    set -- $P
-    L=$E/spmw/probe_$F-$1_S$2
-    [ -f $L.log ] || continue
-    echo "$F S=$2 W=$1 | $(grep -hE "SPMW COSIM|SPMW CYCLES" $L.log | tr -s " " | tr "\n" "|") cell: $(grep -h "Pipelining result" $L/pe_r4/vitis_hls.log | head -n 1 | grep -oE "Final II = [0-9]+, Depth = [0-9]+")"
-  done
-done > $D/forms.txt
-{ echo "The array as written (gemmtiles), with its cell left to pipeline (gemmtilesp)"
-  echo "and with two-deep sum links (gemmtiles2): scripts/probe.sh <form>-<W> <S>."
-  echo "Depth counts the loop's entry state: 2 is a one-state body."; } > $D/README.txt
 mkdir -p $STAGE/scripts
-c $E/spmw_tiles.sh $E/spmw_tiles_kernel.sh $E/spmw_all.sh $E/probe.sh $E/autosa_tiles.sh $E/autosa_tiles_tail.sh \
-  $E/autosa_tiles2.sh $E/autosa_tiles3.sh $E/autosa_gen.sh $E/autosa_gen2.sh $E/autosa_pnr.sh $E/autosa_pub.sh \
-  $E/stagger.sh \
-  $E/autosa_recosim.sh $E/autosa_paper.sh $E/autosa_ktile.txt $E/dato_tiles.sh $E/dato_gen.py $E/dato_tb.cpp \
-  $E/allo_tiles.sh $E/lane.sh $E/when_free.sh $E/beats.py $E/collect_tiles.sh $STAGE/scripts/
+c $E/spmw_tiles_kernel.sh $E/autosa_tiles2.sh $E/autosa_ktile.txt $E/allo_tiles.sh $E/beats.py \
+  $E/lane.sh $E/stagger.sh $E/when_free.sh $E/collect_tiles.sh $STAGE/scripts/
 find $STAGE -type f -empty -delete
 du -sh $STAGE; find $STAGE -type f | wc -l

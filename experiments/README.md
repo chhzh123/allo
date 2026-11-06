@@ -1,70 +1,67 @@
 # Experiments
 
-One folder per experiment. Each now holds the code and reports that reproduce
-its own table, in a common layout, plus the `results.csv` that table comes
-from.
+The evaluation of *SPMW: A Grid-Based Programming Model for Scalable
+Accelerator Design* (Section 6 of the arXiv version), one folder a figure or
+table, laid out as the paper is. Each folder holds what its numbers were read
+from: the design source, what the compilers generated, the logs and reports,
+the table of values the figure or table uses (`results.csv`, or the record
+files its README names), and the scripts that drove the runs. Its README says what the numbers mean and what they do
+not.
 
-## The common layout
+| Paper | Folder | What is compared |
+|---|---|---|
+| **6.1.1 Compute and connectivity** | | |
+| Fig. 9(a) | [`performance/gemm_workloads/`](performance/gemm_workloads/) | one 16x16 array on 64^3 to 512^3 int8 GEMMs: SPMW, AutoSA, Allo |
+| Fig. 9(b), Table 1 (GEMM) | [`performance/gemm_arrays/`](performance/gemm_arrays/) | D^3 GEMMs on D x D arrays, 4x4 to 32x32: SPMW, AutoSA, Allo |
+| Fig. 9(c,d), Table 1 (FFT) | [`performance/fft/`](performance/fft/) | radix-2 FP32 FFTs at 256 and 1,024 points, 2 to 16 samples a cycle: SPMW, HP-FFT, Spiral |
+| **6.1.2 Composability** | | |
+| Fig. 10 | [`performance/mini_tpu/`](performance/mini_tpu/) | whole programmable engines on LLaMA and DeepSeek gate/up slices: SPMW mini-TPU, Gemmini, VTA |
+| Fig. 12 | [`performance/feather/`](performance/feather/) | FEATHER's GEMM and convolution: its RTL, the RTL with a row-wise weight loader, SPMW |
+| **6.2 Compilation and simulation time** | | |
+| Fig. 13(a,b) | [`compilation/compile_time/`](compilation/compile_time/) | build time of the GEMM arrays; source to RTL: SPMW, AutoSA (TAPA and Vitis HLS), Allo, SYCL |
+| Fig. 13(c) | [`compilation/simulation_time/`](compilation/simulation_time/) | the 16x16 mini-TPU: SPMW's simulator, Vitis HLS C simulation, xsim |
+| **6.3 Architectural exploration** | | |
+| Table 2 | [`exploration/attention/`](exploration/attention/) | a whole attention head's P V, original against grouped columns |
+| **6.4 Productivity** | | |
+| Table 3 | [`productivity/code_size/`](productivity/code_size/) | design-only source lines |
+| Fig. 14 | [`productivity/agent_study/`](productivity/agent_study/) | five coding models writing an 8x8 array in SPMW, C++ HLS and SystemVerilog |
 
-    <experiment>/
-        README.md          what the table means, and what it does not
-        results.csv        the table
+## Layout
+
+    <folder>/
+        README.md          what the numbers mean, and what they do not
+        results.csv        the rows the figure or table uses, where there is one
         <framework>/<point>/
             source/        the design input, and the exact command or tcl
             generated/     what the compiler emitted for it
             report/        synthesis, simulation and place-and-route reports
         scripts/           what drove the runs
 
-`<point>` is whatever axis the experiment varies: `S<n>` for square arrays
-(E1, E4), `N<n>` for transform lengths (E2, E5's FFT), `M<n>` for sequence
-lengths (E6). Three experiments deviate, each for a stated reason in its own
-README:
-
-- **E3** has one bitstream running two workloads, so it has one design folder
-  rather than one per results row.
-- **E5** changes only how a fixed design is compiled -- the generated C++ is
-  byte identical in all three modes -- so its `generated/` points at E1's and
-  E2's rather than duplicating them.
-- **E7** builds nothing; it counts source lines, so it keeps count records and
-  a manifest instead of source/generated/report.
-
-Where a framework is hand-written rather than generated (HP-FFT's HLS,
-FEATHER's RTL), `generated/` holds a note saying so rather than a copy of the
-source. Where generated code exists but was not kept by the original runs, it
-was re-staged from the same entry point the measured builds used, and the
-README says how it was checked -- E2 and E4 match their `results.csv` role
-counts at every size. **E6 is the one gap**: its variants are separate drivers
-rather than one registry design, so its `generated/` is empty and says why.
-
-| Folder | What it holds |
-|---|---|
-| `e1_gemm/` | int8 GEMM arrays: the SPMW designs, AutoSA's input programs with the generated code and exact commands, and Allo's generator with its emitted kernels. **Read its README first**: the three systems do not compute the same workload. |
-| `e2_fft/` | the folded radix-2 FFT, a single-path delay-feedback pipeline |
-| `e3_tpu/` | the mini-TPU stage engine, and the host orchestrator that chains a whole GPT-2 medium or LLaMA-7B decoder layer on one bitstream |
-| `e4_feather/` | the FEATHER port, and the bench and runner that drive FEATHER's own RTL for comparison |
-| `e5_compile/` | the compilation-time harness: one project per role against one per site, with the worker cap and child CPU time; and E1's array through Intel's SYCL compiler (`sycl/`) |
-| `e6_attention/` | grouped against conventional attention on the same hardware budget |
-| `e7_loc/` | the language-aware source counter |
-| `e10_gemm_ws/` | E1 with the other dataflow, a weight held in every cell: the SPMW mesh and kernel, AutoSA's `space_time[5]` array as generated and with 512-bit ports, and a weight-stationary array written in the style of Allo's library one |
-| `e11_fft1024/` | E2's lane FFT against HP-FFT at N = 1,024, 2 to 16 samples a cycle |
-| `e12_gemm_tiles/` | one fixed output-stationary array, 16x16 and 32x32, on GEMMs from 64^3 to 512^3: SPMW's array and kernel, AutoSA's and Allo's library array, as cycles against the peak of one multiply-add a cell a cycle (1,024^3 and the Dato paper's design are prepared, not measured) |
-| `agentstudy/` | the agentic-design study: task, testbench, vectors, three documentation packs, three build-and-grade arms, the agent loop, and the pre-registration |
-| `results/` | every package's `results.csv`, `results.json` and `README.md`, the bundle's `coverage.md`, `manifest.json` and `REPORT.md`, and the collectors that produced them |
+`<point>` is the axis a folder varies: `S<n>` for an n x n array, `S16_W<side>`
+for a GEMM of that side on the 16x16 array, `N<n>` or `W<w>` for a transform
+length or width. A folder that changes only how a fixed design is compiled or
+simulated keeps its timing records rather than copies of the design. Where a
+design is hand-written rather than generated (HP-FFT's HLS, FEATHER's RTL),
+`generated/` is absent or holds a note.
 
 ## What is not here
 
-The reports each table is read from are now here, selected rather than
-mirrored: 24 MB across the seven experiments, against 752 MB of full build
-trees. What was left behind is named in each README -- multi-megabyte bus
-traces, cosimulation `hls.log` files, tile dumps, and superseded attempts. The
-full trees remain on brg-zhang-xcel at
-`/scratch/hc676/spmw_eval_remaining_2026-09-06`, under each package's
-`reports/` and `validation/`. Every row in a `results.csv` names its report
-directory in the `report_paths` column, so a number can be traced back to the
-file it came from.
+- **Missing builds**, named in their folders' READMEs. These are the wide AutoSA 16x16 and 32x32
+  builds of Fig. 9(b) and Table 1 (`results.csv` rows only), the raw
+  reports of SPMW's wider 256-point FFT lanes and of HP-FFT UF2 at 256
+  points, FEATHER's corrected RTL (only the patches are here), and the
+  attention runs' generated code.
+- **The Discussion's floorplanner result** (a 32x32 matrix-vector engine,
+  346 to 457 MHz) has no folder.
+- **Everything the paper does not use**: runs, variants and experiments
+  that were explored and left out. They are in the history: commit `c20b2ee8` is the tree before this
+  layout.
 
 ## Reproducing
 
-Each package's README gives the exact commands. They all need the environment
-on that machine: Vitis HLS and Vivado 2023.2, the U280 part, and for the board
-runs an installed XRT with the packaged bitstream.
+Everything was built on brg-zhang-xcel (two Xeon Silver 4214, 48 threads,
+shared) with Vitis HLS and Vivado 2023.2 for the Alveo U280. The SYCL compile
+times use oneAPI DPC++ 2025.0 for Agilex 7. Each README gives the commands.
+Most drivers name their working directories under `/scratch/hc676` on that
+machine and the repository checkout they build from, so they are a record of
+what ran as much as a recipe.

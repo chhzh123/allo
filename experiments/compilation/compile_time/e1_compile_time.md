@@ -1,6 +1,11 @@
-# E1 compile time: what was recorded, and what it does not support
+# Fig. 13(b), arXiv version (AutoSA and Allo csynth): E1's compile-time record
 
-`compile_time.csv` collects every wall-clock figure the E1 builds happen to
+Fig. 13(b) uses two kinds of row from `e1_compile_time.csv`: AutoSA's
+`hls_csynth` (interface `narrow` at 4x4, `wide` at 8x8 to 32x32) and Allo's
+`csynth`, each with its frontend from `kernel_to_rtl/frontends.ndjson` added
+([`README.md`](README.md)). The rest of the file is a record.
+
+`e1_compile_time.csv` collects every wall-clock figure the E1 builds happen to
 have written, from `cost.json` (SPMW), `stages.txt` (Allo) and the build logs
 (AutoSA). It is a record, not a controlled comparison, and the difference
 matters: **do not quote a cross-framework ratio from this file.**
@@ -17,7 +22,8 @@ matters: **do not quote a cross-framework ratio from this file.**
   `hls_sum_of_jobs` rows give SPMW's work-neutral figure for that reason.
 - **They were taken at different times on a shared machine**, over two days, at
   load averages between about 5 and 24, one measurement each with no
-  repetitions. E5 measured this properly for SPMW alone -- fresh directories,
+  repetitions. E5 measured this properly for SPMW alone (commit `c20b2ee8`,
+  `experiments/e5_compile/`) -- fresh directories,
   randomised mode order, three repetitions, median with range -- and found a
   spread of only 1.01x to 1.08x, but it deliberately waited for a quiet
   machine, so that stability does not transfer to these numbers.
@@ -26,8 +32,8 @@ matters: **do not quote a cross-framework ratio from this file.**
 
 AutoSA's `csynth` and `cosim` are now recorded **apart**, from each build's own
 phase timings, because the combined figure was not comparable with SPMW's:
-SPMW's number excludes cosimulation, and at 32x32 cosimulation is 13,886 s of
-AutoSA's 48,868. The column below is csynth against csynth.
+SPMW's number excludes cosimulation, and at 32x32 AutoSA's cosimulation is
+13,886 s against its csynth's 34,968. The column below is csynth against csynth.
 
 | Array | SPMW csynth+export (8 jobs) | SPMW sum of jobs | AutoSA csynth | AutoSA cosim |
 |---|---:|---:|---:|---:|
@@ -40,7 +46,7 @@ Two things are true at once and both belong in any statement of this.
 
 **SPMW's synthesis time is flat**: 91.8 to 110.6 seconds, 1.2x across a 64-fold
 increase in elements, because it compiles one project per *role* and the role
-count does not grow with the array -- 9 at every size. The work-neutral column
+count does not grow with the array -- 15 at every size. The work-neutral column
 is flat for the same reason, so this is not an artefact of the eight workers.
 
 **AutoSA is faster at 4x4 and superlinear after it**: 40.8, 171, 1,677, 34,968
@@ -63,4 +69,6 @@ identical stage coverage per row (frontend, csynth, cosim, P&R reported
 separately), a fixed worker cap declared per framework, fresh directories,
 randomised order, at least three repetitions, medians with ranges, and the load
 average recorded at the start and end of each run. None of that can be
-reconstructed from the logs here; it has to be re-run.
+reconstructed from the logs here; it has to be re-run. [`kernel_to_rtl/`](kernel_to_rtl/)
+re-ran it for SPMW and AutoSA through TAPA, and timed the frontends
+AutoSA's and Allo's csynth rows leave out.

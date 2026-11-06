@@ -5,7 +5,7 @@
 
     python3 scripts/make_results.py            # writes results.csv, prints the tables
 
-Definitions are the 256-point experiment's (`../n256/README.md`): latency is a transform's
+Definitions are in `../README.md`: latency is a transform's
 last output beat minus the launch's first input beat; interval is the median of
 the last three quarters of the differences between consecutive completions;
 BRAM18 is twice the block RAM tiles.  HP-FFT UF1 was measured with the

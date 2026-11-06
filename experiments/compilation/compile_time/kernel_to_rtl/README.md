@@ -1,7 +1,13 @@
-# Compile time against AutoSA through TAPA, one protocol, 2026-11-03
+# Fig. 13(b), arXiv version: compile time against AutoSA through TAPA, one protocol, 2026-11-03
+
+Fig. 13(b) plots the `spmw_kernel_rtl` rows (8 and 1 workers), the `tapa` rows at 8
+workers, and `frontends.ndjson`; the `spmw_mesh_rtl` and `spmw_mesh` rows and logs are
+kept as records and are not plotted.
 
 E5's AutoSA column is AutoSA's Vitis HLS backend, one HLS project for the whole
-array. AutoSA's TAPA backend (`../../e1_gemm/autosa_tapa/`) synthesizes each
+array. AutoSA's TAPA backend (fed E1's AutoSA input,
+`../../../performance/gemm_arrays/autosa/S<n>/source/`; the code TAPA generated was
+not kept) synthesizes each
 distinct task once, the same reuse SPMW's roles have, so it is the comparison
 that tests SPMW's compile-time claim. This measures SPMW and AutoSA-on-TAPA on the
 same machine, at the same time, with the same worker cap and the same stage
@@ -79,7 +85,7 @@ flows in a seeded random order per size. Seconds.
   39.2 s at 32x32, where it wires 2,214 task instances. SPMW writes its fabric
   RTL in the frontend, 1.9 to 2.9 s for the mesh.
 - **SPMW as built** spends another 25 s a role in `export_design`, which is what
-  E5's earlier figures (79.7 s on a quiet machine) contain; here, at load 7 to 9,
+  E5's earlier figures (79.7 s on a quiet machine; commit `c20b2ee8`) contain; here, at load 7 to 9,
   it is 84 to 86 s.
 
 ## The frontends E1's Vitis HLS baselines leave out
@@ -91,9 +97,12 @@ missing step on E1's own inputs, one run per size, one at a time, at load 7.9
 to 8.3 (`frontends.ndjson`, `scripts/fe_run.sh`):
 
 - **AutoSA:** `./autosa --target=autosa_hls_c` with E1's recorded command
-  (`e1_autosa_matched/S4`, narrow; `e1_autosa_wide/S8..S32`, `--host-serialize`).
+  (`e1_autosa_matched/S4`, narrow; `e1_autosa_wide/S8..S32`, `--host-serialize`; build
+  directories under `/scratch/hc676`, with the input in
+  `../../../performance/gemm_arrays/autosa/S<n>/source/`).
 - **Allo:** `scripts/fe_allo.py`: the import, `build_schedule` and
-  `s.build(target="vitis_hls", mode="csyn")` of E1's `e1_allo_gen.py` (the
+  `s.build(target="vitis_hls", mode="csyn")` of E1's `e1_allo_gen.py`
+  (`../../../performance/gemm_arrays/allo/S<n>/source/`; the
   same file). The generator's inspection copy, inputs and testbench are not timed.
 
 Every output is byte-identical to the file E1 synthesized (`kernel_kernel.cpp`
@@ -133,7 +142,7 @@ ran `analyze ... synth` without `link`, so they stopped before TAPA's top-level
 RTL; and they ran with SPMW's conda environment first on `PATH`, where `tapa
 analyze` takes 34 s instead of 4 s on the same source. Both are fixed in
 `run_one.sh` (TAPA runs in its own environment, as `tapa compile` did in E1's
-`autosa_tapa/`); the superseded rows, and the first one-worker batch that ran
+AutoSA-through-TAPA builds, `c20b2ee8`); the superseded rows, and the first one-worker batch that ran
 beside them, are kept in `superseded_runs.ndjson`.
 
 ## Caveats

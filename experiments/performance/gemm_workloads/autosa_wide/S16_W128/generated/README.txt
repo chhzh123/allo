@@ -1,1 +1,1 @@
-source/autosa_command.txt regenerates it; the 64-cubed build of the row's configuration is kept in ../S16_W64/generated.
+source/autosa_command.txt regenerates it; ../../S16_W64/generated holds the 64-cubed build, whose K tile is 32 where this one's is 64.

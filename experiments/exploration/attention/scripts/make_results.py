@@ -1,6 +1,6 @@
 # Copyright Allo authors. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Build `head16/results.csv` from the runs' logs and cost records.
+"""Build `results.csv` from the runs' logs and cost records.
 
     python3 make_results.py experiments/exploration/attention
 """

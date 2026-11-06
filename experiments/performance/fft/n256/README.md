@@ -1,318 +1,128 @@
-# E2: a radix-2 complex FP32 FFT, in four systems
+# Fig. 9(c), arXiv version: the 256-point FFT
 
-N = 256 unless a row says otherwise. Everything below is routed out of context
-at 3.333 ns on `xcu280-fsvh2892-2L-e` with nothing unrouted, and every cycle
-figure comes from RTL cosimulation. `results.csv` is the full table, including
-variants this page does not show.
+SPMW's lane design, HP-FFT and a Spiral core at each width. Definitions, the
+Spiral caveats and the throughput rule are in [`../README.md`](../README.md).
+`results.csv` is the table; the paper reads `full_transform_latency`,
+`steady_interval_cycles`, the resource columns and `achieved_ns`. Ignore
+`completion_cycles` on the SPMW rows: it is the same 5,147 at every width and
+is not a transform's latency.
 
-## The result
+| w | system | latency | interval | of ideal | MS/s | LUT | FF | DSP | BRAM18 | slack | MHz |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | HP-FFT UF1 | 1,527 | 140.5 | 91.1% | 546.62 | 22,403 | 22,244 | 72 | 82 | +0.283 | 328 |
+|  | Spiral W=2 | 722 | 128.0 | 100% | 600.00 | 18,735 | 27,419 | 56 | 48 | +1.263 | 483 |
+|  | SPMW W=2 | 645 | 128.0 | 100% | 600.00 | 24,012 | 28,614 | 72 | 10 | +0.443 | 346 |
+| 4 | HP-FFT UF2 | 766 | 74.5 | 85.9% | 1,030.87 | 45,482 | 37,809 | 132 | 104 | +0.317 | 332 |
+|  | Spiral W=4 | 481 | 64.0 | 100% | 1,200.00 | 35,212 | 51,742 | 96 | 84 | +0.868 | 406 |
+|  | SPMW W=4 | 376 | 64.0 | 100% | 1,200.00 | 45,711 | 54,192 | 144 | 20 | +0.241 | 323 |
+| 8 | HP-FFT UF4, fixed | 408 | 42.0 | 76.2% | 1,828.57 | 91,524 | 90,201 | 246 | 166 | +0.119 | 311 |
+|  | Spiral W=8 | 367 | 32.0 | 100% | 2,400.00 | 67,969 | 100,075 | 168 | 144 | +0.427 | 344 |
+|  | SPMW W=8 | 260 | 32.0 | 100% | 2,400.00 | 87,021 | 102,464 | 258 | 40 | +0.292 | 329 |
+| 16 | HP-FFT UF8, fixed | 269 | 26.0 | 61.5% | 2,873.95 | 179,275 | 148,768 | 474 | 288 | -0.093 | 292 |
+|  | Spiral W=16 | 307 | 16.0 | 100% | 4,800.00 | 133,242 | 196,566 | 312 | 240 | +0.375 | 338 |
+|  | SPMW W=16 | 200 | 16.0 | 100% | 4,800.00 | 167,847 | 195,716 | 486 | 64 | +0.079 | 307 |
 
-SPMW's `lanes` design against HP-FFT's best configuration and a core of the
-Spiral DFT generator at each datapath width. HP-FFT's boundary carries `2*UF`
-complex samples a beat, SPMW's and Spiral's carry `W`, so `W = 2*UF` is the
-matched pairing and all three share the ideal interval `N / (samples per
-cycle)`. The best figure of the three in each column is bold, and so is the
-one slack that is negative.
+- **SPMW and Spiral reach exactly N/w at every width; HP-FFT does not, and
+  falls further behind as it widens**: 91.1%, 85.9%, 76.2%, 61.5%.
+- **SPMW answers first at every width**: 1.35x to 2.37x sooner than HP-FFT,
+  and before Spiral (645, 376, 260, 200 cycles against 722, 481, 367, 307).
+- **SPMW holds the least block RAM**: 10, 20, 40, 64 against Spiral's 48, 84,
+  144, 240 and HP-FFT's 82, 104, 166, 288. It has more registers than HP-FFT.
+- **HP-FFT UF8 does not close at 300 MHz** (-0.093 ns). SPMW and Spiral close at
+  every width; Spiral is smaller and clocks higher (its arithmetic differs).
+- **The HP-FFT rows at 8 and 16 are the fixed builds**
+  ([`hpfft/README.md`](hpfft/README.md)), not the shipped sources.
 
-| samples/cyc | system | latency | interval | of ideal | LUT | FF | DSP | BRAM18 | slack | MHz |
-|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 2 | HP-FFT UF1 | 1,527 | 140.5 | 91.1% | 22,403 | **22,244** | 72 | 82 | +0.283 | 328 |
-|  | Spiral W=2 | 722 | **128.0** | **100%** | **18,735** | 27,419 | **56** | 48 | **+1.263** | **483** |
-|  | SPMW lanes W=2 | **645** | **128.0** | **100%** | 24,012 | 28,614 | 72 | **10** | +0.443 | 346 |
-| 4 | HP-FFT UF2 | 766 | 74.5 | 85.9% | 45,482 | **37,809** | 132 | 104 | +0.317 | 332 |
-|  | Spiral W=4 | 481 | **64.0** | **100%** | **35,212** | 51,742 | **96** | 84 | **+0.868** | **406** |
-|  | SPMW lanes W=4 | **376** | **64.0** | **100%** | 45,711 | 54,192 | 144 | **20** | +0.241 | 323 |
-| 8 | HP-FFT UF4 | 408 | 42.0 | 76.2% | 91,524 | **90,201** | 246 | 166 | +0.119 | 311 |
-|  | Spiral W=8 | 367 | **32.0** | **100%** | **67,969** | 100,075 | **168** | 144 | **+0.427** | **344** |
-|  | SPMW lanes W=8 | **260** | **32.0** | **100%** | 87,021 | 102,464 | 258 | **40** | +0.292 | 329 |
-| 16 | HP-FFT UF8 | 269 | 26.0 | 61.5% | 179,275 | **148,768** | 474 | 288 | **-0.093** | 292 |
-|  | Spiral W=16 | 307 | **16.0** | **100%** | **133,242** | 196,566 | **312** | 240 | **+0.375** | **338** |
-|  | SPMW lanes W=16 | **200** | **16.0** | **100%** | 167,847 | 195,716 | 486 | **64** | +0.079 | 307 |
+## Why HP-FFT trails
 
-Four things to take from it.
-
-**SPMW and Spiral hold exactly 100% of ideal interval at every width. HP-FFT
-does not, and gets worse as it widens** -- 91.1%, 85.9%, 76.2%, 61.5%.
-
-**SPMW and HP-FFT land on nearly the same silicon.** At 8 and 16 samples a
-cycle the lookup tables and multipliers agree within 5%, and SPMW uses a
-quarter of the block RAM. It pays 14% to 32% more registers. So the
-performance gap between those two is not bought with area.
-
-**HP-FFT's widest configuration does not close timing** (-0.093 ns). Its
-interval of 26.0 is real and cosimulated, but there is no implementation
-behind it at 300 MHz. SPMW and Spiral close at every width.
-
-**Spiral is smaller than both and clocks higher; SPMW answers sooner and uses
-about a quarter of its block RAM.** Spiral has 21% to 23% fewer lookup
-tables than SPMW, about two thirds to three quarters of its DSP blocks and
-registers within 5%, and closes at 483, 406, 344 and 338 MHz against 346, 323,
-329 and 307. SPMW's first transform is out in 645, 376, 260 and 200 cycles
-against 722, 481, 367 and 307, and it holds 10, 20, 40 and 64 block RAMs
-against 48, 84, 144 and 240. Spiral's arithmetic is not the other two's; the
-section on it below says how.
-
-Both HP-FFT rows at 8 and 16 samples a cycle are the **fixed** builds; the
-shipped sources reach 8.0% and 28.1% of ideal on this target, for reasons in
-`hpfft/README.md`. Comparing against the shipped ones would flatter SPMW
-by a factor of ten and is not done here.
-
-## Accounting for every difference
-
-One cause explains most of the table: **what sits between two stages.**
-
-HP-FFT declares eight whole transforms' worth of array between its stages --
-`static complex<float> data_1[FFT_NUM] ... data_8[FFT_NUM]` -- inside a
-`#pragma HLS dataflow` region. Array channels in a dataflow region are **PIPO**,
-ping-pong: the consumer task cannot start until the producer task has finished,
-and the buffer is doubled so the next transform can fill one half while this one
-drains the other.
-
-SPMW connects its units with **depth-8 FIFOs carrying one complex sample each**
--- `spmw_fifo #(.DW(64), .DEPTH(8))`, 32 of them in the W=8 fabric, read out of
-the generated `spmw_top.sv`. A consumer starts on the first token, not the
-last, and the channel holds eight samples rather than a transform.
-
-That is also **not** the mechanism the reference Allo design uses, which is
-worth stating because the two are easy to conflate. `feature/allo-fft`'s
-`tests/dataflow/test_fft.py` streams a whole `WIDTH`-element vector per token
-(`Stream[float32[WIDTH], 2]`) and unrolls a lane loop inside the stage, so the
-swizzled indices `il`/`iu` fold to constants. This design has **no shared
-buffer and no bank arithmetic at all**: the `W` lanes are `W` separate scalar
-streams, a stage is `W/2` sites, and site `m` reads the two lanes it needs on
-two ports. The lane index is a *placement coordinate*, which is a stronger
-compile-time constant than an unrolled loop index. Where the partner is `D >= W`
-away -- the same lane, several beats back, which no site can read -- a
-permutation element in front of the stage turns that beat distance into a lane
-distance.
-
-Everything below follows from that, and each row is checked rather than
-asserted.
-
-| | SPMW | HP-FFT | ratio | why |
-|---|---:|---:|---:|---|
-| interval | 32.0 | 42.0 | **0.76x** | HP-FFT's stage modules restart per transform |
-| latency | 260 | 408 | **0.64x** | PIPO serialises HP-FFT's stages within a transform |
-| BRAM18 | 40 | 166 | **0.24x** | eight partitioned, ping-ponged inter-stage arrays |
-| LUT | 87,021 | 91,524 | 0.95x | same arithmetic; within noise |
-| DSP | 258 | 246 | 1.05x | same butterfly count; within noise |
-| FF | 102,464 | 90,201 | **1.14x** | SPMW holds in registers what HP-FFT holds in BRAM |
-
-(8 samples a cycle. At 16 the pattern is the same: 0.62x interval, 0.74x
-latency, 0.22x BRAM, 0.94x LUT, 1.03x DSP, 1.32x FF.)
-
-### Interval: a refill HP-FFT pays once per transform
-
-HP-FFT's *inner loops* all reach II=1 -- `FFT_Stage1` at iteration latency 7,
-the spatial-unroll stages at 17 to 19, each reporting `Interval 1`. Its stage
-*modules* do not: `FFT_stage_spatial_unroll_4_s` is latency 51, interval 51. A
-module whose interval equals its latency restarts from empty every transform.
-
-The refill is a constant, and it is the whole efficiency curve:
+HP-FFT puts transform-sized arrays between its stages (`static
+complex<float> data_1[FFT_NUM]` and on, inside `#pragma HLS dataflow`). Array
+channels in a dataflow region are ping-pong buffers: a stage starts only when
+its producer has finished the whole transform, so stages overlap across
+transforms but not within one. That is the latency gap. The interval gap is a
+refill: every stage process restarts from empty each transform, a near-constant
+overhead on an ideal that halves with each step in width:
 
 | config | ideal | measured | overhead |
 |---|---:|---:|---:|
 | UF1 | 128 | 140.5 | +12.5 |
 | UF2 | 64 | 74.5 | +10.5 |
-| UF4 | 32 | 42.0 | +10.0 |
-| UF8 | 16 | 26.0 | +10.0 |
+| UF4, fixed | 32 | 42.0 | +10.0 |
+| UF8, fixed | 16 | 26.0 | +10.0 |
 
-Ten cycles at every width. The ideal interval halves each step and the constant
-does not, so its share grows from 9% to 38% -- 91.1% of ideal down to 61.5%.
-SPMW's units are persistent processes at II=1 that never restart, so a stage's
-interval is exactly its trip count.
+[`hpfft/README.md`](hpfft/README.md) traces it in csynth. Partitioning the
+ping-pong arrays into banks so the unrolled butterflies can read them in
+parallel makes each bank its own block RAM, which is HP-FFT's BRAM18 column.
 
-### Latency: PIPO makes the stages sequential inside one transform
+SPMW's units are persistent II=1 processes connected by depth-8 FIFOs of one
+complex sample each (`spmw_fifo #(.DW(64), .DEPTH(8))`, 32 of them in
+`spmw/N256/generated/lanes_W2/fabric/spmw_top.sv`). A consumer starts on the
+first token. The `W` lanes are `W` separate streams and a stage is `W/2` sites,
+so a lane index is a placement coordinate and the wiring between lanes is a
+constant. Where a butterfly's partner is in the same lane some beats back, a
+delay-switch-delay permutation in front of the stage turns the beat distance
+into a lane distance; a final reorder buffers one transform for natural output
+order. The only block RAM is the twiddle tables; the delays are registers.
 
-This is a different mechanism from the interval, and it is the larger effect.
-Because the channels are PIPO, stage `k+1` waits for stage `k` to *finish the
-whole transform*. A transform's latency is therefore the **sum** of the stage
-latencies, and HP-FFT's own csynth says so:
+## What each row has here
 
-    60 + 39 + 40 + 49 + 51 + 50 + 50 + 50 = 389        measured 408
+| rows | in this folder | `results.csv` only |
+|---|---|---|
+| HP-FFT UF1 | source, csynth, cosimulation events, stimulus and testbench, routed reports | the numpy check (no `validate_rtl_vcd.json`) |
+| HP-FFT UF2 | nothing | every value |
+| HP-FFT UF4, UF8 fixed | `FFT.cpp`, csynth, cosimulation events, numpy check | routed resources and slack |
+| SPMW W=2 | the design, its generated HLS C++ and fabric, per-unit csynth | cosimulation cycles, routed resources and slack |
+| SPMW W=4, 8, 16 | the design (one source for every width) | every value |
+| Spiral W=2..16 | simulation, numpy check, testbench, routed reports | nothing |
 
-The 19-cycle remainder is the output stage and the handshakes. Stages overlap
-only *across* transforms, which is why the interval (42) is an eighth of the
-latency (408).
+The paper's R11 note records the wide-lane SPMW reports as absent upstream.
 
-SPMW's stages overlap *within* a transform: a consumer starts on the first
-token, so latency is the sum of the stage pipeline *depths* plus the beats of
-one transform, not the sum of whole stage runtimes. At W=8 that is 260 for 32
-beats -- about 28 cycles of depth per stage, which is one butterfly's float
-pipeline plus its lane buffer.
+## Layout
 
-So the two systems differ on latency for the same reason a bucket brigade beats
-carrying one load at a time to the end of the line and back.
+    results.csv
+    spmw/N256/source/lanes.py                 the design, every width
+    spmw/N256/generated/lanes_W2/roles/       HLS C++ per unit, W=2
+    spmw/N256/generated/lanes_W2/fabric/      spmw_top and the FIFOs
+    spmw/N256/generated/lanes_W2/reports/     csynth per unit (II=1: `yes(flp)`)
+    hpfft/N256/source/UF1/                    FFT.cpp, FFT.h, project.tcl as shipped; common.tcl
+    hpfft/N256/source/fix_UF{4_a8,8_b4}/      the fixed FFT.cpp
+    hpfft/N256/generated/README.md            a note: HP-FFT has no generation step
+    hpfft/N256/report/UF1/                    csynth, cosimulation, routed reports
+    hpfft/N256/report/fix_UF{4_a8,8_b4}/      csynth, cosimulation events, numpy check
+    spiral/N256/report/W{2,4,8,16}/           SwizzleFFT's run of each Spiral core
+    scripts/hpfft/                            HP-FFT's flow, also used at 1,024 points
+    scripts/collect_e2.sh                     staged HP-FFT UF1's files from the builds
 
-### BRAM: the cost is banks, not capacity
+## Scripts
 
-Eight arrays of 256 complex FP32 is 131,072 bits; ping-pong doubles it to
-262,144. That is **14 RAMB18 of capacity**, and UF4 uses **166**.
+| script | does |
+|---|---|
+| `scripts/hpfft/mkvariant.py` | derives a fixed `FFT.cpp` by named edits ([`hpfft/README.md`](hpfft/README.md)) |
+| `scripts/hpfft/common.tcl` | HP-FFT's own `common.tcl` with solution name, part and period fixed and `export_design` removed |
+| `scripts/hpfft/run_hls.sh <size> <cfg>` | csim and csynth |
+| `scripts/hpfft/testbench_check.cpp` | csim gate: 3 transforms against a double-precision DFT |
+| `scripts/hpfft/gen_stimulus.py`, `testbench_e2s.cpp` | 33 transforms of seeded numpy stimulus, and the testbench that streams them |
+| `scripts/hpfft/run_cosim5.sh <size> <cfg>` | RTL cosimulation with a port-level VCD; runs the next two |
+| `scripts/hpfft/cosim_events.py` | `cosim_events.json`: per-transform cycles from the VCD |
+| `scripts/hpfft/validate_fft2.py` | `validate_rtl_vcd.json`: RTL outputs against `numpy.fft.fft` |
+| `scripts/hpfft/run_pnr.sh <size> <cfg>`, `pnr_ooc.sh` | out-of-context route at 3.333 ns, float IP included |
+| `scripts/hpfft/harvest_hls.py` | `harvest.json`: csynth metrics and warnings |
 
-The difference is `#pragma HLS array_partition ... cyclic factor=UF` (and
-`factor=UF*4` on `data_2`). Partitioning splits each array into banks so the
-unrolled butterflies can read it in parallel, and **each bank becomes its own
-block RAM however little it holds** -- a bank of 16 complex floats is 1 Kb in a
-device primitive that holds 18. Eight arrays, ten-odd banks each, doubled by
-ping-pong, is the 166.
-
-SPMW has no inter-stage arrays to partition. Its block RAM is the twiddle ROMs
-and nothing else, which is why it does not grow the same way: 10, 20, 40, 64
-across the four widths against HP-FFT's 82, 104, 166, 288.
-
-### Registers: the same trade, seen from the other side
-
-SPMW is 14% to 32% *higher* on flip-flops, and it is the direct counterpart of
-the block RAM result. The lane design's per-stage vector buffers and delay lines
-live in registers and SRL; HP-FFT's inter-stage data lives in block RAM. Neither
-is storing much more than the other -- they are storing it in different device
-resources.
-
-### Lookup tables and multipliers: no difference to explain
-
-Within 5% at both widths, in both directions. Both designs instantiate one
-butterfly per stage per lane at matched throughput, and both now bind their
-float adders to fabric, so the arithmetic is the same hardware. **This is the
-part of the comparison where the two systems agree**, and it is what makes the
-other four rows worth reporting: the performance gap is not paid for in logic.
-
-## Three SPMW designs, and why more than one is kept
-
-They are identical on interval -- 100% of ideal at every width -- and differ in
-latency and in what they spend. At 2 samples a cycle:
-
-| design | latency | LUT | FF | DSP | BRAM18 | structure |
-|---|---:|---:|---:|---:|---:|---|
-| rolled W=2 | **581** | 24,318 | 55,109 | 318 | 12 | explicit `spmw.to` links, one unit per lane per stage |
-| paired W=2 | 919 | 21,266 | 24,582 | 72 | 44 | one unit a stage on a one-site grid, own buffer |
-| lanes W=2 | 645 | 24,012 | 28,614 | 72 | **10** | lane axis unrolled, bank index a compile-time constant |
-
-**`rolled` is fastest to a first result at 2 and 4 samples a cycle** (581 and
-368 against the lane design's 645 and 376), because it streams rather than
-buffering a vector. **`lanes` overtakes it at 8 and 16** (260 and 200 against
-271 and 222) and costs a third to a fifth of the multipliers throughout.
-
-The reason `rolled` needs those multipliers: a butterfly consumes two samples,
-its unit is fed one a cycle, so each multiplier is half idle and the design
-needs twice as many. Its DSP-per-throughput barely moves across a 16x widening,
-159 to 147, because nothing in it ever pairs a butterfly's operands. The lane
-design's doubles cleanly -- 72, 144, 258, 486 -- because every multiplier stays
-busy.
-
-**`lanes` is the one to quote.** It is the only form that gets the multiplier
-count, the block RAM and the interval at once.
-
-## The other transform sizes
-
-Measured for the original single-lane design only, one sample a cycle against
-HP-FFT's narrowest:
-
-| N | SPMW latency | interval | HP-FFT UF1 latency | interval |
-|---:|---:|---:|---:|---:|
-| 128 | **581** | **128.0** | 742 | 76.0 |
-| 256 | **1,158** | **256.0** | 1,527 | 140.5 |
-| 512 | **2,310** | **512.0** | 3,208 | 269.0 |
-| 1,024 | **4,614** | **1,024.0** | 6,809 | 525.5 |
-
-SPMW's interval is exactly N at every size, 100% of ideal for a one-sample
-boundary; HP-FFT's is near N/2 because its boundary carries two samples. On the
-matched-width comparison at the top, that difference is removed.
-
-## Spiral
-
-The cores come from the Spiral DFT/FFT IP generator
-(https://www.spiral.net/hardware/dftgen.html), which SwizzleFFT's notes
-identify as the streaming baseline of the HP-FFT paper's Table II: forward
-transform, single-precision floating point, fully streaming, radix 2, W
-complex words a cycle, natural input and output order, the generator's default
-block RAM budget. They were not built here. The SwizzleFFT project generated,
-simulated and routed them on this part, at this clock, with the out-of-context
-script the HP-FFT rerun uses (its `baselines/spiral_dft/` and
-`experiments/spiral_point.sh`, repository version `6d1a2af`), and
-`spiral/N256/report/W*/` holds copies of those runs' reports: `sim.json` (the
-numpy check and the timing), the testbench, and the routed utilisation, timing
-and route status. The rows above and in `results.csv` are read from those
-files and reproduce SwizzleFFT's `results/spiral_u280.csv` to the digit. The
-generated Verilog is "for internal, non-commercial research use only and is
-not for redistribution" and is not in this folder. E11 has the same cores at N
-= 1,024.
-
-Three things differ from the other two rows and should be read with the
-table.
-
-- **The arithmetic is Spiral's own.** Its floating-point adders are in logic
-  and its multipliers are built on one inferred 24x24 product, two DSP blocks
-  each, and both round toward zero. SPMW and HP-FFT use Vitis HLS's IEEE
-  units, three DSP blocks a multiplier. So the DSP column is two blocks a
-  multiplier against three (Spiral's four cores have 28, 48, 84 and 156
-  multipliers), and the lookup tables and the clock are not of the same
-  adders. Its largest error against numpy is 4.6e-7 of the largest output,
-  HP-FFT's 1.8e-7, on different stimuli. How much of Spiral's lead the
-  arithmetic accounts for is not measured here: SPMW was not rebuilt with
-  truncating adders or a two-DSP multiplier.
-- **It is generated RTL, not HLS.** The other two rows are C++ through Vitis
-  HLS, with the handshakes and the float cores that brings.
-- **Eight transforms, not 32.** Its simulation streams eight; every
-  completion interval in it is the same, so the median is not in doubt.
-
-The generator reports latency to the first output beat: 595, 418, 336 and
-292 cycles, which the same notes match to the HP-FFT paper's figures for
-Spiral. The table's runs to the last, as for the other rows.
-
-## Allo, the third system
-
-Allo's strided in-place FFT computes one transform per call, so its interval is
-its latency: 26,220 cycles at N=256 against SPMW's 256. It is a different kind
-of design -- not a streaming pipeline -- and is reported for completeness
-rather than as a throughput competitor. It is the smallest of the three by a
-wide margin: 4,422 LUT, 16 DSP.
-
-## How the numbers are defined
-
-- **Latency** is a transform's last output beat minus the launch's first input
-  beat: `first_out + N/W - 1 - first_in` from the cosimulation's counters.
-- **Interval** is the steady spacing between consecutive transform completions
-  when transforms stream back to back, the median over 32 of them.
-- **BRAM18** is `2 x Block RAM Tile` for every row. Reading a `RAMB18E2` line
-  instead gives 6 for HP-FFT UF4, whose memory is mostly RAMB36, where the
-  true 18K-equivalent is 166. This trap has been hit three times in this work.
-- **Adders in fabric on both sides.** HP-FFT binds its butterfly's float adds
-  with `bind_op ... impl=fabric`; SPMW does the same through
-  `spmw_bind_fabric`. Without it SPMW's DSP count is 2.4x higher and the
-  comparison is of who remembered the pragma.
+The shell scripts name their build roots under `/scratch/hc676` on
+brg-zhang-xcel.
 
 ## Reproducing
 
-    # SPMW, any design and width
-    python3 scripts/spmw_build_array.py --design fftlanes --size 256 --lanes 8 --pnr
-    python3 scripts/spmw_build_array.py --design fftrolled --size 256 --lanes 8 --cosim
+    # SPMW, from the repository root
+    python3 scripts/spmw_build_array.py --design fftlanes --size 256 --lanes <W> \
+        --frequency 300 --cosim --pnr --out <dir>
 
-    # HP-FFT, including the fixed variants
-    python3 scripts/hpfft/mkvariant.py     # generates the variants
-    bash /scratch/hc676/hpfft_pnr2.sh UF4_a8   # routes one, IP cores included
+    # HP-FFT, from this folder: the scripts build in $E/<size>/<cfg>
+    # (E=/scratch/hc676/e2_hpfft), with scripts/hpfft/* copied to $E
+    python3 scripts/hpfft/mkvariant.py HP-FFT-HLS/n256/UF4 $E/n256/UF4_a8 static fnpipe
+    python3 scripts/hpfft/mkvariant.py HP-FFT-HLS/n256/UF8 $E/n256/UF8_b4 "repart:data_2:cyclic factor=UF*4"
+    bash scripts/hpfft/run_hls.sh n256 UF4_a8       # csim + csynth
+    bash scripts/hpfft/run_cosim5.sh n256 <copy>    # on a fresh copy of the config, per its usage line
+    bash scripts/hpfft/run_pnr.sh n256 UF4_a8       # route
 
-Everything is laid out as `<framework>/<size>/{source,generated,report}`, the
-same convention E1 uses. Where a size holds more than one design, each is a
-directory *inside* those three, named for the design and its width; where it
-holds one, the files sit directly in them.
-
-    spmw/N256/source/lanes.py                  the design
-    spmw/N256/generated/lanes_W2/roles/        the HLS C++ per unit
-    spmw/N256/generated/lanes_W2/fabric/       spmw_top and the FIFOs
-    spmw/N256/generated/lanes_W2/reports/      csynth, where II=1 is read
-    spmw/N256/report/rolled_bound_W2/          routed utilisation and timing
-    spmw/N512/generated/                       one design, so no variant level
-    hpfft/N256/source/fix_UF4_a8/FFT.cpp       one fixed HP-FFT variant
-    hpfft/N256/report/fix_UF4_a8/csynth.rpt    its interval
-    spiral/N256/report/W8/                     SwizzleFFT's run of one Spiral core
-
-HP-FFT's investigation is `hpfft/README.md`; the scripts that drive all three
-frameworks are in `scripts/`.
-
-## What is in results.csv but not above
-
-The shipped (unfixed) HP-FFT rows; SPMW's `folded SDF` and `rolled W=1`, which
-are the same design at one sample a cycle; the `paired` variants including a
-banked-buffer form that reaches only 512 cycles of interval and is kept as the
-measurement that rejected it; and HP-FFT's static-only UF4 fallback, which was
-routed in case the full fix missed timing and was not needed.
+Spiral's reports are copied by `../n1024/scripts/collect_spiral.sh`.
