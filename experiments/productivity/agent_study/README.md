@@ -47,6 +47,35 @@ No kept script writes the `routed_*`, `passes` and `failed_bars` columns; they
 match the routing reports, and the paper's plot script re-reads those reports
 and `runs/steady_all.log` and asserts both against this table.
 
+## Why three trials end above 500,000 tokens
+
+`agent.py` checks the limits before each model call, not during one, and bills
+each call for the whole conversation so far (prompt tokens are 70% of all
+billed tokens here). The call that crosses 500,000 is counted in full, and its
+tool calls still run before the loop stops. Three SystemVerilog trials crossed
+the limit on their last call, each from below it:
+
+| Trial | Before last call | Last call (prompt + output) | Total | Last call did |
+|---|---:|---:|---:|---|
+| DeepSeek-V4-Pro | 454,799 | 35,007 + 14,007 | 503,813 | rewrote `design.sv`, then stopped on tokens |
+| GPT-5.6 Sol | 484,395 | 40,030 + 129 | 524,554 | wrote SUBMIT |
+| GLM-5.3 | 468,782 | 34,899 + 23,739 | 527,420 | rewrote `design.sv`, then stopped on tokens |
+
+That is why the SystemVerilog median, DeepSeek's 503,813, is above the limit.
+For DeepSeek and GLM the graded file is that last rewrite, which no build in
+the trial ran:
+
+- **DeepSeek's** last build (4) was WRONG on the visible products. The rewrite
+  moves the drain one cycle earlier and adds a capture register, and it is
+  the CORRECT 32-cycle design Fig. 14 counts. Graded on its last built design,
+  the trial would miss the latency criterion and SystemVerilog would be 4/5.
+- **GLM's** last build (5) was CORRECT at 33 cycles. The rewrite only adds
+  `use_dsp` attributes (product to a DSP, accumulator to fabric). It routes
+  with 64 DSPs; the model's last route, of build 4's design, had 128.
+
+The last built designs are at commit c20b2ee8, in
+`experiments/agentstudy/runs/generated/<trial>/sim/design.sv`.
+
 ## Two criteria
 
 The paper counts the **latency criterion**: correct on all twelve products and
